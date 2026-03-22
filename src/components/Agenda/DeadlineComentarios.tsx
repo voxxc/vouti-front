@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useDeadlineComentarios } from '@/hooks/useDeadlineComentarios';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { MessageSquare, Trash2, Send } from 'lucide-react';
+import { MessageSquare, Trash2, Send, Search, X } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +37,8 @@ export const DeadlineComentarios = ({
   const [novoComentario, setNovoComentario] = useState('');
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
   const handleAddComentario = async () => {
     if (!novoComentario.trim()) return;
@@ -59,12 +62,41 @@ export const DeadlineComentarios = ({
 
   if (!deadlineId) return null;
 
+  const filteredComentarios = searchQuery.trim()
+    ? comentarios.filter(c => {
+        const q = searchQuery.toLowerCase();
+        const textMatch = c.comentario.toLowerCase().includes(q);
+        const authorMatch = (c.autor?.full_name || c.autor?.email || '').toLowerCase().includes(q);
+        return textMatch || authorMatch;
+      })
+    : comentarios;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <MessageSquare className="w-5 h-5" />
-        <h3 className="font-semibold">Comentários</h3>
+        <h3 className="font-semibold flex-1">Comentários</h3>
+        <button
+          onClick={() => { setShowSearch(!showSearch); if (showSearch) setSearchQuery(''); }}
+          className="p-1.5 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+          title="Buscar mensagens"
+        >
+          {showSearch ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+        </button>
       </div>
+
+      {showSearch && (
+        <div className="relative animate-in slide-in-from-top-2 duration-200">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por mensagem ou autor..."
+            className="h-8 text-sm pl-8"
+            autoFocus
+          />
+        </div>
+      )}
 
       <div className="space-y-2">
         <TenantMentionInput
@@ -92,12 +124,12 @@ export const DeadlineComentarios = ({
               <Skeleton className="h-20 w-full" />
               <Skeleton className="h-20 w-full" />
             </>
-          ) : comentarios.length === 0 ? (
+          ) : filteredComentarios.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhum comentário ainda
+              {searchQuery.trim() ? 'Nenhum resultado encontrado' : 'Nenhum comentário ainda'}
             </p>
           ) : (
-            comentarios.map((comentario) => (
+            filteredComentarios.map((comentario) => (
               <div
                 key={comentario.id}
                 className="p-3 rounded-lg border bg-card space-y-2"

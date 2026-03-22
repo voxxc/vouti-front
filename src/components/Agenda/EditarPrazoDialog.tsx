@@ -40,9 +40,11 @@ export const EditarPrazoDialog = ({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState<Date | undefined>(undefined);
+  const [originalDate, setOriginalDate] = useState<Date | undefined>(undefined);
   const [advogadoId, setAdvogadoId] = useState<string | null>(null);
   const [originalAdvogadoId, setOriginalAdvogadoId] = useState<string | null>(null);
   const [motivoTroca, setMotivoTroca] = useState('');
+  const [motivoData, setMotivoData] = useState('');
   const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
   const [originalTaggedUsers, setOriginalTaggedUsers] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -65,6 +67,7 @@ export const EditarPrazoDialog = ({
   const [originalEtapaId, setOriginalEtapaId] = useState<string>('');
 
   const responsavelChanged = advogadoId !== originalAdvogadoId;
+  const dateChanged = date && originalDate ? format(date, 'yyyy-MM-dd') !== format(originalDate, 'yyyy-MM-dd') : false;
 
   // Load data when dialog opens
   useEffect(() => {
@@ -73,10 +76,12 @@ export const EditarPrazoDialog = ({
     setTitle(deadline.title || '');
     setDescription(deadline.description || '');
     setDate(deadline.date);
+    setOriginalDate(deadline.date);
     const initialAdvogado = deadline.advogadoResponsavel?.userId || null;
     setAdvogadoId(initialAdvogado);
     setOriginalAdvogadoId(initialAdvogado);
     setMotivoTroca('');
+    setMotivoData('');
     const initialTagged = deadline.taggedUsers?.map(u => u.userId) || [];
     setTaggedUsers(initialTagged);
     setOriginalTaggedUsers(initialTagged);
@@ -228,6 +233,11 @@ export const EditarPrazoDialog = ({
       return;
     }
 
+    if (dateChanged && !motivoData.trim()) {
+      toast({ title: "Campo obrigatório", description: "Informe o motivo da alteração de data.", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
     try {
       // Build audit changes
@@ -321,7 +331,19 @@ export const EditarPrazoDialog = ({
         });
       }
 
-      // 4. Detailed comment for responsible change
+      // 3b. Detailed comment for date change
+      if (dateChanged && originalDate && date) {
+        const editorRes = await supabase.from('profiles').select('full_name').eq('user_id', user.id).single();
+        const nomeEditor = editorRes.data?.full_name || 'Usuário';
+        const comentarioData = `📅 Data do prazo alterada\nDe: ${format(originalDate, 'dd/MM/yyyy')}\nPara: ${format(date, 'dd/MM/yyyy')}\nMotivo: ${motivoData.trim()}\nAlterado por: ${nomeEditor}`;
+        await supabase.from('deadline_comentarios').insert({
+          deadline_id: deadline.id,
+          user_id: user.id,
+          comentario: comentarioData,
+          tenant_id: tenantId
+        });
+      }
+
       if (responsavelChanged && advogadoId) {
         const [editorRes, antigoRes, novoRes] = await Promise.all([
           supabase.from('profiles').select('full_name').eq('user_id', user.id).single(),
@@ -419,6 +441,20 @@ export const EditarPrazoDialog = ({
               </PopoverContent>
             </Popover>
           </div>
+
+          {dateChanged && (
+            <div className="overflow-hidden animate-in slide-in-from-top-2 duration-200">
+              <label className="text-sm font-medium text-destructive">
+                Motivo da alteração de data *
+              </label>
+              <Textarea
+                value={motivoData}
+                onChange={(e) => setMotivoData(e.target.value)}
+                placeholder="Informe o motivo da alteração da data do prazo..."
+                className="mt-1 min-h-[60px]"
+              />
+            </div>
+          )}
 
           <div>
             <AdvogadoSelector 
