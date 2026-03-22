@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, LayoutGrid, X, Settings, Lock, Unlock, Columns, Filter, User } from "lucide-react";
+import { Plus, Search, LayoutGrid, X, Settings, Lock, Unlock, Columns, Filter, User, ChevronDown } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import {
   DropdownMenu,
