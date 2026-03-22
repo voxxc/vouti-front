@@ -233,6 +233,11 @@ export const EditarPrazoDialog = ({
       return;
     }
 
+    if (dateChanged && !motivoData.trim()) {
+      toast({ title: "Campo obrigatório", description: "Informe o motivo da alteração de data.", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
     try {
       // Build audit changes
