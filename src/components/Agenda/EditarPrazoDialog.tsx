@@ -442,6 +442,20 @@ export const EditarPrazoDialog = ({
             </Popover>
           </div>
 
+          {dateChanged && (
+            <div className="overflow-hidden animate-in slide-in-from-top-2 duration-200">
+              <label className="text-sm font-medium text-destructive">
+                Motivo da alteração de data *
+              </label>
+              <Textarea
+                value={motivoData}
+                onChange={(e) => setMotivoData(e.target.value)}
+                placeholder="Informe o motivo da alteração da data do prazo..."
+                className="mt-1 min-h-[60px]"
+              />
+            </div>
+          )}
+
           <div>
             <AdvogadoSelector 
               value={advogadoId} 
