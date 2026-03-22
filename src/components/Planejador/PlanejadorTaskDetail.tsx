@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { PlanejadorTask } from "@/hooks/usePlanejadorTasks";
 import { PlanejadorTaskChat } from "./PlanejadorTaskChat";
 import { Button } from "@/components/ui/button";
@@ -14,7 +13,7 @@ import {
 import {
   X, Play, CheckCircle, Calendar, User, Clock, FileText, ListChecks, Users, Tag, ArrowLeft,
   Plus, Trash2, Download, Upload, ChevronDown, ChevronRight, Search, UserCircle, Scale, CalendarClock, Unlink,
-  Milestone, Info, Activity,
+  Milestone, Info, Activity, Pencil,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -24,10 +23,12 @@ import { usePlanejadorParticipants } from "@/hooks/usePlanejadorParticipants";
 import { usePlanejadorLabels, usePlanejadorLabelAssignments } from "@/hooks/usePlanejadorLabels";
 import { usePlanejadorEtapas } from "@/hooks/usePlanejadorEtapas";
 import { usePlanejadorActivityLog, logPlanejadorActivity } from "@/hooks/usePlanejadorActivityLog";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useAuth } from "@/contexts/AuthContext";
+import { EditarPrazoDialog } from "@/components/Agenda/EditarPrazoDialog";
+import { Deadline } from "@/types/agenda";
 
 interface PlanejadorTaskDetailProps {
   task: PlanejadorTask;
@@ -75,7 +76,10 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const [processoSearch, setProcessoSearch] = useState("");
   const [newEtapaTitle, setNewEtapaTitle] = useState("");
   const [activeTab, setActiveTab] = useState<'detalhes' | 'info'>('detalhes');
+  const [editingPrazoDeadline, setEditingPrazoDeadline] = useState<Deadline | null>(null);
+  const [editPrazoOpen, setEditPrazoOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
 
   // ESC closes task detail first, not the drawer behind
   useEffect(() => {
@@ -85,6 +89,8 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
         e.preventDefault();
         if (participantsOpen) {
           setParticipantsOpen(false);
+        } else if (editPrazoOpen) {
+          setEditPrazoOpen(false);
         } else {
           onClose();
         }
@@ -92,7 +98,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
     };
     window.addEventListener('keydown', handleEsc, true);
     return () => window.removeEventListener('keydown', handleEsc, true);
-  }, [onClose, participantsOpen]);
+  }, [onClose, participantsOpen, editPrazoOpen]);
 
   const { user } = useAuth();
   const { tenantId } = useTenantId();
@@ -193,7 +199,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
       if (!task.processo_oab_id || !tenantId) return [];
       const { data } = await supabase
         .from('deadlines')
-        .select('id, title, date, completed')
+        .select('id, title, date, completed, description, advogado_responsavel_id, project_id, workspace_id, protocolo_etapa_id, processo_oab_id, user_id')
         .eq('processo_oab_id', task.processo_oab_id)
         .eq('tenant_id', tenantId)
         .order('date', { ascending: true });
@@ -287,6 +293,48 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
     logActivity('processo_unlinked');
   };
 
+  const handleEditPrazo = async (prazo: any) => {
+    // Build a Deadline object for the EditarPrazoDialog
+    // Fetch tagged users for this deadline
+    const { data: tags } = await supabase
+      .from('deadline_tags')
+      .select('tagged_user_id')
+      .eq('deadline_id', prazo.id);
+
+    const taggedUsers = (tags || []).map((t: any) => {
+      const profile = profiles.find((p: any) => p.user_id === t.tagged_user_id);
+      return { userId: t.tagged_user_id, name: profile?.full_name || 'Usuário' };
+    });
+
+    // Fetch advogado name
+    let advogadoResponsavel: any = undefined;
+    if (prazo.advogado_responsavel_id) {
+      const profile = profiles.find((p: any) => p.user_id === prazo.advogado_responsavel_id);
+      advogadoResponsavel = { userId: prazo.advogado_responsavel_id, name: profile?.full_name || 'Usuário' };
+    }
+
+    const deadlineObj: Deadline = {
+      id: prazo.id,
+      title: prazo.title,
+      description: prazo.description || '',
+      date: new Date(prazo.date),
+      projectId: prazo.project_id || '',
+      projectName: '',
+      clientName: '',
+      completed: prazo.completed,
+      advogadoResponsavel,
+      taggedUsers,
+      processoOabId: prazo.processo_oab_id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      workspaceId: prazo.workspace_id || '',
+      protocoloEtapaId: prazo.protocolo_etapa_id || '',
+    };
+
+    setEditingPrazoDeadline(deadlineObj);
+    setEditPrazoOpen(true);
+  };
+
   const assignedLabelIds = labelAssignments.assignments.map(a => a.label_id);
   const participantUserIds = participants.participants.map(p => p.user_id);
 
@@ -345,7 +393,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
       <div className="space-y-3">
         <div className="flex items-center gap-3 py-2 border-b border-border/50">
           <User className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground w-28">Proprietário</span>
+          <span className="text-sm text-muted-foreground w-28">Criado por</span>
           <span className="text-sm font-medium">{getProfileName(task.proprietario_id)}</span>
         </div>
         <div className="flex items-center gap-3 py-2 border-b border-border/50">
@@ -583,6 +631,13 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                       <Badge className={`text-xs border-0 ${prazo.completed ? 'bg-emerald-500/20 text-emerald-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
                         {prazo.completed ? 'Concluído' : 'Pendente'}
                       </Badge>
+                      <button
+                        onClick={() => handleEditPrazo(prazo)}
+                        className="p-1 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                        title="Editar prazo"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   ))
                 )}
@@ -613,7 +668,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
             <p className="font-medium capitalize">{task.prioridade || 'Normal'}</p>
           </div>
           <div className="space-y-0.5">
-            <span className="text-xs text-muted-foreground">Proprietário</span>
+            <span className="text-xs text-muted-foreground">Criado por</span>
             <p className="font-medium">{getProfileName(task.proprietario_id)}</p>
           </div>
           <div className="space-y-0.5">
@@ -738,9 +793,9 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
     </div>
   );
 
-  return createPortal(
+  return (
     <>
-      <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-stretch animate-in fade-in duration-200" onDoubleClick={(e) => { e.stopPropagation(); onClose(); }} onClick={(e) => e.stopPropagation()}>
+      <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-stretch animate-in fade-in duration-200" onDoubleClick={(e) => { e.stopPropagation(); onClose(); }} onClick={(e) => e.stopPropagation()}>
         <div className="flex w-full max-w-6xl mx-auto my-4 rounded-2xl overflow-hidden shadow-2xl border border-border bg-background pointer-events-auto" onDoubleClick={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
 
           {/* Left Panel */}
@@ -830,7 +885,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{profile.full_name || 'Usuário'}</p>
-                    {isOwner && <span className="text-xs text-muted-foreground">Proprietário</span>}
+                    {isOwner && <span className="text-xs text-muted-foreground">Criador</span>}
                   </div>
                   {!isOwner && (
                     <Checkbox
@@ -849,7 +904,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                     />
                   )}
                   {isOwner && (
-                    <Badge variant="secondary" className="text-xs">Dono</Badge>
+                    <Badge variant="secondary" className="text-xs">Criador</Badge>
                   )}
                 </div>
               );
@@ -857,7 +912,19 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
           </div>
         </DialogContent>
       </Dialog>
-    </>,
-    document.body
+
+      {/* Edit Deadline Dialog */}
+      {tenantId && (
+        <EditarPrazoDialog
+          deadline={editingPrazoDeadline}
+          open={editPrazoOpen}
+          onOpenChange={setEditPrazoOpen}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['planejador-prazos'] });
+          }}
+          tenantId={tenantId}
+        />
+      )}
+    </>
   );
 }
