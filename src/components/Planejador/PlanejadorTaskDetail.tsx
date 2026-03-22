@@ -567,13 +567,15 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                       <Input value={clienteSearch} onChange={(e) => setClienteSearch(e.target.value)} placeholder="Buscar cliente por nome ou documento..." className="h-8 text-sm pl-8" />
                     </div>
-                    {clientesSearch.map((c: any) => (
-                      <button key={c.id} onClick={() => handleLinkCliente(c.id, c.nome_pessoa_fisica || c.nome_pessoa_juridica)} className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-accent/50 transition-colors">
-                        <UserCircle className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="flex-1 text-left truncate">{c.nome_pessoa_fisica || c.nome_pessoa_juridica}</span>
-                        <span className="text-xs text-muted-foreground">{c.cpf || c.cnpj || ''}</span>
-                      </button>
-                    ))}
+                    <div className="max-h-[240px] overflow-y-auto space-y-1">
+                      {clientesSearch.map((c: any) => (
+                        <button key={c.id} onClick={() => handleLinkCliente(c.id, c.nome_pessoa_fisica || c.nome_pessoa_juridica)} className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-accent/50 transition-colors">
+                          <UserCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="flex-1 text-left truncate">{c.nome_pessoa_fisica || c.nome_pessoa_juridica}</span>
+                          <span className="text-xs text-muted-foreground">{c.cpf || c.cnpj || ''}</span>
+                        </button>
+                      ))}
+                    </div>
                   </>
                 )}
               </div>
