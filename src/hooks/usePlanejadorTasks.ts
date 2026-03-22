@@ -73,13 +73,47 @@ export function usePlanejadorTasks() {
     queryKey: ['planejador-tasks', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await (supabase as any)
+      // Fetch regular tasks
+      const { data: tasksData, error: tasksError } = await (supabase as any)
         .from('planejador_tasks')
         .select('*')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as PlanejadorTask[];
+      if (tasksError) throw tasksError;
+      const tasks = (tasksData || []) as PlanejadorTask[];
+
+      // Fetch all subtasks for this tenant
+      const { data: subtasksData, error: subtasksError } = await (supabase as any)
+        .from('planejador_task_subtasks')
+        .select('*')
+        .eq('tenant_id', tenantId);
+      if (subtasksError) throw subtasksError;
+
+      // Build a lookup for parent task titles
+      const taskTitleMap = new Map(tasks.map(t => [t.id, t.titulo]));
+
+      // Convert subtasks to PlanejadorTask format
+      const subtasksAsTasks: PlanejadorTask[] = (subtasksData || []).map((st: any) => ({
+        id: st.id,
+        tenant_id: st.tenant_id,
+        titulo: st.titulo,
+        descricao: null,
+        status: st.concluida ? 'completed' : 'pending',
+        prazo: st.prazo,
+        proprietario_id: st.user_id,
+        responsavel_id: null,
+        prioridade: 'normal',
+        created_by: st.user_id,
+        created_at: st.created_at,
+        updated_at: st.updated_at || st.created_at,
+        cliente_id: null,
+        processo_oab_id: null,
+        is_subtask: true,
+        parent_task_id: st.task_id,
+        parent_task_titulo: taskTitleMap.get(st.task_id) || 'Tarefa removida',
+      }));
+
+      return [...tasks, ...subtasksAsTasks];
     },
     enabled: !!tenantId,
   });
