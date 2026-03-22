@@ -45,7 +45,10 @@ export function usePlanejadorSubtasks(taskId: string) {
       });
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['planejador-subtasks', taskId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planejador-subtasks', taskId] });
+      queryClient.invalidateQueries({ queryKey: ['planejador-tasks'] });
+    },
   });
 
   const toggle = useMutation({
@@ -56,7 +59,10 @@ export function usePlanejadorSubtasks(taskId: string) {
         .eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['planejador-subtasks', taskId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planejador-subtasks', taskId] });
+      queryClient.invalidateQueries({ queryKey: ['planejador-tasks'] });
+    },
   });
 
   const remove = useMutation({
@@ -64,7 +70,10 @@ export function usePlanejadorSubtasks(taskId: string) {
       const { error } = await (supabase as any).from('planejador_task_subtasks').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['planejador-subtasks', taskId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planejador-subtasks', taskId] });
+      queryClient.invalidateQueries({ queryKey: ['planejador-tasks'] });
+    },
   });
 
   const subtasks = query.data || [];
