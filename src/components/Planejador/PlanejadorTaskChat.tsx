@@ -115,6 +115,49 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
         tenant_id: tenantId,
       });
       if (error) throw error;
+
+      // Send notifications to all participants + owner (except sender)
+      try {
+        // Get task info
+        const { data: taskData } = await (supabase as any)
+          .from('planejador_tasks')
+          .select('proprietario_id, titulo')
+          .eq('id', taskId)
+          .single();
+        
+        // Get participants
+        const { data: participantsData } = await (supabase as any)
+          .from('planejador_task_participants')
+          .select('user_id')
+          .eq('task_id', taskId);
+
+        const recipientIds = new Set<string>();
+        if (taskData?.proprietario_id && taskData.proprietario_id !== user.id) {
+          recipientIds.add(taskData.proprietario_id);
+        }
+        (participantsData || []).forEach((p: any) => {
+          if (p.user_id !== user.id) recipientIds.add(p.user_id);
+        });
+
+        const senderName = profiles.find(p => p.user_id === user.id)?.full_name || 'Alguém';
+        const truncatedMsg = params.content.length > 60 ? params.content.slice(0, 57) + '...' : params.content;
+        const taskTitle = taskData?.titulo || 'Tarefa';
+
+        if (recipientIds.size > 0) {
+          const notifications = Array.from(recipientIds).map(uid => ({
+            user_id: uid,
+            tenant_id: tenantId,
+            type: 'planejador_chat_message',
+            title: `Mensagem no Planejador: ${taskTitle}`,
+            content: `${senderName}: "${truncatedMsg}"`,
+            related_task_id: taskId,
+            triggered_by_user_id: user.id,
+          }));
+          await supabase.from('notifications').insert(notifications);
+        }
+      } catch (notifErr) {
+        console.error('Error sending chat notifications:', notifErr);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planejador-messages', taskId] });
