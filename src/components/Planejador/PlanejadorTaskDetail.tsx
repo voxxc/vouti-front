@@ -56,8 +56,8 @@ const ACTION_LABELS: Record<string, string> = {
   etapa_deleted: 'Etapa removida',
   cliente_linked: 'Cliente vinculado',
   cliente_unlinked: 'Cliente desvinculado',
-  processo_linked: 'Processo vinculado',
-  processo_unlinked: 'Processo desvinculado',
+  processo_linked: 'Caso vinculado',
+  processo_unlinked: 'Caso desvinculado',
   participant_added: 'Participante adicionado',
   participant_removed: 'Participante removido',
 };
