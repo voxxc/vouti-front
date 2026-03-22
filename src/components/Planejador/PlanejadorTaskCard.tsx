@@ -2,7 +2,7 @@ import { PlanejadorTask } from "@/hooks/usePlanejadorTasks";
 import { PlanejadorLabel, PlanejadorLabelAssignment } from "@/hooks/usePlanejadorLabels";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Clock, User, ListChecks } from "lucide-react";
+import { Clock, User, ListChecks, Flag } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -17,7 +17,7 @@ export function PlanejadorTaskCard({ task, onClick, labels = [], labelAssignment
   const taskLabelIds = labelAssignments.filter(a => a.task_id === task.id).map(a => a.label_id);
   const taskLabels = labels.filter(l => taskLabelIds.includes(l.id));
 
-  // Fetch subtask counts
+  // Fetch subtask counts (skip for subtask cards themselves)
   const { data: subtaskData } = useQuery({
     queryKey: ['planejador-subtask-count', task.id],
     queryFn: async () => {
@@ -30,6 +30,7 @@ export function PlanejadorTaskCard({ task, onClick, labels = [], labelAssignment
       return { total: all.length, completed: all.filter((s: any) => s.concluida).length };
     },
     staleTime: 30000,
+    enabled: !task.is_subtask,
   });
 
   return (
@@ -37,9 +38,20 @@ export function PlanejadorTaskCard({ task, onClick, labels = [], labelAssignment
       onClick={onClick}
       className="bg-white/95 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg p-3.5 cursor-pointer hover:shadow-lg hover:shadow-black/10 hover:scale-[1.01] transition-all duration-200 border border-white/20 dark:border-white/5 group"
     >
-      <h4 className="text-sm font-semibold text-slate-900 dark:text-white leading-snug mb-2 group-hover:text-slate-700 dark:group-hover:text-white/90 line-clamp-2">
-        {task.titulo}
-      </h4>
+      <div className="flex items-start gap-1.5 mb-2">
+        {task.is_subtask && (
+          <Flag className="h-3.5 w-3.5 text-orange-400 shrink-0 mt-0.5" />
+        )}
+        <h4 className="text-sm font-semibold text-slate-900 dark:text-white leading-snug group-hover:text-slate-700 dark:group-hover:text-white/90 line-clamp-2">
+          {task.titulo}
+        </h4>
+      </div>
+
+      {task.is_subtask && task.parent_task_titulo && (
+        <p className="text-[10px] text-muted-foreground mb-2 truncate">
+          ↳ {task.parent_task_titulo}
+        </p>
+      )}
 
       {/* Label pills */}
       {taskLabels.length > 0 && (

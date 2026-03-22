@@ -13,7 +13,7 @@ import {
 import {
   X, Play, CheckCircle, Calendar, User, Clock, FileText, ListChecks, Users, Tag, ArrowLeft,
   Plus, Trash2, Download, Upload, ChevronDown, ChevronRight, Search, UserCircle, Scale, CalendarClock, Unlink,
-  Milestone, Info, Activity, Pencil,
+  Milestone, Info, Activity, Pencil, Flag,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -678,6 +678,17 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
 
   const renderInfoTab = () => (
     <div className="flex-1 overflow-y-auto p-5 space-y-5">
+      {/* Subtarefa de (parent info) */}
+      {task.is_subtask && task.parent_task_titulo && (
+        <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center gap-2">
+          <Flag className="h-4 w-4 text-orange-400 shrink-0" />
+          <div className="text-sm">
+            <span className="text-muted-foreground">Subtarefa de: </span>
+            <span className="font-medium text-foreground">{task.parent_task_titulo}</span>
+          </div>
+        </div>
+      )}
+
       {/* General Info */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Info className="h-4 w-4" /> Informações Gerais</h3>
