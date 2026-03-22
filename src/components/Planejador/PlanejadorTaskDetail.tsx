@@ -80,6 +80,86 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
     enabled: !!tenantId,
   });
 
+  // Cliente vinculado
+  const { data: clienteVinculado } = useQuery({
+    queryKey: ['planejador-cliente', task.cliente_id],
+    queryFn: async () => {
+      if (!task.cliente_id) return null;
+      const { data } = await supabase
+        .from('clientes')
+        .select('id, nome_pessoa_fisica, nome_pessoa_juridica, cpf, cnpj')
+        .eq('id', task.cliente_id)
+        .single();
+      return data;
+    },
+    enabled: !!task.cliente_id,
+  });
+
+  // Busca clientes
+  const { data: clientesSearch = [] } = useQuery({
+    queryKey: ['planejador-clientes-search', tenantId, clienteSearch],
+    queryFn: async () => {
+      if (!tenantId || !clienteSearch.trim()) return [];
+      const term = `%${clienteSearch.trim()}%`;
+      const { data } = await supabase
+        .from('clientes')
+        .select('id, nome_pessoa_fisica, nome_pessoa_juridica, cpf, cnpj')
+        .eq('tenant_id', tenantId)
+        .or(`nome_pessoa_fisica.ilike.${term},nome_pessoa_juridica.ilike.${term},cpf.ilike.${term},cnpj.ilike.${term}`)
+        .limit(10);
+      return data || [];
+    },
+    enabled: !!tenantId && clienteSearch.trim().length >= 2,
+  });
+
+  // Processo vinculado
+  const { data: processoVinculado } = useQuery({
+    queryKey: ['planejador-processo', task.processo_oab_id],
+    queryFn: async () => {
+      if (!task.processo_oab_id) return null;
+      const { data } = await (supabase as any)
+        .from('processos_oab')
+        .select('id, numero_cnj, parte_ativa, parte_passiva, tribunal')
+        .eq('id', task.processo_oab_id)
+        .single();
+      return data;
+    },
+    enabled: !!task.processo_oab_id,
+  });
+
+  // Busca processos
+  const { data: processosSearch = [] } = useQuery({
+    queryKey: ['planejador-processos-search', tenantId, processoSearch],
+    queryFn: async () => {
+      if (!tenantId || !processoSearch.trim()) return [];
+      const term = `%${processoSearch.trim()}%`;
+      const { data } = await (supabase as any)
+        .from('processos_oab')
+        .select('id, numero_cnj, parte_ativa, parte_passiva, tribunal')
+        .eq('tenant_id', tenantId)
+        .or(`numero_cnj.ilike.${term},parte_ativa.ilike.${term},parte_passiva.ilike.${term}`)
+        .limit(10);
+      return data || [];
+    },
+    enabled: !!tenantId && processoSearch.trim().length >= 2,
+  });
+
+  // Prazos relacionados ao processo
+  const { data: prazosRelacionados = [] } = useQuery({
+    queryKey: ['planejador-prazos', task.processo_oab_id, tenantId],
+    queryFn: async () => {
+      if (!task.processo_oab_id || !tenantId) return [];
+      const { data } = await supabase
+        .from('deadlines')
+        .select('id, title, date, completed')
+        .eq('processo_oab_id', task.processo_oab_id)
+        .eq('tenant_id', tenantId)
+        .order('date', { ascending: true });
+      return data || [];
+    },
+    enabled: !!task.processo_oab_id && !!tenantId,
+  });
+
   const handleTitleBlur = () => {
     if (titulo.trim() && titulo !== task.titulo) {
       onUpdate(task.id, { titulo: titulo.trim() });
