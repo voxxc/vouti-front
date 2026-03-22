@@ -117,6 +117,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
     }
   }, [open, initialTaskId, isLoading, tasksByColumn, onInitialTaskConsumed]);
 
+  const handleColumnConfigChange = useCallback((newConfig: ColumnConfig[]) => {
     setColumnConfig(newConfig);
     saveColumnConfig(tenantId, newConfig);
   }, [tenantId]);
