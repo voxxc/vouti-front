@@ -67,6 +67,7 @@ export const EditarPrazoDialog = ({
   const [originalEtapaId, setOriginalEtapaId] = useState<string>('');
 
   const responsavelChanged = advogadoId !== originalAdvogadoId;
+  const dateChanged = date && originalDate ? format(date, 'yyyy-MM-dd') !== format(originalDate, 'yyyy-MM-dd') : false;
 
   // Load data when dialog opens
   useEffect(() => {
