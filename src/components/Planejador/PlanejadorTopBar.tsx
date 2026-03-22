@@ -59,9 +59,12 @@ export function PlanejadorTopBar({
   const glassBgHover = isDark ? 'hover:bg-white/15' : 'hover:bg-black/10';
   const borderColor = isDark ? 'border-white/10' : 'border-black/10';
 
-  const selectedUserName = selectedUserId
+  const isMyTasks = selectedUserId === currentUserId;
+  const isAllTasks = selectedUserId === null;
+  const isCustomUser = !isMyTasks && !isAllTasks;
+  const customUserName = isCustomUser
     ? profiles.find(p => p.user_id === selectedUserId)?.full_name || 'Usuário'
-    : 'Todos';
+    : '';
 
   return (
     <div className="flex flex-col gap-3">
