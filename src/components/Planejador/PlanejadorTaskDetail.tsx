@@ -50,6 +50,8 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState(LABEL_COLORS[0]);
   const [participantSearch, setParticipantSearch] = useState("");
+  const [clienteSearch, setClienteSearch] = useState("");
+  const [processoSearch, setProcessoSearch] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { user } = useAuth();
