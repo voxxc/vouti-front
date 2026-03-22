@@ -90,7 +90,9 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
       if (e.key === 'Escape') {
         e.stopPropagation();
         e.preventDefault();
-        if (participantsOpen) {
+        if (clienteInfoOpen) {
+          setClienteInfoOpen(false);
+        } else if (participantsOpen) {
           setParticipantsOpen(false);
         } else if (editPrazoOpen) {
           setEditPrazoOpen(false);
