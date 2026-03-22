@@ -583,7 +583,9 @@ const DashboardLayout = ({
       />
       <PlanejadorDrawer 
         open={activeDrawer === 'planejador'} 
-        onOpenChange={handleDrawerClose} 
+        onOpenChange={handleDrawerClose}
+        initialTaskId={pendingPlanejadorTaskId}
+        onInitialTaskConsumed={() => setPendingPlanejadorTaskId(null)}
       />
 
       {/* Mobile Bottom Navigation */}
