@@ -132,6 +132,7 @@ const DashboardLayout = ({
   const [pendingProtocoloId, setPendingProtocoloId] = useState<string | null>(null);
   const [deadlineDetailOpen, setDeadlineDetailOpen] = useState(false);
   const [deadlineDetailId, setDeadlineDetailId] = useState<string | undefined>();
+  const [pendingPlanejadorTaskId, setPendingPlanejadorTaskId] = useState<string | null>(null);
   const [etapaModalData, setEtapaModalData] = useState<{
     etapa: ProjectProtocoloEtapa;
     protocoloId: string;
@@ -438,6 +439,10 @@ const DashboardLayout = ({
                       setProjectDrawerOpen(true);
                     }}
                     onEtapaNavigation={handleEtapaNavigation}
+                    onPlanejadorTaskNavigation={(taskId) => {
+                      setPendingPlanejadorTaskId(taskId);
+                      setActiveDrawer('planejador');
+                    }}
                   />
                   <DeadlineDetailDialog
                     deadlineId={deadlineDetailId || null}
@@ -578,7 +583,9 @@ const DashboardLayout = ({
       />
       <PlanejadorDrawer 
         open={activeDrawer === 'planejador'} 
-        onOpenChange={handleDrawerClose} 
+        onOpenChange={handleDrawerClose}
+        initialTaskId={pendingPlanejadorTaskId}
+        onInitialTaskConsumed={() => setPendingPlanejadorTaskId(null)}
       />
 
       {/* Mobile Bottom Navigation */}

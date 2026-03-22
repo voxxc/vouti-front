@@ -3093,6 +3093,102 @@ export type Database = {
           },
         ]
       }
+      planejador_task_activity_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          task_id: string
+          tenant_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          task_id: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          task_id?: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planejador_task_activity_log_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "planejador_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planejador_task_activity_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planejador_task_etapas: {
+        Row: {
+          concluida: boolean | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          ordem: number
+          task_id: string
+          tenant_id: string | null
+          titulo: string
+          updated_at: string | null
+        }
+        Insert: {
+          concluida?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          ordem?: number
+          task_id: string
+          tenant_id?: string | null
+          titulo: string
+          updated_at?: string | null
+        }
+        Update: {
+          concluida?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          ordem?: number
+          task_id?: string
+          tenant_id?: string | null
+          titulo?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planejador_task_etapas_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "planejador_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planejador_task_etapas_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       planejador_task_files: {
         Row: {
           created_at: string

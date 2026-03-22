@@ -21,6 +21,7 @@ interface NotificationCenterProps {
   onDeadlineNavigation?: (deadlineId: string) => void;
   onProtocoloNavigation?: (projectId: string, protocoloId: string) => void;
   onEtapaNavigation?: (etapaId: string) => void;
+  onPlanejadorTaskNavigation?: (taskId: string) => void;
 }
 
 const NotificationCenter: React.FC<NotificationCenterProps> = ({
@@ -29,7 +30,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   onProcessoNavigation,
   onDeadlineNavigation,
   onProtocoloNavigation,
-  onEtapaNavigation
+  onEtapaNavigation,
+  onPlanejadorTaskNavigation
 }) => {
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications(userId);
   const [shouldPing, setShouldPing] = useState(false);
@@ -77,6 +79,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
         return <Calendar className="h-5 w-5 text-orange-500" />;
       case 'conversation_transferred':
         return <span className="text-lg">🔄</span>;
+      case 'planejador_chat_message':
+        return <span className="text-lg">📝</span>;
       default:
         return <span className="text-lg">📢</span>;
     }
@@ -96,6 +100,13 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.is_read) {
       await markAsRead(notification.id);
+    }
+
+    // Planejador chat message → open planejador task
+    if (notification.type === 'planejador_chat_message' && notification.related_task_id && onPlanejadorTaskNavigation) {
+      onPlanejadorTaskNavigation(notification.related_task_id);
+      setIsOpen(false);
+      return;
     }
     
     // Deadline notifications (assigned/tagged) → open deadline detail

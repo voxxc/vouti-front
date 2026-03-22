@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { PlanejadorTopBar } from "./PlanejadorTopBar";
 import { PlanejadorKanban } from "./PlanejadorKanban";
@@ -19,6 +19,8 @@ import skyLightBg from "@/assets/sky-light-bg.jpg";
 interface PlanejadorDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialTaskId?: string | null;
+  onInitialTaskConsumed?: () => void;
 }
 
 const STORAGE_KEY_PREFIX = "planejador-column-config-";
@@ -47,7 +49,7 @@ function saveColumnConfig(tenantId: string | null, config: ColumnConfig[]) {
   localStorage.setItem(STORAGE_KEY_PREFIX + tenantId, JSON.stringify(config));
 }
 
-export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) {
+export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialTaskConsumed }: PlanejadorDrawerProps) {
   const { user } = useAuth();
   const currentUserId = user?.id || null;
   const { tenantId } = useTenantId();
@@ -99,6 +101,21 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
     },
     enabled: !!tenantId && !!selectedUserId,
   });
+
+  // Open task from notification deep-link
+  useEffect(() => {
+    if (open && initialTaskId && !isLoading) {
+      // Find the task across all columns
+      const allTasks = Object.values(tasksByColumn).flat();
+      const task = allTasks.find(t => t.id === initialTaskId);
+      if (task) {
+        setSelectedTask(task);
+        // Clear filter to "all" so task is visible
+        setSelectedUserId(null);
+      }
+      onInitialTaskConsumed?.();
+    }
+  }, [open, initialTaskId, isLoading, tasksByColumn, onInitialTaskConsumed]);
 
   const handleColumnConfigChange = useCallback((newConfig: ColumnConfig[]) => {
     setColumnConfig(newConfig);
