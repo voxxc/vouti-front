@@ -22,7 +22,7 @@ const CrmLogin = () => {
   const navigate = useNavigate();
   const { tenant } = useParams<{ tenant: string }>();
 
-  useLocalTheme('auth-theme');
+  useLocalTheme('theme');
 
   const [tenantValid, setTenantValid] = useState<boolean | null>(null);
 

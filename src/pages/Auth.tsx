@@ -40,7 +40,7 @@ const Auth = () => {
   }
 
   // Apply saved theme from localStorage
-  useLocalTheme('auth-theme');
+  useLocalTheme('theme');
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {

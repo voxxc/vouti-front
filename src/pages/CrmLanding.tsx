@@ -12,7 +12,7 @@ const CrmLanding = () => {
   const [slug, setSlug] = useState("");
   const navigate = useNavigate();
 
-  useLocalTheme('auth-theme');
+  useLocalTheme('theme');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
