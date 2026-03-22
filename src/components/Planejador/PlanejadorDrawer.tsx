@@ -127,13 +127,52 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
   }, [createTask]);
 
   const handleMoveTask = useCallback((taskId: string, updates: Partial<PlanejadorTask>) => {
+    // Find if this is a subtask
+    const allTasks = Object.values(tasksByColumn).flat();
+    const movedTask = allTasks.find(t => t.id === taskId);
+    if (movedTask?.is_subtask) {
+      // Update the subtask record directly
+      (supabase as any)
+        .from('planejador_task_subtasks')
+        .update({
+          concluida: updates.status === 'completed',
+          prazo: updates.prazo !== undefined ? updates.prazo : movedTask.prazo,
+        })
+        .eq('id', taskId)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['planejador-tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['planejador-subtasks'] });
+          queryClient.invalidateQueries({ queryKey: ['planejador-subtask-count'] });
+        });
+      return;
+    }
     updateTask.mutate({ id: taskId, ...updates });
-  }, [updateTask]);
+  }, [updateTask, tasksByColumn]);
 
   const handleUpdateTask = useCallback((id: string, updates: Partial<PlanejadorTask>) => {
+    // Check if this is a subtask
+    const allTasks = Object.values(tasksByColumn).flat();
+    const currentTask = allTasks.find(t => t.id === id);
+    if (currentTask?.is_subtask) {
+      // Update subtask record
+      const subtaskUpdates: any = {};
+      if (updates.titulo !== undefined) subtaskUpdates.titulo = updates.titulo;
+      if (updates.status !== undefined) subtaskUpdates.concluida = updates.status === 'completed';
+      if (updates.prazo !== undefined) subtaskUpdates.prazo = updates.prazo;
+      (supabase as any)
+        .from('planejador_task_subtasks')
+        .update(subtaskUpdates)
+        .eq('id', id)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['planejador-tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['planejador-subtasks'] });
+        });
+      setSelectedTask(prev => prev && prev.id === id ? { ...prev, ...updates } : prev);
+      return;
+    }
     updateTask.mutate({ id, ...updates });
     setSelectedTask(prev => prev && prev.id === id ? { ...prev, ...updates } : prev);
-  }, [updateTask]);
+  }, [updateTask, tasksByColumn]);
 
   const handleDeleteTask = useCallback((id: string) => {
     deleteTask.mutate(id);

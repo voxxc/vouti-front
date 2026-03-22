@@ -17,7 +17,7 @@ export function PlanejadorTaskCard({ task, onClick, labels = [], labelAssignment
   const taskLabelIds = labelAssignments.filter(a => a.task_id === task.id).map(a => a.label_id);
   const taskLabels = labels.filter(l => taskLabelIds.includes(l.id));
 
-  // Fetch subtask counts
+  // Fetch subtask counts (skip for subtask cards themselves)
   const { data: subtaskData } = useQuery({
     queryKey: ['planejador-subtask-count', task.id],
     queryFn: async () => {
@@ -30,6 +30,7 @@ export function PlanejadorTaskCard({ task, onClick, labels = [], labelAssignment
       return { total: all.length, completed: all.filter((s: any) => s.concluida).length };
     },
     staleTime: 30000,
+    enabled: !task.is_subtask,
   });
 
   return (
