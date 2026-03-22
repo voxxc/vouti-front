@@ -24,7 +24,13 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  const [theme, setTheme] = useState<Theme>('dark'); // Default to dark
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('theme') as Theme;
+      if (stored === 'light' || stored === 'dark') return stored;
+    }
+    return 'dark';
+  });
   const [isLoadingTheme, setIsLoadingTheme] = useState(true);
   // Get user from AuthContext only if it's available
   let user = null;
