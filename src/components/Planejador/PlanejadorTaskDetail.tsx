@@ -212,6 +212,10 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
     return `${(bytes / 1048576).toFixed(1)} MB`;
   };
 
+  const clienteNome = clienteVinculado
+    ? (clienteVinculado.nome_pessoa_fisica || clienteVinculado.nome_pessoa_juridica || 'Cliente')
+    : null;
+
   const sidebarItems = [
     {
       key: 'subtarefas',
@@ -222,6 +226,9 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
     { key: 'arquivos', icon: FileText, label: 'Arquivos', count: `${files.files.length}` },
     { key: 'participantes', icon: Users, label: 'Participantes', count: `${participants.participants.length}` },
     { key: 'marcadores', icon: Tag, label: 'Marcadores', count: `${assignedLabelIds.length}` },
+    { key: 'cliente', icon: UserCircle, label: 'Cliente', count: clienteNome ? '1' : '0' },
+    { key: 'processo', icon: Scale, label: 'Processo', count: processoVinculado ? '1' : '0' },
+    { key: 'prazos', icon: CalendarClock, label: 'Prazos Relacionados', count: `${prazosRelacionados.length}` },
   ];
 
   return createPortal(
