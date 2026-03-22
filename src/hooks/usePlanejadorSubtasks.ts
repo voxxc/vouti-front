@@ -45,7 +45,10 @@ export function usePlanejadorSubtasks(taskId: string) {
       });
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['planejador-subtasks', taskId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planejador-subtasks', taskId] });
+      queryClient.invalidateQueries({ queryKey: ['planejador-tasks'] });
+    },
   });
 
   const toggle = useMutation({
