@@ -3381,12 +3381,14 @@ export type Database = {
       }
       planejador_tasks: {
         Row: {
+          cliente_id: string | null
           created_at: string
           created_by: string
           descricao: string | null
           id: string
           prazo: string | null
           prioridade: string
+          processo_oab_id: string | null
           proprietario_id: string
           responsavel_id: string | null
           status: string
@@ -3395,12 +3397,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cliente_id?: string | null
           created_at?: string
           created_by: string
           descricao?: string | null
           id?: string
           prazo?: string | null
           prioridade?: string
+          processo_oab_id?: string | null
           proprietario_id: string
           responsavel_id?: string | null
           status?: string
@@ -3409,12 +3413,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cliente_id?: string | null
           created_at?: string
           created_by?: string
           descricao?: string | null
           id?: string
           prazo?: string | null
           prioridade?: string
+          processo_oab_id?: string | null
           proprietario_id?: string
           responsavel_id?: string | null
           status?: string
@@ -3423,6 +3429,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "planejador_tasks_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planejador_tasks_processo_oab_id_fkey"
+            columns: ["processo_oab_id"]
+            isOneToOne: false
+            referencedRelation: "processos_oab"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "planejador_tasks_tenant_id_fkey"
             columns: ["tenant_id"]
