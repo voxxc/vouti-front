@@ -146,7 +146,22 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
     enabled: !!task.cliente_id,
   });
 
-  // Busca clientes
+  // Cliente completo para dialog de info
+  const { data: clienteCompleto } = useQuery({
+    queryKey: ['planejador-cliente-completo', task.cliente_id, clienteInfoOpen],
+    queryFn: async () => {
+      if (!task.cliente_id) return null;
+      const { data } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('id', task.cliente_id)
+        .single();
+      return data as unknown as Cliente;
+    },
+    enabled: !!task.cliente_id && clienteInfoOpen,
+  });
+
+
   const { data: clientesSearch = [] } = useQuery({
     queryKey: ['planejador-clientes-search', tenantId, clienteSearch],
     queryFn: async () => {
