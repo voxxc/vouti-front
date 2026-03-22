@@ -805,7 +805,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                   </p>
                   {entry.details && Object.keys(entry.details).length > 0 && (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {Object.entries(entry.details).map(([k, v]) => `${k}: ${v}`).join(' · ')}
+                      {Object.entries(entry.details).filter(([k]) => !k.endsWith('_id')).map(([k, v]) => `${k}: ${v}`).join(' · ')}
                     </p>
                   )}
                   <p className="text-[10px] text-muted-foreground/60 mt-0.5">
