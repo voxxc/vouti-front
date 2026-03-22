@@ -1,25 +1,43 @@
 
 
-# Corrigir subtarefas no Kanban + Renomear aba "Prazo" para "Colunas"
+# Corrigir bug de tema claro/escuro
 
-## Problema: Subtarefas não aparecem no Kanban
+## Problema raiz
 
-A causa é simples: quando uma subtarefa é criada/alterada/removida via `usePlanejadorSubtasks`, o `onSuccess` invalida apenas `['planejador-subtasks', taskId]`, mas **não** invalida `['planejador-tasks']` — que é a query que busca subtarefas para montar os cards do Kanban.
+Existem dois sistemas de tema independentes que conflitam:
 
-## Correções
+1. **Auth pages** usam `useLocalTheme('auth-theme')` → localStorage key `auth-theme`
+2. **App (após login)** usa `ThemeProvider` → Supabase `theme_preference` + localStorage key `theme`
 
-### 1. Invalidar query do Kanban ao criar/alterar/remover subtarefas (`usePlanejadorSubtasks.ts`)
+Quando o usuário troca tema no dashboard, salva em `theme` e Supabase. Quando volta ao login, lê de `auth-theme` (valor antigo). Além disso, o `ThemeProvider` inicia com `useState('dark')` hardcoded antes de carregar do Supabase, causando flash/inversão.
 
-Adicionar `queryClient.invalidateQueries({ queryKey: ['planejador-tasks'] })` no `onSuccess` das mutations `create`, `toggle` e `remove`.
+## Solução: Unificar em uma única fonte de verdade
 
-### 2. Renomear aba "Prazo" para "Colunas" (`PlanejadorTopBar.tsx`)
+### 1. `ThemeProvider` — inicializar do localStorage (ThemeContext.tsx)
 
-Linha 39: `{ id: 'prazo', label: 'Prazo' }` → `{ id: 'prazo', label: 'Colunas' }`
+- Linha 27: trocar `useState<Theme>('dark')` por ler `localStorage.getItem('theme')` como valor inicial
+- Isso elimina o flash de tema errado durante o carregamento assíncrono do Supabase
+
+### 2. Auth pages — usar a mesma key `theme` (Auth.tsx, CrmLogin.tsx, CrmLanding.tsx)
+
+- Trocar `useLocalTheme('auth-theme')` por `useLocalTheme('theme')`
+- Assim auth e app compartilham o mesmo valor de tema
+
+### 3. AuthThemeToggle — usar key `theme` (AuthThemeToggle.tsx)
+
+- Trocar `useLocalTheme('auth-theme')` por `useLocalTheme('theme')`
+
+### 4. Garantir sync Supabase → localStorage (ThemeContext.tsx)
+
+- Quando o tema é carregado do Supabase (linha 50), também salvar em `localStorage.setItem('theme', ...)` para que o próximo login já inicie correto
 
 ## Arquivos modificados
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/hooks/usePlanejadorSubtasks.ts` | Adicionar invalidação de `['planejador-tasks']` em create/toggle/remove |
-| `src/components/Planejador/PlanejadorTopBar.tsx` | Renomear label da aba |
+| `src/contexts/ThemeContext.tsx` | Inicializar state do localStorage; sync Supabase→localStorage |
+| `src/pages/Auth.tsx` | `useLocalTheme('theme')` |
+| `src/pages/CrmLogin.tsx` | `useLocalTheme('theme')` |
+| `src/pages/CrmLanding.tsx` | `useLocalTheme('theme')` |
+| `src/components/Auth/AuthThemeToggle.tsx` | `useLocalTheme('theme')` |
 
