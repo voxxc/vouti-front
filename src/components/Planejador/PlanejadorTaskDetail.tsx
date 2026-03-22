@@ -575,6 +575,9 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                       <p className="text-sm font-medium truncate">{clienteNome}</p>
                       <p className="text-xs text-muted-foreground">{clienteVinculado.cpf || clienteVinculado.cnpj || ''}</p>
                     </div>
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary" onClick={() => setClienteInfoOpen(true)} title="Ver dados cadastrais">
+                      <Info className="h-3.5 w-3.5" />
+                    </Button>
                     <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={handleUnlinkCliente}>
                       <Unlink className="h-3.5 w-3.5" />
                     </Button>
