@@ -28,7 +28,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useAuth } from "@/contexts/AuthContext";
 import { EditarPrazoDialog } from "@/components/Agenda/EditarPrazoDialog";
+import { ClienteDetails } from "@/components/CRM/ClienteDetails";
 import { Deadline } from "@/types/agenda";
+import { Cliente } from "@/types/cliente";
 
 interface PlanejadorTaskDetailProps {
   task: PlanejadorTask;
