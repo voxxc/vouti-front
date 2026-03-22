@@ -19,6 +19,8 @@ import skyLightBg from "@/assets/sky-light-bg.jpg";
 interface PlanejadorDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialTaskId?: string | null;
+  onInitialTaskConsumed?: () => void;
 }
 
 const STORAGE_KEY_PREFIX = "planejador-column-config-";
