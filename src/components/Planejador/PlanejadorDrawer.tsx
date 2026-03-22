@@ -102,7 +102,21 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
     enabled: !!tenantId && !!selectedUserId,
   });
 
-  const handleColumnConfigChange = useCallback((newConfig: ColumnConfig[]) => {
+  // Open task from notification deep-link
+  useEffect(() => {
+    if (open && initialTaskId && !isLoading) {
+      // Find the task across all columns
+      const allTasks = Object.values(tasksByColumn).flat();
+      const task = allTasks.find(t => t.id === initialTaskId);
+      if (task) {
+        setSelectedTask(task);
+        // Clear filter to "all" so task is visible
+        setSelectedUserId(null);
+      }
+      onInitialTaskConsumed?.();
+    }
+  }, [open, initialTaskId, isLoading, tasksByColumn, onInitialTaskConsumed]);
+
     setColumnConfig(newConfig);
     saveColumnConfig(tenantId, newConfig);
   }, [tenantId]);
