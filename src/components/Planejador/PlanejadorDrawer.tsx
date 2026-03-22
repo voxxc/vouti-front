@@ -54,6 +54,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
   const currentUserId = user?.id || null;
   const { tenantId } = useTenantId();
   const { theme } = useTheme();
+  const queryClient = useQueryClient();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<PlanejadorTask | null>(null);
