@@ -439,6 +439,10 @@ const DashboardLayout = ({
                       setProjectDrawerOpen(true);
                     }}
                     onEtapaNavigation={handleEtapaNavigation}
+                    onPlanejadorTaskNavigation={(taskId) => {
+                      setPendingPlanejadorTaskId(taskId);
+                      setActiveDrawer('planejador');
+                    }}
                   />
                   <DeadlineDetailDialog
                     deadlineId={deadlineDetailId || null}
