@@ -128,6 +128,8 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent 
           side="inset" 
+          onInteractOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
           className={`p-0 border-0 overflow-hidden [&>button]:hidden transition-all duration-300 ${
             isExpanded ? '!fixed !inset-0 !top-0 !left-0 !bottom-0 !right-0 z-[60]' : ''
           }`}
