@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, LayoutGrid, X, Settings, Lock, Unlock, Columns, Filter, User } from "lucide-react";
+import { Plus, Search, LayoutGrid, X, Settings, Lock, Unlock, Columns, Filter, User, ChevronDown } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import {
   DropdownMenu,
@@ -32,6 +32,7 @@ interface PlanejadorTopBarProps {
   labels?: PlanejadorLabel[];
   selectedLabelIds: string[];
   onLabelFilterChange: (labelIds: string[]) => void;
+  currentUserId: string | null;
 }
 
 const TABS = [
@@ -45,6 +46,7 @@ export function PlanejadorTopBar({
   onClose, locked, onToggleLock, onOpenSettings,
   profiles = [], selectedUserId, onUserFilterChange,
   labels = [], selectedLabelIds, onLabelFilterChange,
+  currentUserId,
 }: PlanejadorTopBarProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -57,9 +59,12 @@ export function PlanejadorTopBar({
   const glassBgHover = isDark ? 'hover:bg-white/15' : 'hover:bg-black/10';
   const borderColor = isDark ? 'border-white/10' : 'border-black/10';
 
-  const selectedUserName = selectedUserId
+  const isMyTasks = selectedUserId === currentUserId;
+  const isAllTasks = selectedUserId === null;
+  const isCustomUser = !isMyTasks && !isAllTasks;
+  const customUserName = isCustomUser
     ? profiles.find(p => p.user_id === selectedUserId)?.full_name || 'Usuário'
-    : 'Todos';
+    : '';
 
   return (
     <div className="flex flex-col gap-3">
@@ -78,25 +83,55 @@ export function PlanejadorTopBar({
             Criar
           </Button>
 
-          {/* User filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className={`flex items-center gap-1.5 px-3 h-9 rounded-lg text-sm ${glassBg} ${glassBgHover} transition-colors ${selectedUserId ? 'ring-1 ring-primary/50' : ''} ${text}`}>
-                <User className="h-3.5 w-3.5" />
-                <span className="max-w-[120px] truncate">{selectedUserName}</span>
+          {/* User filter toggle */}
+          <div className="flex items-center">
+            <div className={`flex items-center rounded-lg overflow-hidden ${glassBg} ${borderColor} border`}>
+              <button
+                onClick={() => onUserFilterChange(currentUserId)}
+                className={`px-3 h-8 text-sm font-medium transition-colors ${
+                  isMyTasks
+                    ? (isDark ? 'bg-white/20 text-white' : 'bg-black/10 text-foreground')
+                    : `${textDimmer} ${glassBgHover}`
+                }`}
+              >
+                Minhas
               </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 max-h-64 overflow-y-auto">
-              <DropdownMenuItem onClick={() => onUserFilterChange(null)} className="cursor-pointer">
-                <span className="font-medium">Todos</span>
-              </DropdownMenuItem>
-              {profiles.map(p => (
-                <DropdownMenuItem key={p.user_id} onClick={() => onUserFilterChange(p.user_id)} className="cursor-pointer">
-                  {p.full_name || 'Usuário'}
+              <button
+                onClick={() => onUserFilterChange(null)}
+                className={`px-3 h-8 text-sm font-medium transition-colors ${
+                  isAllTasks
+                    ? (isDark ? 'bg-white/20 text-white' : 'bg-black/10 text-foreground')
+                    : `${textDimmer} ${glassBgHover}`
+                }`}
+              >
+                Todos
+              </button>
+            </div>
+
+            {/* Specific user dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className={`flex items-center gap-1 px-2 h-8 ml-1 rounded-lg text-sm ${glassBg} ${glassBgHover} transition-colors ${isCustomUser ? 'ring-1 ring-primary/50' : ''} ${text}`}>
+                  <User className="h-3.5 w-3.5" />
+                  {isCustomUser && <span className="max-w-[100px] truncate text-xs">{customUserName}</span>}
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56 max-h-64 overflow-y-auto">
+                <DropdownMenuItem onClick={() => onUserFilterChange(currentUserId)} className="cursor-pointer">
+                  <span className="font-medium">Minhas tarefas</span>
                 </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuItem onClick={() => onUserFilterChange(null)} className="cursor-pointer">
+                  <span className="font-medium">Todos</span>
+                </DropdownMenuItem>
+                {profiles.filter(p => p.user_id !== currentUserId).map(p => (
+                  <DropdownMenuItem key={p.user_id} onClick={() => onUserFilterChange(p.user_id)} className="cursor-pointer">
+                    {p.full_name || 'Usuário'}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
           {/* Label filter */}
           <DropdownMenu>

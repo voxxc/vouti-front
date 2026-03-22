@@ -6,6 +6,7 @@ import { PlanejadorCreateTask } from "./PlanejadorCreateTask";
 import { PlanejadorTaskDetail } from "./PlanejadorTaskDetail";
 import { PlanejadorSettings, ColumnConfig } from "./PlanejadorSettings";
 import { usePlanejadorTasks, PlanejadorTask, KANBAN_COLUMNS, KanbanColumn } from "@/hooks/usePlanejadorTasks";
+import { useAuth } from "@/contexts/AuthContext";
 import { usePlanejadorLabels, useAllLabelAssignments } from "@/hooks/usePlanejadorLabels";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -47,6 +48,11 @@ function saveColumnConfig(tenantId: string | null, config: ColumnConfig[]) {
 }
 
 export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) {
+  const { user } = useAuth();
+  const currentUserId = user?.id || null;
+  const { tenantId } = useTenantId();
+  const { theme } = useTheme();
+
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<PlanejadorTask | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -54,11 +60,8 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
   const [isExpanded, setIsExpanded] = useState(false);
   const [locked, setLocked] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(currentUserId);
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
-
-  const { tenantId } = useTenantId();
-  const { theme } = useTheme();
 
   const [columnConfig, setColumnConfig] = useState<ColumnConfig[]>(() => loadColumnConfig(tenantId));
 
@@ -172,6 +175,7 @@ export function PlanejadorDrawer({ open, onOpenChange }: PlanejadorDrawerProps) 
                   labels={labels}
                   selectedLabelIds={selectedLabelIds}
                   onLabelFilterChange={setSelectedLabelIds}
+                  currentUserId={currentUserId}
                 />
               </div>
 
