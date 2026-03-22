@@ -1,44 +1,29 @@
 
 
-# Ajustes no Planejador: Renomear Processo, Limitar Dropdown e Dados do Cliente
+# Ocultar `cliente_id` do registro de atividades
 
-## 1. Renomear "Processo" para "Caso / Processo Judicial"
+## Problema
 
-**Arquivo:** `PlanejadorTaskDetail.tsx`
-- Linha 366: `label: 'Processo'` → `label: 'Caso / Processo Judicial'`
-- Linha 59: `processo_linked: 'Processo vinculado'` → `processo_linked: 'Caso vinculado'`
-- Linha 60: `processo_unlinked: 'Processo desvinculado'` → `processo_unlinked: 'Caso desvinculado'`
-
-## 2. Dropdown de processos limitado a 6 linhas com scroll
-
-Na seção de busca de processos (linhas ~596-611), envolver a lista de resultados em um container com `max-h` fixo (~240px para 6 itens) e `overflow-y-auto`:
+Na aba **Info** → **Registro de Atividades**, a linha 808 renderiza todos os campos de `entry.details` como pares chave-valor brutos:
 
 ```tsx
-<div className="max-h-[240px] overflow-y-auto space-y-1">
-  {processosSearch.map((p: any) => (
-    // ... items existentes
-  ))}
-</div>
+{Object.entries(entry.details).map(([k, v]) => `${k}: ${v}`).join(' · ')}
 ```
 
-Fazer o mesmo para a lista de clientes (linhas ~570-576) para consistência.
+Isso faz com que campos internos como `cliente_id` (UUID) apareçam para o usuário, sem valor informativo.
 
-## 3. Botão Info ao lado do nome do cliente vinculado
+## Solução
 
-Quando o cliente está vinculado (linhas 553-563):
-- Adicionar um botão com ícone `Info` ao lado do nome
-- Ao clicar, abrir um `Dialog` que exibe os dados cadastrais completos do cliente
-- Buscar dados completos do cliente (`select('*')` em vez de só nome/cpf/cnpj) quando o dialog abrir
-- Reutilizar o componente `ClienteDetails` em modo `readOnly={true}` dentro do dialog, idêntico ao fluxo "Dados" dentro do Projeto (`ProjectClientDataDialog`)
+**Arquivo:** `PlanejadorTaskDetail.tsx` (linha ~808)
 
-**Implementação:**
-- Novo state: `clienteInfoOpen` (boolean)
-- Query adicional para dados completos do cliente (lazy, ativada quando dialog abre)
-- Dialog simples com `ClienteDetails` read-only
+Filtrar campos com sufixo `_id` (UUIDs internos) antes de renderizar os detalhes da atividade, mantendo apenas campos legíveis como `nome`, `status`, etc.:
 
-## Arquivos modificados
+```tsx
+{Object.entries(entry.details)
+  .filter(([k]) => !k.endsWith('_id'))
+  .map(([k, v]) => `${k}: ${v}`)
+  .join(' · ')}
+```
 
-| Arquivo | Mudança |
-|---------|---------|
-| `PlanejadorTaskDetail.tsx` | Renomear label, limitar dropdown, adicionar botão Info do cliente com Dialog |
+Isso remove `cliente_id`, `processo_id`, `user_id` e qualquer outro UUID interno da exibição, mantendo apenas informações úteis como o nome do cliente ou status.
 
