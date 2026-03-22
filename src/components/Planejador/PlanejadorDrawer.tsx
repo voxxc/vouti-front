@@ -142,7 +142,13 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
+      <Sheet open={open} onOpenChange={(newOpen) => {
+          if (!newOpen && selectedTask) {
+            setSelectedTask(null);
+            return;
+          }
+          onOpenChange(newOpen);
+        }}>
         <SheetContent 
           side="inset" 
           onInteractOutside={(e) => e.preventDefault()}
