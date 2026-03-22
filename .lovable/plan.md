@@ -1,29 +1,40 @@
 
 
-# Fix: Planejador só fecha com X ou ESC
+# Adicionar pesquisa de usuário no dialog de Participantes
 
 ## Problema
 
-O Sheet do Planejador fecha ao clicar/interagir fora dele (comportamento padrão do Radix). Quando o usuário interage com tarefas (TaskDetail portal, etc.), eventos podem propagar e fechar o drawer acidentalmente.
+O dialog de Participantes lista todos os perfis do tenant sem filtro. Em tenants com muitos usuários, fica difícil encontrar quem adicionar.
 
 ## Solução
 
-Adicionar `onInteractOutside` e `onPointerDownOutside` no `SheetContent` do `PlanejadorDrawer.tsx` para prevenir fechamento por interação externa — mesmo padrão já usado no `ProjectDrawer.tsx`.
+Adicionar um campo de busca (Input) no topo do dialog de Participantes, filtrando a lista de `profiles` por nome.
 
-**Arquivo:** `src/components/Planejador/PlanejadorDrawer.tsx` (linhas 129-134)
+**Arquivo:** `src/components/Planejador/PlanejadorTaskDetail.tsx`
 
-Adicionar dois handlers ao `SheetContent`:
+1. Adicionar estado `participantSearch` (string)
+2. Resetar a busca ao abrir o dialog (`useEffect` ou no `onOpenChange`)
+3. Filtrar `profiles` pelo texto digitado antes do `.map()`
+4. Inserir um `<Input>` com ícone de busca (Search) acima da lista, dentro do `DialogContent`
 
 ```tsx
-<SheetContent 
-  side="inset" 
-  onInteractOutside={(e) => e.preventDefault()}
-  onPointerDownOutside={(e) => e.preventDefault()}
-  className={...}
->
+// Novo estado
+const [participantSearch, setParticipantSearch] = useState("");
+
+// No Dialog onOpenChange, resetar busca
+onOpenChange={(open) => { setParticipantsOpen(open); if (!open) setParticipantSearch(""); }}
+
+// Filtro
+const filteredProfiles = profiles.filter((p: any) =>
+  (p.full_name || '').toLowerCase().includes(participantSearch.toLowerCase())
+);
+
+// Input de busca antes da lista
+<div className="relative">
+  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+  <Input placeholder="Buscar usuário..." value={participantSearch} onChange={...} className="pl-9" />
+</div>
 ```
 
-O drawer continuará fechando normalmente via botão X (já presente via `onOpenChange`) e tecla ESC (comportamento nativo do Radix Sheet).
-
-Uma mudança de 2 linhas em 1 arquivo.
+Mudança localizada em 1 arquivo, ~15 linhas adicionadas.
 
