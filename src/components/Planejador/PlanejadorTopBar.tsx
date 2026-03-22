@@ -36,7 +36,7 @@ interface PlanejadorTopBarProps {
 }
 
 const TABS = [
-  { id: 'prazo', label: 'Prazo' },
+  { id: 'prazo', label: 'Colunas' },
   { id: 'lista', label: 'Lista' },
   { id: 'calendario', label: 'Calendário' },
 ];
