@@ -79,6 +79,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
         return <Calendar className="h-5 w-5 text-orange-500" />;
       case 'conversation_transferred':
         return <span className="text-lg">🔄</span>;
+      case 'planejador_chat_message':
+        return <span className="text-lg">📝</span>;
       default:
         return <span className="text-lg">📢</span>;
     }
