@@ -77,6 +77,23 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const [activeTab, setActiveTab] = useState<'detalhes' | 'info'>('detalhes');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ESC closes task detail first, not the drawer behind
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        e.preventDefault();
+        if (participantsOpen) {
+          setParticipantsOpen(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleEsc, true);
+    return () => window.removeEventListener('keydown', handleEsc, true);
+  }, [onClose, participantsOpen]);
+
   const { user } = useAuth();
   const { tenantId } = useTenantId();
   const status = STATUS_MAP[task.status] || STATUS_MAP.pending;
@@ -723,8 +740,8 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-stretch animate-in fade-in duration-200 pointer-events-auto" onDoubleClick={(e) => { e.stopPropagation(); onClose(); }}>
-        <div className="flex w-full max-w-6xl mx-auto my-4 rounded-2xl overflow-hidden shadow-2xl border border-border bg-background" onDoubleClick={(e) => e.stopPropagation()}>
+      <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-stretch animate-in fade-in duration-200" onDoubleClick={(e) => { e.stopPropagation(); onClose(); }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex w-full max-w-6xl mx-auto my-4 rounded-2xl overflow-hidden shadow-2xl border border-border bg-background pointer-events-auto" onDoubleClick={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
 
           {/* Left Panel */}
           <div className="w-[45%] flex flex-col border-r border-border">
