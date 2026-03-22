@@ -453,6 +453,130 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                         })}
                       </div>
                     )}
+
+                    {/* CLIENTE */}
+                    {key === 'cliente' && expandedSection === 'cliente' && (
+                      <div className="ml-4 mt-2 space-y-2">
+                        {clienteVinculado ? (
+                          <div className="flex items-center gap-2 p-2 rounded-lg bg-accent/50 border border-border">
+                            <UserCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{clienteNome}</p>
+                              <p className="text-xs text-muted-foreground">{clienteVinculado.cpf || clienteVinculado.cnpj || ''}</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => onUpdate(task.id, { cliente_id: null } as any)}
+                            >
+                              <Unlink className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="relative">
+                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                              <Input
+                                value={clienteSearch}
+                                onChange={(e) => setClienteSearch(e.target.value)}
+                                placeholder="Buscar cliente por nome ou documento..."
+                                className="h-8 text-sm pl-8"
+                              />
+                            </div>
+                            {clientesSearch.map((c: any) => (
+                              <button
+                                key={c.id}
+                                onClick={() => { onUpdate(task.id, { cliente_id: c.id } as any); setClienteSearch(""); }}
+                                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-accent/50 transition-colors"
+                              >
+                                <UserCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <span className="flex-1 text-left truncate">{c.nome_pessoa_fisica || c.nome_pessoa_juridica}</span>
+                                <span className="text-xs text-muted-foreground">{c.cpf || c.cnpj || ''}</span>
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* PROCESSO */}
+                    {key === 'processo' && expandedSection === 'processo' && (
+                      <div className="ml-4 mt-2 space-y-2">
+                        {processoVinculado ? (
+                          <div className="flex items-center gap-2 p-2 rounded-lg bg-accent/50 border border-border">
+                            <Scale className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{processoVinculado.numero_cnj || 'Processo'}</p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {[processoVinculado.parte_ativa, processoVinculado.parte_passiva].filter(Boolean).join(' x ')}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => onUpdate(task.id, { processo_oab_id: null } as any)}
+                            >
+                              <Unlink className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="relative">
+                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                              <Input
+                                value={processoSearch}
+                                onChange={(e) => setProcessoSearch(e.target.value)}
+                                placeholder="Buscar por CNJ, partes..."
+                                className="h-8 text-sm pl-8"
+                              />
+                            </div>
+                            {processosSearch.map((p: any) => (
+                              <button
+                                key={p.id}
+                                onClick={() => { onUpdate(task.id, { processo_oab_id: p.id } as any); setProcessoSearch(""); }}
+                                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-accent/50 transition-colors"
+                              >
+                                <Scale className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <div className="flex-1 text-left min-w-0">
+                                  <p className="truncate">{p.numero_cnj || 'Sem CNJ'}</p>
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {[p.parte_ativa, p.parte_passiva].filter(Boolean).join(' x ')}
+                                  </p>
+                                </div>
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* PRAZOS RELACIONADOS */}
+                    {key === 'prazos' && expandedSection === 'prazos' && (
+                      <div className="ml-4 mt-2 space-y-2">
+                        {!task.processo_oab_id ? (
+                          <p className="text-xs text-muted-foreground py-2">Vincule um processo para ver os prazos relacionados.</p>
+                        ) : prazosRelacionados.length === 0 ? (
+                          <p className="text-xs text-muted-foreground py-2">Nenhum prazo encontrado para este processo.</p>
+                        ) : (
+                          prazosRelacionados.map((prazo: any) => (
+                            <div key={prazo.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md bg-accent/30">
+                              <CalendarClock className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm truncate">{prazo.title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(new Date(prazo.date), 'dd/MM/yyyy', { locale: ptBR })}
+                                </p>
+                              </div>
+                              <Badge className={`text-xs border-0 ${prazo.completed ? 'bg-emerald-500/20 text-emerald-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                                {prazo.completed ? 'Concluído' : 'Pendente'}
+                              </Badge>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
