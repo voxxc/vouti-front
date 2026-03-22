@@ -397,13 +397,17 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
       </div>
 
       {/* Participants Dialog */}
-      <Dialog open={participantsOpen} onOpenChange={setParticipantsOpen}>
+      <Dialog open={participantsOpen} onOpenChange={(open) => { setParticipantsOpen(open); if (!open) setParticipantSearch(""); }}>
         <DialogContent className="max-w-md z-[90]">
           <DialogHeader>
             <DialogTitle>Participantes</DialogTitle>
           </DialogHeader>
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Buscar usuário..." value={participantSearch} onChange={(e) => setParticipantSearch(e.target.value)} className="pl-9" />
+          </div>
           <div className="space-y-2 max-h-80 overflow-y-auto">
-            {profiles.map((profile: any) => {
+            {profiles.filter((p: any) => (p.full_name || '').toLowerCase().includes(participantSearch.toLowerCase())).map((profile: any) => {
               const isParticipant = participantUserIds.includes(profile.user_id);
               const isOwner = profile.user_id === task.proprietario_id;
               return (
