@@ -53,7 +53,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
             .single();
 
           if (!error && data?.theme_preference) {
-            setTheme(data.theme_preference as Theme);
+            const t = data.theme_preference as Theme;
+            setTheme(t);
+            localStorage.setItem('theme', t);
           }
         } catch (error) {
           console.error('Error loading theme:', error);

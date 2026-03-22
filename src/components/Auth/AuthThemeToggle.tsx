@@ -3,7 +3,7 @@ import { useLocalTheme } from '@/hooks/useLocalTheme';
 import { cn } from '@/lib/utils';
 
 export const AuthThemeToggle = () => {
-  const { theme, toggleTheme } = useLocalTheme('auth-theme');
+  const { theme, toggleTheme } = useLocalTheme('theme');
 
   return (
     <button
