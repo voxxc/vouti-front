@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   X, Play, CheckCircle, Calendar, User, Clock, FileText, ListChecks, Users, Tag, ArrowLeft,
-  Plus, Trash2, Download, Upload, ChevronDown, ChevronRight,
+  Plus, Trash2, Download, Upload, ChevronDown, ChevronRight, Search,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
