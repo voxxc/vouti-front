@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { PlanejadorTask } from "@/hooks/usePlanejadorTasks";
 import { PlanejadorTaskChat } from "./PlanejadorTaskChat";
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   X, Play, CheckCircle, Calendar, User, Clock, FileText, ListChecks, Users, Tag, ArrowLeft,
-  Plus, Trash2, Download, Upload, ChevronDown, ChevronRight, Search,
+  Plus, Trash2, Download, Upload, ChevronDown, ChevronRight, Search, UserCircle, Scale, CalendarClock, Unlink,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
