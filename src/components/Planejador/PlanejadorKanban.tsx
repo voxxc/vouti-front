@@ -3,7 +3,7 @@ import { PlanejadorTask, KanbanColumn, KANBAN_COLUMNS } from "@/hooks/usePlaneja
 import { PlanejadorTaskCard } from "./PlanejadorTaskCard";
 import { ColumnConfig } from "./PlanejadorSettings";
 import { PlanejadorLabel, PlanejadorLabelAssignment } from "@/hooks/usePlanejadorLabels";
-import { endOfWeek, addWeeks, setHours } from "date-fns";
+import { endOfWeek, addWeeks, setHours, subDays, startOfDay } from "date-fns";
 import { useMemo } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 
@@ -20,20 +20,6 @@ interface PlanejadorKanbanProps {
   labels?: PlanejadorLabel[];
   allLabelAssignments?: PlanejadorLabelAssignment[];
   participantTaskIds?: string[];
-}
-
-function getDeadlineForColumn(column: KanbanColumn): string | null {
-  const now = new Date();
-  switch (column) {
-    case 'hoje': return setHours(now, 18).toISOString();
-    case 'esta_semana': return endOfWeek(now, { weekStartsOn: 1 }).toISOString();
-    case 'proxima_semana': return endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 }).toISOString();
-    case 'duas_semanas': return endOfWeek(addWeeks(now, 2), { weekStartsOn: 1 }).toISOString();
-    case 'sem_prazo': return null;
-    case 'concluido': return null;
-    case 'vencido': return null;
-    default: return null;
-  }
 }
 
 export function PlanejadorKanban({
@@ -57,15 +43,39 @@ export function PlanejadorKanban({
     if (locked || !result.destination) return;
     const destColumn = result.destination.droppableId as KanbanColumn;
     const taskId = result.draggableId;
+    const now = new Date();
     const updates: Partial<PlanejadorTask> = {};
-    if (destColumn === 'concluido') {
-      updates.status = 'completed';
-    } else {
-      updates.status = 'pending';
-      const newDeadline = getDeadlineForColumn(destColumn);
-      if (destColumn === 'sem_prazo') updates.prazo = null;
-      else if (newDeadline) updates.prazo = newDeadline;
+
+    switch (destColumn) {
+      case 'concluido':
+        updates.status = 'completed';
+        break;
+      case 'vencido':
+        updates.status = 'pending';
+        updates.prazo = subDays(startOfDay(now), 1).toISOString();
+        break;
+      case 'hoje':
+        updates.status = 'pending';
+        updates.prazo = setHours(startOfDay(now), 18).toISOString();
+        break;
+      case 'esta_semana':
+        updates.status = 'pending';
+        updates.prazo = endOfWeek(now, { weekStartsOn: 1 }).toISOString();
+        break;
+      case 'proxima_semana':
+        updates.status = 'pending';
+        updates.prazo = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 }).toISOString();
+        break;
+      case 'duas_semanas':
+        updates.status = 'pending';
+        updates.prazo = endOfWeek(addWeeks(now, 2), { weekStartsOn: 1 }).toISOString();
+        break;
+      case 'sem_prazo':
+        updates.status = 'pending';
+        updates.prazo = null;
+        break;
     }
+
     onMoveTask(taskId, updates);
   };
 
@@ -106,7 +116,7 @@ export function PlanejadorKanban({
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <div className="flex gap-4 overflow-x-auto pb-4 h-full min-h-0">
+      <div className="flex gap-4 pb-4 h-full min-h-0" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
         {columns.map((col) => {
           const tasks = filterTasks(tasksByColumn[col.id] || []);
           return (
@@ -121,35 +131,37 @@ export function PlanejadorKanban({
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className={`flex-1 min-h-[200px] rounded-xl p-2 space-y-2 transition-colors overflow-y-auto ${
+                    className={`flex-1 min-h-[200px] rounded-xl p-2 transition-colors ${
                       snapshot.isDraggingOver ? colDragOver : colBg
                     }`}
                   >
-                    {tasks.map((task, index) => (
-                      <Draggable key={task.id} draggableId={task.id} index={index} isDragDisabled={locked}>
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            className={snapshot.isDragging ? 'opacity-90 rotate-1' : ''}
-                          >
-                            <PlanejadorTaskCard
-                              task={task}
-                              onClick={() => onTaskClick(task)}
-                              labels={labels}
-                              labelAssignments={allLabelAssignments}
-                            />
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                    {tasks.length === 0 && !snapshot.isDraggingOver && (
-                      <div className={`flex items-center justify-center h-20 text-xs ${textEmpty}`}>
-                        Nenhuma tarefa
-                      </div>
-                    )}
+                    <div className="space-y-2 overflow-y-auto h-full">
+                      {tasks.map((task, index) => (
+                        <Draggable key={task.id} draggableId={task.id} index={index} isDragDisabled={locked}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className={snapshot.isDragging ? 'opacity-90 rotate-1' : ''}
+                            >
+                              <PlanejadorTaskCard
+                                task={task}
+                                onClick={() => onTaskClick(task)}
+                                labels={labels}
+                                labelAssignments={allLabelAssignments}
+                              />
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                      {tasks.length === 0 && !snapshot.isDraggingOver && (
+                        <div className={`flex items-center justify-center h-20 text-xs ${textEmpty}`}>
+                          Nenhuma tarefa
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </Droppable>
