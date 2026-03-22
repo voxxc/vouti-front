@@ -950,6 +950,20 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
           tenantId={tenantId}
         />
       )}
+
+      {/* Client Info Dialog */}
+      <Dialog open={clienteInfoOpen} onOpenChange={setClienteInfoOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Dados Cadastrais do Cliente</DialogTitle>
+          </DialogHeader>
+          {clienteCompleto ? (
+            <ClienteDetails cliente={clienteCompleto} onEdit={() => {}} readOnly />
+          ) : (
+            <p className="text-sm text-muted-foreground py-4">Carregando dados...</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
