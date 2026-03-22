@@ -101,6 +101,13 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
     if (!notification.is_read) {
       await markAsRead(notification.id);
     }
+
+    // Planejador chat message → open planejador task
+    if (notification.type === 'planejador_chat_message' && notification.related_task_id && onPlanejadorTaskNavigation) {
+      onPlanejadorTaskNavigation(notification.related_task_id);
+      setIsOpen(false);
+      return;
+    }
     
     // Deadline notifications (assigned/tagged) → open deadline detail
     if ((notification.type === 'deadline_assigned' || notification.type === 'deadline_tagged') 
