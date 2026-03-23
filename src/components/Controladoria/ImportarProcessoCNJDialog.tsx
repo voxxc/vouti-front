@@ -99,7 +99,8 @@ export const ImportarProcessoCNJDialog = ({
         numeroCnj: cnjParaImportar,
         oabId: oab.id,
         tenantId,
-        userId: user?.id
+        userId: user?.id,
+        ...(apartadoFlag && { apartado: true, sufixoApartado: sufixo })
       }
     }).then(({ data, error }) => {
       if (error || !data?.success) {
