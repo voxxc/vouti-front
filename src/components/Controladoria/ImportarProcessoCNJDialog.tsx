@@ -311,6 +311,33 @@ export const ImportarProcessoCNJDialog = ({
                 Formato: NNNNNNN-DD.AAAA.J.TR.OOOO (20 dígitos)
               </p>
             </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="processo-apartado"
+                checked={isApartado}
+                onCheckedChange={(checked) => setIsApartado(checked === true)}
+              />
+              <Label htmlFor="processo-apartado" className="text-sm font-normal cursor-pointer">
+                Processo apartado
+              </Label>
+            </div>
+
+            {isApartado && (
+              <div className="space-y-2">
+                <Label htmlFor="sufixo-apartado">Sufixo do apartado</Label>
+                <Input
+                  id="sufixo-apartado"
+                  placeholder="Ex: /50000, /393939202"
+                  value={sufixoApartado}
+                  onChange={(e) => setSufixoApartado(e.target.value)}
+                  className="font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Informe o sufixo completo (ex: /50000). Será concatenado ao CNJ na busca.
+                </p>
+              </div>
+            )}
           </TabsContent>
 
           {/* Modo Em Massa */}
