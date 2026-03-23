@@ -57,6 +57,8 @@ export const ImportarProcessoCNJDialog = ({
   
   // Modo único
   const [numeroCnj, setNumeroCnj] = useState('');
+  const [isApartado, setIsApartado] = useState(false);
+  const [sufixoApartado, setSufixoApartado] = useState('');
 
   // Modo em massa
   const [cnjList, setCnjList] = useState<string[]>([]);
