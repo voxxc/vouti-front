@@ -1,34 +1,18 @@
 
 
-# Adicionar paginação nas abas de OAB individual
+# Fix: Processo apartado sendo detectado como duplicado
 
 ## Problema
-Nas abas de OAB individual (ex: Andriola na Solvenza), todos os processos carregam de uma vez. Com muitos processos, a lista fica enorme. A aba Geral já tem controle de 20 por página.
+A verificação de duplicidade (linha 41-50 da edge function) compara apenas o `numero_cnj` base, sem considerar o sufixo do apartado. Assim, ao tentar importar `0000000-00.0000.0.00.0000/50000`, o sistema encontra o processo base `0000000-00.0000.0.00.0000` e bloqueia como duplicado.
 
 ## Solução
-Adicionar paginação client-side no `OABTab.tsx`, aplicada sobre os `processosFiltrados` antes do agrupamento por instância. Reutilizar o mesmo componente `PaginationControls` da GeralTab.
 
-## Alterações
+### `supabase/functions/judit-buscar-processo-cnj/index.ts`
 
-### 1. `src/components/Controladoria/OABTab.tsx`
+- Na verificação de duplicidade (linha 41-46), quando `apartado === true`, usar o CNJ com sufixo na comparação
+- Ao salvar o processo no banco, armazenar o `numero_cnj` com sufixo (ex: `0000000-00.0000.0.00.0000/50000`) para que fique diferenciado do processo base
+- Construir: `const cnjParaSalvar = apartado && sufixoApartado ? numeroCnj + sufixoApartado : numeroCnj`
+- Usar `cnjParaSalvar` tanto na verificação de duplicidade quanto no INSERT do processo
 
-- Adicionar constante `PAGE_SIZE = 20`
-- Adicionar estado `page` (number, default 0)
-- Após calcular `processosFiltrados`, criar `processosPaginados` com slice de `page * PAGE_SIZE` a `(page+1) * PAGE_SIZE`
-- Resetar `page` para 0 quando `filtroUF` ou `termoBusca` mudar
-- Usar `processosPaginados` no `agruparPorInstancia` em vez de `processosFiltrados`
-- Adicionar componente `PaginationControls` (mesmo padrão da GeralTab) abaixo da lista de processos
-- Importar `ChevronLeft`, `ChevronRight` do lucide-react
-
-### Fluxo de dados
-```text
-processos (todos)
-  → processosFiltrados (filtro UF + busca)
-    → processosPaginados (slice de 20)
-      → processosAgrupados (por instância)
-```
-
-| Arquivo | Mudança |
-|---------|---------|
-| `src/components/Controladoria/OABTab.tsx` | Adicionar paginação client-side com 20 itens por página |
+Isso garante que o processo base e o apartado coexistam no banco com CNJs distintos.
 
