@@ -105,7 +105,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
     return () => window.removeEventListener('keydown', handleEsc, true);
   }, [onClose, participantsOpen, editPrazoOpen]);
 
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const { tenantId } = useTenantId();
   const status = STATUS_MAP[task.status] || STATUS_MAP.pending;
 
