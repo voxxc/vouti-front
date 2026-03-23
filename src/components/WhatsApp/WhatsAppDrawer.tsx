@@ -13,6 +13,7 @@ import { WhatsAppHelp } from "./sections/WhatsAppHelp";
 import { WhatsAppLabelConversations } from "./sections/WhatsAppLabelConversations";
 import { WhatsAppProjects } from "./sections/WhatsAppProjects";
 import { AgendaContent } from "@/components/Agenda/AgendaContent";
+import { PlanejadorDrawer } from "@/components/Planejador/PlanejadorDrawer";
 
 // Settings sections
 import { WhatsAppAccountSettings } from "./settings/WhatsAppAccountSettings";
