@@ -502,7 +502,18 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
     return resultado;
   }, [processos, filtroUF, compartilhadosMap, termoBusca]);
 
-  const processosAgrupados = useMemo(() => agruparPorInstancia(processosFiltrados), [processosFiltrados]);
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(0);
+  }, [filtroUF, termoBusca]);
+
+  const totalPages = Math.ceil(processosFiltrados.length / PAGE_SIZE);
+  const processosPaginados = useMemo(() => {
+    const from = page * PAGE_SIZE;
+    return processosFiltrados.slice(from, from + PAGE_SIZE);
+  }, [processosFiltrados, page, PAGE_SIZE]);
+
+  const processosAgrupados = useMemo(() => agruparPorInstancia(processosPaginados), [processosPaginados]);
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
