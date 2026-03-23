@@ -344,7 +344,7 @@ serve(async (req) => {
       parte_passiva: partePassiva,
       tribunal: tribunal,
       tribunal_sigla: tribunalSigla,
-      capa_completa: responseData,
+      capa_completa: apartado ? { ...responseData, apartado: true, sufixo: sufixoApartado } : responseData,
       detalhes_completos: responseData,
       detalhes_carregados: true,
       detalhes_request_id: requestId,
