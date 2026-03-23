@@ -70,7 +70,7 @@ serve(async (req) => {
     const requestPayload = {
       search: {
         search_type: 'lawsuit_cnj',
-        search_key: numeroLimpo,
+        search_key: searchKey,
         on_demand: true
       },
       ...(customerKey && { credential: { customer_key: customerKey } })
