@@ -392,6 +392,8 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
   const [processoParaExcluir, setProcessoParaExcluir] = useState<ProcessoOAB | null>(null);
   const [excluindo, setExcluindo] = useState(false);
   const [termoBusca, setTermoBusca] = useState<string>('');
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 20;
 
   // Buscar processos compartilhados (CNJs que aparecem em multiplas OABs)
   useEffect(() => {
