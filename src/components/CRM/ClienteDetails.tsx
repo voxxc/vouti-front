@@ -13,6 +13,7 @@ interface ClienteDetailsProps {
   cliente: Cliente;
   onEdit: () => void;
   readOnly?: boolean;
+  hideFinancialData?: boolean;
 }
 
 // Helper component for consistent row display
@@ -30,7 +31,7 @@ const InfoRow = ({ label, value }: { label: string; value?: string | React.React
   );
 };
 
-export const ClienteDetails = ({ cliente, onEdit, readOnly = false }: ClienteDetailsProps) => {
+export const ClienteDetails = ({ cliente, onEdit, readOnly = false, hideFinancialData = false }: ClienteDetailsProps) => {
   const [activeTab, setActiveTab] = useState<'info' | 'documentos'>('info');
 
   const formatCurrency = (value?: number) => {
@@ -163,7 +164,7 @@ export const ClienteDetails = ({ cliente, onEdit, readOnly = false }: ClienteDet
           <InfoRow label="Proveito Econômico" value={cliente.proveito_economico ? `${cliente.proveito_economico}%` : null} />
 
           {/* Contrato */}
-          {hasContractData && (
+          {hasContractData && !hideFinancialData && (
             <>
               <Separator className="my-4" />
               <InfoRow label="Data de Fechamento" value={formatDate(cliente.data_fechamento)} />

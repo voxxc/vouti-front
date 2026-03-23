@@ -105,7 +105,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
     return () => window.removeEventListener('keydown', handleEsc, true);
   }, [onClose, participantsOpen, editPrazoOpen]);
 
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const { tenantId } = useTenantId();
   const status = STATUS_MAP[task.status] || STATUS_MAP.pending;
 
@@ -971,7 +971,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
             <DialogTitle>Dados Cadastrais do Cliente</DialogTitle>
           </DialogHeader>
           {clienteCompleto ? (
-            <ClienteDetails cliente={clienteCompleto} onEdit={() => {}} readOnly />
+            <ClienteDetails cliente={clienteCompleto} onEdit={() => {}} readOnly hideFinancialData={userRole !== 'admin'} />
           ) : (
             <p className="text-sm text-muted-foreground py-4">Carregando dados...</p>
           )}
