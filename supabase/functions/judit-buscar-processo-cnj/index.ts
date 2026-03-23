@@ -198,7 +198,7 @@ serve(async (req) => {
         parte_passiva: '',
         tribunal: '',
         tribunal_sigla: '',
-        capa_completa: { sigilo: true, request_id: requestId },
+        capa_completa: { sigilo: true, request_id: requestId, ...(apartado && { apartado: true, sufixo: sufixoApartado }) },
         detalhes_completos: null,
         detalhes_carregados: false,
         detalhes_request_id: requestId,
