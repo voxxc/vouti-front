@@ -10,6 +10,8 @@ import {
   BookUp,
   FileQuestion,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Link2,
   AlertTriangle,
   Filter,
