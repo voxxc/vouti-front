@@ -35,14 +35,17 @@ serve(async (req) => {
       console.log('[Judit Import CNJ] Processo apartado - sufixo:', sufixoApartado, '- search_key:', searchKey);
     }
     
-    console.log('[Judit Import CNJ] Buscando processo:', searchKey);
+    // CNJ para salvar no banco (com sufixo se apartado)
+    const cnjParaSalvar = apartado && sufixoApartado ? numeroCnj + sufixoApartado : numeroCnj;
+    
+    console.log('[Judit Import CNJ] Buscando processo:', searchKey, '- CNJ para salvar:', cnjParaSalvar);
 
-    // Verificar se processo ja existe para esta OAB
+    // Verificar se processo ja existe para esta OAB (usando CNJ com sufixo se apartado)
     const { data: existente } = await supabase
       .from('processos_oab')
       .select('id')
       .eq('oab_id', oabId)
-      .eq('numero_cnj', numeroCnj)
+      .eq('numero_cnj', cnjParaSalvar)
       .maybeSingle();
 
     if (existente) {
