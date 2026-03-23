@@ -10,6 +10,7 @@ import { WhatsAppCampaigns } from "./sections/WhatsAppCampaigns";
 import { WhatsAppHelp } from "./sections/WhatsAppHelp";
 import { WhatsAppProjects } from "./sections/WhatsAppProjects";
 import { AgendaContent } from "@/components/Agenda/AgendaContent";
+import { PlanejadorDrawer } from "@/components/Planejador/PlanejadorDrawer";
 
 // Settings sections
 import { WhatsAppAccountSettings } from "./settings/WhatsAppAccountSettings";
