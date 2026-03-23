@@ -78,9 +78,13 @@ export const ImportarProcessoCNJDialog = ({
 
     // Salvar dados antes de fechar
     const cnjParaImportar = numeroCnj;
+    const apartadoFlag = isApartado;
+    const sufixo = sufixoApartado;
 
     // Fechar dialog imediatamente
     setNumeroCnj('');
+    setIsApartado(false);
+    setSufixoApartado('');
     onOpenChange(false);
 
     // Notificar início
