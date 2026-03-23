@@ -27,12 +27,11 @@ serve(async (req) => {
     // Limpar numero do processo (apenas digitos)
     const numeroLimpo = numeroCnj.replace(/\D/g, '');
     
-    // Se apartado, concatenar sufixo (apenas dígitos) ao search_key
+    // Para apartado, o search_key é sempre o CNJ base (20 dígitos)
+    // O sufixo é usado apenas para diferenciar no banco de dados
     let searchKey = numeroLimpo;
     if (apartado && sufixoApartado) {
-      const sufixoLimpo = sufixoApartado.replace(/\D/g, '');
-      searchKey = numeroLimpo + '/' + sufixoLimpo;
-      console.log('[Judit Import CNJ] Processo apartado - sufixo:', sufixoApartado, '- search_key:', searchKey);
+      console.log('[Judit Import CNJ] Processo apartado - sufixo:', sufixoApartado, '- search_key (CNJ base):', searchKey);
     }
     
     // CNJ para salvar no banco (com sufixo se apartado)
