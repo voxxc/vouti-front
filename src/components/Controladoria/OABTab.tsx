@@ -776,6 +776,38 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
           )}
           </div>
         </DragDropContext>
+
+        {/* Paginação */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-4 border-t">
+            <span className="text-sm text-muted-foreground">
+              Mostrando {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, processosFiltrados.length)} de {processosFiltrados.length}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Anterior
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {page + 1} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+              >
+                Próxima
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Drawer de Detalhes */}
