@@ -1,36 +1,26 @@
 
 
-# Corrigir drag-and-drop entre colunas do Kanban
+# Restringir dados financeiros do cliente no Planejador por role
 
 ## Problema
-
-Dois bugs distintos:
-
-1. **Coluna "Vencido" não aceita drop corretamente**: `getDeadlineForColumn('vencido')` retorna `null`, e como não é `sem_prazo` nem `concluido`, a condição `else if (newDeadline)` falha — nenhum `prazo` é atualizado. O card volta para a posição original após o refetch.
-
-2. **Nested scroll containers**: O container pai tem `overflow-x-auto` e cada coluna Droppable tem `overflow-y-auto`, criando scroll aninhado que o `@hello-pangea/dnd` não suporta. Isso pode causar falhas no cálculo de posição durante o drag.
+Ao visualizar dados cadastrais de um cliente vinculado a uma tarefa no Planejador, todos os usuários veem informações financeiras (valor do contrato, forma de pagamento, parcelas, vendedor). Apenas admin deveria ver esses dados.
 
 ## Solução
 
-### 1. Corrigir lógica de `handleDragEnd` (`PlanejadorKanban.tsx`)
+### 1. Adicionar prop `hideFinancialData` ao `ClienteDetails` (`src/components/CRM/ClienteDetails.tsx`)
 
-Reescrever para que **todas** as colunas apliquem o prazo corretamente:
+- Nova prop opcional `hideFinancialData?: boolean`
+- Quando `true`, ocultar a seção "Contrato" inteira (linhas 166-203): data de fechamento, valor do contrato, forma de pagamento, parcelas, valor entrada, vendedor
 
-- `vencido`: definir prazo para ontem (manter na coluna vencido)
-- `hoje`: hoje às 18h
-- `esta_semana` / `proxima_semana` / `duas_semanas`: fim da semana respectiva
-- `sem_prazo`: prazo = null
-- `concluido`: status = completed (manter prazo existente)
+### 2. Passar a prop no `PlanejadorTaskDetail` (`src/components/Planejador/PlanejadorTaskDetail.tsx`)
 
-Simplificar a lógica removendo o `getDeadlineForColumn` e usando a deadline diretamente no `handleDragEnd`.
+- Usar `useAuth()` que já está importado para obter `userRole`
+- Na linha 974 onde renderiza `<ClienteDetails>`, passar `hideFinancialData={userRole !== 'admin'}`
 
-### 2. Eliminar nested scroll (`PlanejadorKanban.tsx`)
-
-Remover `overflow-y-auto` das colunas Droppable (ou remover `overflow-x-auto` do pai e usar uma abordagem diferente para scroll horizontal). A solução mais simples: mover o `overflow-y-auto` para um wrapper **dentro** do Droppable mas **fora** da ref do Droppable, ou usar `overflow-y: visible` no Droppable.
-
-## Arquivo modificado
+## Arquivos modificados
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/components/Planejador/PlanejadorKanban.tsx` | Corrigir lógica de prazo para coluna "vencido"; resolver nested scroll |
+| `src/components/CRM/ClienteDetails.tsx` | Adicionar prop `hideFinancialData`, condicionar seção Contrato |
+| `src/components/Planejador/PlanejadorTaskDetail.tsx` | Passar `hideFinancialData` baseado no `userRole` |
 
