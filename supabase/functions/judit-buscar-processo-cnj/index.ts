@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { numeroCnj, oabId, tenantId, userId } = await req.json();
+    const { numeroCnj, oabId, tenantId, userId, apartado, sufixoApartado } = await req.json();
     
     if (!numeroCnj || !oabId) {
       throw new Error('numeroCnj e oabId sao obrigatorios');
@@ -27,7 +27,15 @@ serve(async (req) => {
     // Limpar numero do processo (apenas digitos)
     const numeroLimpo = numeroCnj.replace(/\D/g, '');
     
-    console.log('[Judit Import CNJ] Buscando processo:', numeroLimpo);
+    // Se apartado, concatenar sufixo (apenas dígitos) ao search_key
+    let searchKey = numeroLimpo;
+    if (apartado && sufixoApartado) {
+      const sufixoLimpo = sufixoApartado.replace(/\D/g, '');
+      searchKey = numeroLimpo + sufixoLimpo;
+      console.log('[Judit Import CNJ] Processo apartado - sufixo:', sufixoApartado, '- search_key:', searchKey);
+    }
+    
+    console.log('[Judit Import CNJ] Buscando processo:', searchKey);
 
     // Verificar se processo ja existe para esta OAB
     const { data: existente } = await supabase
