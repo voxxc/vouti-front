@@ -13,6 +13,7 @@ interface ClienteDetailsProps {
   cliente: Cliente;
   onEdit: () => void;
   readOnly?: boolean;
+  hideFinancialData?: boolean;
 }
 
 // Helper component for consistent row display
