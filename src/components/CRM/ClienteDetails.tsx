@@ -31,7 +31,7 @@ const InfoRow = ({ label, value }: { label: string; value?: string | React.React
   );
 };
 
-export const ClienteDetails = ({ cliente, onEdit, readOnly = false }: ClienteDetailsProps) => {
+export const ClienteDetails = ({ cliente, onEdit, readOnly = false, hideFinancialData = false }: ClienteDetailsProps) => {
   const [activeTab, setActiveTab] = useState<'info' | 'documentos'>('info');
 
   const formatCurrency = (value?: number) => {
