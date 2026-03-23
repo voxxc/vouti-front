@@ -164,7 +164,7 @@ export const ClienteDetails = ({ cliente, onEdit, readOnly = false, hideFinancia
           <InfoRow label="Proveito Econômico" value={cliente.proveito_economico ? `${cliente.proveito_economico}%` : null} />
 
           {/* Contrato */}
-          {hasContractData && (
+          {hasContractData && !hideFinancialData && (
             <>
               <Separator className="my-4" />
               <InfoRow label="Data de Fechamento" value={formatDate(cliente.data_fechamento)} />
