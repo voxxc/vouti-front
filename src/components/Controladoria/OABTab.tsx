@@ -10,6 +10,8 @@ import {
   BookUp,
   FileQuestion,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Link2,
   AlertTriangle,
   Filter,
@@ -390,6 +392,8 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
   const [processoParaExcluir, setProcessoParaExcluir] = useState<ProcessoOAB | null>(null);
   const [excluindo, setExcluindo] = useState(false);
   const [termoBusca, setTermoBusca] = useState<string>('');
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 20;
 
   // Buscar processos compartilhados (CNJs que aparecem em multiplas OABs)
   useEffect(() => {
@@ -498,7 +502,18 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
     return resultado;
   }, [processos, filtroUF, compartilhadosMap, termoBusca]);
 
-  const processosAgrupados = useMemo(() => agruparPorInstancia(processosFiltrados), [processosFiltrados]);
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(0);
+  }, [filtroUF, termoBusca]);
+
+  const totalPages = Math.ceil(processosFiltrados.length / PAGE_SIZE);
+  const processosPaginados = useMemo(() => {
+    const from = page * PAGE_SIZE;
+    return processosFiltrados.slice(from, from + PAGE_SIZE);
+  }, [processosFiltrados, page, PAGE_SIZE]);
+
+  const processosAgrupados = useMemo(() => agruparPorInstancia(processosPaginados), [processosPaginados]);
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -761,6 +776,38 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
           )}
           </div>
         </DragDropContext>
+
+        {/* Paginação */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-4 border-t">
+            <span className="text-sm text-muted-foreground">
+              Mostrando {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, processosFiltrados.length)} de {processosFiltrados.length}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Anterior
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {page + 1} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+              >
+                Próxima
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Drawer de Detalhes */}
