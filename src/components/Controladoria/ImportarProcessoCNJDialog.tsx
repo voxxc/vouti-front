@@ -262,6 +262,8 @@ export const ImportarProcessoCNJDialog = ({
 
   const handleClose = () => {
     setNumeroCnj('');
+    setIsApartado(false);
+    setSufixoApartado('');
     setCnjList([]);
     setNovoCnj('');
     setMode('single');
