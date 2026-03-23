@@ -1,34 +1,34 @@
 
 
-# Adicionar "Processo Apartado" na importação de CNJ único
+# Adicionar paginação nas abas de OAB individual
 
-## Resumo
+## Problema
+Nas abas de OAB individual (ex: Andriola na Solvenza), todos os processos carregam de uma vez. Com muitos processos, a lista fica enorme. A aba Geral já tem controle de 20 por página.
 
-Na aba "Único" do dialog de importação por CNJ, adicionar um checkbox "Processo apartado". Quando marcado, exibe um campo de texto para o usuário digitar o sufixo (ex: `/50000`, `/393939202`). O CNJ enviado à API Judit será o número original + sufixo. O processo é salvo e monitorável normalmente.
+## Solução
+Adicionar paginação client-side no `OABTab.tsx`, aplicada sobre os `processosFiltrados` antes do agrupamento por instância. Reutilizar o mesmo componente `PaginationControls` da GeralTab.
 
 ## Alterações
 
-### 1. Frontend — `src/components/Controladoria/ImportarProcessoCNJDialog.tsx`
+### 1. `src/components/Controladoria/OABTab.tsx`
 
-- Adicionar estado `isApartado` (boolean) e `sufixoApartado` (string)
-- Na tab "single", após o campo CNJ, renderizar:
-  - Checkbox "Processo apartado" com label explicativo
-  - Quando marcado, exibir Input para o sufixo (ex: `/50000`) — campo livre, sem validação de formato rígido
-- No `handleImportar`, montar o CNJ final: se apartado, concatenar `numeroCnj` (só dígitos) + sufixo (só dígitos) antes de enviar
-- Passar flag `apartado: true` e `sufixoApartado` no body da chamada à edge function
-- Resetar estados no `handleClose`
+- Adicionar constante `PAGE_SIZE = 20`
+- Adicionar estado `page` (number, default 0)
+- Após calcular `processosFiltrados`, criar `processosPaginados` com slice de `page * PAGE_SIZE` a `(page+1) * PAGE_SIZE`
+- Resetar `page` para 0 quando `filtroUF` ou `termoBusca` mudar
+- Usar `processosPaginados` no `agruparPorInstancia` em vez de `processosFiltrados`
+- Adicionar componente `PaginationControls` (mesmo padrão da GeralTab) abaixo da lista de processos
+- Importar `ChevronLeft`, `ChevronRight` do lucide-react
 
-### 2. Backend — `supabase/functions/judit-buscar-processo-cnj/index.ts`
-
-- Receber campos opcionais `apartado` e `sufixoApartado` do body
-- Se `apartado === true`, construir `search_key` como `numeroLimpo + sufixoLimpo` (apenas dígitos do sufixo)
-- Salvar o `numero_cnj` original (formatado) no banco, mas armazenar o sufixo em `capa_completa` como metadata (`apartado: true, sufixo: "..."`)
-- Todo o fluxo de polling, parsing de partes, andamentos e monitoramento permanece igual
-
-## Arquivos modificados
+### Fluxo de dados
+```text
+processos (todos)
+  → processosFiltrados (filtro UF + busca)
+    → processosPaginados (slice de 20)
+      → processosAgrupados (por instância)
+```
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/components/Controladoria/ImportarProcessoCNJDialog.tsx` | Checkbox + campo sufixo na tab single |
-| `supabase/functions/judit-buscar-processo-cnj/index.ts` | Aceitar sufixo apartado e concatenar no search_key |
+| `src/components/Controladoria/OABTab.tsx` | Adicionar paginação client-side com 20 itens por página |
 
