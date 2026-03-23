@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -56,6 +57,8 @@ export const ImportarProcessoCNJDialog = ({
   
   // Modo único
   const [numeroCnj, setNumeroCnj] = useState('');
+  const [isApartado, setIsApartado] = useState(false);
+  const [sufixoApartado, setSufixoApartado] = useState('');
 
   // Modo em massa
   const [cnjList, setCnjList] = useState<string[]>([]);
@@ -75,9 +78,13 @@ export const ImportarProcessoCNJDialog = ({
 
     // Salvar dados antes de fechar
     const cnjParaImportar = numeroCnj;
+    const apartadoFlag = isApartado;
+    const sufixo = sufixoApartado;
 
     // Fechar dialog imediatamente
     setNumeroCnj('');
+    setIsApartado(false);
+    setSufixoApartado('');
     onOpenChange(false);
 
     // Notificar início
@@ -92,7 +99,8 @@ export const ImportarProcessoCNJDialog = ({
         numeroCnj: cnjParaImportar,
         oabId: oab.id,
         tenantId,
-        userId: user?.id
+        userId: user?.id,
+        ...(apartadoFlag && { apartado: true, sufixoApartado: sufixo })
       }
     }).then(({ data, error }) => {
       if (error || !data?.success) {
@@ -254,6 +262,8 @@ export const ImportarProcessoCNJDialog = ({
 
   const handleClose = () => {
     setNumeroCnj('');
+    setIsApartado(false);
+    setSufixoApartado('');
     setCnjList([]);
     setNovoCnj('');
     setMode('single');
@@ -301,6 +311,33 @@ export const ImportarProcessoCNJDialog = ({
                 Formato: NNNNNNN-DD.AAAA.J.TR.OOOO (20 dígitos)
               </p>
             </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="processo-apartado"
+                checked={isApartado}
+                onCheckedChange={(checked) => setIsApartado(checked === true)}
+              />
+              <Label htmlFor="processo-apartado" className="text-sm font-normal cursor-pointer">
+                Processo apartado
+              </Label>
+            </div>
+
+            {isApartado && (
+              <div className="space-y-2">
+                <Label htmlFor="sufixo-apartado">Sufixo do apartado</Label>
+                <Input
+                  id="sufixo-apartado"
+                  placeholder="Ex: /50000, /393939202"
+                  value={sufixoApartado}
+                  onChange={(e) => setSufixoApartado(e.target.value)}
+                  className="font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Informe o sufixo completo (ex: /50000). Será concatenado ao CNJ na busca.
+                </p>
+              </div>
+            )}
           </TabsContent>
 
           {/* Modo Em Massa */}

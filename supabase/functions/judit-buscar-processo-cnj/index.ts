@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { numeroCnj, oabId, tenantId, userId } = await req.json();
+    const { numeroCnj, oabId, tenantId, userId, apartado, sufixoApartado } = await req.json();
     
     if (!numeroCnj || !oabId) {
       throw new Error('numeroCnj e oabId sao obrigatorios');
@@ -27,7 +27,15 @@ serve(async (req) => {
     // Limpar numero do processo (apenas digitos)
     const numeroLimpo = numeroCnj.replace(/\D/g, '');
     
-    console.log('[Judit Import CNJ] Buscando processo:', numeroLimpo);
+    // Se apartado, concatenar sufixo (apenas dígitos) ao search_key
+    let searchKey = numeroLimpo;
+    if (apartado && sufixoApartado) {
+      const sufixoLimpo = sufixoApartado.replace(/\D/g, '');
+      searchKey = numeroLimpo + sufixoLimpo;
+      console.log('[Judit Import CNJ] Processo apartado - sufixo:', sufixoApartado, '- search_key:', searchKey);
+    }
+    
+    console.log('[Judit Import CNJ] Buscando processo:', searchKey);
 
     // Verificar se processo ja existe para esta OAB
     const { data: existente } = await supabase
@@ -62,7 +70,7 @@ serve(async (req) => {
     const requestPayload = {
       search: {
         search_type: 'lawsuit_cnj',
-        search_key: numeroLimpo,
+        search_key: searchKey,
         on_demand: true
       },
       ...(customerKey && { credential: { customer_key: customerKey } })
@@ -190,7 +198,7 @@ serve(async (req) => {
         parte_passiva: '',
         tribunal: '',
         tribunal_sigla: '',
-        capa_completa: { sigilo: true, request_id: requestId },
+        capa_completa: { sigilo: true, request_id: requestId, ...(apartado && { apartado: true, sufixo: sufixoApartado }) },
         detalhes_completos: null,
         detalhes_carregados: false,
         detalhes_request_id: requestId,
@@ -336,7 +344,7 @@ serve(async (req) => {
       parte_passiva: partePassiva,
       tribunal: tribunal,
       tribunal_sigla: tribunalSigla,
-      capa_completa: responseData,
+      capa_completa: apartado ? { ...responseData, apartado: true, sufixo: sufixoApartado } : responseData,
       detalhes_completos: responseData,
       detalhes_carregados: true,
       detalhes_request_id: requestId,
