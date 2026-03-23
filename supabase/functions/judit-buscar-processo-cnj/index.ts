@@ -31,7 +31,7 @@ serve(async (req) => {
     let searchKey = numeroLimpo;
     if (apartado && sufixoApartado) {
       const sufixoLimpo = sufixoApartado.replace(/\D/g, '');
-      searchKey = numeroLimpo + sufixoLimpo;
+      searchKey = numeroLimpo + '/' + sufixoLimpo;
       console.log('[Judit Import CNJ] Processo apartado - sufixo:', sufixoApartado, '- search_key:', searchKey);
     }
     
