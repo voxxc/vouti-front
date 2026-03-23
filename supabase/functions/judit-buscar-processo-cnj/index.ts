@@ -196,7 +196,7 @@ serve(async (req) => {
       const novoProcessoMinimo = {
         oab_id: oabId,
         tenant_id: tenantId || null,
-        numero_cnj: numeroCnj,
+        numero_cnj: cnjParaSalvar,
         parte_ativa: '(Processo em sigilo ou dados indisponíveis)',
         parte_passiva: '',
         tribunal: '',
