@@ -145,6 +145,7 @@ export const WhatsAppLayout = () => {
         </main>
       </div>
       <WhatsAppProjects open={projectsDrawerOpen} onOpenChange={setProjectsDrawerOpen} sidebarCollapsed={sidebarCollapsed} />
+      <PlanejadorDrawer open={activeSection === "planejador"} onOpenChange={() => setActiveSection("inbox")} />
     </div>
   );
 };

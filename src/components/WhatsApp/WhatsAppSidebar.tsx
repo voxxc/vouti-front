@@ -265,6 +265,21 @@ export const WhatsAppSidebar = ({
             {!collapsed && <span className="text-sm">Agenda</span>}
           </Button>
 
+          {/* Planejador */}
+          <Button
+            variant={activeSection === "planejador" ? "secondary" : "ghost"}
+            className={cn(
+              "w-full h-10",
+              collapsed ? "justify-center px-0" : "justify-start gap-3",
+              activeSection === "planejador" && "bg-primary/10 text-primary"
+            )}
+            onClick={() => onSectionChange("planejador")}
+            title={collapsed ? "Planejador" : undefined}
+          >
+            <LayoutGrid className="h-4 w-4 shrink-0" />
+            {!collapsed && <span className="text-sm">Planejador</span>}
+          </Button>
+
           {/* Caixa de Entrada */}
           <Button
             variant={activeSection === "inbox" ? "secondary" : "ghost"}

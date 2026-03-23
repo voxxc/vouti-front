@@ -204,6 +204,7 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
         </div>
 
         <WhatsAppProjects open={projectsDrawerOpen} onOpenChange={setProjectsDrawerOpen} />
+        <PlanejadorDrawer open={planejadorOpen} onOpenChange={() => setActiveSection("inbox")} />
       </SheetContent>
     </Sheet>
   );
