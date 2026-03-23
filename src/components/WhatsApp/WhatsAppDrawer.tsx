@@ -13,6 +13,7 @@ import { WhatsAppHelp } from "./sections/WhatsAppHelp";
 import { WhatsAppLabelConversations } from "./sections/WhatsAppLabelConversations";
 import { WhatsAppProjects } from "./sections/WhatsAppProjects";
 import { AgendaContent } from "@/components/Agenda/AgendaContent";
+import { PlanejadorDrawer } from "@/components/Planejador/PlanejadorDrawer";
 
 // Settings sections
 import { WhatsAppAccountSettings } from "./settings/WhatsAppAccountSettings";
@@ -62,6 +63,7 @@ export type WhatsAppSection =
   | "integrations"
   | "permissions"
   | "commander"
+  | "planejador"
   | "projects";
 
 interface WhatsAppDrawerProps {
@@ -157,12 +159,16 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
         return <WhatsAppIntegrationsSettings />;
       case "permissions":
         return <WhatsAppPermissionsSettings />;
+      case "planejador":
+        return null;
       case "projects":
         return null;
       default:
         return <WhatsAppInbox />;
     }
   };
+
+  const planejadorOpen = activeSection === "planejador";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
@@ -198,6 +204,7 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
         </div>
 
         <WhatsAppProjects open={projectsDrawerOpen} onOpenChange={setProjectsDrawerOpen} />
+        <PlanejadorDrawer open={planejadorOpen} onOpenChange={() => setActiveSection("inbox")} />
       </SheetContent>
     </Sheet>
   );
