@@ -159,12 +159,16 @@ export function WhatsAppDrawer({ open, onOpenChange }: WhatsAppDrawerProps) {
         return <WhatsAppIntegrationsSettings />;
       case "permissions":
         return <WhatsAppPermissionsSettings />;
+      case "planejador":
+        return null;
       case "projects":
         return null;
       default:
         return <WhatsAppInbox />;
     }
   };
+
+  const planejadorOpen = activeSection === "planejador";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
