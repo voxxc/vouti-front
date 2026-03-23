@@ -1,26 +1,37 @@
 
 
-# Restringir dados financeiros do cliente no Planejador por role
+# Adicionar Planejador ao Vouti.CRM
 
-## Problema
-Ao visualizar dados cadastrais de um cliente vinculado a uma tarefa no Planejador, todos os usuários veem informações financeiras (valor do contrato, forma de pagamento, parcelas, vendedor). Apenas admin deveria ver esses dados.
+## Resumo
 
-## Solução
+Integrar o componente `PlanejadorDrawer` existente no CRM standalone, adicionando um botão na sidebar e renderizando o drawer quando ativado.
 
-### 1. Adicionar prop `hideFinancialData` ao `ClienteDetails` (`src/components/CRM/ClienteDetails.tsx`)
+## Alterações
 
-- Nova prop opcional `hideFinancialData?: boolean`
-- Quando `true`, ocultar a seção "Contrato" inteira (linhas 166-203): data de fechamento, valor do contrato, forma de pagamento, parcelas, valor entrada, vendedor
+### 1. Adicionar tipo "planejador" ao `WhatsAppSection` (`WhatsAppDrawer.tsx`)
 
-### 2. Passar a prop no `PlanejadorTaskDetail` (`src/components/Planejador/PlanejadorTaskDetail.tsx`)
+Adicionar `| "planejador"` ao type union, logo após `"agenda"`.
 
-- Usar `useAuth()` que já está importado para obter `userRole`
-- Na linha 974 onde renderiza `<ClienteDetails>`, passar `hideFinancialData={userRole !== 'admin'}`
+### 2. Adicionar botão na sidebar (`WhatsAppSidebar.tsx`)
+
+- Importar `LayoutGrid` do lucide-react
+- Adicionar botão "Planejador" logo após o botão "Agenda" (linha ~265), seguindo o mesmo padrão visual
+
+### 3. Renderizar PlanejadorDrawer no `WhatsAppLayout.tsx`
+
+- Importar `PlanejadorDrawer`
+- Adicionar estado `planejadorOpen` controlado por `activeSection === "planejador"`
+- Renderizar `<PlanejadorDrawer open={planejadorOpen} onOpenChange={...} />` junto aos outros drawers
+
+### 4. Renderizar PlanejadorDrawer no `WhatsAppDrawer.tsx`
+
+- Mesmo tratamento para o drawer version (usado no sistema jurídico integrado)
 
 ## Arquivos modificados
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/components/CRM/ClienteDetails.tsx` | Adicionar prop `hideFinancialData`, condicionar seção Contrato |
-| `src/components/Planejador/PlanejadorTaskDetail.tsx` | Passar `hideFinancialData` baseado no `userRole` |
+| `src/components/WhatsApp/WhatsAppDrawer.tsx` | Adicionar "planejador" ao type + renderizar drawer |
+| `src/components/WhatsApp/WhatsAppSidebar.tsx` | Importar LayoutGrid + botão Planejador |
+| `src/components/WhatsApp/WhatsAppLayout.tsx` | Importar e renderizar PlanejadorDrawer |
 
