@@ -134,6 +134,9 @@ export function ProjectProtocoloContent({
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [casoVinculadoData, setCasoVinculadoData] = useState<any | null>(null);
   const [confirmCompleteId, setConfirmCompleteId] = useState<string | null>(null);
+  const [comentarioConclusao, setComentarioConclusao] = useState('');
+  const [criarSubtarefa, setCriarSubtarefa] = useState(false);
+  const [subtarefaDescricao, setSubtarefaDescricao] = useState('');
   
   const [tarefasProcesso, setTarefasProcesso] = useState<TarefaOAB[]>([]);
   
@@ -228,22 +231,65 @@ export function ProjectProtocoloContent({
   };
 
   const toggleDeadlineCompletion = async (deadlineId: string, currentStatus: boolean) => {
-    const { error } = await supabase
-      .from('deadlines')
-      .update({ completed: !currentStatus })
-      .eq('id', deadlineId);
+    // Se está concluindo, usar campos completos de auditoria
+    if (!currentStatus) {
+      const updateData: any = {
+        completed: true,
+        comentario_conclusao: comentarioConclusao.trim() || null,
+        concluido_por: user?.id || null,
+        concluido_em: new Date().toISOString(),
+      };
 
-    if (error) {
-      toast({ title: "Erro", description: "Não foi possível atualizar o status do prazo.", variant: "destructive" });
-      return;
-    }
+      const { error } = await supabase
+        .from('deadlines')
+        .update(updateData)
+        .eq('id', deadlineId);
 
-    setPrazosVinculados(prev => prev.map(p => p.id === deadlineId ? { ...p, completed: !currentStatus } : p));
-    if (selectedDeadline?.id === deadlineId) {
-      setSelectedDeadline((prev: any) => prev ? { ...prev, completed: !currentStatus } : null);
+      if (error) {
+        toast({ title: "Erro", description: "Não foi possível concluir o prazo.", variant: "destructive" });
+        return;
+      }
+
+      // Criar subtarefa se solicitado
+      if (criarSubtarefa && subtarefaDescricao.trim()) {
+        const prazoData = prazosVinculados.find(p => p.id === deadlineId);
+        await supabase
+          .from('deadline_subtarefas')
+          .insert({
+            deadline_id: deadlineId,
+            descricao: subtarefaDescricao.trim(),
+            criado_por: user?.id || '',
+            tenant_id: prazoData?.tenant_id || null,
+          });
+      }
+
+      setPrazosVinculados(prev => prev.map(p => p.id === deadlineId ? { ...p, completed: true } : p));
+      if (selectedDeadline?.id === deadlineId) {
+        setSelectedDeadline((prev: any) => prev ? { ...prev, completed: true } : null);
+      }
+      setConfirmCompleteId(null);
+      setComentarioConclusao('');
+      setCriarSubtarefa(false);
+      setSubtarefaDescricao('');
+      toast({ title: "Prazo concluído", description: "Prazo marcado como concluído com sucesso." });
+    } else {
+      // Reabrir prazo
+      const { error } = await supabase
+        .from('deadlines')
+        .update({ completed: false, comentario_conclusao: null, concluido_por: null, concluido_em: null })
+        .eq('id', deadlineId);
+
+      if (error) {
+        toast({ title: "Erro", description: "Não foi possível reabrir o prazo.", variant: "destructive" });
+        return;
+      }
+
+      setPrazosVinculados(prev => prev.map(p => p.id === deadlineId ? { ...p, completed: false } : p));
+      if (selectedDeadline?.id === deadlineId) {
+        setSelectedDeadline((prev: any) => prev ? { ...prev, completed: false } : null);
+      }
+      toast({ title: "Prazo reaberto", description: "Prazo marcado como pendente." });
     }
-    setConfirmCompleteId(null);
-    toast({ title: "Status atualizado", description: `Prazo marcado como ${!currentStatus ? 'concluído' : 'pendente'}.` });
   };
 
   useEffect(() => {
@@ -813,25 +859,73 @@ export function ProjectProtocoloContent({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!confirmCompleteId} onOpenChange={(open) => !open && setConfirmCompleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Conclusão do Prazo</AlertDialogTitle>
-            <AlertDialogDescription>Tem certeza que deseja marcar este prazo como concluído?</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              if (confirmCompleteId) {
-                const prazo = prazosVinculados.find(p => p.id === confirmCompleteId);
-                if (prazo) toggleDeadlineCompletion(confirmCompleteId, prazo.completed);
-              }
-            }}>
-              Confirmar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={!!confirmCompleteId} onOpenChange={(open) => {
+        if (!open) {
+          setConfirmCompleteId(null);
+          setComentarioConclusao('');
+          setCriarSubtarefa(false);
+          setSubtarefaDescricao('');
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Concluir Prazo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Comentário de conclusão <span className="text-destructive">*</span></Label>
+              <Textarea
+                placeholder="Descreva o que foi feito para concluir este prazo..."
+                value={comentarioConclusao}
+                onChange={(e) => setComentarioConclusao(e.target.value)}
+                className="mt-1"
+                rows={3}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="criar-subtarefa-proto"
+                checked={criarSubtarefa}
+                onCheckedChange={(v) => setCriarSubtarefa(v === true)}
+              />
+              <Label htmlFor="criar-subtarefa-proto" className="cursor-pointer text-sm">Criar subtarefa</Label>
+            </div>
+            {criarSubtarefa && (
+              <div>
+                <Label>Descrição da subtarefa</Label>
+                <Textarea
+                  placeholder="Descreva a subtarefa..."
+                  value={subtarefaDescricao}
+                  onChange={(e) => setSubtarefaDescricao(e.target.value)}
+                  className="mt-1"
+                  rows={2}
+                />
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => {
+                setConfirmCompleteId(null);
+                setComentarioConclusao('');
+                setCriarSubtarefa(false);
+                setSubtarefaDescricao('');
+              }}>
+                Cancelar
+              </Button>
+              <Button
+                disabled={!comentarioConclusao.trim()}
+                onClick={() => {
+                  if (confirmCompleteId) {
+                    const prazo = prazosVinculados.find(p => p.id === confirmCompleteId);
+                    if (prazo) toggleDeadlineCompletion(confirmCompleteId, prazo.completed);
+                  }
+                }}
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" /> Concluir
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
