@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 
 const WHATSAPP_NUMBER = "5592991276333";
-const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}`;
+const WHATSAPP_MESSAGE = encodeURIComponent("Olá, Quero conhecer a Vouti.");
+const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${WHATSAPP_MESSAGE}`;
 
 const WhatsAppRedirect = () => {
   useEffect(() => {
