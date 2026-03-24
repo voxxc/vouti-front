@@ -134,6 +134,9 @@ export function ProjectProtocoloContent({
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [casoVinculadoData, setCasoVinculadoData] = useState<any | null>(null);
   const [confirmCompleteId, setConfirmCompleteId] = useState<string | null>(null);
+  const [comentarioConclusao, setComentarioConclusao] = useState('');
+  const [criarSubtarefa, setCriarSubtarefa] = useState(false);
+  const [subtarefaDescricao, setSubtarefaDescricao] = useState('');
   
   const [tarefasProcesso, setTarefasProcesso] = useState<TarefaOAB[]>([]);
   
