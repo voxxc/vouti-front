@@ -367,6 +367,9 @@ function App() {
             {/* PWA Install Page */}
             <Route path="/install" element={<Install />} />
             
+            {/* WhatsApp Redirect */}
+            <Route path="/wa" element={<WhatsAppRedirect />} />
+            
             {/* ============================================== */}
             {/* ROTAS DINÂMICAS POR TENANT (/:tenant/*)       */}
             {/* ============================================== */}
