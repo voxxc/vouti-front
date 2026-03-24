@@ -1,33 +1,23 @@
 
 
-# Fix: Conclusão de prazo no Protocolo sem comentário e sem dados completos
+# Fix: Subtarefa criada no Protocolo não aparece na Central
 
 ## Problema
-No fluxo Projeto > Protocolo > Prazos, ao clicar "Info" e depois "Marcar como Concluído", o sistema:
-1. **Não pede comentário de conclusão** - apenas faz `update({ completed: true })` sem `comentario_conclusao`, `concluido_por`, `concluido_em`
-2. O prazo fica "meio concluído" - marcado como `completed=true` mas sem os campos de auditoria, causando inconsistência com a Central de Prazos Concluídos
+Ao concluir um prazo no Protocolo e marcar "Criar subtarefa", o `tenant_id` da subtarefa é salvo como `null`. Isso acontece porque a query `fetchPrazosVinculados` (linha 172) não inclui `tenant_id` no SELECT, então `prazoData?.tenant_id` retorna `undefined`.
+
+A Central de Subtarefas filtra por `.eq('tenant_id', tenantId)`, logo subtarefas com `tenant_id = null` nunca aparecem.
 
 ## Solução
-Substituir o `AlertDialog` simples de confirmação no `ProjectProtocoloContent.tsx` por um dialog com campo de comentário obrigatório + opção de subtarefa, igual ao padrão da Agenda.
-
-## Alterações
 
 ### `src/components/Project/ProjectProtocoloContent.tsx`
 
-1. **Adicionar estados** para `comentarioConclusao`, `criarSubtarefa`, `subtarefaDescricao`
+1. Adicionar `tenant_id` ao SELECT da query `fetchPrazosVinculados` (linha 173):
+   - De: `id, title, description, date, completed, protocolo_etapa_id, project_id,`
+   - Para: `id, title, description, date, completed, protocolo_etapa_id, project_id, tenant_id,`
 
-2. **Refatorar `toggleDeadlineCompletion`** (linhas 230-247):
-   - Quando for **concluir** (`currentStatus === false`): gravar `completed: true`, `comentario_conclusao`, `concluido_por: user.id`, `concluido_em: now()` -- igual à Agenda
-   - Quando for **reabrir** (`currentStatus === true`): manter o comportamento atual de toggle
-
-3. **Substituir o `AlertDialog`** (linhas 816-834) por um `Dialog` com:
-   - `Textarea` para comentário obrigatório
-   - Checkbox opcional "Criar subtarefa" com campo de descrição
-   - Botão "Concluir" desabilitado se comentário vazio
-
-4. **Criar subtarefa** se marcada, inserindo em `deadline_subtarefas` (mesmo padrão da Agenda)
+Isso garante que `prazoData.tenant_id` esteja disponível ao criar a subtarefa na linha 262.
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/components/Project/ProjectProtocoloContent.tsx` | Dialog de conclusão com comentário obrigatório + campos de auditoria completos |
+| `src/components/Project/ProjectProtocoloContent.tsx` | Adicionar `tenant_id` ao SELECT de prazos |
 
