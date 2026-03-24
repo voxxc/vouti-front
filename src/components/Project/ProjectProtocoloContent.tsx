@@ -231,22 +231,64 @@ export function ProjectProtocoloContent({
   };
 
   const toggleDeadlineCompletion = async (deadlineId: string, currentStatus: boolean) => {
-    const { error } = await supabase
-      .from('deadlines')
-      .update({ completed: !currentStatus })
-      .eq('id', deadlineId);
+    // Se está concluindo, usar campos completos de auditoria
+    if (!currentStatus) {
+      const updateData: any = {
+        completed: true,
+        comentario_conclusao: comentarioConclusao.trim() || null,
+        concluido_por: user?.id || null,
+        concluido_em: new Date().toISOString(),
+      };
 
-    if (error) {
-      toast({ title: "Erro", description: "Não foi possível atualizar o status do prazo.", variant: "destructive" });
-      return;
-    }
+      const { error } = await supabase
+        .from('deadlines')
+        .update(updateData)
+        .eq('id', deadlineId);
 
-    setPrazosVinculados(prev => prev.map(p => p.id === deadlineId ? { ...p, completed: !currentStatus } : p));
-    if (selectedDeadline?.id === deadlineId) {
-      setSelectedDeadline((prev: any) => prev ? { ...prev, completed: !currentStatus } : null);
+      if (error) {
+        toast({ title: "Erro", description: "Não foi possível concluir o prazo.", variant: "destructive" });
+        return;
+      }
+
+      // Criar subtarefa se solicitado
+      if (criarSubtarefa && subtarefaDescricao.trim()) {
+        await supabase
+          .from('deadline_subtarefas')
+          .insert({
+            deadline_id: deadlineId,
+            descricao: subtarefaDescricao.trim(),
+            criado_por: user?.id || '',
+            tenant_id: null, // será inferido se necessário
+          });
+      }
+
+      setPrazosVinculados(prev => prev.map(p => p.id === deadlineId ? { ...p, completed: true } : p));
+      if (selectedDeadline?.id === deadlineId) {
+        setSelectedDeadline((prev: any) => prev ? { ...prev, completed: true } : null);
+      }
+      setConfirmCompleteId(null);
+      setComentarioConclusao('');
+      setCriarSubtarefa(false);
+      setSubtarefaDescricao('');
+      toast({ title: "Prazo concluído", description: "Prazo marcado como concluído com sucesso." });
+    } else {
+      // Reabrir prazo
+      const { error } = await supabase
+        .from('deadlines')
+        .update({ completed: false, comentario_conclusao: null, concluido_por: null, concluido_em: null })
+        .eq('id', deadlineId);
+
+      if (error) {
+        toast({ title: "Erro", description: "Não foi possível reabrir o prazo.", variant: "destructive" });
+        return;
+      }
+
+      setPrazosVinculados(prev => prev.map(p => p.id === deadlineId ? { ...p, completed: false } : p));
+      if (selectedDeadline?.id === deadlineId) {
+        setSelectedDeadline((prev: any) => prev ? { ...prev, completed: false } : null);
+      }
+      toast({ title: "Prazo reaberto", description: "Prazo marcado como pendente." });
     }
-    setConfirmCompleteId(null);
-    toast({ title: "Status atualizado", description: `Prazo marcado como ${!currentStatus ? 'concluído' : 'pendente'}.` });
   };
 
   useEffect(() => {
