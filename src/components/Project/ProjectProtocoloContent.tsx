@@ -858,25 +858,73 @@ export function ProjectProtocoloContent({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!confirmCompleteId} onOpenChange={(open) => !open && setConfirmCompleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Conclusão do Prazo</AlertDialogTitle>
-            <AlertDialogDescription>Tem certeza que deseja marcar este prazo como concluído?</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              if (confirmCompleteId) {
-                const prazo = prazosVinculados.find(p => p.id === confirmCompleteId);
-                if (prazo) toggleDeadlineCompletion(confirmCompleteId, prazo.completed);
-              }
-            }}>
-              Confirmar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={!!confirmCompleteId} onOpenChange={(open) => {
+        if (!open) {
+          setConfirmCompleteId(null);
+          setComentarioConclusao('');
+          setCriarSubtarefa(false);
+          setSubtarefaDescricao('');
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Concluir Prazo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Comentário de conclusão <span className="text-destructive">*</span></Label>
+              <Textarea
+                placeholder="Descreva o que foi feito para concluir este prazo..."
+                value={comentarioConclusao}
+                onChange={(e) => setComentarioConclusao(e.target.value)}
+                className="mt-1"
+                rows={3}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="criar-subtarefa-proto"
+                checked={criarSubtarefa}
+                onCheckedChange={(v) => setCriarSubtarefa(v === true)}
+              />
+              <Label htmlFor="criar-subtarefa-proto" className="cursor-pointer text-sm">Criar subtarefa</Label>
+            </div>
+            {criarSubtarefa && (
+              <div>
+                <Label>Descrição da subtarefa</Label>
+                <Textarea
+                  placeholder="Descreva a subtarefa..."
+                  value={subtarefaDescricao}
+                  onChange={(e) => setSubtarefaDescricao(e.target.value)}
+                  className="mt-1"
+                  rows={2}
+                />
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => {
+                setConfirmCompleteId(null);
+                setComentarioConclusao('');
+                setCriarSubtarefa(false);
+                setSubtarefaDescricao('');
+              }}>
+                Cancelar
+              </Button>
+              <Button
+                disabled={!comentarioConclusao.trim()}
+                onClick={() => {
+                  if (confirmCompleteId) {
+                    const prazo = prazosVinculados.find(p => p.id === confirmCompleteId);
+                    if (prazo) toggleDeadlineCompletion(confirmCompleteId, prazo.completed);
+                  }
+                }}
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" /> Concluir
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
