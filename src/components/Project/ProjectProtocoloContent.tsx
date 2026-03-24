@@ -252,13 +252,14 @@ export function ProjectProtocoloContent({
 
       // Criar subtarefa se solicitado
       if (criarSubtarefa && subtarefaDescricao.trim()) {
+        const prazoData = prazosVinculados.find(p => p.id === deadlineId);
         await supabase
           .from('deadline_subtarefas')
           .insert({
             deadline_id: deadlineId,
             descricao: subtarefaDescricao.trim(),
             criado_por: user?.id || '',
-            tenant_id: null, // será inferido se necessário
+            tenant_id: prazoData?.tenant_id || null,
           });
       }
 
