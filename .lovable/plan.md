@@ -1,28 +1,33 @@
 
 
-# Fix: search_key para processo apartado na API Judit
+# Fix: Conclusão de prazo no Protocolo sem comentário e sem dados completos
 
 ## Problema
-O search_key está sendo construído como `20_digitos_cnj + digitos_sufixo` = `2372688762025826000050000` (25 dígitos). A API Judit rejeita com `CNJ is not valid` porque espera um formato válido.
+No fluxo Projeto > Protocolo > Prazos, ao clicar "Info" e depois "Marcar como Concluído", o sistema:
+1. **Não pede comentário de conclusão** - apenas faz `update({ completed: true })` sem `comentario_conclusao`, `concluido_por`, `concluido_em`
+2. O prazo fica "meio concluído" - marcado como `completed=true` mas sem os campos de auditoria, causando inconsistência com a Central de Prazos Concluídos
 
 ## Solução
-Para apartado, enviar o search_key como `numeroLimpo + "/" + sufixoLimpo` (ex: `23726887620258260000/50000`) em vez de concatenar apenas dígitos.
+Substituir o `AlertDialog` simples de confirmação no `ProjectProtocoloContent.tsx` por um dialog com campo de comentário obrigatório + opção de subtarefa, igual ao padrão da Agenda.
 
-## Alteração
+## Alterações
 
-### `supabase/functions/judit-buscar-processo-cnj/index.ts` (linhas 30-36)
+### `src/components/Project/ProjectProtocoloContent.tsx`
 
-Mudar a construção do searchKey:
+1. **Adicionar estados** para `comentarioConclusao`, `criarSubtarefa`, `subtarefaDescricao`
 
-```typescript
-// Antes (errado):
-searchKey = numeroLimpo + sufixoLimpo;
+2. **Refatorar `toggleDeadlineCompletion`** (linhas 230-247):
+   - Quando for **concluir** (`currentStatus === false`): gravar `completed: true`, `comentario_conclusao`, `concluido_por: user.id`, `concluido_em: now()` -- igual à Agenda
+   - Quando for **reabrir** (`currentStatus === true`): manter o comportamento atual de toggle
 
-// Depois (correto):
-searchKey = numeroLimpo + '/' + sufixoLimpo;
-```
+3. **Substituir o `AlertDialog`** (linhas 816-834) por um `Dialog` com:
+   - `Textarea` para comentário obrigatório
+   - Checkbox opcional "Criar subtarefa" com campo de descrição
+   - Botão "Concluir" desabilitado se comentário vazio
+
+4. **Criar subtarefa** se marcada, inserindo em `deadline_subtarefas` (mesmo padrão da Agenda)
 
 | Arquivo | Mudança |
 |---------|---------|
-| `supabase/functions/judit-buscar-processo-cnj/index.ts` | Incluir `/` entre CNJ e sufixo no searchKey |
+| `src/components/Project/ProjectProtocoloContent.tsx` | Dialog de conclusão com comentário obrigatório + campos de auditoria completos |
 
