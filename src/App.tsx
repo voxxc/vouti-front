@@ -63,6 +63,7 @@ const SuperAdmin = lazy(() => import("@/pages/SuperAdmin"));
 const SuperAdminWhatsApp = lazy(() => import("@/pages/SuperAdminWhatsApp"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const Install = lazy(() => import("@/pages/Install"));
+const WhatsAppRedirect = lazy(() => import("@/pages/WhatsAppRedirect"));
 const Documentos = lazy(() => import("@/pages/Documentos"));
 const DocumentoEditar = lazy(() => import("@/pages/DocumentoEditar"));
 const CrmLogin = lazy(() => import("@/pages/CrmLogin"));
