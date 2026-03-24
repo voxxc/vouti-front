@@ -170,7 +170,7 @@ export function ProjectProtocoloContent({
     const { data, error } = await supabase
       .from('deadlines')
       .select(`
-        id, title, description, date, completed, protocolo_etapa_id, project_id,
+        id, title, description, date, completed, protocolo_etapa_id, project_id, tenant_id,
         projects (name, client),
         advogado:profiles!deadlines_advogado_responsavel_id_fkey (user_id, full_name, avatar_url),
         deadline_tags (tagged_user_id, tagged_user:profiles!deadline_tags_tagged_user_id_fkey (user_id, full_name, avatar_url))
