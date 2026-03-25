@@ -343,7 +343,7 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
   // Sync selectedProcesso with updated list after refetch
   useEffect(() => {
     if (selectedProcesso) {
-      const allProcessos = [...processosVinculados.map(pv => pv.processo_oab), ...processosDisponiveis];
+      const allProcessos = [...processosVinculados.map(pv => pv.processo), ...processosDisponiveis];
       const updated = allProcessos.find(p => p?.id === selectedProcesso.id);
       if (updated && updated !== selectedProcesso) {
         setSelectedProcesso(updated);
