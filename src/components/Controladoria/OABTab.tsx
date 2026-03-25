@@ -387,6 +387,16 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
   const { tenantId } = useTenantId();
   const [selectedProcesso, setSelectedProcesso] = useState<ProcessoOAB | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Sync selectedProcesso with updated list after refetch
+  useEffect(() => {
+    if (selectedProcesso) {
+      const updated = processos.find(p => p.id === selectedProcesso.id);
+      if (updated && updated !== selectedProcesso) {
+        setSelectedProcesso(updated);
+      }
+    }
+  }, [processos]);
   const [filtroUF, setFiltroUF] = useState<string>('todos');
   const [compartilhadosMap, setCompartilhadosMap] = useState<CompartilhadosMap>({});
   const [processoParaExcluir, setProcessoParaExcluir] = useState<ProcessoOAB | null>(null);
