@@ -1,40 +1,37 @@
 
 
-# Criar visualização em Lista no Planejador
+# Adicionar filtros e ordenação na Lista do Planejador
 
-## Contexto
-A aba "Lista" já existe no TopBar (tabs: Colunas, Lista, Calendário), mas atualmente não renderiza nada diferente. O objetivo é criar uma visualização em tabela quando `activeTab === 'lista'`, conforme a imagem de referência.
+## O que será feito
 
-## O que será construído
+Adicionar ao header da tabela da ListView:
 
-Uma tabela com as colunas: **Nome**, **Atividade** (status/coluna), **Prazo final**, **Criado por**, **Responsável**, **Projeto**, **Marcadores**. Inclui checkboxes para seleção, ações em lote, paginação e contagem.
+1. **Filtro de status** (Concluído / Em aberto / Todos) — um toggle ou dropdown acima da tabela
+2. **Setas de ordenação** nos cabeçalhos das colunas: Nome, Atividade, Prazo final, Criado por, Responsável, Marcadores — clicável para alternar entre ascendente/descendente
 
-## Arquivos envolvidos
+## Alterações em `src/components/Planejador/PlanejadorListView.tsx`
 
-### 1. Criar `src/components/Planejador/PlanejadorListView.tsx`
-Componente de tabela que recebe as mesmas props do Kanban (tasksByColumn, filtros, labels, etc.) e exibe todas as tarefas em formato tabular:
-- Header com colunas: checkbox, Nome, Atividade (nome da coluna kanban), Prazo final, Criado por, Responsável, Projeto, Marcadores
-- Linhas clicáveis que abrem o detalhe da tarefa (mesmo `onTaskClick`)
-- Prazo vencido destacado em vermelho/badge como na imagem
-- Avatares com nome para "Criado por" e "Responsável" (busca em profiles)
-- Marcadores como badges coloridos
-- Barra inferior com: contagem de selecionados, total, paginação, selector de registros por página (50 default)
-- Ações em lote: dropdown "Selecionar Ação" + botão "Aplicar" + checkbox "Para Todos"
-- Respeitar filtros ativos (usuário, labels, busca)
-- Aplicar mesma filtragem que o Kanban usa
-- Visual com fundo glass (consistente com o tema do Planejador)
+### Novos estados
+- `statusFilter`: `'all' | 'open' | 'completed'` (padrão: `'all'`)
+- `sortColumn`: `'nome' | 'atividade' | 'prazo' | 'criador' | 'responsavel' | 'marcadores' | null`
+- `sortDirection`: `'asc' | 'desc'`
 
-### 2. Modificar `src/components/Planejador/PlanejadorDrawer.tsx`
-- Importar `PlanejadorListView`
-- No bloco de renderização condicional (linha ~257-276), alternar entre `PlanejadorKanban` e `PlanejadorListView` baseado em `activeTab`:
-  - `activeTab === 'prazo'` → renderiza Kanban
-  - `activeTab === 'lista'` → renderiza ListView
-  - Outros tabs mantêm comportamento atual
+### Filtro de status
+- Barra segmentada acima da tabela com 3 botões: **Todos**, **Em aberto**, **Concluídos** (estilo glass, consistente com o TopBar)
+- Filtra pelo `task.status === 'completed'` para concluídos, `!== 'completed'` para em aberto
 
-## Detalhes técnicos
-- Achatar `tasksByColumn` em array único, preservando a info de qual coluna cada task pertence (para a coluna "Atividade")
-- Usar os mesmos filtros de busca/usuário/labels já existentes
-- Buscar nomes de profiles via query existente `tenant-profiles`
-- Paginação client-side com estado local (page, pageSize)
-- Checkbox state gerenciado localmente no componente
+### Ordenação por coluna
+- Cada `<th>` clicável com ícone `ArrowUpDown` / `ArrowUp` / `ArrowDown` do lucide
+- Ao clicar, alterna: sem ordenação → asc → desc → sem ordenação
+- Lógica de sort no `useMemo` de `filteredTasks`:
+  - **Nome**: `localeCompare` no título
+  - **Atividade**: ordem pela posição da coluna kanban
+  - **Prazo final**: comparação de datas (nulos por último)
+  - **Criado por / Responsável**: `localeCompare` no nome do profile
+  - **Marcadores**: quantidade de marcadores ou nome do primeiro
+
+### Visual
+- Cabeçalho com cursor pointer e ícone de seta ao lado do texto
+- Coluna ativa de sort com destaque sutil (opacidade maior na seta)
+- Filtro de status com contador entre parênteses: ex. "Em aberto (12)"
 
