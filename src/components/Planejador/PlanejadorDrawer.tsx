@@ -260,35 +260,33 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                   <div className="flex items-center justify-center h-full">
                     <Loader2 className={`h-8 w-8 animate-spin ${theme === 'dark' ? 'text-white/50' : 'text-foreground/50'}`} />
                   </div>
+                ) : activeTab === 'lista' ? (
+                  <PlanejadorListView
+                    tasksByColumn={tasksByColumn}
+                    onTaskClick={setSelectedTask}
+                    onMoveTask={handleMoveTask}
+                    searchQuery={searchQuery}
+                    columnConfig={columnConfig}
+                    selectedUserId={selectedUserId}
+                    selectedLabelIds={selectedLabelIds}
+                    labels={labels}
+                    allLabelAssignments={allLabelAssignments}
+                    participantTaskIds={participantData}
+                  />
                 ) : (
-                  {activeTab === 'lista' ? (
-                    <PlanejadorListView
-                      tasksByColumn={tasksByColumn}
-                      onTaskClick={setSelectedTask}
-                      onMoveTask={handleMoveTask}
-                      searchQuery={searchQuery}
-                      columnConfig={columnConfig}
-                      selectedUserId={selectedUserId}
-                      selectedLabelIds={selectedLabelIds}
-                      labels={labels}
-                      allLabelAssignments={allLabelAssignments}
-                      participantTaskIds={participantData}
-                    />
-                  ) : (
-                    <PlanejadorKanban
-                      tasksByColumn={tasksByColumn}
-                      onTaskClick={setSelectedTask}
-                      onMoveTask={handleMoveTask}
-                      searchQuery={searchQuery}
-                      locked={locked}
-                      columnConfig={columnConfig}
-                      selectedUserId={selectedUserId}
-                      selectedLabelIds={selectedLabelIds}
-                      labels={labels}
-                      allLabelAssignments={allLabelAssignments}
-                      participantTaskIds={participantData}
-                    />
-                  )}
+                  <PlanejadorKanban
+                    tasksByColumn={tasksByColumn}
+                    onTaskClick={setSelectedTask}
+                    onMoveTask={handleMoveTask}
+                    searchQuery={searchQuery}
+                    locked={locked}
+                    columnConfig={columnConfig}
+                    selectedUserId={selectedUserId}
+                    selectedLabelIds={selectedLabelIds}
+                    labels={labels}
+                    allLabelAssignments={allLabelAssignments}
+                    participantTaskIds={participantData}
+                  />
                 )}
               </div>
             </div>
