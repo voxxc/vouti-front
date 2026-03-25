@@ -296,6 +296,16 @@ export const GeralTab = () => {
 
   const [selectedProcesso, setSelectedProcesso] = useState<ProcessoOABComOAB | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Sync selectedProcesso with updated list after refetch
+  useEffect(() => {
+    if (selectedProcesso) {
+      const updated = processos.find(p => p.id === selectedProcesso.id);
+      if (updated && updated !== selectedProcesso) {
+        setSelectedProcesso(updated);
+      }
+    }
+  }, [processos]);
   const [filtroUF, setFiltroUF] = useState<string>('todos');
   const [processoParaExcluir, setProcessoParaExcluir] = useState<ProcessoOABComOAB | null>(null);
   const [excluindo, setExcluindo] = useState(false);
