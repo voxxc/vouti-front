@@ -1,44 +1,15 @@
 
 
-# Revisão da Funcionalidade de Monitoramento
+# Corrigir barra de busca sumindo quando não encontra resultados
 
-## Análise Completa
-
-Revisei toda a cadeia de monitoramento:
-- **Edge Function** `judit-ativar-monitoramento-oab`: Funcionando corretamente. Ativa/desativa via API Judit (POST /tracking, /pause, /resume), sincroniza todos os processos com mesmo CNJ no tenant, registra logs.
-- **Hooks** `useOABs`, `useAllProcessosOAB`, `ProjectProcessos`: Todos chamam a mesma edge function com os parâmetros corretos e fazem `fetchProcessos` após o toggle.
-- **Hook legado** `useToggleMonitoramento`: Usa API Escavador (diferente), usado apenas no `AgendaContent` — sistema separado, não relacionado à Controladoria.
-- **Hook legado** `useMonitoramentoJudit`: Usa edge functions antigas (`judit-buscar-processo`, `judit-ativar-monitoramento`, `judit-desativar-monitoramento`) — parece não ser usado na Controladoria principal.
-
-## Problema Encontrado
-
-**Estado stale do `selectedProcesso` no drawer**: Em `OABTab`, `GeralTab` e `ProjectProcessos`, quando o usuário ativa/desativa monitoramento dentro do drawer (`ProcessoOABDetalhes`), o `fetchProcessos` atualiza a lista, mas o `selectedProcesso` no state local permanece com o valor antigo de `monitoramento_ativo`. O botão no drawer continua mostrando o estado anterior até fechar e reabrir.
+## Problema
+Quando o usuário pesquisa um processo na aba Geral e nenhum resultado é encontrado, o componente faz um `return` antecipado (linha 423) que renderiza apenas a mensagem "Nenhum processo encontrado" — sem a barra de busca. O usuário fica preso sem poder buscar outro termo.
 
 ## Solução
+Modificar a condição do early return na linha 423 de `GeralTab.tsx` para só mostrar o estado vazio genérico quando **não há busca ativa**. Quando houver `searchTerm` preenchido, renderizar a UI completa (com filtros e barra de busca) e mostrar uma mensagem contextual de "nenhum resultado para esta busca" na área de listagem.
 
-Adicionar um `useEffect` em cada componente pai (`OABTab`, `GeralTab`, `ProjectProcessos`) que sincroniza o `selectedProcesso` com a lista atualizada:
+## Alteração em `src/components/Controladoria/GeralTab.tsx`
 
-### Arquivos a modificar:
-
-1. **`src/components/Controladoria/OABTab.tsx`** — Adicionar useEffect:
-```tsx
-useEffect(() => {
-  if (selectedProcesso) {
-    const updated = processos.find(p => p.id === selectedProcesso.id);
-    if (updated && updated !== selectedProcesso) {
-      setSelectedProcesso(updated);
-    }
-  }
-}, [processos]);
-```
-
-2. **`src/components/Controladoria/GeralTab.tsx`** — Mesmo padrão, sincronizar `selectedProcesso` com `processos`.
-
-3. **`src/components/Project/ProjectProcessos.tsx`** — Mesmo padrão, sincronizar com a lista local de processos vinculados.
-
-Isso garante que após `fetchProcessos` atualizar a lista, o drawer reflete imediatamente o novo estado de `monitoramento_ativo`, `tracking_id`, etc.
-
-## Conclusão
-
-A lógica de backend (edge function, API Judit, sincronização de CNJs compartilhados) está **100% funcional**. O único gap é cosmético: o drawer não reflete a mudança em tempo real. A correção é simples — 3 useEffects de sync.
+1. **Linha 423**: Adicionar `&& !searchTerm` à condição do early return — só faz return antecipado se não há busca ativa
+2. **Na área de listagem** (após as seções de instância): Adicionar um bloco condicional que, quando `processosFiltrados.length === 0` e não está carregando, mostra uma mensagem "Nenhum processo encontrado para esta busca" com opção de limpar a busca
 
