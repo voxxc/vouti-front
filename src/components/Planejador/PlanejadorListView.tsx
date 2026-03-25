@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { PlanejadorTask, KanbanColumn, KANBAN_COLUMNS, categorizeTask } from "@/hooks/usePlanejadorTasks";
+import { PlanejadorTask, KanbanColumn, KANBAN_COLUMNS } from "@/hooks/usePlanejadorTasks";
 import { PlanejadorLabel, PlanejadorLabelAssignment } from "@/hooks/usePlanejadorLabels";
 import { ColumnConfig } from "./PlanejadorSettings";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -17,7 +17,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Flag } from "lucide-react";
+import { ChevronLeft, ChevronRight, Flag, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+
+type StatusFilter = "all" | "open" | "completed";
+type SortColumn = "nome" | "atividade" | "prazo" | "criador" | "responsavel" | "marcadores" | null;
+type SortDirection = "asc" | "desc";
 
 interface PlanejadorListViewProps {
   tasksByColumn: Record<KanbanColumn, PlanejadorTask[]>;
@@ -52,6 +56,9 @@ export function PlanejadorListView({
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
   const [bulkAction, setBulkAction] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   const { data: profiles = [] } = useQuery({
     queryKey: ["tenant-profiles", tenantId],
@@ -69,6 +76,11 @@ export function PlanejadorListView({
   const profileMap = useMemo(
     () => new Map(profiles.map((p) => [p.user_id, p.full_name])),
     [profiles]
+  );
+
+  const colIndexMap = useMemo(
+    () => new Map(KANBAN_COLUMNS.map((c, i) => [c.id, i])),
+    []
   );
 
   // Flatten tasks with column info
@@ -91,7 +103,40 @@ export function PlanejadorListView({
     return result;
   }, [tasksByColumn]);
 
-  // Apply same filters as Kanban
+  const getTaskLabels = (taskId: string) => {
+    const assignedLabelIds = allLabelAssignments
+      .filter((a) => a.task_id === taskId)
+      .map((a) => a.label_id);
+    return labels.filter((l) => assignedLabelIds.includes(l.id));
+  };
+
+  // Counts for status filter buttons
+  const statusCounts = useMemo(() => {
+    let base = allTasks as typeof allTasks;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      base = base.filter((t) => t.titulo.toLowerCase().includes(q));
+    }
+    if (selectedUserId) {
+      base = base.filter(
+        (t) =>
+          t.proprietario_id === selectedUserId ||
+          t.responsavel_id === selectedUserId ||
+          (participantTaskIds && participantTaskIds.includes(t.id))
+      );
+    }
+    if (selectedLabelIds.length > 0) {
+      const taskIdsWithLabels = allLabelAssignments
+        .filter((a) => selectedLabelIds.includes(a.label_id))
+        .map((a) => a.task_id);
+      base = base.filter((t) => taskIdsWithLabels.includes(t.id));
+    }
+    const open = base.filter((t) => t.status !== "completed").length;
+    const completed = base.filter((t) => t.status === "completed").length;
+    return { all: base.length, open, completed };
+  }, [allTasks, searchQuery, selectedUserId, selectedLabelIds, allLabelAssignments, participantTaskIds]);
+
+  // Filter + sort
   const filteredTasks = useMemo(() => {
     let filtered = allTasks;
 
@@ -116,8 +161,51 @@ export function PlanejadorListView({
       filtered = filtered.filter((t) => taskIdsWithLabels.includes(t.id));
     }
 
+    // Status filter
+    if (statusFilter === "open") {
+      filtered = filtered.filter((t) => t.status !== "completed");
+    } else if (statusFilter === "completed") {
+      filtered = filtered.filter((t) => t.status === "completed");
+    }
+
+    // Sort
+    if (sortColumn) {
+      const dir = sortDirection === "asc" ? 1 : -1;
+      filtered = [...filtered].sort((a, b) => {
+        switch (sortColumn) {
+          case "nome":
+            return a.titulo.localeCompare(b.titulo, "pt-BR") * dir;
+          case "atividade":
+            return ((colIndexMap.get(a.columnId) ?? 99) - (colIndexMap.get(b.columnId) ?? 99)) * dir;
+          case "prazo": {
+            if (!a.prazo && !b.prazo) return 0;
+            if (!a.prazo) return 1;
+            if (!b.prazo) return -1;
+            return (new Date(a.prazo).getTime() - new Date(b.prazo).getTime()) * dir;
+          }
+          case "criador": {
+            const na = profileMap.get(a.proprietario_id) || "";
+            const nb = profileMap.get(b.proprietario_id) || "";
+            return na.localeCompare(nb, "pt-BR") * dir;
+          }
+          case "responsavel": {
+            const ra = profileMap.get(a.responsavel_id || "") || "";
+            const rb = profileMap.get(b.responsavel_id || "") || "";
+            return ra.localeCompare(rb, "pt-BR") * dir;
+          }
+          case "marcadores": {
+            const la = getTaskLabels(a.id).length;
+            const lb = getTaskLabels(b.id).length;
+            return (la - lb) * dir;
+          }
+          default:
+            return 0;
+        }
+      });
+    }
+
     return filtered;
-  }, [allTasks, searchQuery, selectedUserId, selectedLabelIds, allLabelAssignments, participantTaskIds]);
+  }, [allTasks, searchQuery, selectedUserId, selectedLabelIds, allLabelAssignments, participantTaskIds, statusFilter, sortColumn, sortDirection, colIndexMap, profileMap]);
 
   const totalPages = Math.max(1, Math.ceil(filteredTasks.length / pageSize));
   const safePage = Math.min(page, totalPages - 1);
@@ -155,11 +243,25 @@ export function PlanejadorListView({
     setBulkAction("");
   };
 
-  const getTaskLabels = (taskId: string) => {
-    const assignedLabelIds = allLabelAssignments
-      .filter((a) => a.task_id === taskId)
-      .map((a) => a.label_id);
-    return labels.filter((l) => assignedLabelIds.includes(l.id));
+  const handleSort = (col: SortColumn) => {
+    if (sortColumn === col) {
+      if (sortDirection === "asc") {
+        setSortDirection("desc");
+      } else {
+        setSortColumn(null);
+      }
+    } else {
+      setSortColumn(col);
+      setSortDirection("asc");
+    }
+    setPage(0);
+  };
+
+  const SortIcon = ({ col }: { col: SortColumn }) => {
+    if (sortColumn !== col) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+    return sortDirection === "asc"
+      ? <ArrowUp className="h-3 w-3 opacity-80" />
+      : <ArrowDown className="h-3 w-3 opacity-80" />;
   };
 
   const now = startOfDay(new Date());
@@ -171,8 +273,33 @@ export function PlanejadorListView({
   const hoverRow = isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.03]";
   const headerBg = isDark ? "bg-white/[0.06]" : "bg-black/[0.03]";
 
+  const statusBtnBase = `px-3 py-1 rounded-md text-xs font-medium transition-colors`;
+  const statusBtnActive = isDark
+    ? "bg-white/15 text-white"
+    : "bg-primary/10 text-primary";
+  const statusBtnInactive = isDark
+    ? "text-white/50 hover:text-white/70 hover:bg-white/[0.06]"
+    : "text-foreground/50 hover:text-foreground/70 hover:bg-black/[0.04]";
+
   return (
     <div className="flex flex-col h-full min-h-0">
+      {/* Status filter bar */}
+      <div className={`flex items-center gap-1 mb-2 px-1`}>
+        {([
+          { key: "all" as StatusFilter, label: "Todos", count: statusCounts.all },
+          { key: "open" as StatusFilter, label: "Em aberto", count: statusCounts.open },
+          { key: "completed" as StatusFilter, label: "Concluídos", count: statusCounts.completed },
+        ]).map((item) => (
+          <button
+            key={item.key}
+            onClick={() => { setStatusFilter(item.key); setPage(0); }}
+            className={`${statusBtnBase} ${statusFilter === item.key ? statusBtnActive : statusBtnInactive}`}
+          >
+            {item.label} ({item.count})
+          </button>
+        ))}
+      </div>
+
       {/* Table */}
       <div className={`flex-1 min-h-0 overflow-auto rounded-xl border ${glassBorder} ${glassBg} backdrop-blur-sm`}>
         <table className="w-full text-sm">
@@ -181,12 +308,42 @@ export function PlanejadorListView({
               <th className="w-10 px-3 py-3">
                 <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
               </th>
-              <th className={`text-left px-3 py-3 font-semibold ${text}`}>Nome</th>
-              <th className={`text-left px-3 py-3 font-semibold ${text}`}>Atividade</th>
-              <th className={`text-left px-3 py-3 font-semibold ${text}`}>Prazo final</th>
-              <th className={`text-left px-3 py-3 font-semibold ${text}`}>Criado por</th>
-              <th className={`text-left px-3 py-3 font-semibold ${text}`}>Responsável</th>
-              <th className={`text-left px-3 py-3 font-semibold ${text}`}>Marcadores</th>
+              <th
+                className={`text-left px-3 py-3 font-semibold ${text} cursor-pointer select-none`}
+                onClick={() => handleSort("nome")}
+              >
+                <span className="inline-flex items-center gap-1">Nome <SortIcon col="nome" /></span>
+              </th>
+              <th
+                className={`text-left px-3 py-3 font-semibold ${text} cursor-pointer select-none`}
+                onClick={() => handleSort("atividade")}
+              >
+                <span className="inline-flex items-center gap-1">Atividade <SortIcon col="atividade" /></span>
+              </th>
+              <th
+                className={`text-left px-3 py-3 font-semibold ${text} cursor-pointer select-none`}
+                onClick={() => handleSort("prazo")}
+              >
+                <span className="inline-flex items-center gap-1">Prazo final <SortIcon col="prazo" /></span>
+              </th>
+              <th
+                className={`text-left px-3 py-3 font-semibold ${text} cursor-pointer select-none`}
+                onClick={() => handleSort("criador")}
+              >
+                <span className="inline-flex items-center gap-1">Criado por <SortIcon col="criador" /></span>
+              </th>
+              <th
+                className={`text-left px-3 py-3 font-semibold ${text} cursor-pointer select-none`}
+                onClick={() => handleSort("responsavel")}
+              >
+                <span className="inline-flex items-center gap-1">Responsável <SortIcon col="responsavel" /></span>
+              </th>
+              <th
+                className={`text-left px-3 py-3 font-semibold ${text} cursor-pointer select-none`}
+                onClick={() => handleSort("marcadores")}
+              >
+                <span className="inline-flex items-center gap-1">Marcadores <SortIcon col="marcadores" /></span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -213,7 +370,9 @@ export function PlanejadorListView({
                       {task.is_subtask && (
                         <Flag className="h-3.5 w-3.5 text-orange-400 flex-shrink-0" />
                       )}
-                      <span className="truncate">{task.titulo}</span>
+                      <span className={`truncate ${task.status === "completed" ? "line-through opacity-60" : ""}`}>
+                        {task.titulo}
+                      </span>
                     </div>
                   </td>
                   <td className="px-3 py-2.5">
@@ -284,7 +443,6 @@ export function PlanejadorListView({
       {/* Footer bar */}
       <div className={`flex items-center justify-between mt-2 px-3 py-2 rounded-lg ${glassBg} border ${glassBorder} backdrop-blur-sm`}>
         <div className="flex items-center gap-3">
-          {/* Bulk actions */}
           <Select value={bulkAction} onValueChange={setBulkAction}>
             <SelectTrigger className={`h-8 w-[160px] text-xs ${isDark ? "bg-white/10 border-white/10 text-white" : "bg-white border-border"}`}>
               <SelectValue placeholder="Selecionar Ação" />
