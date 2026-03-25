@@ -182,7 +182,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
 
   return (
     <>
-      <Sheet open={open} onOpenChange={(newOpen) => {
+      <Sheet open={open} modal={false} onOpenChange={(newOpen) => {
           if (!newOpen && selectedTask) {
             setSelectedTask(null);
             return;
