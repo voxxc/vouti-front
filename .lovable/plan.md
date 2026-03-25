@@ -1,37 +1,44 @@
 
 
-# Adicionar filtros e ordenação na Lista do Planejador
+# Revisão da Funcionalidade de Monitoramento
 
-## O que será feito
+## Análise Completa
 
-Adicionar ao header da tabela da ListView:
+Revisei toda a cadeia de monitoramento:
+- **Edge Function** `judit-ativar-monitoramento-oab`: Funcionando corretamente. Ativa/desativa via API Judit (POST /tracking, /pause, /resume), sincroniza todos os processos com mesmo CNJ no tenant, registra logs.
+- **Hooks** `useOABs`, `useAllProcessosOAB`, `ProjectProcessos`: Todos chamam a mesma edge function com os parâmetros corretos e fazem `fetchProcessos` após o toggle.
+- **Hook legado** `useToggleMonitoramento`: Usa API Escavador (diferente), usado apenas no `AgendaContent` — sistema separado, não relacionado à Controladoria.
+- **Hook legado** `useMonitoramentoJudit`: Usa edge functions antigas (`judit-buscar-processo`, `judit-ativar-monitoramento`, `judit-desativar-monitoramento`) — parece não ser usado na Controladoria principal.
 
-1. **Filtro de status** (Concluído / Em aberto / Todos) — um toggle ou dropdown acima da tabela
-2. **Setas de ordenação** nos cabeçalhos das colunas: Nome, Atividade, Prazo final, Criado por, Responsável, Marcadores — clicável para alternar entre ascendente/descendente
+## Problema Encontrado
 
-## Alterações em `src/components/Planejador/PlanejadorListView.tsx`
+**Estado stale do `selectedProcesso` no drawer**: Em `OABTab`, `GeralTab` e `ProjectProcessos`, quando o usuário ativa/desativa monitoramento dentro do drawer (`ProcessoOABDetalhes`), o `fetchProcessos` atualiza a lista, mas o `selectedProcesso` no state local permanece com o valor antigo de `monitoramento_ativo`. O botão no drawer continua mostrando o estado anterior até fechar e reabrir.
 
-### Novos estados
-- `statusFilter`: `'all' | 'open' | 'completed'` (padrão: `'all'`)
-- `sortColumn`: `'nome' | 'atividade' | 'prazo' | 'criador' | 'responsavel' | 'marcadores' | null`
-- `sortDirection`: `'asc' | 'desc'`
+## Solução
 
-### Filtro de status
-- Barra segmentada acima da tabela com 3 botões: **Todos**, **Em aberto**, **Concluídos** (estilo glass, consistente com o TopBar)
-- Filtra pelo `task.status === 'completed'` para concluídos, `!== 'completed'` para em aberto
+Adicionar um `useEffect` em cada componente pai (`OABTab`, `GeralTab`, `ProjectProcessos`) que sincroniza o `selectedProcesso` com a lista atualizada:
 
-### Ordenação por coluna
-- Cada `<th>` clicável com ícone `ArrowUpDown` / `ArrowUp` / `ArrowDown` do lucide
-- Ao clicar, alterna: sem ordenação → asc → desc → sem ordenação
-- Lógica de sort no `useMemo` de `filteredTasks`:
-  - **Nome**: `localeCompare` no título
-  - **Atividade**: ordem pela posição da coluna kanban
-  - **Prazo final**: comparação de datas (nulos por último)
-  - **Criado por / Responsável**: `localeCompare` no nome do profile
-  - **Marcadores**: quantidade de marcadores ou nome do primeiro
+### Arquivos a modificar:
 
-### Visual
-- Cabeçalho com cursor pointer e ícone de seta ao lado do texto
-- Coluna ativa de sort com destaque sutil (opacidade maior na seta)
-- Filtro de status com contador entre parênteses: ex. "Em aberto (12)"
+1. **`src/components/Controladoria/OABTab.tsx`** — Adicionar useEffect:
+```tsx
+useEffect(() => {
+  if (selectedProcesso) {
+    const updated = processos.find(p => p.id === selectedProcesso.id);
+    if (updated && updated !== selectedProcesso) {
+      setSelectedProcesso(updated);
+    }
+  }
+}, [processos]);
+```
+
+2. **`src/components/Controladoria/GeralTab.tsx`** — Mesmo padrão, sincronizar `selectedProcesso` com `processos`.
+
+3. **`src/components/Project/ProjectProcessos.tsx`** — Mesmo padrão, sincronizar com a lista local de processos vinculados.
+
+Isso garante que após `fetchProcessos` atualizar a lista, o drawer reflete imediatamente o novo estado de `monitoramento_ativo`, `tracking_id`, etc.
+
+## Conclusão
+
+A lógica de backend (edge function, API Judit, sincronização de CNJs compartilhados) está **100% funcional**. O único gap é cosmético: o drawer não reflete a mudança em tempo real. A correção é simples — 3 useEffects de sync.
 
