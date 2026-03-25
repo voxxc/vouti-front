@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { PlanejadorTopBar } from "./PlanejadorTopBar";
 import { PlanejadorKanban } from "./PlanejadorKanban";
+import { PlanejadorListView } from "./PlanejadorListView";
 import { PlanejadorCreateTask } from "./PlanejadorCreateTask";
 import { PlanejadorTaskDetail } from "./PlanejadorTaskDetail";
 import { PlanejadorSettings, ColumnConfig } from "./PlanejadorSettings";
