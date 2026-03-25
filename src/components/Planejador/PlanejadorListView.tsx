@@ -257,9 +257,9 @@ export function PlanejadorListView({
                         <span
                           key={label.id}
                           className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium text-white"
-                          style={{ backgroundColor: label.cor }}
+                          style={{ backgroundColor: label.color }}
                         >
-                          {label.nome}
+                          {label.name}
                         </span>
                       ))}
                       {taskLabels.length > 3 && (
