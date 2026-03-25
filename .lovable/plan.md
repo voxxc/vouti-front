@@ -1,19 +1,15 @@
 
 
-# Adicionar mensagem pré-definida ao redirecionamento WhatsApp
+# Tornar Topbar e Sidebar interativos com o Planejador aberto
 
-Alteração simples: adicionar o parâmetro `text` na URL do WhatsApp.
+## Problema
+O Planejador usa `Sheet` (Radix Dialog) que por padrão é **modal** — captura o foco e bloqueia cliques fora dele. Mesmo sem overlay (side="inset" já remove), o foco fica preso.
 
-### `src/pages/WhatsAppRedirect.tsx`
+## Solução
+Adicionar `modal={false}` ao componente `<Sheet>` do PlanejadorDrawer. Isso desativa o focus trap do Radix Dialog, permitindo interação com topbar e sidebar sem fechar o drawer.
 
-Mudar a URL de:
-```
-https://wa.me/5592991276333
-```
-Para:
-```
-https://wa.me/5592991276333?text=Olá%2C%20Quero%20conhecer%20a%20Vouti.
-```
+### Arquivo: `src/components/Planejador/PlanejadorDrawer.tsx`
+- Linha ~185: Alterar `<Sheet open={open} onOpenChange={...}>` para `<Sheet open={open} modal={false} onOpenChange={...}>`
 
-Isso faz com que, ao abrir o WhatsApp, o campo de mensagem já venha preenchido com "Olá, Quero conhecer a Vouti."
+Isso é suficiente — os handlers `onInteractOutside` e `onPointerDownOutside` com `e.preventDefault()` já estão no lugar para impedir o fechamento ao clicar fora.
 
