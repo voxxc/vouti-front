@@ -420,7 +420,7 @@ export const GeralTab = () => {
     );
   }
 
-  if (!loading && processos.length === 0 && page === 0) {
+  if (!loading && processos.length === 0 && page === 0 && !searchTerm) {
     return (
       <div className="h-full text-center py-8 border rounded-lg bg-muted/20">
         <FileText className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
@@ -548,6 +548,18 @@ export const GeralTab = () => {
               onExcluir={setProcessoParaExcluir}
               carregandoDetalhes={carregandoDetalhes}
             />
+          )}
+
+          {!loading && processosFiltrados.length === 0 && (
+            <div className="text-center py-8 border rounded-lg bg-muted/20">
+              <Search className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
+              <p className="text-muted-foreground">Nenhum processo encontrado para esta busca</p>
+              {inputBusca && (
+                <Button variant="link" className="mt-2" onClick={() => handleSearchChange('')}>
+                  Limpar busca
+                </Button>
+              )}
+            </div>
           )}
         </div>
       </div>
