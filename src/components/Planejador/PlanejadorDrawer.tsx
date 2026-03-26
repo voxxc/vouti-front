@@ -6,6 +6,8 @@ import { PlanejadorListView } from "./PlanejadorListView";
 import { PlanejadorCreateTask } from "./PlanejadorCreateTask";
 import { PlanejadorTaskDetail } from "./PlanejadorTaskDetail";
 import { PlanejadorSettings, ColumnConfig } from "./PlanejadorSettings";
+import { PlanejadorPrazosView } from "./PlanejadorPrazosView";
+import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 import { usePlanejadorTasks, PlanejadorTask, KANBAN_COLUMNS, KanbanColumn } from "@/hooks/usePlanejadorTasks";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlanejadorLabels, useAllLabelAssignments } from "@/hooks/usePlanejadorLabels";
@@ -66,7 +68,8 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(currentUserId);
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
-
+  const [deadlineDetailId, setDeadlineDetailId] = useState<string | null>(null);
+  const [deadlineDetailOpen, setDeadlineDetailOpen] = useState(false);
   const [columnConfig, setColumnConfig] = useState<ColumnConfig[]>(() => loadColumnConfig(tenantId));
 
   const { tasksByColumn, isLoading, createTask, updateTask, deleteTask } = usePlanejadorTasks();
@@ -273,6 +276,13 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                     allLabelAssignments={allLabelAssignments}
                     participantTaskIds={participantData}
                   />
+                ) : activeTab === 'prazos' ? (
+                  <PlanejadorPrazosView
+                    onDeadlineClick={(id) => {
+                      setDeadlineDetailId(id);
+                      setDeadlineDetailOpen(true);
+                    }}
+                  />
                 ) : (
                   <PlanejadorKanban
                     tasksByColumn={tasksByColumn}
@@ -308,7 +318,14 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
         isLoading={createTask.isPending}
       />
 
-      {/* Task detail is now rendered INSIDE the Sheet to inherit focus context */}
+      <DeadlineDetailDialog
+        deadlineId={deadlineDetailId}
+        open={deadlineDetailOpen}
+        onOpenChange={(open) => {
+          setDeadlineDetailOpen(open);
+          if (!open) setDeadlineDetailId(null);
+        }}
+      />
     </>
   );
 }
