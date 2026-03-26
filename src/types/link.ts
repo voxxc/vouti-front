@@ -24,6 +24,11 @@ export interface LinkProfile {
   button_padding: string;
   button_spacing: string;
   button_border_color: string | null;
+  sub_button_style: string;
+  sub_button_radius: string;
+  sub_button_padding: string;
+  sub_button_color: string | null;
+  sub_button_text_color: string | null;
   created_at: string;
   updated_at: string;
 }

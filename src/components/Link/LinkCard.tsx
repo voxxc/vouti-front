@@ -24,8 +24,12 @@ export const LinkCard = ({
   onAddChild,
   isDragging 
 }: LinkCardProps) => {
-  const [expanded, setExpanded] = useState(false);
-  const isParent = !link.url && childLinks.length > 0 || (!link.url && !link.parent_id);
+  const isParent = !link.url && !link.parent_id;
+  const hasChildren = childLinks.length > 0;
+  const [expanded, setExpanded] = useState(hasChildren);
+
+  const activeChildren = childLinks.filter(c => c.is_active).length;
+  const inactiveChildren = childLinks.length - activeChildren;
 
   return (
     <div>
@@ -52,11 +56,15 @@ export const LinkCard = ({
                 )}
                 {isParent && (
                   <Badge variant="outline" className="text-xs">
-                    {childLinks.length} sub-link{childLinks.length !== 1 ? "s" : ""}
+                    {activeChildren} ativo{activeChildren !== 1 ? "s" : ""}
+                    {inactiveChildren > 0 && ` · ${inactiveChildren} inativo${inactiveChildren !== 1 ? "s" : ""}`}
                   </Badge>
                 )}
               </div>
               {link.url && <p className="text-sm text-muted-foreground truncate">{link.url}</p>}
+              {isParent && !hasChildren && (
+                <p className="text-xs text-amber-600 mt-1">Nenhum sub-link adicionado ainda</p>
+              )}
               <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Link2 className="h-3 w-3" />
@@ -69,12 +77,14 @@ export const LinkCard = ({
             <div className="flex items-center gap-1">
               {isParent && onAddChild && (
                 <Button
-                  variant="ghost"
-                  size="icon"
+                  variant="outline"
+                  size="sm"
                   onClick={() => onAddChild(link.id)}
                   title="Adicionar sub-link"
+                  className="gap-1 text-xs"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-3.5 w-3.5" />
+                  Sub-link
                 </Button>
               )}
               <Button
@@ -114,15 +124,20 @@ export const LinkCard = ({
       </Card>
 
       {/* Child links */}
-      {isParent && expanded && childLinks.length > 0 && (
+      {isParent && expanded && (
         <div className="ml-8 mt-2 space-y-2 border-l-2 border-border pl-4">
           {childLinks.map(child => (
             <Card key={child.id} className="hover:shadow-sm transition-all">
               <CardContent className="p-3">
                 <div className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-medium truncate">{child.title}</h4>
-                    {child.url && <p className="text-xs text-muted-foreground truncate">{child.url}</p>}
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-medium truncate">{child.title}</h4>
+                      {!child.is_active && (
+                        <Badge variant="secondary" className="text-[10px]">Inativo</Badge>
+                      )}
+                    </div>
+                    {child.url && <p className="text-xs text-muted-foreground truncate mt-0.5">{child.url}</p>}
                   </div>
                   <div className="flex items-center gap-1">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onToggleActive(child.id, !child.is_active)}>
@@ -139,6 +154,18 @@ export const LinkCard = ({
               </CardContent>
             </Card>
           ))}
+          
+          {onAddChild && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onAddChild(link.id)}
+              className="w-full border border-dashed border-border text-muted-foreground hover:text-foreground gap-1"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Adicionar sub-link
+            </Button>
+          )}
         </div>
       )}
     </div>
