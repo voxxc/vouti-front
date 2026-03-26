@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link2, Home, Edit3, Palette, Users, BarChart3, PlusCircle, Eye, Settings, Crown, LogOut, ChevronLeft } from "lucide-react";
+import { Link2, Home, Edit3, Palette, Users, BarChart3, PlusCircle, Eye, Settings, Crown, LogOut, ChevronLeft, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
