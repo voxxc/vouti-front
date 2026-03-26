@@ -68,7 +68,8 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(currentUserId);
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
-
+  const [deadlineDetailId, setDeadlineDetailId] = useState<string | null>(null);
+  const [deadlineDetailOpen, setDeadlineDetailOpen] = useState(false);
   const [columnConfig, setColumnConfig] = useState<ColumnConfig[]>(() => loadColumnConfig(tenantId));
 
   const { tasksByColumn, isLoading, createTask, updateTask, deleteTask } = usePlanejadorTasks();
