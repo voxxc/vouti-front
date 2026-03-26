@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLinkAuth } from "@/contexts/LinkAuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { LinkItem, LinkProfile, LinkCollection } from "@/types/link";
+import { LinkItem, LinkProfile, LinkCollection, LinkTextElement } from "@/types/link";
 import { LinkDashboardSidebar } from "@/components/Link/LinkDashboardSidebar";
 import { LinkCard } from "@/components/Link/LinkCard";
 import { LinksPageHeader } from "@/components/Link/LinksPageHeader";
