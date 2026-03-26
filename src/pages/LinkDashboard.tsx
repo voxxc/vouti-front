@@ -406,7 +406,7 @@ const LinkDashboard = () => {
                 <ThemeCustomizer profile={localProfile!} onSave={handleSaveProfile} />
               </div>
               <div className="lg:col-span-1">
-                <MobilePreview profile={localProfile!} links={links} collections={collections} />
+                <MobilePreview profile={localProfile!} links={links} collections={collections} textElements={textElements} onTextPositionChange={handleTextPositionChange} onTextClick={(el) => setTextEditorDialog({ open: true, element: el })} />
               </div>
             </div>
           )}
