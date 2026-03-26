@@ -2387,6 +2387,7 @@ export type Database = {
           icon: string | null
           id: string
           is_active: boolean | null
+          parent_id: string | null
           position: number | null
           profile_id: string
           title: string
@@ -2399,6 +2400,7 @@ export type Database = {
           icon?: string | null
           id?: string
           is_active?: boolean | null
+          parent_id?: string | null
           position?: number | null
           profile_id: string
           title: string
@@ -2411,6 +2413,7 @@ export type Database = {
           icon?: string | null
           id?: string
           is_active?: boolean | null
+          parent_id?: string | null
           position?: number | null
           profile_id?: string
           title?: string
@@ -2422,6 +2425,13 @@ export type Database = {
             columns: ["collection_id"]
             isOneToOne: false
             referencedRelation: "link_collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "link_items_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "link_items"
             referencedColumns: ["id"]
           },
           {
@@ -2441,7 +2451,12 @@ export type Database = {
           bg_gradient_direction: string
           bg_image_url: string | null
           bio: string | null
+          button_border_color: string | null
           button_color: string
+          button_padding: string
+          button_radius: string
+          button_spacing: string
+          button_style: string
           button_text_color: string
           created_at: string | null
           display_name: string | null
@@ -2463,7 +2478,12 @@ export type Database = {
           bg_gradient_direction?: string
           bg_image_url?: string | null
           bio?: string | null
+          button_border_color?: string | null
           button_color?: string
+          button_padding?: string
+          button_radius?: string
+          button_spacing?: string
+          button_style?: string
           button_text_color?: string
           created_at?: string | null
           display_name?: string | null
@@ -2485,7 +2505,12 @@ export type Database = {
           bg_gradient_direction?: string
           bg_image_url?: string | null
           bio?: string | null
+          button_border_color?: string | null
           button_color?: string
+          button_padding?: string
+          button_radius?: string
+          button_spacing?: string
+          button_style?: string
           button_text_color?: string
           created_at?: string | null
           display_name?: string | null

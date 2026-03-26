@@ -24,6 +24,7 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSave }: EditLinkDia
   const [title, setTitle] = useState(link?.title || "");
   const [url, setUrl] = useState(link?.url || "");
   const [isActive, setIsActive] = useState(link?.is_active ?? true);
+  const [isParent, setIsParent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -31,18 +32,20 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSave }: EditLinkDia
       setTitle(link?.title || "");
       setUrl(link?.url || "");
       setIsActive(link?.is_active ?? true);
+      setIsParent(link ? !link.url : false);
     }
   }, [open, link]);
 
   const handleSave = async () => {
-    if (!title.trim() || !url.trim()) return;
+    if (!title.trim()) return;
+    if (!isParent && !url.trim()) return;
 
     setIsLoading(true);
     try {
       await onSave({
         id: link?.id,
         title: title.trim(),
-        url: url.trim(),
+        url: isParent ? "" : url.trim(),
         is_active: isActive,
       });
       onOpenChange(false);
@@ -56,6 +59,7 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSave }: EditLinkDia
       setTitle(link?.title || "");
       setUrl(link?.url || "");
       setIsActive(link?.is_active ?? true);
+      setIsParent(link ? !link.url : false);
     }
     onOpenChange(newOpen);
   };
@@ -71,28 +75,45 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSave }: EditLinkDia
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="is-parent">Botão com subitens</Label>
+              <p className="text-xs text-muted-foreground">
+                Ao ativar, este botão expande para mostrar sub-links
+              </p>
+            </div>
+            <Switch
+              id="is-parent"
+              checked={isParent}
+              onCheckedChange={setIsParent}
+              disabled={isLoading}
+            />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="title">Título</Label>
             <Input
               id="title"
-              placeholder="Ex: Meu Instagram"
+              placeholder={isParent ? "Ex: Minhas Redes Sociais" : "Ex: Meu Instagram"}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               disabled={isLoading}
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="url">URL</Label>
-            <Input
-              id="url"
-              type="url"
-              placeholder="https://instagram.com/seu_perfil"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              disabled={isLoading}
-            />
-          </div>
+          {!isParent && (
+            <div className="space-y-2">
+              <Label htmlFor="url">URL</Label>
+              <Input
+                id="url"
+                type="url"
+                placeholder="https://instagram.com/seu_perfil"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
@@ -120,7 +141,7 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSave }: EditLinkDia
           </Button>
           <Button
             onClick={handleSave}
-            disabled={!title.trim() || !url.trim() || isLoading}
+            disabled={!title.trim() || (!isParent && !url.trim()) || isLoading}
           >
             {isLoading ? "Salvando..." : link ? "Salvar" : "Adicionar"}
           </Button>

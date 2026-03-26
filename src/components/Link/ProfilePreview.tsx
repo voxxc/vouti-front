@@ -2,6 +2,7 @@ import { LinkProfile, LinkItem } from "@/types/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link2, ExternalLink } from "lucide-react";
+import { getButtonStyle, getButtonSpacing } from "@/lib/linkThemeUtils";
 
 interface ProfilePreviewProps {
   profile: LinkProfile;
@@ -9,8 +10,10 @@ interface ProfilePreviewProps {
 }
 
 export const ProfilePreview = ({ profile, links }: ProfilePreviewProps) => {
-  const activeLinks = links.filter(link => link.is_active);
+  const activeLinks = links.filter(link => link.is_active && !link.parent_id);
   const initials = profile.username.slice(0, 2).toUpperCase();
+  const btnStyle = getButtonStyle(profile);
+  const spacing = getButtonSpacing(profile);
 
   return (
     <Card className="overflow-hidden">
@@ -47,8 +50,8 @@ export const ProfilePreview = ({ profile, links }: ProfilePreviewProps) => {
             )}
           </div>
 
-          {/* Links - dark cards */}
-          <div className="px-6 pb-6 space-y-3">
+          {/* Links */}
+          <div className="px-6 pb-6" style={{ display: "flex", flexDirection: "column", gap: spacing }}>
             {activeLinks.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Link2 className="h-12 w-12 mx-auto mb-3 opacity-20" />
@@ -58,20 +61,14 @@ export const ProfilePreview = ({ profile, links }: ProfilePreviewProps) => {
               activeLinks.map((link) => (
                 <div
                   key={link.id}
-                  className="w-full py-4 px-5 text-center font-medium text-white bg-[hsl(var(--vlink-dark))] rounded-xl flex items-center justify-between"
+                  className="w-full text-center font-medium flex items-center justify-between"
+                  style={btnStyle}
                 >
                   <span className="flex-1 text-center">{link.title}</span>
                   <ExternalLink className="h-4 w-4 flex-shrink-0 opacity-60" />
                 </div>
               ))
             )}
-          </div>
-
-          {/* Footer */}
-          <div className="p-4 text-center border-t border-border/50">
-            <p className="text-xs text-[hsl(var(--vlink-neutral))]">
-              <span className="font-semibold">Vouti</span>
-            </p>
           </div>
         </div>
       </CardContent>

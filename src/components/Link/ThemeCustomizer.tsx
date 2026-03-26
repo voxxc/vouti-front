@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, ArrowRight, ArrowLeft, Check, Upload, Trash2, ImageIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowRight, ArrowLeft, Upload, Trash2, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -41,6 +41,39 @@ const FONT_SIZES = [
   { value: "3xl", label: "XXG" },
 ];
 
+const BUTTON_STYLES = [
+  { value: "filled", label: "Preenchido" },
+  { value: "outline", label: "Contorno" },
+  { value: "soft", label: "Suave" },
+  { value: "shadow", label: "Sombra" },
+];
+
+const BUTTON_RADIUS = [
+  { value: "none", label: "Reto" },
+  { value: "md", label: "Médio" },
+  { value: "xl", label: "Arredondado" },
+  { value: "full", label: "Pílula" },
+];
+
+const BUTTON_PADDING = [
+  { value: "compact", label: "Compacto" },
+  { value: "normal", label: "Normal" },
+  { value: "spacious", label: "Espaçoso" },
+];
+
+const BUTTON_SPACING = [
+  { value: "tight", label: "Apertado" },
+  { value: "normal", label: "Normal" },
+  { value: "spacious", label: "Espaçoso" },
+];
+
+const RADIUS_PREVIEW: Record<string, string> = {
+  none: "0px",
+  md: "8px",
+  xl: "16px",
+  full: "9999px",
+};
+
 export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
   const [bgColor1, setBgColor1] = useState(profile.bg_color_1 || "#FFFFFF");
   const [bgColor2, setBgColor2] = useState(profile.bg_color_2 || "");
@@ -55,10 +88,14 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
   const [saving, setSaving] = useState(false);
   const bgFileRef = useRef<HTMLInputElement>(null);
 
-  const handleLiveUpdate = (updates: Partial<{
-    bg_color_1: string; bg_color_2: string | null; bg_gradient_direction: string;
-    button_color: string; button_text_color: string;
-  }>) => {
+  // Button style states
+  const [buttonStyle, setButtonStyle] = useState(profile.button_style || "filled");
+  const [buttonRadius, setButtonRadius] = useState(profile.button_radius || "xl");
+  const [buttonPadding, setButtonPadding] = useState(profile.button_padding || "normal");
+  const [buttonSpacing, setButtonSpacing] = useState(profile.button_spacing || "normal");
+  const [buttonBorderColor, setButtonBorderColor] = useState(profile.button_border_color || "");
+
+  const handleLiveUpdate = (updates: Partial<LinkProfile>) => {
     onSave(updates).catch(() => {});
   };
 
@@ -88,6 +125,11 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
         button_text_color: buttonTextColor,
         username_color: usernameColor,
         username_font_size: usernameFontSize,
+        button_style: buttonStyle,
+        button_radius: buttonRadius,
+        button_padding: buttonPadding,
+        button_spacing: buttonSpacing,
+        button_border_color: buttonBorderColor || null,
       });
       toast.success("Tema salvo com sucesso!");
     } catch {
@@ -136,9 +178,32 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
       button_text_color: buttonTextColor,
       username_color: usernameColor,
       username_font_size: usernameFontSize,
+      button_style: buttonStyle,
+      button_radius: buttonRadius,
+      button_padding: buttonPadding,
+      button_spacing: buttonSpacing,
+      button_border_color: buttonBorderColor || null,
       [field]: value,
     };
     handleLiveUpdate(updates);
+  };
+
+  // Preview button style computation
+  const getPreviewBtnStyle = (): React.CSSProperties => {
+    const radius = RADIUS_PREVIEW[buttonRadius] || "16px";
+    const padding = buttonPadding === "compact" ? "8px 20px" : buttonPadding === "spacious" ? "24px 20px" : "16px 20px";
+    const base: React.CSSProperties = { borderRadius: radius, padding, fontWeight: 500, width: "100%", textAlign: "center" as const };
+
+    switch (buttonStyle) {
+      case "outline":
+        return { ...base, backgroundColor: "transparent", border: `2px solid ${buttonBorderColor || buttonColor}`, color: buttonBorderColor || buttonColor };
+      case "soft":
+        return { ...base, backgroundColor: `${buttonColor}22`, color: buttonColor };
+      case "shadow":
+        return { ...base, backgroundColor: buttonColor, color: buttonTextColor, boxShadow: `0 8px 24px -4px ${buttonColor}66` };
+      default:
+        return { ...base, backgroundColor: buttonColor, color: buttonTextColor };
+    }
   };
 
   return (
@@ -334,47 +399,159 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
         </CardContent>
       </Card>
 
-      {/* Button Colors */}
+      {/* Button Style — REDESIGNED */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Cor dos Botões</CardTitle>
+          <CardTitle className="text-lg">Estilo dos Botões</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <Label className="min-w-[100px]">Fundo</Label>
-            <input
-              type="color"
-              value={buttonColor}
-              onChange={(e) => {
-                setButtonColor(e.target.value);
-                updateAndPreview("button_color", e.target.value);
-              }}
-              className="w-12 h-10 rounded cursor-pointer border border-border"
-            />
-            <span className="text-sm text-muted-foreground font-mono">{buttonColor}</span>
+        <CardContent className="space-y-6">
+          {/* Style selector */}
+          <div>
+            <Label className="mb-2 block">Formato Visual</Label>
+            <div className="grid grid-cols-4 gap-2">
+              {BUTTON_STYLES.map((s) => (
+                <button
+                  key={s.value}
+                  onClick={() => {
+                    setButtonStyle(s.value);
+                    updateAndPreview("button_style", s.value);
+                  }}
+                  className={cn(
+                    "py-2 px-3 rounded-xl border text-xs font-medium transition-all",
+                    buttonStyle === s.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  )}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <Label className="min-w-[100px]">Texto</Label>
-            <input
-              type="color"
-              value={buttonTextColor}
-              onChange={(e) => {
-                setButtonTextColor(e.target.value);
-                updateAndPreview("button_text_color", e.target.value);
-              }}
-              className="w-12 h-10 rounded cursor-pointer border border-border"
-            />
-            <span className="text-sm text-muted-foreground font-mono">{buttonTextColor}</span>
+          {/* Radius selector */}
+          <div>
+            <Label className="mb-2 block">Arredondamento</Label>
+            <div className="grid grid-cols-4 gap-2">
+              {BUTTON_RADIUS.map((r) => (
+                <button
+                  key={r.value}
+                  onClick={() => {
+                    setButtonRadius(r.value);
+                    updateAndPreview("button_radius", r.value);
+                  }}
+                  className={cn(
+                    "py-2 px-3 rounded-xl border text-xs font-medium transition-all",
+                    buttonRadius === r.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  )}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Padding selector */}
+          <div>
+            <Label className="mb-2 block">Altura dos Botões</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {BUTTON_PADDING.map((p) => (
+                <button
+                  key={p.value}
+                  onClick={() => {
+                    setButtonPadding(p.value);
+                    updateAndPreview("button_padding", p.value);
+                  }}
+                  className={cn(
+                    "py-2 px-3 rounded-xl border text-xs font-medium transition-all",
+                    buttonPadding === p.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Spacing selector */}
+          <div>
+            <Label className="mb-2 block">Espaçamento entre Links</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {BUTTON_SPACING.map((sp) => (
+                <button
+                  key={sp.value}
+                  onClick={() => {
+                    setButtonSpacing(sp.value);
+                    updateAndPreview("button_spacing", sp.value);
+                  }}
+                  className={cn(
+                    "py-2 px-3 rounded-xl border text-xs font-medium transition-all",
+                    buttonSpacing === sp.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  )}
+                >
+                  {sp.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Colors */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-4">
+              <Label className="min-w-[100px]">Cor de Fundo</Label>
+              <input
+                type="color"
+                value={buttonColor}
+                onChange={(e) => {
+                  setButtonColor(e.target.value);
+                  updateAndPreview("button_color", e.target.value);
+                }}
+                className="w-12 h-10 rounded cursor-pointer border border-border"
+              />
+              <span className="text-sm text-muted-foreground font-mono">{buttonColor}</span>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Label className="min-w-[100px]">Cor do Texto</Label>
+              <input
+                type="color"
+                value={buttonTextColor}
+                onChange={(e) => {
+                  setButtonTextColor(e.target.value);
+                  updateAndPreview("button_text_color", e.target.value);
+                }}
+                className="w-12 h-10 rounded cursor-pointer border border-border"
+              />
+              <span className="text-sm text-muted-foreground font-mono">{buttonTextColor}</span>
+            </div>
+
+            {buttonStyle === "outline" && (
+              <div className="flex items-center gap-4">
+                <Label className="min-w-[100px]">Cor da Borda</Label>
+                <input
+                  type="color"
+                  value={buttonBorderColor || buttonColor}
+                  onChange={(e) => {
+                    setButtonBorderColor(e.target.value);
+                    updateAndPreview("button_border_color", e.target.value);
+                  }}
+                  className="w-12 h-10 rounded cursor-pointer border border-border"
+                />
+                <span className="text-sm text-muted-foreground font-mono">{buttonBorderColor || buttonColor}</span>
+              </div>
+            )}
           </div>
 
           {/* Preview Button */}
           <div className="pt-2">
             <Label className="mb-2 block text-muted-foreground">Preview do botão:</Label>
-            <div
-              className="w-full py-4 px-5 text-center font-medium rounded-2xl"
-              style={{ backgroundColor: buttonColor, color: buttonTextColor }}
-            >
+            <div style={getPreviewBtnStyle()}>
               Exemplo de Link
             </div>
           </div>
