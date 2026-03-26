@@ -191,6 +191,62 @@ const LinkDashboard = () => {
     }
   };
 
+  // Text element CRUD
+  const handleSaveTextElement = async (data: Partial<LinkTextElement>) => {
+    if (!profile) return;
+    try {
+      if (data.id) {
+        const { error } = await supabase.from('link_text_elements').update({
+          content: data.content,
+          font_family: data.font_family,
+          font_size: data.font_size,
+          color: data.color,
+          font_weight: data.font_weight,
+          font_style: data.font_style,
+        }).eq('id', data.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('link_text_elements').insert({
+          profile_id: profile.id,
+          content: data.content,
+          font_family: data.font_family,
+          font_size: data.font_size,
+          color: data.color,
+          font_weight: data.font_weight,
+          font_style: data.font_style,
+        });
+        if (error) throw error;
+      }
+      loadData();
+      toast.success('Texto salvo!');
+    } catch (error) {
+      console.error('Error saving text element:', error);
+      toast.error('Erro ao salvar texto');
+    }
+  };
+
+  const handleDeleteTextElement = async (id: string) => {
+    try {
+      const { error } = await supabase.from('link_text_elements').delete().eq('id', id);
+      if (error) throw error;
+      loadData();
+      toast.success('Texto removido');
+    } catch (error) {
+      console.error('Error deleting text element:', error);
+      toast.error('Erro ao remover texto');
+    }
+  };
+
+  const handleTextPositionChange = async (id: string, x: number, y: number) => {
+    try {
+      const { error } = await supabase.from('link_text_elements').update({ position_x: x, position_y: y }).eq('id', id);
+      if (error) throw error;
+      setTextElements(prev => prev.map(t => t.id === id ? { ...t, position_x: x, position_y: y } : t));
+    } catch (error) {
+      console.error('Error updating text position:', error);
+    }
+  };
+
   const totalClicks = links.reduce((sum, link) => sum + link.clicks, 0);
   const activeLinks = links.filter(l => l.is_active).length;
 
