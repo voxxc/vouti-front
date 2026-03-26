@@ -6,6 +6,8 @@ import { PlanejadorListView } from "./PlanejadorListView";
 import { PlanejadorCreateTask } from "./PlanejadorCreateTask";
 import { PlanejadorTaskDetail } from "./PlanejadorTaskDetail";
 import { PlanejadorSettings, ColumnConfig } from "./PlanejadorSettings";
+import { PlanejadorPrazosView } from "./PlanejadorPrazosView";
+import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 import { usePlanejadorTasks, PlanejadorTask, KANBAN_COLUMNS, KanbanColumn } from "@/hooks/usePlanejadorTasks";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlanejadorLabels, useAllLabelAssignments } from "@/hooks/usePlanejadorLabels";

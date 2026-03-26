@@ -39,6 +39,7 @@ const TABS = [
   { id: 'prazo', label: 'Colunas' },
   { id: 'lista', label: 'Lista' },
   { id: 'calendario', label: 'Calendário' },
+  { id: 'prazos', label: 'Prazos' },
 ];
 
 export function PlanejadorTopBar({
