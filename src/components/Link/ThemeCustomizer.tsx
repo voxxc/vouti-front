@@ -67,6 +67,12 @@ const BUTTON_SPACING = [
   { value: "spacious", label: "Espaçoso" },
 ];
 
+const VERTICAL_POSITIONS = [
+  { value: "top", label: "Topo" },
+  { value: "center", label: "Centro" },
+  { value: "bottom", label: "Baixo" },
+];
+
 const RADIUS_PREVIEW: Record<string, string> = {
   none: "0px",
   md: "8px",
@@ -101,6 +107,7 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
   const [subButtonPadding, setSubButtonPadding] = useState(profile.sub_button_padding || "compact");
   const [subButtonColor, setSubButtonColor] = useState(profile.sub_button_color || "");
   const [subButtonTextColor, setSubButtonTextColor] = useState(profile.sub_button_text_color || "");
+  const [verticalPosition, setVerticalPosition] = useState(profile.content_vertical_position || "top");
 
   const handleLiveUpdate = (updates: Partial<LinkProfile>) => {
     onSave(updates).catch(() => {});
@@ -142,6 +149,7 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
         sub_button_padding: subButtonPadding,
         sub_button_color: subButtonColor || null,
         sub_button_text_color: subButtonTextColor || null,
+        content_vertical_position: verticalPosition,
       });
       toast.success("Tema salvo com sucesso!");
     } catch {
@@ -200,6 +208,7 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
       sub_button_padding: subButtonPadding,
       sub_button_color: subButtonColor || null,
       sub_button_text_color: subButtonTextColor || null,
+      content_vertical_position: verticalPosition,
       [field]: value,
     };
     handleLiveUpdate(updates);
@@ -687,6 +696,35 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
           <p className="text-xs text-muted-foreground">
             Cores herdam do botão principal se não personalizadas.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Vertical Position */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Posição Vertical do Conteúdo</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">Ajuste onde o conteúdo (avatar + botões) aparece na página.</p>
+          <div className="grid grid-cols-3 gap-2">
+            {VERTICAL_POSITIONS.map((pos) => (
+              <button
+                key={pos.value}
+                onClick={() => {
+                  setVerticalPosition(pos.value);
+                  updateAndPreview("content_vertical_position", pos.value);
+                }}
+                className={cn(
+                  "py-3 px-3 rounded-xl border text-sm font-medium transition-all",
+                  verticalPosition === pos.value
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/50"
+                )}
+              >
+                {pos.label}
+              </button>
+            ))}
+          </div>
         </CardContent>
       </Card>
 

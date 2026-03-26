@@ -29,6 +29,7 @@ export interface LinkProfile {
   sub_button_padding: string;
   sub_button_color: string | null;
   sub_button_text_color: string | null;
+  content_vertical_position: string;
   created_at: string;
   updated_at: string;
 }

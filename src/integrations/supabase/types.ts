@@ -2458,6 +2458,7 @@ export type Database = {
           button_spacing: string
           button_style: string
           button_text_color: string
+          content_vertical_position: string
           created_at: string | null
           display_name: string | null
           full_name: string | null
@@ -2490,6 +2491,7 @@ export type Database = {
           button_spacing?: string
           button_style?: string
           button_text_color?: string
+          content_vertical_position?: string
           created_at?: string | null
           display_name?: string | null
           full_name?: string | null
@@ -2522,6 +2524,7 @@ export type Database = {
           button_spacing?: string
           button_style?: string
           button_text_color?: string
+          content_vertical_position?: string
           created_at?: string | null
           display_name?: string | null
           full_name?: string | null

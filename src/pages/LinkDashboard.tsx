@@ -388,7 +388,7 @@ const LinkDashboard = () => {
           {/* Preview Tab */}
           {activeTab === "preview" && (
             <div className="max-w-md mx-auto">
-              <ProfilePreview profile={localProfile!} links={links.filter(l => l.is_active)} />
+              <ProfilePreview profile={localProfile!} links={links.filter(l => l.is_active)} collections={collections} />
             </div>
           )}
 

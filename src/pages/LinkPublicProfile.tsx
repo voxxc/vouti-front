@@ -4,7 +4,7 @@ import { supabasePublic } from "@/integrations/supabase/publicClient";
 import { LinkProfile, LinkItem, LinkCollection } from "@/types/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link2, ChevronDown } from "lucide-react";
-import { getProfileBackground, getButtonStyle, getButtonSpacing, getSubButtonStyle, getUsernameStyle } from "@/lib/linkThemeUtils";
+import { getProfileBackground, getButtonStyle, getButtonSpacing, getSubButtonStyle, getUsernameStyle, getContentAlignment } from "@/lib/linkThemeUtils";
 import NotFound from "./NotFound";
 
 const LinkPublicProfile = () => {
@@ -98,6 +98,7 @@ const LinkPublicProfile = () => {
   const subBtnStyle = getSubButtonStyle(profile);
   const spacing = getButtonSpacing(profile);
   const usernameStyle = getUsernameStyle(profile);
+  const contentAlign = getContentAlignment(profile);
 
   const isParentButton = (link: LinkItem) => !link.url && getChildren(link.id).length > 0;
 
@@ -149,7 +150,7 @@ const LinkPublicProfile = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center" style={bgStyle}>
+    <div className="min-h-screen flex flex-col items-center" style={{ ...bgStyle, justifyContent: contentAlign }}>
       {/* Profile Header */}
       <div className="w-full max-w-md mx-auto pt-12 pb-8 px-6 text-center">
         {(profile.show_avatar !== false) && (
