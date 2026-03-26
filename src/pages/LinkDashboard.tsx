@@ -451,10 +451,58 @@ const LinkDashboard = () => {
             </div>
           )}
 
+          {/* Textos Tab */}
+          {activeTab === "textos" && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-6">
+                <div>
+                  <h1 className="text-3xl font-bold">Textos</h1>
+                  <p className="text-muted-foreground mt-1">Adicione textos livres e posicione arrastando no preview</p>
+                </div>
+                <Button
+                  onClick={() => setTextEditorDialog({ open: true })}
+                  className="w-full h-14 text-lg bg-[hsl(var(--vlink-purple))] hover:bg-[hsl(var(--vlink-purple-dark))] text-white"
+                  size="lg"
+                >
+                  <Type className="h-5 w-5 mr-2" />
+                  Adicionar Texto
+                </Button>
+                {textElements.length > 0 && (
+                  <div className="space-y-2">
+                    {textElements.map((el) => (
+                      <Card key={el.id} className="cursor-pointer hover:border-primary/40 transition-colors" onClick={() => setTextEditorDialog({ open: true, element: el })}>
+                        <CardContent className="p-4 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 rounded-full border" style={{ backgroundColor: el.color }} />
+                            <span style={{ fontFamily: el.font_family, fontWeight: el.font_weight, fontStyle: el.font_style }} className="truncate max-w-xs">
+                              {el.content}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">{el.font_family} · {el.font_size}px</span>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+                {textElements.length === 0 && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Type className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                    <p>Nenhum texto adicionado</p>
+                    <p className="text-sm mt-1">Clique em "Adicionar Texto" para começar</p>
+                  </div>
+                )}
+              </div>
+              <div className="lg:col-span-1">
+                <MobilePreview profile={localProfile!} links={links} collections={collections} textElements={textElements} onTextPositionChange={handleTextPositionChange} onTextClick={(el) => setTextEditorDialog({ open: true, element: el })} />
+                <p className="text-xs text-center text-muted-foreground mt-2">Arraste os textos no preview · Clique duplo para editar</p>
+              </div>
+            </div>
+          )}
+
           {/* Preview Tab */}
           {activeTab === "preview" && (
             <div className="max-w-md mx-auto">
-              <ProfilePreview profile={localProfile!} links={links.filter(l => l.is_active)} collections={collections} />
+              <ProfilePreview profile={localProfile!} links={links.filter(l => l.is_active)} collections={collections} textElements={textElements} />
             </div>
           )}
 
