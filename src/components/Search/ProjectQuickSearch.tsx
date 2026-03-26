@@ -7,11 +7,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantId } from '@/hooks/useTenantId';
 import { checkIfUserIsAdminOrController } from '@/lib/auth-helpers';
-import { Search } from 'lucide-react';
+import { Search, FolderOpen, FileText } from 'lucide-react';
 
 interface ProjectQuickSearchProps {
   tenantPath: (path: string) => string;
   onSelectProject?: (projectId: string) => void;
+  onSelectProtocolo?: (projectId: string, protocoloId: string) => void;
 }
 
 interface ProjectItem {
@@ -20,10 +21,19 @@ interface ProjectItem {
   client: string | null;
 }
 
-export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuickSearchProps) => {
+interface ProtocoloItem {
+  id: string;
+  nome: string;
+  project_id: string;
+  project_name: string;
+  project_client: string | null;
+}
+
+export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtocolo }: ProjectQuickSearchProps) => {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [protocolos, setProtocolos] = useState<ProtocoloItem[]>([]);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { tenantId } = useTenantId();
@@ -32,25 +42,44 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
 
-  // Função para carregar projetos com filtro de permissão
   const loadProjects = async () => {
     if (!user || !tenantId) return;
     
     const isAdminOrController = await checkIfUserIsAdminOrController(user.id, tenantId);
     
     if (isAdminOrController) {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('id, name, client')
-        .eq('tenant_id', tenantId)
-        .eq('module', 'legal')
-        .order('updated_at', { ascending: false });
+      const [projectsRes, protocolosRes] = await Promise.all([
+        supabase
+          .from('projects')
+          .select('id, name, client')
+          .eq('tenant_id', tenantId)
+          .eq('module', 'legal')
+          .order('updated_at', { ascending: false }),
+        supabase
+          .from('project_protocolos')
+          .select('id, nome, project_id, projects!inner(name, client, tenant_id)')
+          .eq('projects.tenant_id', tenantId)
+          .order('created_at', { ascending: false }),
+      ]);
       
-      if (error) {
-        console.error('[ProjectQuickSearch] Error loading projects:', error);
-        return;
+      if (projectsRes.error) {
+        console.error('[ProjectQuickSearch] Error loading projects:', projectsRes.error);
+      } else {
+        setProjects(projectsRes.data || []);
       }
-      if (data) setProjects(data);
+
+      if (protocolosRes.error) {
+        console.error('[ProjectQuickSearch] Error loading protocolos:', protocolosRes.error);
+      } else {
+        const mapped = (protocolosRes.data || []).map((p: any) => ({
+          id: p.id,
+          nome: p.nome,
+          project_id: p.project_id,
+          project_name: p.projects?.name || '',
+          project_client: p.projects?.client || null,
+        }));
+        setProtocolos(mapped);
+      }
     } else {
       const { data: collaboratorProjects } = await supabase
         .from('project_collaborators')
@@ -75,16 +104,37 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
         console.error('[ProjectQuickSearch] Error loading projects:', error);
         return;
       }
-      if (data) setProjects(data);
+      if (data) {
+        setProjects(data);
+        
+        // Load protocolos for accessible projects
+        const projectIds = data.map(p => p.id);
+        if (projectIds.length > 0) {
+          const { data: protData, error: protError } = await supabase
+            .from('project_protocolos')
+            .select('id, nome, project_id')
+            .in('project_id', projectIds)
+            .order('created_at', { ascending: false });
+          
+          if (!protError && protData) {
+            const projectMap = new Map(data.map(p => [p.id, p]));
+            setProtocolos(protData.map(p => ({
+              id: p.id,
+              nome: p.nome,
+              project_id: p.project_id,
+              project_name: projectMap.get(p.project_id)?.name || '',
+              project_client: projectMap.get(p.project_id)?.client || null,
+            })));
+          }
+        }
+      }
     }
   };
 
-  // Carregar projetos na montagem
   useEffect(() => {
     loadProjects();
   }, [user, tenantId]);
 
-  // Escutar evento de projeto criado para atualizar busca rápida
   useEffect(() => {
     const handler = () => {
       setTimeout(() => loadProjects(), 2000);
@@ -93,7 +143,6 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
     return () => window.removeEventListener('project-created', handler);
   }, [user, tenantId]);
 
-  // Fechar ao clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
@@ -104,12 +153,10 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
         setOpen(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Calcular posição do dropdown
   useEffect(() => {
     if (open && inputRef.current) {
       const rect = inputRef.current.getBoundingClientRect();
@@ -117,15 +164,26 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
     }
   }, [open, searchTerm]);
 
-  // Filtrar projetos localmente
-  const filteredProjects = projects.filter(p => 
-    searchTerm.length >= 1 && (
-      p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.client?.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+  const term = searchTerm.toLowerCase();
 
-  const handleSelect = (projectId: string) => {
+  const filteredProjects = searchTerm.length >= 1
+    ? projects.filter(p =>
+        p.name?.toLowerCase().includes(term) ||
+        p.client?.toLowerCase().includes(term)
+      )
+    : [];
+
+  const filteredProtocolos = searchTerm.length >= 1
+    ? protocolos.filter(p =>
+        p.nome?.toLowerCase().includes(term) ||
+        p.project_name?.toLowerCase().includes(term) ||
+        p.project_client?.toLowerCase().includes(term)
+      )
+    : [];
+
+  const hasResults = filteredProjects.length > 0 || filteredProtocolos.length > 0;
+
+  const handleSelectProject = (projectId: string) => {
     if (onSelectProject) {
       onSelectProject(projectId);
     } else {
@@ -133,7 +191,17 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
     }
     setSearchTerm('');
     setOpen(false);
-    // Remove o foco do input para que ESC va direto para o drawer
+    inputRef.current?.blur();
+  };
+
+  const handleSelectProtocolo = (projectId: string, protocoloId: string) => {
+    if (onSelectProtocolo) {
+      onSelectProtocolo(projectId, protocoloId);
+    } else if (onSelectProject) {
+      onSelectProject(projectId);
+    }
+    setSearchTerm('');
+    setOpen(false);
     inputRef.current?.blur();
   };
 
@@ -147,46 +215,61 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject }: ProjectQuick
           value={searchTerm}
           onChange={(e) => {
             setSearchTerm(e.target.value);
-            if (e.target.value.length >= 1) {
-              setOpen(true);
-            } else {
-              setOpen(false);
-            }
+            setOpen(e.target.value.length >= 1);
           }}
           onFocus={() => {
-            if (searchTerm.length >= 1) {
-              setOpen(true);
-            }
+            if (searchTerm.length >= 1) setOpen(true);
           }}
           className="w-48 h-8 text-xs pl-8 bg-background/50 border-border/50 focus:bg-background placeholder:text-xs"
         />
       </div>
       
-      {/* Dropdown de resultados via Portal */}
-      {open && filteredProjects.length > 0 && createPortal(
+      {open && hasResults && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed w-64 z-[60] bg-popover border border-border rounded-md shadow-lg"
+          className="fixed w-72 z-[60] bg-popover border border-border rounded-md shadow-lg max-h-80 overflow-y-auto"
           style={{ top: dropdownPos.top, left: dropdownPos.left }}
         >
           <Command>
             <CommandList>
-              <CommandGroup>
-                {filteredProjects.slice(0, 5).map((project) => (
-                  <CommandItem
-                    key={project.id}
-                    onSelect={() => handleSelect(project.id)}
-                    className="cursor-pointer"
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-medium text-sm">{project.name}</span>
-                      {project.client && (
-                        <span className="text-xs text-muted-foreground">{project.client}</span>
-                      )}
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+              {filteredProjects.length > 0 && (
+                <CommandGroup heading="Projetos">
+                  {filteredProjects.slice(0, 4).map((project) => (
+                    <CommandItem
+                      key={project.id}
+                      onSelect={() => handleSelectProject(project.id)}
+                      className="cursor-pointer"
+                    >
+                      <FolderOpen className="h-3.5 w-3.5 mr-2 text-muted-foreground flex-shrink-0" />
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-medium text-sm truncate">{project.name}</span>
+                        {project.client && (
+                          <span className="text-xs text-muted-foreground truncate">{project.client}</span>
+                        )}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {filteredProtocolos.length > 0 && (
+                <CommandGroup heading="Processos (Protocolos)">
+                  {filteredProtocolos.slice(0, 5).map((protocolo) => (
+                    <CommandItem
+                      key={protocolo.id}
+                      onSelect={() => handleSelectProtocolo(protocolo.project_id, protocolo.id)}
+                      className="cursor-pointer"
+                    >
+                      <FileText className="h-3.5 w-3.5 mr-2 text-muted-foreground flex-shrink-0" />
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-medium text-sm truncate">{protocolo.nome}</span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          {protocolo.project_name}{protocolo.project_client ? ` · ${protocolo.project_client}` : ''}
+                        </span>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
             </CommandList>
           </Command>
         </div>,
