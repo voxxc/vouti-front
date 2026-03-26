@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLinkAuth } from "@/contexts/LinkAuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { LinkItem, LinkProfile, LinkCollection } from "@/types/link";
+import { LinkItem, LinkProfile, LinkCollection, LinkTextElement } from "@/types/link";
 import { LinkDashboardSidebar } from "@/components/Link/LinkDashboardSidebar";
 import { LinkCard } from "@/components/Link/LinkCard";
 import { LinksPageHeader } from "@/components/Link/LinksPageHeader";
@@ -16,8 +16,9 @@ import { ThemeCustomizer } from "@/components/Link/ThemeCustomizer";
 import { MobilePreview } from "@/components/Link/MobilePreview";
 import { CollectionCard } from "@/components/Link/CollectionCard";
 import { AddCollectionDialog } from "@/components/Link/AddCollectionDialog";
-import { Link2, BarChart3, Eye, Plus, LayoutList, Archive, Pencil } from "lucide-react";
+import { Link2, BarChart3, Eye, Plus, LayoutList, Archive, Pencil, Type } from "lucide-react";
 import { ChangeUsernameDialog } from "@/components/Link/ChangeUsernameDialog";
+import { TextElementEditor } from "@/components/Link/TextElementEditor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -28,11 +29,13 @@ const LinkDashboard = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [collections, setCollections] = useState<LinkCollection[]>([]);
+  const [textElements, setTextElements] = useState<LinkTextElement[]>([]);
   const [loading, setLoading] = useState(true);
   const [editLinkDialog, setEditLinkDialog] = useState<{ open: boolean; link?: LinkItem; parentId?: string }>({ open: false });
   const [editProfileDialog, setEditProfileDialog] = useState(false);
   const [addCollectionDialog, setAddCollectionDialog] = useState(false);
   const [changeUsernameDialog, setChangeUsernameDialog] = useState(false);
+  const [textEditorDialog, setTextEditorDialog] = useState<{ open: boolean; element?: LinkTextElement }>({ open: false });
 
   useEffect(() => {
     if (profile) setLocalProfile(profile);
@@ -60,6 +63,13 @@ const LinkDashboard = () => {
         .order('position');
       if (collectionsError) throw collectionsError;
       setCollections(collectionsData || []);
+
+      const { data: textsData, error: textsError } = await supabase
+        .from('link_text_elements')
+        .select('*')
+        .eq('profile_id', profile.id);
+      if (textsError) throw textsError;
+      setTextElements((textsData as LinkTextElement[]) || []);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Erro ao carregar dados');
@@ -181,6 +191,62 @@ const LinkDashboard = () => {
     }
   };
 
+  // Text element CRUD
+  const handleSaveTextElement = async (data: Partial<LinkTextElement>) => {
+    if (!profile) return;
+    try {
+      if (data.id) {
+        const { error } = await supabase.from('link_text_elements').update({
+          content: data.content,
+          font_family: data.font_family,
+          font_size: data.font_size,
+          color: data.color,
+          font_weight: data.font_weight,
+          font_style: data.font_style,
+        }).eq('id', data.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('link_text_elements').insert({
+          profile_id: profile.id,
+          content: data.content,
+          font_family: data.font_family,
+          font_size: data.font_size,
+          color: data.color,
+          font_weight: data.font_weight,
+          font_style: data.font_style,
+        });
+        if (error) throw error;
+      }
+      loadData();
+      toast.success('Texto salvo!');
+    } catch (error) {
+      console.error('Error saving text element:', error);
+      toast.error('Erro ao salvar texto');
+    }
+  };
+
+  const handleDeleteTextElement = async (id: string) => {
+    try {
+      const { error } = await supabase.from('link_text_elements').delete().eq('id', id);
+      if (error) throw error;
+      loadData();
+      toast.success('Texto removido');
+    } catch (error) {
+      console.error('Error deleting text element:', error);
+      toast.error('Erro ao remover texto');
+    }
+  };
+
+  const handleTextPositionChange = async (id: string, x: number, y: number) => {
+    try {
+      const { error } = await supabase.from('link_text_elements').update({ position_x: x, position_y: y }).eq('id', id);
+      if (error) throw error;
+      setTextElements(prev => prev.map(t => t.id === id ? { ...t, position_x: x, position_y: y } : t));
+    } catch (error) {
+      console.error('Error updating text position:', error);
+    }
+  };
+
   const totalClicks = links.reduce((sum, link) => sum + link.clicks, 0);
   const activeLinks = links.filter(l => l.is_active).length;
 
@@ -277,7 +343,7 @@ const LinkDashboard = () => {
                 )}
               </div>
               <div className="lg:col-span-1">
-                <MobilePreview profile={localProfile!} links={links} collections={collections} />
+                <MobilePreview profile={localProfile!} links={links} collections={collections} textElements={textElements} onTextPositionChange={handleTextPositionChange} onTextClick={(el) => setTextEditorDialog({ open: true, element: el })} />
               </div>
             </div>
           )}
@@ -324,7 +390,7 @@ const LinkDashboard = () => {
                 </Button>
               </div>
               <div className="lg:col-span-1">
-                <MobilePreview profile={localProfile!} links={links} collections={collections} />
+                <MobilePreview profile={localProfile!} links={links} collections={collections} textElements={textElements} onTextPositionChange={handleTextPositionChange} onTextClick={(el) => setTextEditorDialog({ open: true, element: el })} />
               </div>
             </div>
           )}
@@ -340,7 +406,7 @@ const LinkDashboard = () => {
                 <ThemeCustomizer profile={localProfile!} onSave={handleSaveProfile} />
               </div>
               <div className="lg:col-span-1">
-                <MobilePreview profile={localProfile!} links={links} collections={collections} />
+                <MobilePreview profile={localProfile!} links={links} collections={collections} textElements={textElements} onTextPositionChange={handleTextPositionChange} onTextClick={(el) => setTextEditorDialog({ open: true, element: el })} />
               </div>
             </div>
           )}
@@ -385,10 +451,58 @@ const LinkDashboard = () => {
             </div>
           )}
 
+          {/* Textos Tab */}
+          {activeTab === "textos" && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-6">
+                <div>
+                  <h1 className="text-3xl font-bold">Textos</h1>
+                  <p className="text-muted-foreground mt-1">Adicione textos livres e posicione arrastando no preview</p>
+                </div>
+                <Button
+                  onClick={() => setTextEditorDialog({ open: true })}
+                  className="w-full h-14 text-lg bg-[hsl(var(--vlink-purple))] hover:bg-[hsl(var(--vlink-purple-dark))] text-white"
+                  size="lg"
+                >
+                  <Type className="h-5 w-5 mr-2" />
+                  Adicionar Texto
+                </Button>
+                {textElements.length > 0 && (
+                  <div className="space-y-2">
+                    {textElements.map((el) => (
+                      <Card key={el.id} className="cursor-pointer hover:border-primary/40 transition-colors" onClick={() => setTextEditorDialog({ open: true, element: el })}>
+                        <CardContent className="p-4 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 rounded-full border" style={{ backgroundColor: el.color }} />
+                            <span style={{ fontFamily: el.font_family, fontWeight: el.font_weight, fontStyle: el.font_style }} className="truncate max-w-xs">
+                              {el.content}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">{el.font_family} · {el.font_size}px</span>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+                {textElements.length === 0 && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Type className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                    <p>Nenhum texto adicionado</p>
+                    <p className="text-sm mt-1">Clique em "Adicionar Texto" para começar</p>
+                  </div>
+                )}
+              </div>
+              <div className="lg:col-span-1">
+                <MobilePreview profile={localProfile!} links={links} collections={collections} textElements={textElements} onTextPositionChange={handleTextPositionChange} onTextClick={(el) => setTextEditorDialog({ open: true, element: el })} />
+                <p className="text-xs text-center text-muted-foreground mt-2">Arraste os textos no preview · Clique duplo para editar</p>
+              </div>
+            </div>
+          )}
+
           {/* Preview Tab */}
           {activeTab === "preview" && (
             <div className="max-w-md mx-auto">
-              <ProfilePreview profile={localProfile!} links={links.filter(l => l.is_active)} collections={collections} />
+              <ProfilePreview profile={localProfile!} links={links.filter(l => l.is_active)} collections={collections} textElements={textElements} />
             </div>
           )}
 
@@ -454,6 +568,14 @@ const LinkDashboard = () => {
         profileId={localProfile?.id || ""}
         currentUsername={localProfile?.username || ""}
         onChanged={(newUsername) => setLocalProfile(prev => prev ? { ...prev, username: newUsername } : prev)}
+      />
+
+      <TextElementEditor
+        element={textEditorDialog.element || null}
+        open={textEditorDialog.open}
+        onOpenChange={(open) => setTextEditorDialog({ open })}
+        onSave={handleSaveTextElement}
+        onDelete={handleDeleteTextElement}
       />
     </div>
   );

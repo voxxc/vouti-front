@@ -1,17 +1,19 @@
 import { useState } from "react";
-import { LinkProfile, LinkItem, LinkCollection } from "@/types/link";
+import { LinkProfile, LinkItem, LinkCollection, LinkTextElement } from "@/types/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link2, ChevronDown } from "lucide-react";
 import { getProfileBackground, getButtonStyle, getButtonSpacing, getSubButtonStyle, getUsernameStyle, getContentAlignment } from "@/lib/linkThemeUtils";
+import { DraggableTextElement } from "./DraggableTextElement";
 
 interface ProfilePreviewProps {
   profile: LinkProfile;
   links: LinkItem[];
   collections: LinkCollection[];
+  textElements?: LinkTextElement[];
 }
 
-export const ProfilePreview = ({ profile, links, collections }: ProfilePreviewProps) => {
+export const ProfilePreview = ({ profile, links, collections, textElements = [] }: ProfilePreviewProps) => {
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const initials = profile.username.substring(0, 2).toUpperCase();
   const activeLinks = links.filter(link => link.is_active).sort((a, b) => a.position - b.position);
@@ -98,7 +100,10 @@ export const ProfilePreview = ({ profile, links, collections }: ProfilePreviewPr
       </CardHeader>
 
       <CardContent className="p-6">
-        <div className="max-w-md mx-auto rounded-2xl overflow-hidden shadow-lg min-h-[500px]" style={{ ...bgStyle, display: "flex", flexDirection: "column", justifyContent: contentAlign }}>
+        <div className="max-w-md mx-auto rounded-2xl overflow-hidden shadow-lg min-h-[500px] relative" style={{ ...bgStyle, display: "flex", flexDirection: "column", justifyContent: contentAlign }}>
+          {textElements.filter(t => t.is_active).map(el => (
+            <DraggableTextElement key={el.id} element={el} containerScale={0.8} />
+          ))}
           <div className="p-8 text-center">
             {(profile.show_avatar !== false) && (
               <Avatar className="h-24 w-24 mx-auto mb-4 border-0 shadow-none">

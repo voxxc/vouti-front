@@ -63,3 +63,19 @@ export interface LinkUserRole {
   role: LinkRole;
   created_at: string;
 }
+
+export interface LinkTextElement {
+  id: string;
+  profile_id: string;
+  content: string;
+  font_family: string;
+  font_size: number;
+  color: string;
+  font_weight: string;
+  font_style: string;
+  position_x: number;
+  position_y: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}

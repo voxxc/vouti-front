@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link2, Home, Edit3, Palette, Users, BarChart3, PlusCircle, Eye, Settings, Crown, LogOut, ChevronLeft } from "lucide-react";
+import { Link2, Home, Edit3, Palette, Users, BarChart3, PlusCircle, Eye, Settings, Crown, LogOut, ChevronLeft, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -26,6 +26,7 @@ export const LinkDashboardSidebar = ({
     { id: "home", label: "Início", icon: Home },
     { id: "edit", label: "Editar página", icon: Edit3 },
     { id: "customize", label: "Customize", icon: Palette },
+    { id: "textos", label: "Textos", icon: Type },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "preview", label: "Ver minha página", icon: Eye },
     { id: "settings", label: "Ajustes", icon: Settings },

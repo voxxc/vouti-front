@@ -1,16 +1,20 @@
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LinkProfile, LinkItem, LinkCollection } from "@/types/link";
+import { LinkProfile, LinkItem, LinkCollection, LinkTextElement } from "@/types/link";
 import { getProfileBackground, getButtonStyle, getButtonSpacing, getSubButtonStyle, getUsernameStyle, getContentAlignment } from "@/lib/linkThemeUtils";
 import { ChevronDown } from "lucide-react";
+import { DraggableTextElement } from "./DraggableTextElement";
 
 interface MobilePreviewProps {
   profile: LinkProfile;
   links: LinkItem[];
   collections: LinkCollection[];
+  textElements?: LinkTextElement[];
+  onTextPositionChange?: (id: string, x: number, y: number) => void;
+  onTextClick?: (element: LinkTextElement) => void;
 }
 
-export const MobilePreview = ({ profile, links, collections }: MobilePreviewProps) => {
+export const MobilePreview = ({ profile, links, collections, textElements = [], onTextPositionChange, onTextClick }: MobilePreviewProps) => {
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const initials = profile.username.substring(0, 2).toUpperCase();
   const activeLinks = links.filter(link => link.is_active).sort((a, b) => a.position - b.position);
@@ -98,7 +102,18 @@ export const MobilePreview = ({ profile, links, collections }: MobilePreviewProp
             <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-foreground/20 rounded-full" />
           </div>
           
-          <div className="h-full overflow-y-auto p-6 pt-12 scrollbar-hide" style={{ ...bgStyle, display: "flex", flexDirection: "column", justifyContent: contentAlign }}>
+          <div className="h-full overflow-y-auto p-6 pt-12 scrollbar-hide relative" style={{ ...bgStyle, display: "flex", flexDirection: "column", justifyContent: contentAlign }}>
+            {/* Text elements overlay */}
+            {textElements.filter(t => t.is_active).map(el => (
+              <DraggableTextElement
+                key={el.id}
+                element={el}
+                editable={!!onTextPositionChange}
+                onPositionChange={onTextPositionChange}
+                onClick={onTextClick}
+                containerScale={320 / 400}
+              />
+            ))}
             <div className="flex flex-col items-center space-y-4">
               {(profile.show_avatar !== false) && (
                 <Avatar className="h-24 w-24 border-0 shadow-none">
