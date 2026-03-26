@@ -140,3 +140,6 @@ verify_jwt = false
 
 [functions.spn-create-user]
 verify_jwt = false
+
+[functions.create-linkbio-profile]
+verify_jwt = false

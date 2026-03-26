@@ -20,6 +20,7 @@ import { SuperAdminImportCNJTest } from '@/components/SuperAdmin/SuperAdminImpor
 import { SuperAdminPixConfig } from '@/components/SuperAdmin/SuperAdminPixConfig';
 import { SuperAdminAuthenticator } from '@/components/SuperAdmin/SuperAdminAuthenticator';
 import { SuperAdminWebhookTest } from '@/components/SuperAdmin/SuperAdminWebhookTest';
+import { LinkBioSection } from '@/components/SuperAdmin/LinkBioSection';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -338,17 +339,24 @@ export default function SuperAdmin() {
 
             <div className="space-y-8">
               {systemTypes.map((systemType) => (
-                <SystemTypeSection
-                  key={systemType.id}
-                  systemType={systemType}
-                  tenants={getTenantsBySystemType(systemType.id)}
-                  onCreateTenant={handleCreateTenant}
-                  onEditTenant={handleEditTenant}
-                  onToggleStatus={toggleTenantStatus}
-                  onDeleteTenant={deleteTenant}
-                  onOpenAvisos={handleOpenAvisos}
-                  pagamentosPorTenant={pagamentosPorTenant}
-                />
+                systemType.code === 'linkinbio' ? (
+                  <LinkBioSection
+                    key={systemType.id}
+                    systemType={systemType}
+                  />
+                ) : (
+                  <SystemTypeSection
+                    key={systemType.id}
+                    systemType={systemType}
+                    tenants={getTenantsBySystemType(systemType.id)}
+                    onCreateTenant={handleCreateTenant}
+                    onEditTenant={handleEditTenant}
+                    onToggleStatus={toggleTenantStatus}
+                    onDeleteTenant={deleteTenant}
+                    onOpenAvisos={handleOpenAvisos}
+                    pagamentosPorTenant={pagamentosPorTenant}
+                  />
+                )
               ))}
             </div>
           </TabsContent>
