@@ -63,6 +63,13 @@ const LinkDashboard = () => {
         .order('position');
       if (collectionsError) throw collectionsError;
       setCollections(collectionsData || []);
+
+      const { data: textsData, error: textsError } = await supabase
+        .from('link_text_elements')
+        .select('*')
+        .eq('profile_id', profile.id);
+      if (textsError) throw textsError;
+      setTextElements((textsData as LinkTextElement[]) || []);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Erro ao carregar dados');
