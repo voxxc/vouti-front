@@ -76,11 +76,7 @@ const LinkPublicProfile = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="animate-pulse text-gray-400">Carregando...</div>
-      </div>
-    );
+    return <div className="min-h-screen" />;
   }
 
   if (notFound || !profile) {
