@@ -21,6 +21,9 @@ export const ProfileEditHeader = ({ profile, onSave }: ProfileEditHeaderProps) =
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [showAvatar, setShowAvatar] = useState(profile.show_avatar ?? true);
+  const [showUsername, setShowUsername] = useState(profile.show_username ?? true);
+  const [displayName, setDisplayName] = useState(profile.display_name || "");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const initials = profile.username.substring(0, 2).toUpperCase();
