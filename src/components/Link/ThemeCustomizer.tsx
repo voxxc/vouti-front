@@ -575,6 +575,121 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
         </CardContent>
       </Card>
 
+      {/* Sub-Button Style */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Estilo dos Sub-Botões</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Style selector */}
+          <div>
+            <Label className="mb-2 block">Formato Visual</Label>
+            <div className="grid grid-cols-4 gap-2">
+              {BUTTON_STYLES.map((s) => (
+                <button
+                  key={s.value}
+                  onClick={() => {
+                    setSubButtonStyle(s.value);
+                    updateAndPreview("sub_button_style", s.value);
+                  }}
+                  className={cn(
+                    "py-2 px-3 rounded-xl border text-xs font-medium transition-all",
+                    subButtonStyle === s.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  )}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Radius selector */}
+          <div>
+            <Label className="mb-2 block">Arredondamento</Label>
+            <div className="grid grid-cols-4 gap-2">
+              {BUTTON_RADIUS.map((r) => (
+                <button
+                  key={r.value}
+                  onClick={() => {
+                    setSubButtonRadius(r.value);
+                    updateAndPreview("sub_button_radius", r.value);
+                  }}
+                  className={cn(
+                    "py-2 px-3 rounded-xl border text-xs font-medium transition-all",
+                    subButtonRadius === r.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  )}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Padding selector */}
+          <div>
+            <Label className="mb-2 block">Altura</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {BUTTON_PADDING.map((p) => (
+                <button
+                  key={p.value}
+                  onClick={() => {
+                    setSubButtonPadding(p.value);
+                    updateAndPreview("sub_button_padding", p.value);
+                  }}
+                  className={cn(
+                    "py-2 px-3 rounded-xl border text-xs font-medium transition-all",
+                    subButtonPadding === p.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Colors */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-4">
+              <Label className="min-w-[100px]">Cor de Fundo</Label>
+              <input
+                type="color"
+                value={subButtonColor || buttonColor}
+                onChange={(e) => {
+                  setSubButtonColor(e.target.value);
+                  updateAndPreview("sub_button_color", e.target.value);
+                }}
+                className="w-12 h-10 rounded cursor-pointer border border-border"
+              />
+              <span className="text-sm text-muted-foreground font-mono">{subButtonColor || buttonColor}</span>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Label className="min-w-[100px]">Cor do Texto</Label>
+              <input
+                type="color"
+                value={subButtonTextColor || buttonTextColor}
+                onChange={(e) => {
+                  setSubButtonTextColor(e.target.value);
+                  updateAndPreview("sub_button_text_color", e.target.value);
+                }}
+                className="w-12 h-10 rounded cursor-pointer border border-border"
+              />
+              <span className="text-sm text-muted-foreground font-mono">{subButtonTextColor || buttonTextColor}</span>
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Cores herdam do botão principal se não personalizadas.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Save */}
       <Button onClick={handleSave} disabled={saving} className="w-full h-12 text-base">
         {saving ? "Salvando..." : "Salvar Tema"}
