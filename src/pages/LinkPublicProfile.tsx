@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { supabasePublic } from "@/integrations/supabase/publicClient";
-import { LinkProfile, LinkItem, LinkCollection } from "@/types/link";
+import { LinkProfile, LinkItem, LinkCollection, LinkTextElement } from "@/types/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link2, ChevronDown } from "lucide-react";
 import { getProfileBackground, getButtonStyle, getButtonSpacing, getSubButtonStyle, getUsernameStyle, getContentAlignment } from "@/lib/linkThemeUtils";
