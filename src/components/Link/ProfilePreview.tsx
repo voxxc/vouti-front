@@ -100,7 +100,10 @@ export const ProfilePreview = ({ profile, links, collections, textElements = [] 
       </CardHeader>
 
       <CardContent className="p-6">
-        <div className="max-w-md mx-auto rounded-2xl overflow-hidden shadow-lg min-h-[500px]" style={{ ...bgStyle, display: "flex", flexDirection: "column", justifyContent: contentAlign }}>
+        <div className="max-w-md mx-auto rounded-2xl overflow-hidden shadow-lg min-h-[500px] relative" style={{ ...bgStyle, display: "flex", flexDirection: "column", justifyContent: contentAlign }}>
+          {textElements.filter(t => t.is_active).map(el => (
+            <DraggableTextElement key={el.id} element={el} containerScale={0.8} />
+          ))}
           <div className="p-8 text-center">
             {(profile.show_avatar !== false) && (
               <Avatar className="h-24 w-24 mx-auto mb-4 border-0 shadow-none">
