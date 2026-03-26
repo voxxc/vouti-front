@@ -20,6 +20,7 @@ import { SuperAdminImportCNJTest } from '@/components/SuperAdmin/SuperAdminImpor
 import { SuperAdminPixConfig } from '@/components/SuperAdmin/SuperAdminPixConfig';
 import { SuperAdminAuthenticator } from '@/components/SuperAdmin/SuperAdminAuthenticator';
 import { SuperAdminWebhookTest } from '@/components/SuperAdmin/SuperAdminWebhookTest';
+import { LinkBioSection } from '@/components/SuperAdmin/LinkBioSection';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
