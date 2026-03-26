@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { LinkProfile, LinkItem, LinkCollection } from "@/types/link";
+import { LinkProfile, LinkItem, LinkCollection, LinkTextElement } from "@/types/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link2, ChevronDown } from "lucide-react";
 import { getProfileBackground, getButtonStyle, getButtonSpacing, getSubButtonStyle, getUsernameStyle, getContentAlignment } from "@/lib/linkThemeUtils";
+import { DraggableTextElement } from "./DraggableTextElement";
 
 interface ProfilePreviewProps {
   profile: LinkProfile;
   links: LinkItem[];
   collections: LinkCollection[];
+  textElements?: LinkTextElement[];
 }
 
 export const ProfilePreview = ({ profile, links, collections }: ProfilePreviewProps) => {
