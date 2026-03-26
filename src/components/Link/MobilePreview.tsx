@@ -14,7 +14,7 @@ interface MobilePreviewProps {
   onTextClick?: (element: LinkTextElement) => void;
 }
 
-export const MobilePreview = ({ profile, links, collections }: MobilePreviewProps) => {
+export const MobilePreview = ({ profile, links, collections, textElements = [], onTextPositionChange, onTextClick }: MobilePreviewProps) => {
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const initials = profile.username.substring(0, 2).toUpperCase();
   const activeLinks = links.filter(link => link.is_active).sort((a, b) => a.position - b.position);
