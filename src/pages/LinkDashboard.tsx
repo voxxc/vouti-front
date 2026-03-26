@@ -32,6 +32,7 @@ const LinkDashboard = () => {
   const [editLinkDialog, setEditLinkDialog] = useState<{ open: boolean; link?: LinkItem; parentId?: string }>({ open: false });
   const [editProfileDialog, setEditProfileDialog] = useState(false);
   const [addCollectionDialog, setAddCollectionDialog] = useState(false);
+  const [changeUsernameDialog, setChangeUsernameDialog] = useState(false);
 
   useEffect(() => {
     if (profile) setLocalProfile(profile);
