@@ -38,7 +38,7 @@ const LinkPublicProfile = () => {
 
       setProfile(profileData as LinkProfile);
 
-      const [linksRes, collectionsRes] = await Promise.all([
+      const [linksRes, collectionsRes, textsRes] = await Promise.all([
         supabasePublic
           .from("link_items")
           .select("*")
@@ -51,6 +51,11 @@ const LinkPublicProfile = () => {
           .eq("profile_id", profileData.id)
           .eq("is_active", true)
           .order("position"),
+        supabasePublic
+          .from("link_text_elements")
+          .select("*")
+          .eq("profile_id", profileData.id)
+          .eq("is_active", true),
       ]);
 
       setLinks((linksRes.data as LinkItem[]) || []);
