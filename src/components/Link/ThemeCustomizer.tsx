@@ -699,6 +699,35 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
         </CardContent>
       </Card>
 
+      {/* Vertical Position */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Posição Vertical do Conteúdo</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">Ajuste onde o conteúdo (avatar + botões) aparece na página.</p>
+          <div className="grid grid-cols-3 gap-2">
+            {VERTICAL_POSITIONS.map((pos) => (
+              <button
+                key={pos.value}
+                onClick={() => {
+                  setVerticalPosition(pos.value);
+                  updateAndPreview("content_vertical_position", pos.value);
+                }}
+                className={cn(
+                  "py-3 px-3 rounded-xl border text-sm font-medium transition-all",
+                  verticalPosition === pos.value
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/50"
+                )}
+              >
+                {pos.label}
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Save */}
       <Button onClick={handleSave} disabled={saving} className="w-full h-12 text-base">
         {saving ? "Salvando..." : "Salvar Tema"}
