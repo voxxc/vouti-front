@@ -67,7 +67,7 @@ export const LinkAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         .single();
 
       if (profileError) throw profileError;
-      setProfile(profileData);
+      setProfile(profileData as LinkProfile);
 
       // Check admin role
       const { data: roleData, error: roleError } = await supabase
