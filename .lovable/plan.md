@@ -1,72 +1,34 @@
 
 
-# Sub-links Completos: Criação, Gestão e Personalização
+# Alterar URL Pública (Username) nas Configurações
 
-## Problemas identificados
+## O que será feito
 
-1. `handleSaveLink` no `LinkDashboard` nunca envia `parent_id` ao criar links — sub-links são impossíveis de criar
-2. Não existe fluxo para adicionar sub-links a um botão-pai: o `LinkCard` recebe `onAddChild` mas o dashboard não implementa essa callback
-3. O `unCollectedLinks` não filtra por `parent_id`, então links filhos aparecem misturados com os pais
-4. Não há personalização visual separada para sub-botões no `ThemeCustomizer`
+Na aba "Ajustes" do LinkDashboard, adicionar um botão "Alterar URL" ao lado do username/URL atual. Ao clicar, abre um **Dialog de confirmação** com:
+- Input para digitar o novo username
+- Validação de disponibilidade (consulta no banco)
+- Botão de confirmar com **loading state** (spinner + texto "Salvando...")
+- Mensagem de sucesso/erro via toast
 
-## Solução
+## Alterações
 
-### 1. Corrigir `LinkDashboard.tsx` — suporte a parent_id
+### 1. Novo componente `src/components/Link/ChangeUsernameDialog.tsx`
+- Dialog com input para novo username
+- Validação: mínimo 3 chars, só letras/números/hifens, sem espaços
+- Ao digitar, debounce de 500ms para checar disponibilidade via `supabase.from('link_profiles').select('id').eq('username', newUsername)`
+- Indicador visual: "Disponível ✓" ou "Já em uso ✗"
+- Botão "Confirmar Alteração" com `loading` state (disabled + spinner)
+- Ao confirmar: `supabase.from('link_profiles').update({ username }).eq('id', profileId)`
+- Sucesso: toast + fechar dialog + atualizar `localProfile`
 
-- `handleSaveLink`: incluir `parent_id` no insert/update quando presente nos dados
-- `editLinkDialog` state: expandir para incluir `parentId` opcional
-- Adicionar callback `handleAddChild(parentId)` que abre o dialog com `parentId` pré-definido
-- Filtrar `unCollectedLinks` para excluir links com `parent_id` (são filhos, não top-level)
-- Passar `childLinks` e `onAddChild` ao `LinkCard`
-
-### 2. Melhorar `EditLinkDialog.tsx`
-
-- Receber prop `parentId?: string` para modo "adicionar sub-link"
-- Quando `parentId` está definido: esconder toggle "Botão com subitens", mostrar indicação visual "Sub-link de: [pai]"
-- Quando `isParent` ativo: mostrar seção informativa "Após salvar, adicione sub-links pelo botão + no card"
-
-### 3. Melhorar `LinkCard.tsx`
-
-- Quando é botão-pai: mostrar botão "Adicionar sub-link" mais proeminente
-- Expandir automaticamente quando tem filhos
-- Mostrar contagem de sub-links ativos/inativos
-
-### 4. Personalização de sub-botões no `ThemeCustomizer`
-
-Novos campos no banco (migration):
-```sql
-ALTER TABLE link_profiles
-  ADD COLUMN sub_button_style text NOT NULL DEFAULT 'soft',
-  ADD COLUMN sub_button_radius text NOT NULL DEFAULT 'xl',
-  ADD COLUMN sub_button_padding text NOT NULL DEFAULT 'compact',
-  ADD COLUMN sub_button_color text,
-  ADD COLUMN sub_button_text_color text;
-```
-
-No ThemeCustomizer: novo card "Estilo dos Sub-Botões" com:
-- Formato visual (filled/outline/soft/shadow)
-- Arredondamento
-- Altura
-- Cores (fundo, texto) — com fallback para cores do botão principal
-
-### 5. Atualizar `linkThemeUtils.ts`
-
-`getSubButtonStyle()` passa a usar os campos dedicados (`sub_button_*`) em vez de simplesmente copiar o estilo pai com opacity reduzida.
-
-### 6. Atualizar types e previews
-
-- `LinkProfile` em `types/link.ts`: 5 novos campos `sub_button_*`
-- `MobilePreview`, `LinkPublicProfile`, `ProfilePreview`: usar `getSubButtonStyle()` atualizado
+### 2. Atualizar Settings tab em `LinkDashboard.tsx`
+- Importar e usar `ChangeUsernameDialog`
+- Adicionar botão "Alterar" ao lado da URL do perfil
+- State para controlar abertura do dialog
+- Callback `onUsernameChanged` que atualiza `localProfile` com novo username
 
 ## Arquivos
 
-- **Migration SQL**: 5 novos campos em `link_profiles`
-- `src/types/link.ts`
-- `src/pages/LinkDashboard.tsx`
-- `src/components/Link/EditLinkDialog.tsx`
-- `src/components/Link/LinkCard.tsx`
-- `src/components/Link/ThemeCustomizer.tsx`
-- `src/lib/linkThemeUtils.ts`
-- `src/components/Link/MobilePreview.tsx` (já funciona, só atualizar getSubButtonStyle)
-- `src/pages/LinkPublicProfile.tsx`
+- **Novo**: `src/components/Link/ChangeUsernameDialog.tsx`
+- **Modificar**: `src/pages/LinkDashboard.tsx` (settings tab)
 
