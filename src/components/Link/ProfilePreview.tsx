@@ -13,7 +13,7 @@ interface ProfilePreviewProps {
   textElements?: LinkTextElement[];
 }
 
-export const ProfilePreview = ({ profile, links, collections }: ProfilePreviewProps) => {
+export const ProfilePreview = ({ profile, links, collections, textElements = [] }: ProfilePreviewProps) => {
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const initials = profile.username.substring(0, 2).toUpperCase();
   const activeLinks = links.filter(link => link.is_active).sort((a, b) => a.position - b.position);
