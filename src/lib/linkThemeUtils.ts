@@ -31,10 +31,78 @@ export function getProfileBackground(profile: LinkProfile): React.CSSProperties 
   return { backgroundColor: bg1 };
 }
 
+const RADIUS_MAP: Record<string, string> = {
+  none: "0px",
+  md: "8px",
+  xl: "16px",
+  full: "9999px",
+};
+
+const PADDING_MAP: Record<string, string> = {
+  compact: "8px 20px",
+  normal: "16px 20px",
+  spacious: "24px 20px",
+};
+
+const SPACING_MAP: Record<string, string> = {
+  tight: "4px",
+  normal: "12px",
+  spacious: "20px",
+};
+
 export function getButtonStyle(profile: LinkProfile): React.CSSProperties {
+  const bgColor = profile.button_color || "#1e293b";
+  const textColor = profile.button_text_color || "#ffffff";
+  const style = profile.button_style || "filled";
+  const radius = RADIUS_MAP[profile.button_radius || "xl"] || "16px";
+  const padding = PADDING_MAP[profile.button_padding || "normal"] || "16px 20px";
+
+  const base: React.CSSProperties = {
+    borderRadius: radius,
+    padding,
+    color: textColor,
+  };
+
+  switch (style) {
+    case "outline":
+      return {
+        ...base,
+        backgroundColor: "transparent",
+        border: `2px solid ${profile.button_border_color || bgColor}`,
+        color: profile.button_border_color || bgColor,
+      };
+    case "soft":
+      return {
+        ...base,
+        backgroundColor: `${bgColor}22`,
+        color: bgColor,
+      };
+    case "shadow":
+      return {
+        ...base,
+        backgroundColor: bgColor,
+        boxShadow: `0 8px 24px -4px ${bgColor}66`,
+      };
+    case "filled":
+    default:
+      return {
+        ...base,
+        backgroundColor: bgColor,
+      };
+  }
+}
+
+export function getButtonSpacing(profile: LinkProfile): string {
+  return SPACING_MAP[profile.button_spacing || "normal"] || "12px";
+}
+
+export function getSubButtonStyle(profile: LinkProfile): React.CSSProperties {
+  const parentStyle = getButtonStyle(profile);
   return {
-    backgroundColor: profile.button_color || "#1e293b",
-    color: profile.button_text_color || "#ffffff",
+    ...parentStyle,
+    padding: "10px 16px",
+    fontSize: "0.875rem",
+    opacity: 0.85,
   };
 }
 

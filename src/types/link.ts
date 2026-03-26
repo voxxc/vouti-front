@@ -48,6 +48,7 @@ export interface LinkItem {
   clicks: number;
   created_at: string;
   collection_id: string | null;
+  parent_id: string | null;
 }
 
 export interface LinkUserRole {

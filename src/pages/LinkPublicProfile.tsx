@@ -3,8 +3,8 @@ import { useParams } from "react-router-dom";
 import { supabasePublic } from "@/integrations/supabase/publicClient";
 import { LinkProfile, LinkItem, LinkCollection } from "@/types/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Link2 } from "lucide-react";
-import { getProfileBackground, getButtonStyle, getUsernameStyle } from "@/lib/linkThemeUtils";
+import { Link2, ChevronDown } from "lucide-react";
+import { getProfileBackground, getButtonStyle, getButtonSpacing, getSubButtonStyle, getUsernameStyle } from "@/lib/linkThemeUtils";
 import NotFound from "./NotFound";
 
 const LinkPublicProfile = () => {
@@ -14,6 +14,7 @@ const LinkPublicProfile = () => {
   const [collections, setCollections] = useState<LinkCollection[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (username) loadProfile(username);
@@ -66,6 +67,14 @@ const LinkPublicProfile = () => {
     window.open(link.url, "_blank", "noopener,noreferrer");
   };
 
+  const toggleParent = (id: string) => {
+    setExpandedParents(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
@@ -79,14 +88,65 @@ const LinkPublicProfile = () => {
   }
 
   const initials = profile.username.slice(0, 2).toUpperCase();
-  const uncollectedLinks = links.filter((l) => !l.collection_id);
+  const topLevelLinks = links.filter((l) => !l.collection_id && !l.parent_id);
+  const getChildren = (parentId: string) => links.filter(l => l.parent_id === parentId && l.is_active);
   const getCollectionLinks = (collectionId: string) =>
-    links.filter((l) => l.collection_id === collectionId);
+    links.filter((l) => l.collection_id === collectionId && !l.parent_id);
 
   const bgStyle = getProfileBackground(profile);
   const btnStyle = getButtonStyle(profile);
+  const subBtnStyle = getSubButtonStyle(profile);
+  const spacing = getButtonSpacing(profile);
   const usernameStyle = getUsernameStyle(profile);
-  const textColor = profile.button_text_color || "#1e293b";
+
+  const isParentButton = (link: LinkItem) => !link.url && getChildren(link.id).length > 0;
+
+  const renderLink = (link: LinkItem) => {
+    if (isParentButton(link)) {
+      const children = getChildren(link.id);
+      const expanded = expandedParents.has(link.id);
+      return (
+        <div key={link.id}>
+          <button
+            onClick={() => toggleParent(link.id)}
+            className="w-full text-center font-medium transition-opacity hover:opacity-90 relative"
+            style={btnStyle}
+          >
+            {link.title}
+            <ChevronDown
+              className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-transform"
+              style={{ transform: expanded ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)" }}
+            />
+          </button>
+          {expanded && (
+            <div className="ml-4 mt-1" style={{ display: "flex", flexDirection: "column", gap: spacing }}>
+              {children.map(child => (
+                <button
+                  key={child.id}
+                  onClick={() => handleLinkClick(child)}
+                  className="w-full text-center font-medium transition-opacity hover:opacity-90"
+                  style={subBtnStyle}
+                >
+                  {child.title}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <button
+        key={link.id}
+        onClick={() => handleLinkClick(link)}
+        className="w-full text-center font-medium transition-opacity hover:opacity-90"
+        style={btnStyle}
+      >
+        {link.title}
+      </button>
+    );
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center" style={bgStyle}>
@@ -108,60 +168,35 @@ const LinkPublicProfile = () => {
         )}
 
         {profile.bio && (
-          <p className="text-sm mt-2 max-w-xs mx-auto opacity-70" style={{ color: textColor }}>
+          <p className="text-sm mt-2 max-w-xs mx-auto opacity-70" style={{ color: btnStyle.color }}>
             {profile.bio}
           </p>
         )}
       </div>
 
       {/* Links */}
-      <div className="w-full max-w-md mx-auto px-6 pt-4 pb-12 space-y-3">
-        {uncollectedLinks.map((link) => (
-          <button
-            key={link.id}
-            onClick={() => handleLinkClick(link)}
-            className="w-full py-4 px-5 text-center font-medium rounded-2xl transition-opacity hover:opacity-90"
-            style={btnStyle}
-          >
-            {link.title}
-          </button>
-        ))}
+      <div className="w-full max-w-md mx-auto px-6 pt-4 pb-12" style={{ display: "flex", flexDirection: "column", gap: spacing }}>
+        {topLevelLinks.map(renderLink)}
 
         {collections.map((collection) => {
           const collLinks = getCollectionLinks(collection.id);
           if (collLinks.length === 0) return null;
           return (
-            <div key={collection.id} className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-center pt-2 opacity-60" style={{ color: textColor }}>
+            <div key={collection.id} style={{ display: "flex", flexDirection: "column", gap: spacing }}>
+              <p className="text-xs font-semibold uppercase tracking-wider text-center pt-2 opacity-60" style={{ color: btnStyle.color }}>
                 {collection.title}
               </p>
-              {collLinks.map((link) => (
-                <button
-                  key={link.id}
-                  onClick={() => handleLinkClick(link)}
-                  className="w-full py-4 px-5 text-center font-medium rounded-2xl transition-opacity hover:opacity-90"
-                  style={btnStyle}
-                >
-                  {link.title}
-                </button>
-              ))}
+              {collLinks.map(renderLink)}
             </div>
           );
         })}
 
         {links.length === 0 && (
-          <div className="text-center py-12 opacity-40" style={{ color: textColor }}>
+          <div className="text-center py-12 opacity-40" style={{ color: btnStyle.color }}>
             <Link2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
             <p className="text-sm">Nenhum link disponível</p>
           </div>
         )}
-      </div>
-
-      {/* Footer */}
-      <div className="mt-auto pb-6 text-center">
-        <p className="text-xs opacity-50" style={{ color: textColor }}>
-          <span className="font-semibold">Vouti</span>
-        </p>
       </div>
     </div>
   );
