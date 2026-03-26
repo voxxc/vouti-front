@@ -25,16 +25,20 @@ export const ProfilePreview = ({ profile, links }: ProfilePreviewProps) => {
         <div className="max-w-md mx-auto rounded-2xl overflow-hidden shadow-lg bg-white">
           {/* Header */}
           <div className="p-8 text-center">
-            <Avatar className="h-24 w-24 mx-auto mb-4 border-0 shadow-none">
-              <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
-              <AvatarFallback className="text-2xl bg-[hsl(var(--vlink-dark))] text-white">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
+            {(profile.show_avatar !== false) && (
+              <Avatar className="h-24 w-24 mx-auto mb-4 border-0 shadow-none">
+                <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
+                <AvatarFallback className="text-2xl bg-[hsl(var(--vlink-dark))] text-white">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+            )}
             
-            <h2 className="text-2xl font-bold text-[hsl(var(--vlink-dark))] mb-1">
-              @{profile.username}
-            </h2>
+            {(profile.show_username !== false) && (
+              <h2 className="text-2xl font-bold text-[hsl(var(--vlink-dark))] mb-1">
+                {profile.display_name || `@${profile.username}`}
+              </h2>
+            )}
             
             {profile.bio && (
               <p className="text-[hsl(var(--vlink-neutral))] mt-3 text-sm max-w-xs mx-auto">

@@ -1,7 +1,10 @@
 import { useState, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Camera, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
 import { LinkProfile } from "@/types/link";
@@ -18,6 +21,9 @@ export const ProfileEditHeader = ({ profile, onSave }: ProfileEditHeaderProps) =
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [showAvatar, setShowAvatar] = useState(profile.show_avatar ?? true);
+  const [showUsername, setShowUsername] = useState(profile.show_username ?? true);
+  const [displayName, setDisplayName] = useState(profile.display_name || "");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const initials = profile.username.substring(0, 2).toUpperCase();
@@ -124,6 +130,51 @@ export const ProfileEditHeader = ({ profile, onSave }: ProfileEditHeaderProps) =
             className="p-2 rounded-md hover:bg-muted cursor-pointer min-h-[40px]"
           >
             <p className="text-foreground whitespace-pre-wrap">{bio || "Adicionar bio"}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Visibility Controls */}
+      <div className="space-y-3 border-t pt-3">
+        <label className="text-xs font-medium text-muted-foreground">Visibilidade</label>
+        
+        <div className="flex items-center justify-between">
+          <Label htmlFor="show-avatar" className="text-sm">Mostrar foto de perfil</Label>
+          <Switch
+            id="show-avatar"
+            checked={showAvatar}
+            onCheckedChange={async (checked) => {
+              setShowAvatar(checked);
+              await onSave({ show_avatar: checked });
+            }}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <Label htmlFor="show-username" className="text-sm">Mostrar @username</Label>
+          <Switch
+            id="show-username"
+            checked={showUsername}
+            onCheckedChange={async (checked) => {
+              setShowUsername(checked);
+              await onSave({ show_username: checked });
+            }}
+          />
+        </div>
+
+        {showUsername && (
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Nome de exibição (substitui o @username)</Label>
+            <Input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              onBlur={async () => {
+                if (displayName !== (profile.display_name || "")) {
+                  await onSave({ display_name: displayName || null });
+                }
+              }}
+              placeholder={`@${profile.username}`}
+            />
           </div>
         )}
       </div>

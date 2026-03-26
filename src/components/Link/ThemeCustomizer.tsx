@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { LinkProfile } from "@/types/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, ArrowRight, ArrowLeft, Check } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowRight, ArrowLeft, Check, Upload, Trash2, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ThemeCustomizerProps {
   profile: LinkProfile;
@@ -49,7 +50,10 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
   const [buttonTextColor, setButtonTextColor] = useState(profile.button_text_color || "#ffffff");
   const [usernameColor, setUsernameColor] = useState(profile.username_color || profile.button_text_color || "#1e293b");
   const [usernameFontSize, setUsernameFontSize] = useState(profile.username_font_size || "xl");
+  const [bgImageUrl, setBgImageUrl] = useState(profile.bg_image_url || "");
+  const [uploadingBg, setUploadingBg] = useState(false);
   const [saving, setSaving] = useState(false);
+  const bgFileRef = useRef<HTMLInputElement>(null);
 
   const handleLiveUpdate = (updates: Partial<{
     bg_color_1: string; bg_color_2: string | null; bg_gradient_direction: string;
@@ -91,6 +95,36 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleBgImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error("Selecione uma imagem"); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Máximo 5MB"); return; }
+    
+    setUploadingBg(true);
+    try {
+      const fileName = `${profile.user_id}/bg-${Date.now()}.${file.name.split('.').pop()}`;
+      const { error: upErr } = await supabase.storage.from("link-backgrounds").upload(fileName, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from("link-backgrounds").getPublicUrl(fileName);
+      setBgImageUrl(urlData.publicUrl);
+      await onSave({ bg_image_url: urlData.publicUrl });
+      toast.success("Imagem de fundo salva!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao enviar imagem");
+    } finally {
+      setUploadingBg(false);
+      if (bgFileRef.current) bgFileRef.current.value = "";
+    }
+  };
+
+  const handleRemoveBgImage = async () => {
+    setBgImageUrl("");
+    await onSave({ bg_image_url: null });
+    toast.success("Imagem removida");
   };
 
   const updateAndPreview = (field: string, value: string | null) => {
@@ -136,6 +170,47 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
               </button>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Background Image */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <ImageIcon className="h-5 w-5" />
+            Imagem de Fundo
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <input ref={bgFileRef} type="file" accept="image/*" onChange={handleBgImageUpload} className="hidden" />
+          
+          {bgImageUrl ? (
+            <div className="space-y-3">
+              <div className="relative rounded-xl overflow-hidden border border-border h-32">
+                <img src={bgImageUrl} alt="Background" className="w-full h-full object-cover" />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => bgFileRef.current?.click()} disabled={uploadingBg}>
+                  <Upload className="w-4 h-4 mr-1" />
+                  Trocar
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleRemoveBgImage} className="text-destructive">
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Remover
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => bgFileRef.current?.click()}
+              disabled={uploadingBg}
+              className="w-full h-28 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center gap-2 hover:border-primary/50 transition-colors text-muted-foreground"
+            >
+              <Upload className="w-6 h-6" />
+              <span className="text-sm">{uploadingBg ? "Enviando..." : "Enviar imagem de fundo"}</span>
+            </button>
+          )}
+          <p className="text-xs text-muted-foreground">A imagem sobrepõe o gradiente de cores. Máximo 5MB.</p>
         </CardContent>
       </Card>
 

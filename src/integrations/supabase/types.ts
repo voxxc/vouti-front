@@ -2439,12 +2439,16 @@ export type Database = {
           bg_color_1: string
           bg_color_2: string | null
           bg_gradient_direction: string
+          bg_image_url: string | null
           bio: string | null
           button_color: string
           button_text_color: string
           created_at: string | null
+          display_name: string | null
           full_name: string | null
           id: string
+          show_avatar: boolean
+          show_username: boolean
           theme_color: string | null
           updated_at: string | null
           user_id: string
@@ -2457,12 +2461,16 @@ export type Database = {
           bg_color_1?: string
           bg_color_2?: string | null
           bg_gradient_direction?: string
+          bg_image_url?: string | null
           bio?: string | null
           button_color?: string
           button_text_color?: string
           created_at?: string | null
+          display_name?: string | null
           full_name?: string | null
           id?: string
+          show_avatar?: boolean
+          show_username?: boolean
           theme_color?: string | null
           updated_at?: string | null
           user_id: string
@@ -2475,12 +2483,16 @@ export type Database = {
           bg_color_1?: string
           bg_color_2?: string | null
           bg_gradient_direction?: string
+          bg_image_url?: string | null
           bio?: string | null
           button_color?: string
           button_text_color?: string
           created_at?: string | null
+          display_name?: string | null
           full_name?: string | null
           id?: string
+          show_avatar?: boolean
+          show_username?: boolean
           theme_color?: string | null
           updated_at?: string | null
           user_id?: string

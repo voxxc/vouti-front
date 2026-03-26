@@ -92,16 +92,20 @@ const LinkPublicProfile = () => {
     <div className="min-h-screen flex flex-col items-center" style={bgStyle}>
       {/* Profile Header */}
       <div className="w-full max-w-md mx-auto pt-12 pb-8 px-6 text-center">
-        <Avatar className="h-24 w-24 mx-auto mb-4">
-          <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
-          <AvatarFallback className="text-2xl bg-slate-800 text-white">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
+        {(profile.show_avatar !== false) && (
+          <Avatar className="h-24 w-24 mx-auto mb-4">
+            <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
+            <AvatarFallback className="text-2xl bg-slate-800 text-white">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+        )}
 
-        <h1 className={`${usernameStyle.className} font-bold`} style={{ color: usernameStyle.color }}>
-          @{profile.username}
-        </h1>
+        {(profile.show_username !== false) && (
+          <h1 className={`${usernameStyle.className} font-bold`} style={{ color: usernameStyle.color }}>
+            {profile.display_name || `@${profile.username}`}
+          </h1>
+        )}
 
         {profile.bio && (
           <p className="text-sm mt-2 max-w-xs mx-auto opacity-70" style={{ color: textColor }}>

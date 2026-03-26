@@ -30,16 +30,20 @@ export const MobilePreview = ({ profile, links, collections }: MobilePreviewProp
           
           <div className="h-full overflow-y-auto p-6 pt-12 scrollbar-hide" style={bgStyle}>
             <div className="flex flex-col items-center space-y-4">
-              <Avatar className="h-24 w-24 border-0 shadow-none">
-                <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
-                <AvatarFallback className="text-2xl bg-[hsl(var(--vlink-dark))] text-white font-semibold">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
+              {(profile.show_avatar !== false) && (
+                <Avatar className="h-24 w-24 border-0 shadow-none">
+                  <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
+                  <AvatarFallback className="text-2xl bg-[hsl(var(--vlink-dark))] text-white font-semibold">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+              )}
 
-              <h1 className={`${usernameStyle.className} font-bold tracking-tight`} style={{ color: usernameStyle.color }}>
-                @{profile.username}
-              </h1>
+              {(profile.show_username !== false) && (
+                <h1 className={`${usernameStyle.className} font-bold tracking-tight`} style={{ color: usernameStyle.color }}>
+                  {profile.display_name || `@${profile.username}`}
+                </h1>
+              )}
 
               {profile.bio && (
                 <p className="text-sm text-center max-w-xs whitespace-pre-wrap leading-relaxed px-2 opacity-70" style={{ color: btnStyle.color }}>

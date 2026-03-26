@@ -15,6 +15,10 @@ export interface LinkProfile {
   button_text_color: string;
   username_color: string | null;
   username_font_size: string;
+  bg_image_url: string | null;
+  show_username: boolean;
+  show_avatar: boolean;
+  display_name: string | null;
   created_at: string;
   updated_at: string;
 }
