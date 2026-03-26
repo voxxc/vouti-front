@@ -173,6 +173,47 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
         </CardContent>
       </Card>
 
+      {/* Background Image */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <ImageIcon className="h-5 w-5" />
+            Imagem de Fundo
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <input ref={bgFileRef} type="file" accept="image/*" onChange={handleBgImageUpload} className="hidden" />
+          
+          {bgImageUrl ? (
+            <div className="space-y-3">
+              <div className="relative rounded-xl overflow-hidden border border-border h-32">
+                <img src={bgImageUrl} alt="Background" className="w-full h-full object-cover" />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => bgFileRef.current?.click()} disabled={uploadingBg}>
+                  <Upload className="w-4 h-4 mr-1" />
+                  Trocar
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleRemoveBgImage} className="text-destructive">
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Remover
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => bgFileRef.current?.click()}
+              disabled={uploadingBg}
+              className="w-full h-28 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center gap-2 hover:border-primary/50 transition-colors text-muted-foreground"
+            >
+              <Upload className="w-6 h-6" />
+              <span className="text-sm">{uploadingBg ? "Enviando..." : "Enviar imagem de fundo"}</span>
+            </button>
+          )}
+          <p className="text-xs text-muted-foreground">A imagem sobrepõe o gradiente de cores. Máximo 5MB.</p>
+        </CardContent>
+      </Card>
+
       {/* Background Colors */}
       <Card>
         <CardHeader>
