@@ -98,6 +98,7 @@ const LinkPublicProfile = () => {
   const subBtnStyle = getSubButtonStyle(profile);
   const spacing = getButtonSpacing(profile);
   const usernameStyle = getUsernameStyle(profile);
+  const contentAlign = getContentAlignment(profile);
 
   const isParentButton = (link: LinkItem) => !link.url && getChildren(link.id).length > 0;
 
