@@ -67,6 +67,12 @@ const BUTTON_SPACING = [
   { value: "spacious", label: "Espaçoso" },
 ];
 
+const VERTICAL_POSITIONS = [
+  { value: "top", label: "Topo" },
+  { value: "center", label: "Centro" },
+  { value: "bottom", label: "Baixo" },
+];
+
 const RADIUS_PREVIEW: Record<string, string> = {
   none: "0px",
   md: "8px",
