@@ -51,7 +51,10 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
   const [buttonTextColor, setButtonTextColor] = useState(profile.button_text_color || "#ffffff");
   const [usernameColor, setUsernameColor] = useState(profile.username_color || profile.button_text_color || "#1e293b");
   const [usernameFontSize, setUsernameFontSize] = useState(profile.username_font_size || "xl");
+  const [bgImageUrl, setBgImageUrl] = useState(profile.bg_image_url || "");
+  const [uploadingBg, setUploadingBg] = useState(false);
   const [saving, setSaving] = useState(false);
+  const bgFileRef = useRef<HTMLInputElement>(null);
 
   const handleLiveUpdate = (updates: Partial<{
     bg_color_1: string; bg_color_2: string | null; bg_gradient_direction: string;
