@@ -2545,6 +2545,62 @@ export type Database = {
         }
         Relationships: []
       }
+      link_text_elements: {
+        Row: {
+          color: string
+          content: string
+          created_at: string | null
+          font_family: string
+          font_size: number
+          font_style: string
+          font_weight: string
+          id: string
+          is_active: boolean
+          position_x: number
+          position_y: number
+          profile_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string
+          content?: string
+          created_at?: string | null
+          font_family?: string
+          font_size?: number
+          font_style?: string
+          font_weight?: string
+          id?: string
+          is_active?: boolean
+          position_x?: number
+          position_y?: number
+          profile_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string
+          content?: string
+          created_at?: string | null
+          font_family?: string
+          font_size?: number
+          font_style?: string
+          font_weight?: string
+          id?: string
+          is_active?: boolean
+          position_x?: number
+          position_y?: number
+          profile_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "link_text_elements_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "link_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       link_user_roles: {
         Row: {
           created_at: string | null
