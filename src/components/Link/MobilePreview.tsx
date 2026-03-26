@@ -25,6 +25,7 @@ export const MobilePreview = ({ profile, links, collections }: MobilePreviewProp
   const subBtnStyle = getSubButtonStyle(profile);
   const spacing = getButtonSpacing(profile);
   const usernameStyle = getUsernameStyle(profile);
+  const contentAlign = getContentAlignment(profile);
 
   const toggleParent = (id: string) => {
     setExpandedParents(prev => {
