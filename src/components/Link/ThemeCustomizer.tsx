@@ -95,6 +95,13 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
   const [buttonSpacing, setButtonSpacing] = useState(profile.button_spacing || "normal");
   const [buttonBorderColor, setButtonBorderColor] = useState(profile.button_border_color || "");
 
+  // Sub-button style states
+  const [subButtonStyle, setSubButtonStyle] = useState(profile.sub_button_style || "soft");
+  const [subButtonRadius, setSubButtonRadius] = useState(profile.sub_button_radius || "xl");
+  const [subButtonPadding, setSubButtonPadding] = useState(profile.sub_button_padding || "compact");
+  const [subButtonColor, setSubButtonColor] = useState(profile.sub_button_color || "");
+  const [subButtonTextColor, setSubButtonTextColor] = useState(profile.sub_button_text_color || "");
+
   const handleLiveUpdate = (updates: Partial<LinkProfile>) => {
     onSave(updates).catch(() => {});
   };
