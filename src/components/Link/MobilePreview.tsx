@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LinkProfile, LinkItem, LinkCollection } from "@/types/link";
-import { getProfileBackground, getButtonStyle, getButtonSpacing, getSubButtonStyle, getUsernameStyle } from "@/lib/linkThemeUtils";
+import { getProfileBackground, getButtonStyle, getButtonSpacing, getSubButtonStyle, getUsernameStyle, getContentAlignment } from "@/lib/linkThemeUtils";
 import { ChevronDown } from "lucide-react";
 
 interface MobilePreviewProps {
