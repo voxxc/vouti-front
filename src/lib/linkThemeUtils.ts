@@ -97,13 +97,47 @@ export function getButtonSpacing(profile: LinkProfile): string {
 }
 
 export function getSubButtonStyle(profile: LinkProfile): React.CSSProperties {
-  const parentStyle = getButtonStyle(profile);
-  return {
-    ...parentStyle,
-    padding: "10px 16px",
+  // Use dedicated sub-button fields, falling back to parent button values
+  const bgColor = profile.sub_button_color || profile.button_color || "#1e293b";
+  const textColor = profile.sub_button_text_color || profile.button_text_color || "#ffffff";
+  const style = profile.sub_button_style || "soft";
+  const radius = RADIUS_MAP[profile.sub_button_radius || "xl"] || "16px";
+  const padding = PADDING_MAP[profile.sub_button_padding || "compact"] || "8px 20px";
+
+  const base: React.CSSProperties = {
+    borderRadius: radius,
+    padding,
+    color: textColor,
     fontSize: "0.875rem",
-    opacity: 0.85,
   };
+
+  switch (style) {
+    case "outline":
+      return {
+        ...base,
+        backgroundColor: "transparent",
+        border: `2px solid ${bgColor}`,
+        color: bgColor,
+      };
+    case "soft":
+      return {
+        ...base,
+        backgroundColor: `${bgColor}22`,
+        color: bgColor,
+      };
+    case "shadow":
+      return {
+        ...base,
+        backgroundColor: bgColor,
+        boxShadow: `0 6px 16px -4px ${bgColor}55`,
+      };
+    case "filled":
+    default:
+      return {
+        ...base,
+        backgroundColor: bgColor,
+      };
+  }
 }
 
 const FONT_SIZE_MAP: Record<string, string> = {

@@ -12,33 +12,39 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Info } from "lucide-react";
 
 interface EditLinkDialogProps {
   link: LinkItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (link: Partial<LinkItem>) => Promise<void>;
+  parentId?: string | null;
+  parentTitle?: string;
 }
 
-export const EditLinkDialog = ({ link, open, onOpenChange, onSave }: EditLinkDialogProps) => {
-  const [title, setTitle] = useState(link?.title || "");
-  const [url, setUrl] = useState(link?.url || "");
-  const [isActive, setIsActive] = useState(link?.is_active ?? true);
+export const EditLinkDialog = ({ link, open, onOpenChange, onSave, parentId, parentTitle }: EditLinkDialogProps) => {
+  const [title, setTitle] = useState("");
+  const [url, setUrl] = useState("");
+  const [isActive, setIsActive] = useState(true);
   const [isParent, setIsParent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  const isSubLinkMode = !!parentId;
 
   useEffect(() => {
     if (open) {
       setTitle(link?.title || "");
       setUrl(link?.url || "");
       setIsActive(link?.is_active ?? true);
-      setIsParent(link ? !link.url : false);
+      setIsParent(link ? !link.url && !link.parent_id : false);
     }
   }, [open, link]);
 
   const handleSave = async () => {
     if (!title.trim()) return;
-    if (!isParent && !url.trim()) return;
+    if (!isParent && !isSubLinkMode && !url.trim()) return;
+    if (isSubLinkMode && !url.trim()) return;
 
     setIsLoading(true);
     try {
@@ -47,6 +53,7 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSave }: EditLinkDia
         title: title.trim(),
         url: isParent ? "" : url.trim(),
         is_active: isActive,
+        parent_id: isSubLinkMode ? parentId : (link?.parent_id || null),
       });
       onOpenChange(false);
     } finally {
@@ -59,42 +66,64 @@ export const EditLinkDialog = ({ link, open, onOpenChange, onSave }: EditLinkDia
       setTitle(link?.title || "");
       setUrl(link?.url || "");
       setIsActive(link?.is_active ?? true);
-      setIsParent(link ? !link.url : false);
+      setIsParent(link ? !link.url && !link.parent_id : false);
     }
     onOpenChange(newOpen);
   };
+
+  const dialogTitle = isSubLinkMode
+    ? "Adicionar Sub-link"
+    : link
+    ? "Editar Link"
+    : "Adicionar Link";
+
+  const dialogDesc = isSubLinkMode
+    ? `Sub-link de: "${parentTitle || "Botão pai"}"`
+    : link
+    ? "Atualize as informações do link"
+    : "Adicione um novo link ao seu perfil";
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>{link ? "Editar Link" : "Adicionar Link"}</DialogTitle>
-          <DialogDescription>
-            {link ? "Atualize as informações do link" : "Adicione um novo link ao seu perfil"}
-          </DialogDescription>
+          <DialogTitle>{dialogTitle}</DialogTitle>
+          <DialogDescription>{dialogDesc}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="is-parent">Botão com subitens</Label>
+          {/* Only show parent toggle for top-level new/edit links (not sub-links) */}
+          {!isSubLinkMode && !link?.parent_id && (
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="is-parent">Botão com subitens</Label>
+                <p className="text-xs text-muted-foreground">
+                  Ao ativar, este botão expande para mostrar sub-links
+                </p>
+              </div>
+              <Switch
+                id="is-parent"
+                checked={isParent}
+                onCheckedChange={setIsParent}
+                disabled={isLoading}
+              />
+            </div>
+          )}
+
+          {isParent && !link?.id && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border border-border">
+              <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
               <p className="text-xs text-muted-foreground">
-                Ao ativar, este botão expande para mostrar sub-links
+                Após salvar, use o botão <strong>+</strong> no card para adicionar sub-links dentro deste botão.
               </p>
             </div>
-            <Switch
-              id="is-parent"
-              checked={isParent}
-              onCheckedChange={setIsParent}
-              disabled={isLoading}
-            />
-          </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="title">Título</Label>
             <Input
               id="title"
-              placeholder={isParent ? "Ex: Minhas Redes Sociais" : "Ex: Meu Instagram"}
+              placeholder={isParent ? "Ex: Minhas Redes Sociais" : isSubLinkMode ? "Ex: Instagram" : "Ex: Meu Instagram"}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               disabled={isLoading}

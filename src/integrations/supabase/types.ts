@@ -2464,6 +2464,11 @@ export type Database = {
           id: string
           show_avatar: boolean
           show_username: boolean
+          sub_button_color: string | null
+          sub_button_padding: string
+          sub_button_radius: string
+          sub_button_style: string
+          sub_button_text_color: string | null
           theme_color: string | null
           updated_at: string | null
           user_id: string
@@ -2491,6 +2496,11 @@ export type Database = {
           id?: string
           show_avatar?: boolean
           show_username?: boolean
+          sub_button_color?: string | null
+          sub_button_padding?: string
+          sub_button_radius?: string
+          sub_button_style?: string
+          sub_button_text_color?: string | null
           theme_color?: string | null
           updated_at?: string | null
           user_id: string
@@ -2518,6 +2528,11 @@ export type Database = {
           id?: string
           show_avatar?: boolean
           show_username?: boolean
+          sub_button_color?: string | null
+          sub_button_padding?: string
+          sub_button_radius?: string
+          sub_button_style?: string
+          sub_button_text_color?: string | null
           theme_color?: string | null
           updated_at?: string | null
           user_id?: string
