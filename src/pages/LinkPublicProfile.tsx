@@ -60,6 +60,7 @@ const LinkPublicProfile = () => {
 
       setLinks((linksRes.data as LinkItem[]) || []);
       setCollections((collectionsRes.data as LinkCollection[]) || []);
+      setTextElements((textsRes.data as LinkTextElement[]) || []);
     } catch (err) {
       console.error("Error loading public profile:", err);
       setNotFound(true);
