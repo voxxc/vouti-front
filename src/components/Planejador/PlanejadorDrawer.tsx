@@ -318,7 +318,14 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
         isLoading={createTask.isPending}
       />
 
-      {/* Task detail is now rendered INSIDE the Sheet to inherit focus context */}
+      <DeadlineDetailDialog
+        deadlineId={deadlineDetailId}
+        open={deadlineDetailOpen}
+        onOpenChange={(open) => {
+          setDeadlineDetailOpen(open);
+          if (!open) setDeadlineDetailId(null);
+        }}
+      />
     </>
   );
 }
