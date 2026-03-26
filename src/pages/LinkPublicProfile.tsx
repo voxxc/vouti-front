@@ -12,6 +12,7 @@ const LinkPublicProfile = () => {
   const [profile, setProfile] = useState<LinkProfile | null>(null);
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [collections, setCollections] = useState<LinkCollection[]>([]);
+  const [textElements, setTextElements] = useState<LinkTextElement[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
