@@ -19,6 +19,11 @@ export interface LinkProfile {
   show_username: boolean;
   show_avatar: boolean;
   display_name: string | null;
+  button_style: string;
+  button_radius: string;
+  button_padding: string;
+  button_spacing: string;
+  button_border_color: string | null;
   created_at: string;
   updated_at: string;
 }
