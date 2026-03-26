@@ -447,6 +447,14 @@ const LinkDashboard = () => {
         onOpenChange={setAddCollectionDialog}
         onSave={handleSaveCollection}
       />
+
+      <ChangeUsernameDialog
+        open={changeUsernameDialog}
+        onOpenChange={setChangeUsernameDialog}
+        profileId={localProfile?.id || ""}
+        currentUsername={localProfile?.username || ""}
+        onChanged={(newUsername) => setLocalProfile(prev => prev ? { ...prev, username: newUsername } : prev)}
+      />
     </div>
   );
 };
