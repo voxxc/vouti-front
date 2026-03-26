@@ -1,65 +1,72 @@
 
 
-# Redesign: Estilos de Botão, Subbotões e Remoção do Footer "Vouti"
+# Sub-links Completos: Criação, Gestão e Personalização
 
-## 3 mudanças principais
+## Problemas identificados
 
-### 1. Remover texto "Vouti" do preview e página pública
-O footer com "Vouti" aparece no `MobilePreview.tsx` (linhas 99-103), `LinkPublicProfile.tsx` (footer) e `ProfilePreview.tsx`. Será removido de todos.
+1. `handleSaveLink` no `LinkDashboard` nunca envia `parent_id` ao criar links — sub-links são impossíveis de criar
+2. Não existe fluxo para adicionar sub-links a um botão-pai: o `LinkCard` recebe `onAddChild` mas o dashboard não implementa essa callback
+3. O `unCollectedLinks` não filtra por `parent_id`, então links filhos aparecem misturados com os pais
+4. Não há personalização visual separada para sub-botões no `ThemeCustomizer`
 
-### 2. Estilo avançado dos botões (novo card no ThemeCustomizer)
-Novos campos na tabela `link_profiles`:
+## Solução
 
+### 1. Corrigir `LinkDashboard.tsx` — suporte a parent_id
+
+- `handleSaveLink`: incluir `parent_id` no insert/update quando presente nos dados
+- `editLinkDialog` state: expandir para incluir `parentId` opcional
+- Adicionar callback `handleAddChild(parentId)` que abre o dialog com `parentId` pré-definido
+- Filtrar `unCollectedLinks` para excluir links com `parent_id` (são filhos, não top-level)
+- Passar `childLinks` e `onAddChild` ao `LinkCard`
+
+### 2. Melhorar `EditLinkDialog.tsx`
+
+- Receber prop `parentId?: string` para modo "adicionar sub-link"
+- Quando `parentId` está definido: esconder toggle "Botão com subitens", mostrar indicação visual "Sub-link de: [pai]"
+- Quando `isParent` ativo: mostrar seção informativa "Após salvar, adicione sub-links pelo botão + no card"
+
+### 3. Melhorar `LinkCard.tsx`
+
+- Quando é botão-pai: mostrar botão "Adicionar sub-link" mais proeminente
+- Expandir automaticamente quando tem filhos
+- Mostrar contagem de sub-links ativos/inativos
+
+### 4. Personalização de sub-botões no `ThemeCustomizer`
+
+Novos campos no banco (migration):
 ```sql
 ALTER TABLE link_profiles
-  ADD COLUMN button_style text NOT NULL DEFAULT 'filled',
-  ADD COLUMN button_radius text NOT NULL DEFAULT 'xl',
-  ADD COLUMN button_padding text NOT NULL DEFAULT 'normal',
-  ADD COLUMN button_spacing text NOT NULL DEFAULT 'normal',
-  ADD COLUMN button_border_color text;
+  ADD COLUMN sub_button_style text NOT NULL DEFAULT 'soft',
+  ADD COLUMN sub_button_radius text NOT NULL DEFAULT 'xl',
+  ADD COLUMN sub_button_padding text NOT NULL DEFAULT 'compact',
+  ADD COLUMN sub_button_color text,
+  ADD COLUMN sub_button_text_color text;
 ```
 
-- **button_style**: `filled` | `outline` | `soft` | `shadow`
-- **button_radius**: `none` (0) | `md` (8px) | `xl` (16px) | `full` (9999px/pill)
-- **button_padding**: `compact` (py-2) | `normal` (py-4) | `spacious` (py-6)
-- **button_spacing**: `tight` (gap-1) | `normal` (gap-3) | `spacious` (gap-5)
+No ThemeCustomizer: novo card "Estilo dos Sub-Botões" com:
+- Formato visual (filled/outline/soft/shadow)
+- Arredondamento
+- Altura
+- Cores (fundo, texto) — com fallback para cores do botão principal
 
-O card "Cor dos Botões" no ThemeCustomizer será redesenhado como "Estilo dos Botões" com:
-- Seletores visuais (mini-previews) para cada estilo
-- Seletor de arredondamento
-- Seletor de altura (padding)
-- Seletor de espaçamento
-- Color pickers (fundo, texto, borda — borda só visível para outline)
+### 5. Atualizar `linkThemeUtils.ts`
 
-O `getButtonStyle()` em `linkThemeUtils.ts` será expandido para retornar os estilos completos. Nova função `getButtonSpacing()`.
+`getSubButtonStyle()` passa a usar os campos dedicados (`sub_button_*`) em vez de simplesmente copiar o estilo pai com opacity reduzida.
 
-### 3. Subbotões (botão expansível com sub-links)
-Novo campo `parent_id` na tabela `link_items`:
+### 6. Atualizar types e previews
 
-```sql
-ALTER TABLE link_items ADD COLUMN parent_id uuid REFERENCES link_items(id) ON DELETE CASCADE;
-```
+- `LinkProfile` em `types/link.ts`: 5 novos campos `sub_button_*`
+- `MobilePreview`, `LinkPublicProfile`, `ProfilePreview`: usar `getSubButtonStyle()` atualizado
 
-Lógica:
-- Um `link_item` com `parent_id = null` e `url = null` (ou vazio) é um **botão-pai** (accordion)
-- Um `link_item` com `parent_id = <id do pai>` é um **subbotão**
-- No preview e página pública: clicar no botão-pai expande/colapsa os subbotões abaixo dele
-- No dashboard de gerenciamento: ao editar um link, opção "Este é um botão com subitens" (toggle) — ao ativar, remove a URL e permite adicionar sub-links dentro dele
+## Arquivos
 
-Mudanças nos componentes:
-- **LinkCard.tsx**: mostrar sub-links indentados abaixo do pai, com botão "Adicionar sub-link"
-- **EditLinkDialog.tsx**: toggle "Botão com subitens", se ativo esconde campo URL
-- **MobilePreview.tsx** e **LinkPublicProfile.tsx**: renderizar botão-pai como accordion — ao clicar, exibe subbotões com estilo levemente reduzido (menor padding, indentação)
-
-## Arquivos envolvidos
-
-- **Nova migration SQL** — 5 colunas de estilo + `parent_id`
-- `src/types/link.ts` — novos campos em `LinkProfile` e `LinkItem`
-- `src/lib/linkThemeUtils.ts` — expandir `getButtonStyle()`, nova `getButtonSpacing()`
-- `src/components/Link/ThemeCustomizer.tsx` — redesign card de botões
-- `src/components/Link/MobilePreview.tsx` — remover footer Vouti, aplicar estilos, subbotões
-- `src/components/Link/ProfilePreview.tsx` — remover footer Vouti
-- `src/pages/LinkPublicProfile.tsx` — remover footer Vouti, aplicar estilos, subbotões com accordion
-- `src/components/Link/LinkCard.tsx` — exibir hierarquia pai/filho
-- `src/components/Link/EditLinkDialog.tsx` — toggle "botão com subitens"
+- **Migration SQL**: 5 novos campos em `link_profiles`
+- `src/types/link.ts`
+- `src/pages/LinkDashboard.tsx`
+- `src/components/Link/EditLinkDialog.tsx`
+- `src/components/Link/LinkCard.tsx`
+- `src/components/Link/ThemeCustomizer.tsx`
+- `src/lib/linkThemeUtils.ts`
+- `src/components/Link/MobilePreview.tsx` (já funciona, só atualizar getSubButtonStyle)
+- `src/pages/LinkPublicProfile.tsx`
 
