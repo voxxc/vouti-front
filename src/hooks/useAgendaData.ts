@@ -107,8 +107,8 @@
                description: deadline.description || '',
                date: safeParseDate(deadline.date),
                projectId: deadline.project_id,
-               projectName: projectFromJoin || fallback?.name || 'Projeto não encontrado',
-               clientName: deadline.projects?.client || fallback?.client || 'Cliente não encontrado',
+projectName: projectFromJoin || fallback?.name || '',
+                clientName: deadline.projects?.client || fallback?.client || '',
                completed: deadline.completed,
                advogadoResponsavel: deadline.advogado ? {
                  userId: deadline.advogado.user_id,
