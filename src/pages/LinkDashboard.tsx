@@ -406,11 +406,17 @@ const LinkDashboard = () => {
                 <CardContent className="space-y-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Username</p>
-                    <p className="font-medium">@{profile?.username}</p>
+                    <p className="font-medium">@{localProfile?.username}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">URL do Perfil</p>
-                    <p className="font-medium">vouti.co/{profile?.username}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">vouti.co/{localProfile?.username}</p>
+                      <Button variant="outline" size="sm" onClick={() => setChangeUsernameDialog(true)}>
+                        <Pencil className="h-3 w-3 mr-1" />
+                        Alterar
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
