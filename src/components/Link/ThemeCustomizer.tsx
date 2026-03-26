@@ -208,6 +208,7 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
       sub_button_padding: subButtonPadding,
       sub_button_color: subButtonColor || null,
       sub_button_text_color: subButtonTextColor || null,
+      content_vertical_position: verticalPosition,
       [field]: value,
     };
     handleLiveUpdate(updates);
