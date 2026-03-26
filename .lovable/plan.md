@@ -1,34 +1,33 @@
 
 
-# Alterar URL Pública (Username) nas Configurações
+# Nova aba "Prazos" no Planejador
 
 ## O que será feito
 
-Na aba "Ajustes" do LinkDashboard, adicionar um botão "Alterar URL" ao lado do username/URL atual. Ao clicar, abre um **Dialog de confirmação** com:
-- Input para digitar o novo username
-- Validação de disponibilidade (consulta no banco)
-- Botão de confirmar com **loading state** (spinner + texto "Salvando...")
-- Mensagem de sucesso/erro via toast
+Adicionar uma aba **"Prazos"** ao lado das abas existentes (Colunas, Lista, Calendário) no Planejador. Essa aba exibirá os prazos da tabela `deadlines` associados ao usuário atual (como advogado responsável ou usuário marcado) em um layout Kanban com colunas por vencimento — reutilizando a mesma lógica visual das colunas do Planejador (Vencido, Hoje, Esta Semana, etc.).
+
+Ao clicar em um card de prazo, abrirá o `DeadlineDetailDialog` já existente.
 
 ## Alterações
 
-### 1. Novo componente `src/components/Link/ChangeUsernameDialog.tsx`
-- Dialog com input para novo username
-- Validação: mínimo 3 chars, só letras/números/hifens, sem espaços
-- Ao digitar, debounce de 500ms para checar disponibilidade via `supabase.from('link_profiles').select('id').eq('username', newUsername)`
-- Indicador visual: "Disponível ✓" ou "Já em uso ✗"
-- Botão "Confirmar Alteração" com `loading` state (disabled + spinner)
-- Ao confirmar: `supabase.from('link_profiles').update({ username }).eq('id', profileId)`
-- Sucesso: toast + fechar dialog + atualizar `localProfile`
+### 1. Novo componente `PlanejadorPrazosView.tsx`
+- Busca prazos do `useAgendaData` (ou query própria filtrada pelo usuário)
+- Categoriza prazos nas mesmas colunas temporais (vencido, hoje, esta_semana, proxima_semana, sem_prazo, concluído)
+- Renderiza colunas estilizadas com o visual glass do Planejador (mesma estética do Kanban existente)
+- Cards compactos mostrando: título, projeto, data, advogado responsável
+- Ao clicar: abre `DeadlineDetailDialog` com o `deadlineId`
 
-### 2. Atualizar Settings tab em `LinkDashboard.tsx`
-- Importar e usar `ChangeUsernameDialog`
-- Adicionar botão "Alterar" ao lado da URL do perfil
-- State para controlar abertura do dialog
-- Callback `onUsernameChanged` que atualiza `localProfile` com novo username
+### 2. Atualizar `PlanejadorTopBar.tsx`
+- Adicionar `{ id: 'prazos', label: 'Prazos' }` ao array `TABS`
+
+### 3. Atualizar `PlanejadorDrawer.tsx`
+- Importar `PlanejadorPrazosView` e `DeadlineDetailDialog`
+- Renderizar a view quando `activeTab === 'prazos'`
+- Gerenciar state para `deadlineDetailId` e abertura do dialog
 
 ## Arquivos
 
-- **Novo**: `src/components/Link/ChangeUsernameDialog.tsx`
-- **Modificar**: `src/pages/LinkDashboard.tsx` (settings tab)
+- **Novo**: `src/components/Planejador/PlanejadorPrazosView.tsx`
+- **Modificar**: `src/components/Planejador/PlanejadorTopBar.tsx` (adicionar tab)
+- **Modificar**: `src/components/Planejador/PlanejadorDrawer.tsx` (renderizar view + dialog)
 
