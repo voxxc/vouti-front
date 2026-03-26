@@ -153,9 +153,31 @@ const LinkPublicProfile = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center" style={{ ...bgStyle, justifyContent: contentAlign }}>
+    <div className="min-h-screen flex flex-col items-center relative" style={{ ...bgStyle, justifyContent: contentAlign }}>
+      {/* Text elements overlay */}
+      {textElements.map(el => (
+        <div
+          key={el.id}
+          className="absolute whitespace-pre-wrap"
+          style={{
+            left: `${el.position_x}%`,
+            top: `${el.position_y}%`,
+            transform: "translate(-50%, -50%)",
+            fontFamily: el.font_family,
+            fontSize: `${el.font_size}px`,
+            color: el.color,
+            fontWeight: el.font_weight,
+            fontStyle: el.font_style,
+            lineHeight: 1.3,
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        >
+          {el.content}
+        </div>
+      ))}
       {/* Profile Header */}
-      <div className="w-full max-w-md mx-auto pt-12 pb-8 px-6 text-center">
+      <div className="w-full max-w-md mx-auto pt-12 pb-8 px-6 text-center relative z-[2]">
         {(profile.show_avatar !== false) && (
           <Avatar className="h-24 w-24 mx-auto mb-4">
             <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
