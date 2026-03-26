@@ -569,6 +569,14 @@ const LinkDashboard = () => {
         currentUsername={localProfile?.username || ""}
         onChanged={(newUsername) => setLocalProfile(prev => prev ? { ...prev, username: newUsername } : prev)}
       />
+
+      <TextElementEditor
+        element={textEditorDialog.element || null}
+        open={textEditorDialog.open}
+        onOpenChange={(open) => setTextEditorDialog({ open })}
+        onSave={handleSaveTextElement}
+        onDelete={handleDeleteTextElement}
+      />
     </div>
   );
 };

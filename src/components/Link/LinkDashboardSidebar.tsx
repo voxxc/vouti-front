@@ -26,6 +26,7 @@ export const LinkDashboardSidebar = ({
     { id: "home", label: "Início", icon: Home },
     { id: "edit", label: "Editar página", icon: Edit3 },
     { id: "customize", label: "Customize", icon: Palette },
+    { id: "textos", label: "Textos", icon: Type },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "preview", label: "Ver minha página", icon: Eye },
     { id: "settings", label: "Ajustes", icon: Settings },
