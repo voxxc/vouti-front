@@ -4,7 +4,7 @@ import { supabasePublic } from "@/integrations/supabase/publicClient";
 import { LinkProfile, LinkItem, LinkCollection } from "@/types/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link2, ChevronDown } from "lucide-react";
-import { getProfileBackground, getButtonStyle, getButtonSpacing, getSubButtonStyle, getUsernameStyle } from "@/lib/linkThemeUtils";
+import { getProfileBackground, getButtonStyle, getButtonSpacing, getSubButtonStyle, getUsernameStyle, getContentAlignment } from "@/lib/linkThemeUtils";
 import NotFound from "./NotFound";
 
 const LinkPublicProfile = () => {
