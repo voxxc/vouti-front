@@ -107,6 +107,7 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
   const [subButtonPadding, setSubButtonPadding] = useState(profile.sub_button_padding || "compact");
   const [subButtonColor, setSubButtonColor] = useState(profile.sub_button_color || "");
   const [subButtonTextColor, setSubButtonTextColor] = useState(profile.sub_button_text_color || "");
+  const [verticalPosition, setVerticalPosition] = useState(profile.content_vertical_position || "top");
 
   const handleLiveUpdate = (updates: Partial<LinkProfile>) => {
     onSave(updates).catch(() => {});
