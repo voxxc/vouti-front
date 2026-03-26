@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { ArrowDown, ArrowUp, ArrowRight, ArrowLeft, Check, Upload, Trash2, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { cn } from "@/lib/utils";
 
 interface ThemeCustomizerProps {
   profile: LinkProfile;
