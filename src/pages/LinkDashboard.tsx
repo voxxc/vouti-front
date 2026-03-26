@@ -29,11 +29,13 @@ const LinkDashboard = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [collections, setCollections] = useState<LinkCollection[]>([]);
+  const [textElements, setTextElements] = useState<LinkTextElement[]>([]);
   const [loading, setLoading] = useState(true);
   const [editLinkDialog, setEditLinkDialog] = useState<{ open: boolean; link?: LinkItem; parentId?: string }>({ open: false });
   const [editProfileDialog, setEditProfileDialog] = useState(false);
   const [addCollectionDialog, setAddCollectionDialog] = useState(false);
   const [changeUsernameDialog, setChangeUsernameDialog] = useState(false);
+  const [textEditorDialog, setTextEditorDialog] = useState<{ open: boolean; element?: LinkTextElement }>({ open: false });
 
   useEffect(() => {
     if (profile) setLocalProfile(profile);
