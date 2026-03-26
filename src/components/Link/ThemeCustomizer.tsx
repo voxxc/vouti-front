@@ -97,6 +97,36 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
     }
   };
 
+  const handleBgImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error("Selecione uma imagem"); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Máximo 5MB"); return; }
+    
+    setUploadingBg(true);
+    try {
+      const fileName = `${profile.user_id}/bg-${Date.now()}.${file.name.split('.').pop()}`;
+      const { error: upErr } = await supabase.storage.from("link-backgrounds").upload(fileName, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from("link-backgrounds").getPublicUrl(fileName);
+      setBgImageUrl(urlData.publicUrl);
+      await onSave({ bg_image_url: urlData.publicUrl });
+      toast.success("Imagem de fundo salva!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao enviar imagem");
+    } finally {
+      setUploadingBg(false);
+      if (bgFileRef.current) bgFileRef.current.value = "";
+    }
+  };
+
+  const handleRemoveBgImage = async () => {
+    setBgImageUrl("");
+    await onSave({ bg_image_url: null });
+    toast.success("Imagem removida");
+  };
+
   const updateAndPreview = (field: string, value: string | null) => {
     const updates: any = {
       bg_color_1: bgColor1,
