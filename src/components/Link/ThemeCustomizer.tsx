@@ -137,6 +137,11 @@ export const ThemeCustomizer = ({ profile, onSave }: ThemeCustomizerProps) => {
         button_padding: buttonPadding,
         button_spacing: buttonSpacing,
         button_border_color: buttonBorderColor || null,
+        sub_button_style: subButtonStyle,
+        sub_button_radius: subButtonRadius,
+        sub_button_padding: subButtonPadding,
+        sub_button_color: subButtonColor || null,
+        sub_button_text_color: subButtonTextColor || null,
       });
       toast.success("Tema salvo com sucesso!");
     } catch {
