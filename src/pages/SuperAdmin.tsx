@@ -339,17 +339,24 @@ export default function SuperAdmin() {
 
             <div className="space-y-8">
               {systemTypes.map((systemType) => (
-                <SystemTypeSection
-                  key={systemType.id}
-                  systemType={systemType}
-                  tenants={getTenantsBySystemType(systemType.id)}
-                  onCreateTenant={handleCreateTenant}
-                  onEditTenant={handleEditTenant}
-                  onToggleStatus={toggleTenantStatus}
-                  onDeleteTenant={deleteTenant}
-                  onOpenAvisos={handleOpenAvisos}
-                  pagamentosPorTenant={pagamentosPorTenant}
-                />
+                systemType.code === 'linkinbio' ? (
+                  <LinkBioSection
+                    key={systemType.id}
+                    systemType={systemType}
+                  />
+                ) : (
+                  <SystemTypeSection
+                    key={systemType.id}
+                    systemType={systemType}
+                    tenants={getTenantsBySystemType(systemType.id)}
+                    onCreateTenant={handleCreateTenant}
+                    onEditTenant={handleEditTenant}
+                    onToggleStatus={toggleTenantStatus}
+                    onDeleteTenant={deleteTenant}
+                    onOpenAvisos={handleOpenAvisos}
+                    pagamentosPorTenant={pagamentosPorTenant}
+                  />
+                )
               ))}
             </div>
           </TabsContent>
