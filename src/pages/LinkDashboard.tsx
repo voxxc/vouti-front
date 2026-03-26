@@ -16,7 +16,8 @@ import { ThemeCustomizer } from "@/components/Link/ThemeCustomizer";
 import { MobilePreview } from "@/components/Link/MobilePreview";
 import { CollectionCard } from "@/components/Link/CollectionCard";
 import { AddCollectionDialog } from "@/components/Link/AddCollectionDialog";
-import { Link2, BarChart3, Eye, Plus, LayoutList, Archive } from "lucide-react";
+import { Link2, BarChart3, Eye, Plus, LayoutList, Archive, Pencil } from "lucide-react";
+import { ChangeUsernameDialog } from "@/components/Link/ChangeUsernameDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ const LinkDashboard = () => {
   const [editLinkDialog, setEditLinkDialog] = useState<{ open: boolean; link?: LinkItem; parentId?: string }>({ open: false });
   const [editProfileDialog, setEditProfileDialog] = useState(false);
   const [addCollectionDialog, setAddCollectionDialog] = useState(false);
+  const [changeUsernameDialog, setChangeUsernameDialog] = useState(false);
 
   useEffect(() => {
     if (profile) setLocalProfile(profile);
@@ -404,11 +406,17 @@ const LinkDashboard = () => {
                 <CardContent className="space-y-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Username</p>
-                    <p className="font-medium">@{profile?.username}</p>
+                    <p className="font-medium">@{localProfile?.username}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">URL do Perfil</p>
-                    <p className="font-medium">vouti.co/{profile?.username}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">vouti.co/{localProfile?.username}</p>
+                      <Button variant="outline" size="sm" onClick={() => setChangeUsernameDialog(true)}>
+                        <Pencil className="h-3 w-3 mr-1" />
+                        Alterar
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -438,6 +446,14 @@ const LinkDashboard = () => {
         open={addCollectionDialog}
         onOpenChange={setAddCollectionDialog}
         onSave={handleSaveCollection}
+      />
+
+      <ChangeUsernameDialog
+        open={changeUsernameDialog}
+        onOpenChange={setChangeUsernameDialog}
+        profileId={localProfile?.id || ""}
+        currentUsername={localProfile?.username || ""}
+        onChanged={(newUsername) => setLocalProfile(prev => prev ? { ...prev, username: newUsername } : prev)}
       />
     </div>
   );
