@@ -276,6 +276,13 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                     allLabelAssignments={allLabelAssignments}
                     participantTaskIds={participantData}
                   />
+                ) : activeTab === 'prazos' ? (
+                  <PlanejadorPrazosView
+                    onDeadlineClick={(id) => {
+                      setDeadlineDetailId(id);
+                      setDeadlineDetailOpen(true);
+                    }}
+                  />
                 ) : (
                   <PlanejadorKanban
                     tasksByColumn={tasksByColumn}
