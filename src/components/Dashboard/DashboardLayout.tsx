@@ -403,6 +403,11 @@ const DashboardLayout = ({
               <ProjectQuickSearch 
                 tenantPath={tenantPath} 
                 onSelectProject={handleQuickProjectSelect}
+                onSelectProtocolo={(projectId, protocoloId) => {
+                  setSelectedProjectId(projectId);
+                  setPendingProtocoloId(protocoloId);
+                  setProjectDrawerOpen(true);
+                }}
               />
             </div>
             <div className="md:hidden" />
