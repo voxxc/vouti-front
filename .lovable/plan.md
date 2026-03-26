@@ -1,33 +1,50 @@
 
 
-# Nova aba "Prazos" no Planejador
+# Alinhar Previews e Adicionar Controle de Posição Vertical dos Botões
 
-## O que será feito
+## Problemas identificados
 
-Adicionar uma aba **"Prazos"** ao lado das abas existentes (Colunas, Lista, Calendário) no Planejador. Essa aba exibirá os prazos da tabela `deadlines` associados ao usuário atual (como advogado responsável ou usuário marcado) em um layout Kanban com colunas por vencimento — reutilizando a mesma lógica visual das colunas do Planejador (Vencido, Hoje, Esta Semana, etc.).
+1. **ProfilePreview (aba "Preview")** está desalinhado do MobilePreview — não mostra imagem de fundo, não respeita `show_avatar`, não renderiza sub-botões (accordions), e usa fundo branco fixo
+2. **Posição vertical dos botões** — atualmente os botões ficam grudados no topo, sem controle para posicioná-los mais ao centro da página
 
-Ao clicar em um card de prazo, abrirá o `DeadlineDetailDialog` já existente.
+## Solução
 
-## Alterações
+### 1. Redesign do `ProfilePreview.tsx`
+Tornar consistente com o `MobilePreview` (que é o preview correto):
+- Aplicar `getProfileBackground()` (mostra imagem de fundo e gradientes)
+- Respeitar `show_avatar`, `show_username`, `display_name`
+- Usar `getUsernameStyle()` e `getSubButtonStyle()`
+- Renderizar sub-botões como accordions (mesmo comportamento do MobilePreview)
+- Remover fundo branco fixo — usar o tema real do perfil
+- Receber `collections` como prop (atualmente não recebe)
 
-### 1. Novo componente `PlanejadorPrazosView.tsx`
-- Busca prazos do `useAgendaData` (ou query própria filtrada pelo usuário)
-- Categoriza prazos nas mesmas colunas temporais (vencido, hoje, esta_semana, proxima_semana, sem_prazo, concluído)
-- Renderiza colunas estilizadas com o visual glass do Planejador (mesma estética do Kanban existente)
-- Cards compactos mostrando: título, projeto, data, advogado responsável
-- Ao clicar: abre `DeadlineDetailDialog` com o `deadlineId`
+### 2. Novo campo `content_vertical_position` no perfil
+Permite ajustar a posição vertical do conteúdo (avatar + botões) na página:
 
-### 2. Atualizar `PlanejadorTopBar.tsx`
-- Adicionar `{ id: 'prazos', label: 'Prazos' }` ao array `TABS`
+**Migration SQL:**
+```sql
+ALTER TABLE link_profiles
+  ADD COLUMN content_vertical_position text NOT NULL DEFAULT 'top';
+```
 
-### 3. Atualizar `PlanejadorDrawer.tsx`
-- Importar `PlanejadorPrazosView` e `DeadlineDetailDialog`
-- Renderizar a view quando `activeTab === 'prazos'`
-- Gerenciar state para `deadlineDetailId` e abertura do dialog
+Valores: `top` (padrão atual), `center`, `bottom`
+
+**Implementação:**
+- `LinkProfile` type: novo campo `content_vertical_position`
+- `linkThemeUtils.ts`: nova função `getContentAlignment()` que retorna `justifyContent` CSS
+- `MobilePreview.tsx`: aplicar `justifyContent` no container interno
+- `ProfilePreview.tsx`: aplicar o mesmo
+- `LinkPublicProfile.tsx`: aplicar na página pública
+- `ThemeCustomizer.tsx`: adicionar controle visual (3 opções: Topo, Centro, Baixo) na seção de layout
 
 ## Arquivos
 
-- **Novo**: `src/components/Planejador/PlanejadorPrazosView.tsx`
-- **Modificar**: `src/components/Planejador/PlanejadorTopBar.tsx` (adicionar tab)
-- **Modificar**: `src/components/Planejador/PlanejadorDrawer.tsx` (renderizar view + dialog)
+- **Migration SQL**: novo campo `content_vertical_position`
+- `src/types/link.ts` — adicionar campo
+- `src/lib/linkThemeUtils.ts` — nova função `getContentAlignment()`
+- `src/components/Link/ProfilePreview.tsx` — redesign completo alinhado ao MobilePreview
+- `src/components/Link/MobilePreview.tsx` — aplicar posição vertical
+- `src/pages/LinkPublicProfile.tsx` — aplicar posição vertical
+- `src/components/Link/ThemeCustomizer.tsx` — controle de posição vertical
+- `src/pages/LinkDashboard.tsx` — passar `collections` ao ProfilePreview
 
