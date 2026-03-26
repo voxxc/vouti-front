@@ -134,6 +134,51 @@ export const ProfileEditHeader = ({ profile, onSave }: ProfileEditHeaderProps) =
         )}
       </div>
 
+      {/* Visibility Controls */}
+      <div className="space-y-3 border-t pt-3">
+        <label className="text-xs font-medium text-muted-foreground">Visibilidade</label>
+        
+        <div className="flex items-center justify-between">
+          <Label htmlFor="show-avatar" className="text-sm">Mostrar foto de perfil</Label>
+          <Switch
+            id="show-avatar"
+            checked={showAvatar}
+            onCheckedChange={async (checked) => {
+              setShowAvatar(checked);
+              await onSave({ show_avatar: checked });
+            }}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <Label htmlFor="show-username" className="text-sm">Mostrar @username</Label>
+          <Switch
+            id="show-username"
+            checked={showUsername}
+            onCheckedChange={async (checked) => {
+              setShowUsername(checked);
+              await onSave({ show_username: checked });
+            }}
+          />
+        </div>
+
+        {showUsername && (
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Nome de exibição (substitui o @username)</Label>
+            <Input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              onBlur={async () => {
+                if (displayName !== (profile.display_name || "")) {
+                  await onSave({ display_name: displayName || null });
+                }
+              }}
+              placeholder={`@${profile.username}`}
+            />
+          </div>
+        )}
+      </div>
+
       {/* Social Icons */}
       <div className="flex items-center justify-between">
         <label className="text-xs font-medium text-muted-foreground">Redes Sociais</label>
