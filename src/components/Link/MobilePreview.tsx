@@ -98,7 +98,7 @@ export const MobilePreview = ({ profile, links, collections }: MobilePreviewProp
             <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-foreground/20 rounded-full" />
           </div>
           
-          <div className="h-full overflow-y-auto p-6 pt-12 scrollbar-hide" style={bgStyle}>
+          <div className="h-full overflow-y-auto p-6 pt-12 scrollbar-hide" style={{ ...bgStyle, display: "flex", flexDirection: "column", justifyContent: contentAlign }}>
             <div className="flex flex-col items-center space-y-4">
               {(profile.show_avatar !== false) && (
                 <Avatar className="h-24 w-24 border-0 shadow-none">

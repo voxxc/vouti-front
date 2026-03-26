@@ -149,7 +149,7 @@ const LinkPublicProfile = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center" style={bgStyle}>
+    <div className="min-h-screen flex flex-col items-center" style={{ ...bgStyle, justifyContent: contentAlign }}>
       {/* Profile Header */}
       <div className="w-full max-w-md mx-auto pt-12 pb-8 px-6 text-center">
         {(profile.show_avatar !== false) && (

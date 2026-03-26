@@ -140,6 +140,16 @@ export function getSubButtonStyle(profile: LinkProfile): React.CSSProperties {
   }
 }
 
+const VERTICAL_POSITION_MAP: Record<string, string> = {
+  top: "flex-start",
+  center: "center",
+  bottom: "flex-end",
+};
+
+export function getContentAlignment(profile: LinkProfile): string {
+  return VERTICAL_POSITION_MAP[profile.content_vertical_position || "top"] || "flex-start";
+}
+
 const FONT_SIZE_MAP: Record<string, string> = {
   sm: "text-sm",
   base: "text-base",
