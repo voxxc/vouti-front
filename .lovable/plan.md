@@ -1,53 +1,66 @@
 
 
-# Corrigir exclusão de projetos — problema definitivo
+# Criação dedicada de Link-in-Bio pelo Super Admin
 
-## Causa raiz identificada
+## Problema atual
 
-Ao deletar um projeto, o PostgreSQL tenta fazer CASCADE DELETE nas tabelas filhas. Porém, **4 tabelas** têm RLS habilitado mas **nenhuma política de DELETE**, o que bloqueia o cascade silenciosamente:
+O Super Admin usa o mesmo `SystemTypeSection` + `CreateTenantDialog` para todos os system types, incluindo Link-in-Bio. Isso cria um **tenant** (tabela `tenants`) com profile/user_roles do sistema jurídico — completamente errado para Link-in-Bio, que usa `link_profiles` e `link_user_roles`.
 
-- `project_columns` — colunas do kanban
-- `project_carteiras` — carteiras de protocolos
-- `client_history` — histórico de ações
-- `task_history` — histórico de tarefas (FK é SET NULL, não CASCADE, mas pode causar problemas futuros)
-
-Quando o cascade tenta apagar linhas nessas tabelas, o RLS nega a operação por falta de política, resultando em erro.
+Existe um tenant incorreto "amsadvocacia" (id: `4f1f0568-...`) criado assim.
 
 ## Solução
 
-Criar uma **migration SQL** que adiciona políticas de DELETE nessas tabelas, permitindo que membros do tenant (ou do projeto) possam deletar os registros filhos.
+### 1. Limpeza: remover tenant incorreto "amsadvocacia"
+- Deletar o tenant `4f1f0568-dfe6-40f1-a73c-c77b62459383` e dados associados (profiles, user_roles) via SQL
 
-### Migration SQL
+### 2. Nova Edge Function: `create-linkbio-profile`
+- Recebe: `username`, `full_name`, `email`, `password`, `bio` (opcional)
+- Valida unicidade do username em `link_profiles`
+- Cria auth user com `raw_user_meta_data: { app: 'linkbio', username, full_name }`
+- O trigger `handle_new_user` já cuida de criar o `link_profiles` e `link_user_roles` automaticamente
+- Retorna o perfil criado
 
-```sql
--- project_columns: permitir delete por membros do projeto
-CREATE POLICY "Members can delete project columns"
-  ON public.project_columns FOR DELETE
-  USING (is_project_member(project_id));
+### 3. Novo componente: `LinkBioSection.tsx`
+Substitui `SystemTypeSection` quando o system_type é Link-in-Bio:
+- Lista perfis de `link_profiles` (não tenants)
+- Mostra: username, full_name, URL pública (`vouti.co/{username}`), quantidade de links
+- Botões: criar novo, editar, excluir perfil
+- Botão "Criar Novo" abre dialog dedicado
 
--- project_carteiras: permitir delete por membros do tenant
-CREATE POLICY "Tenant members can delete project carteiras"
-  ON public.project_carteiras FOR DELETE
-  USING (tenant_id = get_user_tenant_id());
+### 4. Novo componente: `CreateLinkBioDialog.tsx`
+Dialog com campos específicos:
+- Username (será a URL pública)
+- Nome completo
+- Bio (opcional)
+- Email
+- Senha + confirmação
+- Preview da URL: `vouti.co/{username}`
 
--- client_history: permitir delete por membros do tenant
-CREATE POLICY "Tenant members can delete client history"
-  ON public.client_history FOR DELETE
-  USING (tenant_id = get_user_tenant_id());
+### 5. Hook: `useSuperAdminLinkBio.ts`
+- `fetchProfiles()`: busca todos os `link_profiles` com contagem de links
+- `createProfile()`: chama edge function `create-linkbio-profile`
+- `deleteProfile()`: remove perfil e usuário auth
+- `toggleStatus()`: ativa/desativa perfil (se campo existir)
 
--- task_history: permitir delete por membros do tenant (SET NULL mas seguro ter)
-CREATE POLICY "Tenant members can delete task history"
-  ON public.task_history FOR DELETE
-  USING (tenant_id = get_user_tenant_id());
-```
+### 6. Modificar `SuperAdmin.tsx` (aba Clientes)
+No loop de `systemTypes.map()`, detectar quando `systemType.code === 'linkinbio'` e renderizar `LinkBioSection` em vez de `SystemTypeSection`.
 
-## Alterações no código
+## Fluxo do usuário após a implementação
 
-Nenhuma alteração no código frontend é necessária. O `deleteProject` em `useProjectsOptimized.ts` já faz `supabase.from('projects').delete().eq('id', projectId)` corretamente. O problema é exclusivamente no banco de dados.
+1. Super Admin abre aba "Clientes"
+2. Na seção "Gestão Link-in-Bio", vê todos os perfis existentes com username e URL
+3. Clica "Criar Novo Perfil"
+4. Preenche: username `amsadvocacia`, nome, email, senha
+5. Sistema cria auth user + link_profile
+6. Cliente acessa `vouti.co/linkbio` para fazer login e gerenciar links
+7. Público acessa `vouti.co/amsadvocacia` para ver os links
 
-## Resumo
+## Arquivos envolvidos
 
-- **1 migration SQL** com 4 políticas de DELETE
-- **0 arquivos de código** alterados
-- Após a migration, a exclusão de projetos funcionará definitivamente
+- **Novo**: `supabase/functions/create-linkbio-profile/index.ts`
+- **Novo**: `src/components/SuperAdmin/LinkBioSection.tsx`
+- **Novo**: `src/components/SuperAdmin/CreateLinkBioDialog.tsx`
+- **Novo**: `src/hooks/useSuperAdminLinkBio.ts`
+- **Modificar**: `src/pages/SuperAdmin.tsx` — condicional para LinkBioSection
+- **SQL**: Limpeza do tenant incorreto + deletar dados orphaned
 
