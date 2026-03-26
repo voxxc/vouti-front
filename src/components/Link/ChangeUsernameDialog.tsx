@@ -19,7 +19,7 @@ export const ChangeUsernameDialog = ({ open, onOpenChange, profileId, currentUse
   const [checking, setChecking] = useState(false);
   const [available, setAvailable] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   const isValid = username.length >= 3 && /^[a-z0-9-]+$/.test(username);
 
