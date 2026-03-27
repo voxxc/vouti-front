@@ -1,35 +1,30 @@
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bot, Plus, Trash2, Edit, Power, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+import { Bot, Plus, Trash2, Edit, GripVertical, Maximize2 } from "lucide-react";
 import { useWhatsAppBotWorkflows, type WorkflowStep } from "@/hooks/useWhatsAppBotWorkflows";
-import { WorkflowStepEditor } from "./bot/WorkflowStepEditor";
+import { WorkflowCanvas } from "./bot/WorkflowCanvas";
 
 export const WhatsAppBotsSettings = () => {
   const { workflows, loading, createWorkflow, updateWorkflow, deleteWorkflow, fetchSteps, saveSteps } = useWhatsAppBotWorkflows();
   const [showCreate, setShowCreate] = useState(false);
   const [editingWorkflow, setEditingWorkflow] = useState<string | null>(null);
-  const [expandedWorkflow, setExpandedWorkflow] = useState<string | null>(null);
-  const [steps, setSteps] = useState<WorkflowStep[]>([]);
-  const [loadingSteps, setLoadingSteps] = useState(false);
-  
-  // Form state
+  const [canvasWorkflow, setCanvasWorkflow] = useState<{ id: string; name: string; trigger_type: string; trigger_value: string | null } | null>(null);
+  const [canvasSteps, setCanvasSteps] = useState<WorkflowStep[]>([]);
+  const [loadingCanvas, setLoadingCanvas] = useState(false);
+
   const [formName, setFormName] = useState("");
   const [formTriggerType, setFormTriggerType] = useState("keyword");
   const [formTriggerValue, setFormTriggerValue] = useState("");
 
   const handleCreate = async () => {
     if (!formName.trim()) return;
-    await createWorkflow({
-      name: formName.trim(),
-      trigger_type: formTriggerType,
-      trigger_value: formTriggerValue.trim() || undefined,
-    });
+    await createWorkflow({ name: formName.trim(), trigger_type: formTriggerType, trigger_value: formTriggerValue.trim() || undefined });
     setShowCreate(false);
     resetForm();
   };
@@ -43,44 +38,29 @@ export const WhatsAppBotsSettings = () => {
 
   const handleUpdate = async () => {
     if (!editingWorkflow || !formName.trim()) return;
-    await updateWorkflow(editingWorkflow, {
-      name: formName.trim(),
-      trigger_type: formTriggerType,
-      trigger_value: formTriggerValue.trim() || null,
-    } as any);
+    await updateWorkflow(editingWorkflow, { name: formName.trim(), trigger_type: formTriggerType, trigger_value: formTriggerValue.trim() || null } as any);
     setEditingWorkflow(null);
     resetForm();
   };
 
-  const resetForm = () => {
-    setFormName("");
-    setFormTriggerType("keyword");
-    setFormTriggerValue("");
-  };
+  const resetForm = () => { setFormName(""); setFormTriggerType("keyword"); setFormTriggerValue(""); };
 
-  const toggleExpand = async (id: string) => {
-    if (expandedWorkflow === id) {
-      setExpandedWorkflow(null);
-      return;
-    }
-    setExpandedWorkflow(id);
-    setLoadingSteps(true);
-    const s = await fetchSteps(id);
-    setSteps(s);
-    setLoadingSteps(false);
+  const openCanvas = async (wf: any) => {
+    setLoadingCanvas(true);
+    setCanvasWorkflow({ id: wf.id, name: wf.name, trigger_type: wf.trigger_type, trigger_value: wf.trigger_value });
+    const s = await fetchSteps(wf.id);
+    setCanvasSteps(s);
+    setLoadingCanvas(false);
   };
 
   const handleSaveSteps = async (workflowId: string, newSteps: Omit<WorkflowStep, 'id' | 'created_at'>[]) => {
     await saveSteps(workflowId, newSteps);
     const s = await fetchSteps(workflowId);
-    setSteps(s);
+    setCanvasSteps(s);
   };
 
   const triggerLabels: Record<string, string> = {
-    keyword: "Palavra-chave",
-    first_message: "Primeira mensagem",
-    always: "Sempre",
-    schedule: "Agendado",
+    keyword: "Palavra-chave", first_message: "Primeira mensagem", always: "Sempre", schedule: "Agendado",
   };
 
   return (
@@ -103,9 +83,7 @@ export const WhatsAppBotsSettings = () => {
             <CardContent className="p-12 text-center">
               <Bot className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">Nenhum workflow criado</h3>
-              <p className="text-muted-foreground text-sm mb-4">
-                Crie um workflow para automatizar o atendimento por mensagens.
-              </p>
+              <p className="text-muted-foreground text-sm mb-4">Crie um workflow para automatizar o atendimento.</p>
               <Button onClick={() => { resetForm(); setShowCreate(true); }} variant="outline" className="gap-2">
                 <Plus className="h-4 w-4" /> Criar primeiro workflow
               </Button>
@@ -121,44 +99,24 @@ export const WhatsAppBotsSettings = () => {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-medium truncate">{wf.name}</span>
-                        <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
-                          {triggerLabels[wf.trigger_type] || wf.trigger_type}
-                        </span>
-                        {wf.trigger_value && (
-                          <span className="text-xs text-muted-foreground">"{wf.trigger_value}"</span>
-                        )}
+                        <span className="text-xs bg-muted px-2 py-0.5 rounded-full">{triggerLabels[wf.trigger_type] || wf.trigger_type}</span>
+                        {wf.trigger_value && <span className="text-xs text-muted-foreground">"{wf.trigger_value}"</span>}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <Switch
-                      checked={wf.is_active}
-                      onCheckedChange={(checked) => updateWorkflow(wf.id, { is_active: checked } as any)}
-                    />
+                    <Switch checked={wf.is_active} onCheckedChange={(checked) => updateWorkflow(wf.id, { is_active: checked } as any)} />
+                    <Button variant="ghost" size="icon" onClick={() => openCanvas(wf)} title="Abrir editor visual">
+                      <Maximize2 className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => handleEdit(wf)}>
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" onClick={() => deleteWorkflow(wf.id)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => toggleExpand(wf.id)}>
-                      {expandedWorkflow === wf.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </Button>
                   </div>
                 </div>
-                {expandedWorkflow === wf.id && (
-                  <div className="border-t p-4 bg-muted/30">
-                    {loadingSteps ? (
-                      <p className="text-sm text-muted-foreground">Carregando passos...</p>
-                    ) : (
-                      <WorkflowStepEditor
-                        workflowId={wf.id}
-                        steps={steps}
-                        onSave={(newSteps) => handleSaveSteps(wf.id, newSteps)}
-                      />
-                    )}
-                  </div>
-                )}
               </Card>
             ))}
           </div>
@@ -187,7 +145,7 @@ export const WhatsAppBotsSettings = () => {
                   </SelectContent>
                 </Select>
               </div>
-              {(formTriggerType === "keyword") && (
+              {formTriggerType === "keyword" && (
                 <div>
                   <Label>Palavra-chave ou Regex</Label>
                   <Input value={formTriggerValue} onChange={(e) => setFormTriggerValue(e.target.value)} placeholder="Ex: preço, orçamento" />
@@ -196,10 +154,33 @@ export const WhatsAppBotsSettings = () => {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => { setShowCreate(false); setEditingWorkflow(null); resetForm(); }}>Cancelar</Button>
-              <Button onClick={editingWorkflow ? handleUpdate : handleCreate}>
-                {editingWorkflow ? "Salvar" : "Criar"}
-              </Button>
+              <Button onClick={editingWorkflow ? handleUpdate : handleCreate}>{editingWorkflow ? "Salvar" : "Criar"}</Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Canvas Fullscreen Dialog */}
+        <Dialog open={!!canvasWorkflow} onOpenChange={(open) => { if (!open) setCanvasWorkflow(null); }}>
+          <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 overflow-hidden">
+            <DialogHeader className="px-4 py-3 border-b bg-background shrink-0">
+              <DialogTitle className="flex items-center gap-2">
+                <Bot className="h-5 w-5" />
+                {canvasWorkflow?.name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 h-[calc(90vh-60px)]">
+              {loadingCanvas ? (
+                <div className="flex items-center justify-center h-full text-muted-foreground">Carregando editor...</div>
+              ) : canvasWorkflow ? (
+                <WorkflowCanvas
+                  workflowId={canvasWorkflow.id}
+                  triggerType={canvasWorkflow.trigger_type}
+                  triggerValue={canvasWorkflow.trigger_value}
+                  steps={canvasSteps}
+                  onSave={(newSteps) => handleSaveSteps(canvasWorkflow.id, newSteps)}
+                />
+              ) : null}
+            </div>
           </DialogContent>
         </Dialog>
       </div>
