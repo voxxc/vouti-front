@@ -179,7 +179,7 @@ export const WorkflowStepEditor = ({ workflowId, steps, onSave }: Props) => {
               />
             </div>
             <div>
-              <Label className="text-xs">Valor (use {{reply}} para última resposta)</Label>
+              <Label className="text-xs">{"Valor (use {{reply}} para última resposta)"}</Label>
               <Input
                 value={step.config.var_value || ""}
                 onChange={(e) => updateStepConfig(index, "var_value", e.target.value)}
