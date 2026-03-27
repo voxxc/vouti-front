@@ -1,115 +1,74 @@
 
 
-## Plano: Workflow de Bot no CRM (WhatsApp)
+## Plano: Editor Visual de Workflow (Canvas com Nós e Conexões)
 
-### Onde se encaixa
+### O que muda
 
-O CRM já possui a infraestrutura para bots no menu lateral do WhatsApp, dentro de **Configurações**:
+Substituir o editor de passos em lista (`WorkflowStepEditor.tsx`) por um **canvas visual estilo quadro negro** onde o usuário arrasta nós, conecta com linhas, e monta o fluxo visualmente -- similar ao n8n, Node-RED ou Miro.
 
-```text
-WhatsApp CRM Sidebar
-├── Inbox
-├── Conversas
-├── Kanban
-├── Contatos
-├── Campanhas
-├── Relatórios
-└── ⚙ Configurações
-    ├── Agentes (já tem aba "IA" por agente)
-    ├── Automação        ← placeholder "Em desenvolvimento"
-    ├── N8N              ← placeholder "Em desenvolvimento"
-    ├── Bots             ← placeholder "Em desenvolvimento"
-    └── Typebot Bot      ← placeholder "Em desenvolvimento"
-```
+### Biblioteca
 
-Existem **4 seções vazias** prontas para receber a lógica de workflows de bot. A proposta é unificá-las em um sistema coerente.
+Usar **@xyflow/react** (React Flow) -- a lib padrão para editores de nós/grafos em React. Suporta:
+- Drag & drop de nós no canvas
+- Conexões visuais (edges) entre nós
+- Zoom, pan, minimap
+- Nós customizados com formulários internos
 
----
-
-### Arquitetura proposta
+### Estrutura de arquivos
 
 ```text
-┌─────────────────────────────────────────────────┐
-│              FLUXO DE MENSAGEM                  │
-│                                                 │
-│  Mensagem recebida (webhook)                    │
-│       │                                         │
-│       ▼                                         │
-│  ┌──────────┐    Sim    ┌───────────────────┐   │
-│  │ Bot ativo?├─────────►│ Executar workflow  │   │
-│  └────┬─────┘          │ (regras/nós)       │   │
-│       │ Não            └────────┬──────────┘   │
-│       ▼                        │               │
-│  ┌──────────┐           ┌──────▼──────┐       │
-│  │ IA ativa?│           │ Ação final: │       │
-│  └────┬─────┘           │ - Responder │       │
-│       │                 │ - Transferir│       │
-│       ▼                 │ - Etiquetar │       │
-│  Resposta IA            │ - Webhook   │       │
-│  (atual)                └─────────────┘       │
-└─────────────────────────────────────────────────┘
+src/components/WhatsApp/settings/bot/
+├── WorkflowCanvas.tsx          ← canvas principal (React Flow)
+├── WorkflowStepEditor.tsx      ← removido/substituído
+├── nodes/
+│   ├── TriggerNode.tsx         ← nó inicial (gatilho)
+│   ├── SendMessageNode.tsx     ← enviar mensagem
+│   ├── WaitReplyNode.tsx       ← aguardar resposta
+│   ├── ConditionNode.tsx       ← condição (2 saídas: sim/não)
+│   ├── TransferNode.tsx        ← transferir agente
+│   ├── LabelNode.tsx           ← adicionar etiqueta
+│   ├── WebhookNode.tsx         ← chamar webhook
+│   ├── DelayNode.tsx           ← aguardar tempo
+│   └── VariableNode.tsx        ← definir variável
+└── WorkflowNodePalette.tsx     ← sidebar com nós arrastáveis
 ```
 
----
+### Visual e UX
 
-### Plano de implementação
+- **Fundo escuro** estilo quadro negro (grid pontilhado sutil)
+- **Nós** como cards coloridos por tipo (verde = mensagem, azul = condição, laranja = transferir, etc.)
+- **Conexões** como linhas curvas animadas entre nós
+- **Paleta lateral** com os 8 tipos de nó -- arrastar para o canvas para adicionar
+- **Nó de gatilho** fixo no topo (representa o trigger do workflow)
+- **Clique no nó** abre painel de configuração inline ou em popover
+- **Minimap** no canto inferior direito
+- Abre em **tela cheia** (dialog fullscreen) ao expandir um workflow
 
-#### 1. Tabela `whatsapp_bot_workflows`
-Armazena os workflows configurados por agente/tenant:
-- `id`, `tenant_id`, `agent_id`, `name`, `is_active`
-- `trigger_type` (keyword, first_message, always, schedule)
-- `trigger_value` (palavra-chave ou regex)
-- `priority` (ordem de avaliação)
+### Persistência
 
-#### 2. Tabela `whatsapp_bot_workflow_steps`
-Nós/passos do workflow:
-- `workflow_id`, `step_order`, `step_type`
-- Tipos: `send_message`, `wait_reply`, `condition`, `transfer_agent`, `add_label`, `webhook`, `delay`, `set_variable`
-- `config` (JSONB com parâmetros do passo)
+O modelo de dados atual (steps com `step_order` e `config`) será estendido:
+- Adicionar `position_x` e `position_y` no `config` JSONB de cada step (posição no canvas)
+- Adicionar `connections` no config (lista de IDs dos nós conectados)
+- Na hora de salvar, serializar os nós e edges do React Flow para o formato de steps
+- Na hora de carregar, reconstruir os nós e edges a partir dos steps salvos
 
-#### 3. Tela "Bots" (settings/WhatsAppBotsSettings)
-Substituir o placeholder atual por:
-- Lista de workflows do agente/tenant
-- Criar/editar workflow com nome, trigger e status
-- Editor de passos em lista ordenável (drag-and-drop)
-- Cada passo tem um tipo e campos de configuração específicos
+### Integração
 
-#### 4. Tela "Automação" (settings/WhatsAppAutomationSettings)
-Regras rápidas sem workflow completo:
-- Auto-resposta por horário (fora do expediente)
-- Auto-etiqueta por palavra-chave
-- Auto-transferência por departamento
+- `WhatsAppBotsSettings.tsx` abrirá um **Dialog fullscreen** com o `WorkflowCanvas` ao expandir um workflow
+- O hook `useWhatsAppBotWorkflows` permanece igual -- só o formato do `config` JSONB ganha campos extras
+- Não requer migração de banco -- os campos extras ficam dentro do JSONB existente
 
-#### 5. Integração no webhook (`whatsapp-webhook`)
-Antes de processar IA, verificar se existe workflow ativo que faz match com a mensagem recebida. Se sim, executar os passos do workflow ao invés de acionar a IA.
+### Implementação (4 etapas)
 
-#### 6. Tela "N8N" e "Typebot"
-Integrar como **tipos de passo** dentro do workflow:
-- Passo tipo `n8n_webhook`: dispara um workflow n8n externo
-- Passo tipo `typebot_flow`: inicia um fluxo Typebot
-
----
-
-### Como usar (fluxo do usuário)
-
-1. Acesse o CRM WhatsApp → Configurações → **Bots**
-2. Clique em "Novo Workflow"
-3. Defina o **gatilho**: ex. "Quando mensagem contém 'preço'"
-4. Adicione **passos**:
-   - Enviar mensagem: "Olá! Segue nossa tabela de preços..."
-   - Aguardar resposta (30 min timeout)
-   - Condição: se resposta contém "sim" → transferir para agente comercial
-   - Senão → enviar "Obrigado pelo contato!"
-5. Ative o workflow
-6. Mensagens que fizerem match serão tratadas automaticamente
-
----
+1. **Instalar @xyflow/react** e criar o `WorkflowCanvas` com fundo escuro, controles e minimap
+2. **Criar nós customizados** (9 tipos) com visual colorido e formulários de config integrados
+3. **Criar paleta lateral** com drag & drop para adicionar nós ao canvas
+4. **Integrar save/load** -- converter entre formato React Flow (nodes/edges) e formato do banco (steps com config JSONB)
 
 ### Detalhes técnicos
 
-- **Persistência de estado**: tabela `whatsapp_bot_sessions` para rastrear em qual passo o contato está
-- **Prioridade**: workflows são avaliados em ordem de prioridade; primeiro match ganha
-- **Convivência com IA**: se nenhum workflow faz match, a IA existente (whatsapp_ai_config) é acionada normalmente
-- **Passos configuráveis via JSONB**: flexibilidade para adicionar novos tipos sem migração
-- **Telas existentes**: as 4 seções placeholder (Bots, Automação, N8N, Typebot) já estão roteadas no sidebar e no layout -- basta substituir o conteúdo
+- React Flow é client-side e leve (~50kb gzip), compatível com o stack atual
+- Nós customizados usam `NodeProps` do React Flow com handles de entrada/saída
+- O `ConditionNode` terá 2 handles de saída (true/false) para bifurcação visual
+- Posições são salvas no JSONB `config` de cada step: `{ ...configAtual, _x: 200, _y: 300, _connections: ["step-id-2"] }`
 
