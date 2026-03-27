@@ -176,6 +176,17 @@ export const GeralTab = () => {
     <div className="flex flex-col gap-4 h-full">
       {/* Filters */}
       <div className="flex-shrink-0 space-y-3">
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handlePrevPage} disabled={page === 0}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span>Página {page + 1} de {totalPages} ({totalCount} processos)</span>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleNextPage} disabled={page >= totalPages - 1}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
         <div className="flex items-center gap-3">
           <Filter className="w-4 h-4 text-muted-foreground" />
           <Select value={filtroUF} onValueChange={setFiltroUF}>
