@@ -1,16 +1,15 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
-  Eye, Bell, Loader2, FileText, BookOpen, BookUp, FileQuestion,
-  ChevronDown, Link2, Trash2, Search, X, Filter, ChevronLeft, ChevronRight
+  Eye, Bell, Loader2, FileText, Search, X, Filter, ChevronLeft, ChevronRight, Trash2, Scale, Link2, Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -20,7 +19,6 @@ import { ProcessoOAB, OABCadastrada } from '@/hooks/useOABs';
 import { useAllProcessosOAB, ProcessoOABComOAB } from '@/hooks/useAllProcessosOAB';
 import { ProcessoOABDetalhes } from './ProcessoOABDetalhes';
 
-// UF extraction from CNJ
 const TRIBUNAL_UF_MAP: Record<string, string> = {
   '01': 'AC', '02': 'AL', '03': 'AP', '04': 'AM', '05': 'BA',
   '06': 'CE', '07': 'DF', '08': 'ES', '09': 'GO', '10': 'MA',
@@ -47,272 +45,29 @@ const extrairUF = (tribunalSigla: string | null | undefined, numeroCnj?: string 
   return 'N/I';
 };
 
-interface ProcessosAgrupados {
-  primeiraInstancia: ProcessoOABComOAB[];
-  segundaInstancia: ProcessoOABComOAB[];
-  semInstancia: ProcessoOABComOAB[];
-}
-
-const agruparPorInstancia = (processos: ProcessoOABComOAB[]): ProcessosAgrupados => {
-  const primeiraInstancia: ProcessoOABComOAB[] = [];
-  const segundaInstancia: ProcessoOABComOAB[] = [];
-  const semInstancia: ProcessoOABComOAB[] = [];
-
-  processos.forEach(processo => {
-    const instance = processo.capa_completa?.instance;
-    if (instance === 1) primeiraInstancia.push(processo);
-    else if (instance === 2) segundaInstancia.push(processo);
-    else semInstancia.push(processo);
-  });
-
-  return { primeiraInstancia, segundaInstancia, semInstancia };
-};
-
-// Minimalist pagination controls
-const PaginationControls = ({
-  page,
-  totalPages,
-  totalCount,
-  onPrev,
-  onNext,
-}: {
-  page: number;
-  totalPages: number;
-  totalCount: number;
-  pageSize: number;
-  onPrev: () => void;
-  onNext: () => void;
-}) => {
-  if (totalPages <= 1 && totalCount <= 0) return null;
-
-  return (
-    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        onClick={onPrev}
-        disabled={page === 0}
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
-      <span>
-        Página {page + 1} de {totalPages || 1} ({totalCount} processos)
-      </span>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        onClick={onNext}
-        disabled={page >= totalPages - 1}
-      >
-        <ChevronRight className="h-4 w-4" />
-      </Button>
-    </div>
-  );
-};
-
-// Card component for Geral tab
-const GeralProcessoCard = ({
-  processo,
-  onVerDetalhes,
-  onExcluir,
-  carregandoDetalhes,
-}: {
-  processo: ProcessoOABComOAB;
-  onVerDetalhes: (p: ProcessoOABComOAB) => void;
-  onExcluir: (p: ProcessoOABComOAB) => void;
-  carregandoDetalhes: string | null;
-}) => {
-  const temRecursoVinculado = processo.capa_completa?.related_lawsuits?.length > 0;
-  const processosRelacionados = processo.capa_completa?.related_lawsuits || [];
-
-  return (
-    <Card className="p-4 md:p-5 hover:shadow-md transition-shadow">
-      <div className="flex flex-col gap-3">
-        {/* Linha 1: CNJ */}
-        <div className="flex items-start justify-between">
-          <span className="font-mono text-base md:text-lg font-semibold">
-            {processo.numero_cnj}
-          </span>
-        </div>
-
-        {/* Linha 2: Badges */}
-        <div className="flex flex-wrap gap-1.5 items-center">
-          <Badge variant="outline" className="text-xs border-primary/30 text-primary">
-            {processo.oab_numero}/{processo.oab_uf}
-          </Badge>
-          {processo.monitoramento_ativo && (
-            <Badge variant="default" className="text-xs bg-green-600">
-              <Bell className="w-3 h-3 mr-1" />
-              Monitorado
-            </Badge>
-          )}
-          {(processo.andamentos_nao_lidos || 0) > 0 && (
-            <Badge variant="destructive" className="text-xs">
-              {processo.andamentos_nao_lidos} novos
-            </Badge>
-          )}
-          {temRecursoVinculado && (
-            <Badge variant="outline" className="text-xs border-purple-500 text-purple-600">
-              <Link2 className="w-3 h-3 mr-1" />
-              {processosRelacionados.length} recurso(s)
-            </Badge>
-          )}
-        </div>
-
-        {/* Linha 3: Partes */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <p className="text-sm text-muted-foreground truncate cursor-default">
-              {processo.parte_ativa || 'Autor não identificado'}
-              {' vs '}
-              {processo.parte_passiva || 'Réu não identificado'}
-            </p>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{processo.parte_ativa || 'Autor não identificado'} vs {processo.parte_passiva || 'Réu não identificado'}</p>
-          </TooltipContent>
-        </Tooltip>
-
-        {/* Linha 4: Tribunal + Actions */}
-        <div className="flex items-center justify-between mt-1">
-          <div>
-            {processo.tribunal_sigla && (
-              <Badge variant="outline" className="text-xs">
-                {processo.tribunal_sigla}
-              </Badge>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                  onClick={() => onExcluir(processo)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Excluir processo</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground"
-                  onClick={() => onVerDetalhes(processo)}
-                  disabled={carregandoDetalhes === processo.id}
-                >
-                  {carregandoDetalhes === processo.id ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Ver detalhes</TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-};
-
-const GeralInstanciaSection = ({
-  titulo,
-  processos,
-  corBorder,
-  corText,
-  icon,
-  onVerDetalhes,
-  onExcluir,
-  carregandoDetalhes,
-}: {
-  titulo: string;
-  processos: ProcessoOABComOAB[];
-  corBorder: string;
-  corText: string;
-  icon: React.ReactNode;
-  onVerDetalhes: (p: ProcessoOABComOAB) => void;
-  onExcluir: (p: ProcessoOABComOAB) => void;
-  carregandoDetalhes: string | null;
-}) => {
-  const [isOpen, setIsOpen] = useState(true);
-  if (processos.length === 0) return null;
-
-  return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-2">
-      <CollapsibleTrigger asChild>
-        <button className="w-full flex items-center gap-2 py-2 hover:opacity-80 transition-opacity">
-          <span className={corText}>{icon}</span>
-          <span className={`font-semibold ${corText}`}>{titulo}</span>
-          <Badge variant="secondary" className="ml-auto mr-2">
-            {processos.length} {processos.length === 1 ? 'processo' : 'processos'}
-          </Badge>
-          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${!isOpen ? '-rotate-90' : ''}`} />
-        </button>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className={`space-y-2 pl-3 border-l-2 ${corBorder} ml-2`}>
-          {processos.map((processo) => (
-            <GeralProcessoCard
-              key={processo.id}
-              processo={processo}
-              onVerDetalhes={onVerDetalhes}
-              onExcluir={onExcluir}
-              carregandoDetalhes={carregandoDetalhes}
-            />
-          ))}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  );
-};
-
 export const GeralTab = () => {
   const {
-    processos,
-    loading,
-    carregandoDetalhes,
-    page,
-    setPage,
-    totalCount,
-    pageSize,
-    searchTerm,
-    setSearchTerm,
-    fetchProcessos,
-    carregarDetalhes,
-    toggleMonitoramento,
-    consultarDetalhesRequest,
-    excluirProcesso,
-    atualizarProcesso
+    processos, loading, carregandoDetalhes, page, setPage, totalCount, pageSize,
+    searchTerm, setSearchTerm, fetchProcessos, carregarDetalhes, toggleMonitoramento,
+    consultarDetalhesRequest, excluirProcesso, atualizarProcesso
   } = useAllProcessosOAB();
 
   const [selectedProcesso, setSelectedProcesso] = useState<ProcessoOABComOAB | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Sync selectedProcesso with updated list after refetch
   useEffect(() => {
     if (selectedProcesso) {
       const updated = processos.find(p => p.id === selectedProcesso.id);
-      if (updated && updated !== selectedProcesso) {
-        setSelectedProcesso(updated);
-      }
+      if (updated && updated !== selectedProcesso) setSelectedProcesso(updated);
     }
   }, [processos]);
+
   const [filtroUF, setFiltroUF] = useState<string>('todos');
   const [processoParaExcluir, setProcessoParaExcluir] = useState<ProcessoOABComOAB | null>(null);
   const [excluindo, setExcluindo] = useState(false);
   const [inputBusca, setInputBusca] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounced search
   const handleSearchChange = useCallback((value: string) => {
     setInputBusca(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -322,19 +77,13 @@ export const GeralTab = () => {
     }, 400);
   }, [setSearchTerm, setPage]);
 
-  // Cleanup debounce on unmount
   useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, []);
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
-  // Reset page when filters change
-  useEffect(() => {
-    setPage(0);
-  }, [filtroUF, setPage]);
+  useEffect(() => { setPage(0); }, [filtroUF, setPage]);
 
   const naoLidosCount = useMemo(() => processos.filter(p => (p.andamentos_nao_lidos || 0) > 0).length, [processos]);
   const monitoradosCount = useMemo(() => processos.filter(p => p.monitoramento_ativo).length, [processos]);
@@ -345,9 +94,7 @@ export const GeralTab = () => {
       const uf = extrairUF(p.tribunal_sigla, p.numero_cnj);
       ufMap.set(uf, (ufMap.get(uf) || 0) + 1);
     });
-    return Array.from(ufMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([uf, count]) => ({ uf, count }));
+    return Array.from(ufMap.entries()).sort((a, b) => b[1] - a[1]).map(([uf, count]) => ({ uf, count }));
   }, [processos]);
 
   const oabsDisponiveis = useMemo(() => {
@@ -356,17 +103,13 @@ export const GeralTab = () => {
       const key = `${p.oab_numero}/${p.oab_uf}`;
       oabMap.set(key, (oabMap.get(key) || 0) + 1);
     });
-    return Array.from(oabMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([oab, count]) => ({ oab, count }));
+    return Array.from(oabMap.entries()).sort((a, b) => b[1] - a[1]).map(([oab, count]) => ({ oab, count }));
   }, [processos]);
 
   const processosFiltrados = useMemo(() => {
     let resultado = processos;
-
     if (filtroUF === 'nao-lidos') {
-      resultado = resultado
-        .filter(p => (p.andamentos_nao_lidos || 0) > 0)
+      resultado = resultado.filter(p => (p.andamentos_nao_lidos || 0) > 0)
         .sort((a, b) => {
           const dateA = a.ultima_movimentacao ? new Date(a.ultima_movimentacao).getTime() : 0;
           const dateB = b.ultima_movimentacao ? new Date(b.ultima_movimentacao).getTime() : 0;
@@ -380,11 +123,8 @@ export const GeralTab = () => {
     } else if (filtroUF !== 'todos') {
       resultado = resultado.filter(p => extrairUF(p.tribunal_sigla, p.numero_cnj) === filtroUF);
     }
-
     return resultado;
   }, [processos, filtroUF]);
-
-  const processosAgrupados = useMemo(() => agruparPorInstancia(processosFiltrados), [processosFiltrados]);
 
   const handleVerDetalhes = async (processo: ProcessoOABComOAB) => {
     setSelectedProcesso(processo);
@@ -434,18 +174,6 @@ export const GeralTab = () => {
 
   return (
     <div className="flex flex-col gap-4 h-full">
-      {/* Top pagination */}
-      <div className="flex-shrink-0">
-        <PaginationControls
-          page={page}
-          totalPages={totalPages}
-          totalCount={totalCount}
-          pageSize={pageSize}
-          onPrev={handlePrevPage}
-          onNext={handleNextPage}
-        />
-      </div>
-
       {/* Filters */}
       <div className="flex-shrink-0 space-y-3">
         <div className="flex items-center gap-3">
@@ -491,9 +219,7 @@ export const GeralTab = () => {
             </Badge>
           )}
 
-          {loading && (
-            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-          )}
+          {loading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
         </div>
 
         <div className="relative">
@@ -505,65 +231,150 @@ export const GeralTab = () => {
             className="pl-9 pr-9"
           />
           {inputBusca && (
-            <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => { handleSearchChange(''); }}>
+            <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => handleSearchChange('')}>
               <X className="h-4 w-4" />
             </Button>
           )}
         </div>
       </div>
 
-      {/* Process list */}
-      <div className="flex-1 overflow-y-auto pr-4" style={{ minHeight: '300px' }}>
-        <div className="space-y-4">
-          <GeralInstanciaSection
-            titulo="1ª Instância"
-            processos={processosAgrupados.primeiraInstancia}
-            corBorder="border-blue-200 dark:border-blue-800"
-            corText="text-blue-700 dark:text-blue-300"
-            icon={<BookOpen className="w-5 h-5" />}
-            onVerDetalhes={handleVerDetalhes}
-            onExcluir={setProcessoParaExcluir}
-            carregandoDetalhes={carregandoDetalhes}
-          />
-
-          <GeralInstanciaSection
-            titulo="2ª Instância"
-            processos={processosAgrupados.segundaInstancia}
-            corBorder="border-green-200 dark:border-green-800"
-            corText="text-green-700 dark:text-green-300"
-            icon={<BookUp className="w-5 h-5" />}
-            onVerDetalhes={handleVerDetalhes}
-            onExcluir={setProcessoParaExcluir}
-            carregandoDetalhes={carregandoDetalhes}
-          />
-
-          {processosAgrupados.semInstancia.length > 0 && (
-            <GeralInstanciaSection
-              titulo="Instância não identificada"
-              processos={processosAgrupados.semInstancia}
-              corBorder="border-muted-foreground/20"
-              corText="text-muted-foreground"
-              icon={<FileQuestion className="w-5 h-5" />}
-              onVerDetalhes={handleVerDetalhes}
-              onExcluir={setProcessoParaExcluir}
-              carregandoDetalhes={carregandoDetalhes}
-            />
-          )}
-
-          {!loading && processosFiltrados.length === 0 && (
-            <div className="text-center py-8 border rounded-lg bg-muted/20">
-              <Search className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
-              <p className="text-muted-foreground">Nenhum processo encontrado para esta busca</p>
+      {/* Table */}
+      <Card className="flex-1 min-h-0 flex flex-col">
+        <CardContent className="p-0 flex-1 min-h-0 overflow-auto">
+          {processosFiltrados.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Search className="h-12 w-12 mx-auto mb-4 opacity-30" />
+              <p>Nenhum processo encontrado para esta busca</p>
               {inputBusca && (
                 <Button variant="link" className="mt-2" onClick={() => handleSearchChange('')}>
                   Limpar busca
                 </Button>
               )}
             </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Processo</TableHead>
+                  <TableHead>Partes</TableHead>
+                  <TableHead>Advogado (OAB)</TableHead>
+                  <TableHead>Tribunal</TableHead>
+                  <TableHead className="text-center">Não Lidos</TableHead>
+                  <TableHead className="w-28 text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {processosFiltrados.map(processo => {
+                  const temRecursoVinculado = processo.capa_completa?.related_lawsuits?.length > 0;
+                  return (
+                    <TableRow
+                      key={processo.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleVerDetalhes(processo)}
+                    >
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <span className="font-mono text-sm">{processo.numero_cnj}</span>
+                          <div className="flex flex-wrap gap-1">
+                            {processo.monitoramento_ativo && (
+                              <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-green-600">
+                                <Bell className="w-2.5 h-2.5 mr-0.5" />
+                                Monitorado
+                              </Badge>
+                            )}
+                            {temRecursoVinculado && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-purple-500 text-purple-600">
+                                <Link2 className="w-2.5 h-2.5 mr-0.5" />
+                                {processo.capa_completa.related_lawsuits.length} recurso(s)
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="max-w-[200px]">
+                          {processo.parte_ativa && (
+                            <div className="text-sm truncate" title={processo.parte_ativa}>
+                              {processo.parte_ativa}
+                            </div>
+                          )}
+                          {processo.parte_passiva && (
+                            <div className="text-xs text-muted-foreground truncate" title={processo.parte_passiva}>
+                              vs {processo.parte_passiva}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Scale className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <div className="text-sm">
+                            {processo.oab_numero}/{processo.oab_uf}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {processo.tribunal_sigla ? (
+                          <Badge variant="outline">{processo.tribunal_sigla}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {(processo.andamentos_nao_lidos || 0) > 0 ? (
+                          <Badge variant="destructive" className="font-mono">
+                            {processo.andamentos_nao_lidos}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); handleVerDetalhes(processo); }}
+                            title="Ver detalhes"
+                          >
+                            {carregandoDetalhes === processo.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); setProcessoParaExcluir(processo); }}
+                            title="Excluir processo"
+                            className="hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground flex-shrink-0">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handlePrevPage} disabled={page === 0}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span>Página {page + 1} de {totalPages} ({totalCount} processos)</span>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleNextPage} disabled={page >= totalPages - 1}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
 
       {/* Detail drawer */}
       <ProcessoOABDetalhes
