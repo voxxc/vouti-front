@@ -1,39 +1,115 @@
 
 
-# Corrigir Acesso do Perito a Projetos e Dados de Prazos
+## Plano: Workflow de Bot no CRM (WhatsApp)
 
-## Problema
+### Onde se encaixa
 
-O role "perito" não possui política de SELECT na tabela `projects`. As políticas atuais permitem SELECT apenas para: admin, controller, membros do projeto (owner/collaborator) e super admins. Como o perito geralmente não é owner nem collaborator dos projetos, os JOINs de prazos com projetos retornam NULL, resultando em "Projeto não encontrado" e "Cliente não encontrado".
+O CRM já possui a infraestrutura para bots no menu lateral do WhatsApp, dentro de **Configurações**:
 
-Embora exista o fallback via `get_project_basic_info` (SECURITY DEFINER), ele só resolve projetos do mesmo tenant — mas o problema principal é que o perito precisa de acesso direto à tabela para que o JOIN funcione corretamente.
-
-## Solução
-
-### 1. Migration: Política de SELECT para perito na tabela `projects`
-
-Criar uma política que permite ao role `perito` ver todos os projetos do seu tenant (mesmo padrão de admin/controller):
-
-```sql
-CREATE POLICY "Peritos can view tenant projects" ON projects
-  FOR SELECT USING (
-    tenant_id IS NOT NULL
-    AND tenant_id = get_user_tenant_id()
-    AND has_role_in_tenant(auth.uid(), 'perito', get_user_tenant_id())
-  );
+```text
+WhatsApp CRM Sidebar
+├── Inbox
+├── Conversas
+├── Kanban
+├── Contatos
+├── Campanhas
+├── Relatórios
+└── ⚙ Configurações
+    ├── Agentes (já tem aba "IA" por agente)
+    ├── Automação        ← placeholder "Em desenvolvimento"
+    ├── N8N              ← placeholder "Em desenvolvimento"
+    ├── Bots             ← placeholder "Em desenvolvimento"
+    └── Typebot Bot      ← placeholder "Em desenvolvimento"
 ```
 
-### 2. Frontend: Tratar fallbacks vazios nos prazos
+Existem **4 seções vazias** prontas para receber a lógica de workflows de bot. A proposta é unificá-las em um sistema coerente.
 
-Em `useAgendaData.ts`, substituir os textos "Projeto não encontrado" e "Cliente não encontrado" por strings vazias ou mais amigáveis:
-- `projectName`: usar `''` (string vazia) em vez de "Projeto não encontrado" quando não há projeto vinculado
-- `clientName`: usar `''` em vez de "Cliente não encontrado"
-- `description`: garantir que retorna `''` quando vazio (já faz isso)
+---
 
-Isso evita que cards exibam textos de erro quando o prazo simplesmente não está vinculado a nenhum projeto (o que é um caso válido).
+### Arquitetura proposta
 
-## Arquivos
+```text
+┌─────────────────────────────────────────────────┐
+│              FLUXO DE MENSAGEM                  │
+│                                                 │
+│  Mensagem recebida (webhook)                    │
+│       │                                         │
+│       ▼                                         │
+│  ┌──────────┐    Sim    ┌───────────────────┐   │
+│  │ Bot ativo?├─────────►│ Executar workflow  │   │
+│  └────┬─────┘          │ (regras/nós)       │   │
+│       │ Não            └────────┬──────────┘   │
+│       ▼                        │               │
+│  ┌──────────┐           ┌──────▼──────┐       │
+│  │ IA ativa?│           │ Ação final: │       │
+│  └────┬─────┘           │ - Responder │       │
+│       │                 │ - Transferir│       │
+│       ▼                 │ - Etiquetar │       │
+│  Resposta IA            │ - Webhook   │       │
+│  (atual)                └─────────────┘       │
+└─────────────────────────────────────────────────┘
+```
 
-- **Migration SQL**: nova política RLS para perito em `projects`
-- **`src/hooks/useAgendaData.ts`**: substituir fallbacks "não encontrado" por strings vazias
+---
+
+### Plano de implementação
+
+#### 1. Tabela `whatsapp_bot_workflows`
+Armazena os workflows configurados por agente/tenant:
+- `id`, `tenant_id`, `agent_id`, `name`, `is_active`
+- `trigger_type` (keyword, first_message, always, schedule)
+- `trigger_value` (palavra-chave ou regex)
+- `priority` (ordem de avaliação)
+
+#### 2. Tabela `whatsapp_bot_workflow_steps`
+Nós/passos do workflow:
+- `workflow_id`, `step_order`, `step_type`
+- Tipos: `send_message`, `wait_reply`, `condition`, `transfer_agent`, `add_label`, `webhook`, `delay`, `set_variable`
+- `config` (JSONB com parâmetros do passo)
+
+#### 3. Tela "Bots" (settings/WhatsAppBotsSettings)
+Substituir o placeholder atual por:
+- Lista de workflows do agente/tenant
+- Criar/editar workflow com nome, trigger e status
+- Editor de passos em lista ordenável (drag-and-drop)
+- Cada passo tem um tipo e campos de configuração específicos
+
+#### 4. Tela "Automação" (settings/WhatsAppAutomationSettings)
+Regras rápidas sem workflow completo:
+- Auto-resposta por horário (fora do expediente)
+- Auto-etiqueta por palavra-chave
+- Auto-transferência por departamento
+
+#### 5. Integração no webhook (`whatsapp-webhook`)
+Antes de processar IA, verificar se existe workflow ativo que faz match com a mensagem recebida. Se sim, executar os passos do workflow ao invés de acionar a IA.
+
+#### 6. Tela "N8N" e "Typebot"
+Integrar como **tipos de passo** dentro do workflow:
+- Passo tipo `n8n_webhook`: dispara um workflow n8n externo
+- Passo tipo `typebot_flow`: inicia um fluxo Typebot
+
+---
+
+### Como usar (fluxo do usuário)
+
+1. Acesse o CRM WhatsApp → Configurações → **Bots**
+2. Clique em "Novo Workflow"
+3. Defina o **gatilho**: ex. "Quando mensagem contém 'preço'"
+4. Adicione **passos**:
+   - Enviar mensagem: "Olá! Segue nossa tabela de preços..."
+   - Aguardar resposta (30 min timeout)
+   - Condição: se resposta contém "sim" → transferir para agente comercial
+   - Senão → enviar "Obrigado pelo contato!"
+5. Ative o workflow
+6. Mensagens que fizerem match serão tratadas automaticamente
+
+---
+
+### Detalhes técnicos
+
+- **Persistência de estado**: tabela `whatsapp_bot_sessions` para rastrear em qual passo o contato está
+- **Prioridade**: workflows são avaliados em ordem de prioridade; primeiro match ganha
+- **Convivência com IA**: se nenhum workflow faz match, a IA existente (whatsapp_ai_config) é acionada normalmente
+- **Passos configuráveis via JSONB**: flexibilidade para adicionar novos tipos sem migração
+- **Telas existentes**: as 4 seções placeholder (Bots, Automação, N8N, Typebot) já estão roteadas no sidebar e no layout -- basta substituir o conteúdo
 
