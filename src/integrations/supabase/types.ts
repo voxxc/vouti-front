@@ -8998,6 +8998,57 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_automation_rules: {
+        Row: {
+          agent_id: string | null
+          config: Json | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          rule_type: string
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          rule_type: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          rule_type?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_automation_rules_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_automation_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_automations: {
         Row: {
           created_at: string | null
@@ -9035,6 +9086,146 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "whatsapp_automations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_bot_sessions: {
+        Row: {
+          current_step_order: number | null
+          id: string
+          phone: string
+          started_at: string | null
+          status: string | null
+          tenant_id: string | null
+          updated_at: string | null
+          variables: Json | null
+          workflow_id: string
+        }
+        Insert: {
+          current_step_order?: number | null
+          id?: string
+          phone: string
+          started_at?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          variables?: Json | null
+          workflow_id: string
+        }
+        Update: {
+          current_step_order?: number | null
+          id?: string
+          phone?: string
+          started_at?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          variables?: Json | null
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_bot_sessions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_bot_sessions_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_bot_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_bot_workflow_steps: {
+        Row: {
+          config: Json | null
+          created_at: string | null
+          id: string
+          step_order: number
+          step_type: string
+          workflow_id: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          step_order?: number
+          step_type: string
+          workflow_id: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          step_order?: number
+          step_type?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_bot_workflow_steps_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_bot_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_bot_workflows: {
+        Row: {
+          agent_id: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          priority: number | null
+          tenant_id: string | null
+          trigger_type: string
+          trigger_value: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          priority?: number | null
+          tenant_id?: string | null
+          trigger_type?: string
+          trigger_value?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          priority?: number | null
+          tenant_id?: string | null
+          trigger_type?: string
+          trigger_value?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_bot_workflows_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_bot_workflows_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
