@@ -35,7 +35,7 @@ export function PlanejadorPrazosView({ onDeadlineClick }: PlanejadorPrazosViewPr
     const myDeadlines = deadlines.filter(d => {
       if (d.advogadoResponsavel?.userId === userId) return true;
       if (d.taggedUsers?.some(t => t.userId === userId)) return true;
-      if (d.createdByUserId === userId) return true;
+      
       return false;
     });
 
