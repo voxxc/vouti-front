@@ -1,31 +1,27 @@
 
 
-## Plano: Mover paginação para acima da barra de pesquisa
+## Plano: Corrigir filtro de prazos no Planejador
 
-### O que muda
+### Problema
 
-Nos dois arquivos, mover o bloco de paginação (que hoje fica **depois** da tabela) para **antes** da barra de busca por CNJ, ficando no topo da seção de filtros.
+Em `PlanejadorPrazosView.tsx` (linha 38), o filtro inclui `d.createdByUserId === userId`, fazendo com que prazos **criados por** Daniel apareçam na visão dele, mesmo quando o prazo foi atribuído a Wesley como responsável.
 
-### Arquivos editados
+### Correção
 
-#### 1. `GeralTab.tsx` (linhas 366-377 → mover para antes da linha 225)
-- Recortar o bloco `{totalPages > 1 && (...)}` do final do componente
-- Colar dentro do `<div className="flex-shrink-0 space-y-3">`, como primeiro filho (antes do filtro e da barra de busca)
+Remover a condição `d.createdByUserId === userId` do filtro em `PlanejadorPrazosView.tsx`. O prazo só deve aparecer para o usuário se ele for:
+1. O **advogado responsável** (`advogadoResponsavel.userId`)
+2. Um **usuário marcado/tagged** (`taggedUsers`)
 
-#### 2. `OABTab.tsx` (linhas 394-409 → mover para antes da linha 244)
-- Recortar o bloco `{totalPages > 1 && (...)}` do final do componente
-- Colar dentro do `<div className="flex-shrink-0 space-y-3">`, como primeiro filho (antes do filtro e da barra de busca)
+**Arquivo**: `src/components/Planejador/PlanejadorPrazosView.tsx` (linha 38)
 
-### Resultado visual
-
-```text
-[Paginação: ← Página 1 de 5 (120 processos) →]
-[Filtro: Todos ▾]  [badge]
-[🔍 Buscar por CNJ, partes ou tribunal...]
-┌─────────────────────────────────────────┐
-│ Tabela de processos                     │
-└─────────────────────────────────────────┘
+Antes:
+```ts
+if (d.createdByUserId === userId) return true;
 ```
 
-Nenhuma lógica alterada -- apenas reposicionamento do bloco JSX.
+Depois: remover esta linha.
+
+### Impacto
+- Prazos criados por Daniel para Wesley não aparecerão mais no Planejador de Daniel
+- Se Daniel for responsável OU marcado no prazo, ele continuará vendo normalmente
 
