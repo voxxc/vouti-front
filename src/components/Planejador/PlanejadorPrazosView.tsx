@@ -90,7 +90,7 @@ export function PlanejadorPrazosView({ onDeadlineClick, searchQuery = "" }: Plan
       { id: "futuro", label: "Futuro", color: "#06b6d4", icon: <CalendarCheck className="h-3.5 w-3.5" />, items: futuro },
       { id: "concluido", label: "Concluído", color: "#22c55e", icon: <CheckCircle2 className="h-3.5 w-3.5" />, items: concluido },
     ];
-  }, [deadlines, user?.id]);
+  }, [deadlines, user?.id, searchQuery]);
 
   const text = isDark ? "text-white" : "text-foreground";
   const textMuted = isDark ? "text-white/60" : "text-foreground/60";
