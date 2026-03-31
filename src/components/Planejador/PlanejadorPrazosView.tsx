@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface PlanejadorPrazosViewProps {
   onDeadlineClick: (deadlineId: string) => void;
+  searchQuery?: string;
 }
 
 interface PrazosColumn {
@@ -21,7 +22,7 @@ interface PrazosColumn {
   items: Deadline[];
 }
 
-export function PlanejadorPrazosView({ onDeadlineClick }: PlanejadorPrazosViewProps) {
+export function PlanejadorPrazosView({ onDeadlineClick, searchQuery = "" }: PlanejadorPrazosViewProps) {
   const { deadlines, isLoading } = useAgendaData();
   const { user } = useAuth();
   const { theme } = useTheme();
@@ -37,6 +38,16 @@ export function PlanejadorPrazosView({ onDeadlineClick }: PlanejadorPrazosViewPr
       if (d.taggedUsers?.some(t => t.userId === userId)) return true;
       
       return false;
+    }).filter(d => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        d.title?.toLowerCase().includes(q) ||
+        d.projectName?.toLowerCase().includes(q) ||
+        d.clientName?.toLowerCase().includes(q) ||
+        d.description?.toLowerCase().includes(q) ||
+        d.advogadoResponsavel?.name?.toLowerCase().includes(q)
+      );
     });
 
     const now = new Date();
@@ -79,7 +90,7 @@ export function PlanejadorPrazosView({ onDeadlineClick }: PlanejadorPrazosViewPr
       { id: "futuro", label: "Futuro", color: "#06b6d4", icon: <CalendarCheck className="h-3.5 w-3.5" />, items: futuro },
       { id: "concluido", label: "Concluído", color: "#22c55e", icon: <CheckCircle2 className="h-3.5 w-3.5" />, items: concluido },
     ];
-  }, [deadlines, user?.id]);
+  }, [deadlines, user?.id, searchQuery]);
 
   const text = isDark ? "text-white" : "text-foreground";
   const textMuted = isDark ? "text-white/60" : "text-foreground/60";
