@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface PlanejadorPrazosViewProps {
   onDeadlineClick: (deadlineId: string) => void;
+  searchQuery?: string;
 }
 
 interface PrazosColumn {
