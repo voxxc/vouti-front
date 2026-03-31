@@ -22,7 +22,7 @@ interface PrazosColumn {
   items: Deadline[];
 }
 
-export function PlanejadorPrazosView({ onDeadlineClick }: PlanejadorPrazosViewProps) {
+export function PlanejadorPrazosView({ onDeadlineClick, searchQuery = "" }: PlanejadorPrazosViewProps) {
   const { deadlines, isLoading } = useAgendaData();
   const { user } = useAuth();
   const { theme } = useTheme();
