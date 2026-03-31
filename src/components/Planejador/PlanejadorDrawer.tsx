@@ -282,6 +282,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                       setDeadlineDetailId(id);
                       setDeadlineDetailOpen(true);
                     }}
+                    searchQuery={searchQuery}
                   />
                 ) : (
                   <PlanejadorKanban

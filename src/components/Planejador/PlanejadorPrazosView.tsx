@@ -38,6 +38,16 @@ export function PlanejadorPrazosView({ onDeadlineClick, searchQuery = "" }: Plan
       if (d.taggedUsers?.some(t => t.userId === userId)) return true;
       
       return false;
+    }).filter(d => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        d.title?.toLowerCase().includes(q) ||
+        d.projectName?.toLowerCase().includes(q) ||
+        d.clientName?.toLowerCase().includes(q) ||
+        d.description?.toLowerCase().includes(q) ||
+        d.advogadoResponsavel?.name?.toLowerCase().includes(q)
+      );
     });
 
     const now = new Date();
