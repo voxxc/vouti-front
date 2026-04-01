@@ -333,6 +333,9 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
             <>
               <DialogHeader>
                 <DialogTitle>{deadline.title}</DialogTitle>
+                {deadline.deadlineNumber && (
+                  <p className="text-xs text-muted-foreground">Prazo nº {deadline.deadlineNumber}</p>
+                )}
               </DialogHeader>
               <Tabs defaultValue="info" className="w-full">
                 <TabsList className={cn("grid w-full", deadline.completed ? "grid-cols-3" : "grid-cols-2")}>
