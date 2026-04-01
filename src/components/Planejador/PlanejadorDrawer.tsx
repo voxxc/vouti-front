@@ -304,7 +304,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                 ) : (
                   <PlanejadorKanban
                     tasksByColumn={tasksByColumn}
-                    onTaskClick={setSelectedTask}
+                    onTaskClick={handleTaskClick}
                     onMoveTask={handleMoveTask}
                     searchQuery={searchQuery}
                     locked={locked}
