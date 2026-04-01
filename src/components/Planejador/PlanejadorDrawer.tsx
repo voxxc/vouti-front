@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { PlanejadorTopBar } from "./PlanejadorTopBar";
 import { PlanejadorKanban } from "./PlanejadorKanban";
@@ -12,6 +13,7 @@ import { usePlanejadorTasks, PlanejadorTask, KANBAN_COLUMNS, KanbanColumn } from
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlanejadorLabels, useAllLabelAssignments } from "@/hooks/usePlanejadorLabels";
 import { useTenantId } from "@/hooks/useTenantId";
+import { useParams } from "react-router-dom";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,6 +60,9 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
   const { tenantId } = useTenantId();
   const { theme } = useTheme();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  const includeProtocolos = user?.email === 'danieldemorais.e@gmail.com';
 
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<PlanejadorTask | null>(null);
@@ -72,7 +77,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
   const [deadlineDetailOpen, setDeadlineDetailOpen] = useState(false);
   const [columnConfig, setColumnConfig] = useState<ColumnConfig[]>(() => loadColumnConfig(tenantId));
 
-  const { tasksByColumn, isLoading, createTask, updateTask, deleteTask } = usePlanejadorTasks();
+  const { tasksByColumn, isLoading, createTask, updateTask, deleteTask } = usePlanejadorTasks({ includeProtocolos });
   const { labels } = usePlanejadorLabels();
   const { data: allLabelAssignments = [] } = useAllLabelAssignments();
 
@@ -184,6 +189,18 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
     setSelectedTask(null);
   }, [deleteTask]);
 
+  const { tenant: tenantSlug } = useParams<{ tenant: string }>();
+
+  const handleTaskClick = useCallback((task: PlanejadorTask) => {
+    if (task.is_protocolo && task.protocolo_project_id) {
+      // Navigate to the project page
+      onOpenChange(false);
+      navigate(`/${tenantSlug}/dashboard?tab=projetos&projectId=${task.protocolo_project_id}`);
+      return;
+    }
+    setSelectedTask(task);
+  }, [tenantSlug, navigate, onOpenChange]);
+
   return (
     <>
       <Sheet open={open} modal={false} onOpenChange={(newOpen) => {
@@ -266,7 +283,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                 ) : activeTab === 'lista' ? (
                   <PlanejadorListView
                     tasksByColumn={tasksByColumn}
-                    onTaskClick={setSelectedTask}
+                    onTaskClick={handleTaskClick}
                     onMoveTask={handleMoveTask}
                     searchQuery={searchQuery}
                     columnConfig={columnConfig}
@@ -287,7 +304,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                 ) : (
                   <PlanejadorKanban
                     tasksByColumn={tasksByColumn}
-                    onTaskClick={setSelectedTask}
+                    onTaskClick={handleTaskClick}
                     onMoveTask={handleMoveTask}
                     searchQuery={searchQuery}
                     locked={locked}
