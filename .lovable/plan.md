@@ -1,23 +1,18 @@
 
 
-## Plano: Tornar diálogos de detalhes de prazos responsivos (sem corte de conteúdo)
+## Plano: Corrigir corte de conteúdo nos diálogos de detalhes da Controladoria
 
 ### Problema
-Os diálogos de detalhes de prazos (informações, conclusão, comentários, subtarefas) não se adaptam à tela — quando há muito conteúdo, ele é cortado porque o `DialogContent` não tem `max-height` nem scroll.
+Os diálogos de detalhes de prazos na Controladoria (abas "Subtarefas" e "Prazos Concluídos") não têm limite de altura nem scroll, fazendo o conteúdo ser cortado quando há muita informação (comentário de conclusão longo + subtarefas).
 
 ### Solução
-
-Adicionar `max-h-[85vh] overflow-y-auto` ao `DialogContent` dos detalhes de prazo em **dois arquivos**, garantindo que o conteúdo role dentro do dialog sem ultrapassar a viewport.
+Adicionar `max-h-[85vh] overflow-y-auto` ao `DialogContent` dos dois componentes, igual ao que já foi feito no `DeadlineDetailDialog.tsx`.
 
 ### Arquivos a editar
 
-1. **`src/components/Agenda/DeadlineDetailDialog.tsx`** (linha 330)
-   - Mudar `<DialogContent className="max-w-lg">` para `<DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">`
+1. **`src/components/Controladoria/CentralSubtarefas.tsx`** (linha 525)
+   - `<DialogContent className="max-w-lg">` → `<DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">`
 
-2. **`src/components/Agenda/AgendaContent.tsx`** (buscar o `DialogContent` do detalhe de prazo, ~linha 1530)
-   - Adicionar `max-h-[85vh] overflow-y-auto` ao `DialogContent` equivalente
-
-3. **`src/components/Agenda/DeadlineComentarios.tsx`** - verificar se a lista de comentários também precisa de scroll interno (se já usa ScrollArea, manter; senão, adicionar limite de altura)
-
-Resultado: todo o conteúdo (subtarefas, comentários de conclusão, informações detalhadas) ficará acessível via scroll, sem cortar nenhuma informação, adaptando-se a qualquer tamanho de tela.
+2. **`src/components/Controladoria/CentralPrazosConcluidos.tsx`** (linha 477)
+   - `<DialogContent className="max-w-lg">` → `<DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">`
 
