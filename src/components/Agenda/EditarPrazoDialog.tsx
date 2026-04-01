@@ -132,12 +132,18 @@ export const EditarPrazoDialog = ({
           .order('is_default', { ascending: false });
         setAvailableWorkspaces(ws || []);
 
-        // Load protocolos for this project
-        const { data: prots } = await supabase
+        // Load protocolos for this project (filtered by workspace if available)
+        const protsQuery = supabase
           .from('project_protocolos')
           .select('id, nome, processo_oab_id')
           .eq('project_id', projId)
           .order('nome');
+        
+        const wsId = deadline.workspaceId || '';
+        if (wsId) {
+          protsQuery.eq('workspace_id', wsId);
+        }
+        const { data: prots } = await protsQuery;
         setAvailableProtocolos(prots || []);
       } else {
         setAvailableWorkspaces([]);
@@ -195,6 +201,30 @@ export const EditarPrazoDialog = ({
         .eq('tenant_id', tenantId)
         .order('nome');
       setAvailableProtocolos(allProts || []);
+    }
+  };
+
+  // Handle workspace change — filter protocolos by workspace
+  const handleWorkspaceChange = async (val: string) => {
+    const wsId = val === 'default' ? '' : val;
+    setSelectedWorkspaceId(wsId);
+    setSelectedProtocoloId('');
+    setSelectedEtapaId('');
+    setAvailableEtapas([]);
+
+    if (selectedProjectId) {
+      const query = supabase
+        .from('project_protocolos')
+        .select('id, nome, processo_oab_id')
+        .eq('project_id', selectedProjectId)
+        .order('nome');
+
+      if (wsId) {
+        query.eq('workspace_id', wsId);
+      }
+
+      const { data } = await query;
+      setAvailableProtocolos(data || []);
     }
   };
 
@@ -509,7 +539,7 @@ export const EditarPrazoDialog = ({
               <label className="text-sm font-medium">Workspace (opcional)</label>
               <Select
                 value={selectedWorkspaceId || 'default'}
-                onValueChange={(val) => setSelectedWorkspaceId(val === 'default' ? '' : val)}
+                onValueChange={handleWorkspaceChange}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Workspace padrão" />
