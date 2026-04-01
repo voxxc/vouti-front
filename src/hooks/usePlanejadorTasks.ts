@@ -70,13 +70,14 @@ export function categorizeTask(task: PlanejadorTask): KanbanColumn {
   return 'sem_prazo'; // future beyond 2 weeks goes to sem_prazo
 }
 
-export function usePlanejadorTasks() {
+export function usePlanejadorTasks(options?: { includeProtocolos?: boolean }) {
   const { tenantId } = useTenantId();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const includeProtocolos = options?.includeProtocolos ?? false;
 
   const tasksQuery = useQuery({
-    queryKey: ['planejador-tasks', tenantId],
+    queryKey: ['planejador-tasks', tenantId, includeProtocolos],
     queryFn: async () => {
       if (!tenantId) return [];
       // Fetch regular tasks
@@ -119,7 +120,39 @@ export function usePlanejadorTasks() {
         parent_task_titulo: taskTitleMap.get(st.task_id) || 'Tarefa removida',
       }));
 
-      return [...tasks, ...subtasksAsTasks];
+      // Fetch protocolos if enabled
+      let protocolosAsTasks: PlanejadorTask[] = [];
+      if (includeProtocolos) {
+        const { data: protocolosData, error: protocolosError } = await (supabase as any)
+          .from('project_protocolos')
+          .select('*, projects(name), project_workspaces(nome)')
+          .eq('tenant_id', tenantId);
+        if (!protocolosError && protocolosData) {
+          protocolosAsTasks = (protocolosData as any[]).map((p: any) => ({
+            id: p.id,
+            tenant_id: p.tenant_id,
+            titulo: p.nome,
+            descricao: p.descricao,
+            status: p.data_conclusao || p.status === 'concluido' ? 'completed' : 'pending',
+            prazo: p.data_previsao,
+            proprietario_id: p.created_by,
+            responsavel_id: p.responsavel_id,
+            prioridade: 'normal',
+            created_by: p.created_by,
+            created_at: p.created_at,
+            updated_at: p.updated_at || p.created_at,
+            cliente_id: null,
+            processo_oab_id: p.processo_oab_id,
+            is_protocolo: true,
+            protocolo_project_name: p.projects?.name || 'Projeto',
+            protocolo_workspace_name: p.project_workspaces?.nome || '',
+            protocolo_project_id: p.project_id,
+            protocolo_workspace_id: p.workspace_id,
+          }));
+        }
+      }
+
+      return [...tasks, ...subtasksAsTasks, ...protocolosAsTasks];
     },
     enabled: !!tenantId,
   });
