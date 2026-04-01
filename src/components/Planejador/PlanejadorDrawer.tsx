@@ -13,6 +13,7 @@ import { usePlanejadorTasks, PlanejadorTask, KANBAN_COLUMNS, KanbanColumn } from
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlanejadorLabels, useAllLabelAssignments } from "@/hooks/usePlanejadorLabels";
 import { useTenantId } from "@/hooks/useTenantId";
+import { useParams } from "react-router-dom";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
