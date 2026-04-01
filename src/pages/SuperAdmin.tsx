@@ -283,7 +283,7 @@ export default function SuperAdmin() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-7xl grid-cols-11">
+          <TabsList className="grid w-full max-w-7xl grid-cols-12">
             <TabsTrigger value="tenants" className="flex items-center gap-2">
               <Building2 className="w-4 h-4" />
               Clientes
@@ -327,6 +327,10 @@ export default function SuperAdmin() {
             <TabsTrigger value="authenticator" className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4" />
               Autenticador
+            </TabsTrigger>
+            <TabsTrigger value="seguranca" className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4" />
+              Segurança
             </TabsTrigger>
           </TabsList>
 
