@@ -545,7 +545,8 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
     deadline.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     deadline.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     deadline.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    deadline.clientName.toLowerCase().includes(searchTerm.toLowerCase());
+    deadline.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (deadline.deadlineNumber && deadline.deadlineNumber.toString().includes(searchTerm));
 
   const isUserParticipant = (deadline: Deadline, userId: string) =>
     deadline.advogadoResponsavel?.userId === userId ||
