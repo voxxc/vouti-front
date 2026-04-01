@@ -73,6 +73,9 @@ export interface Deadline {
   
   // Categoria do prazo (pericial)
   deadlineCategory?: string;
+  
+  // Numeração sequencial para auditoria
+  deadlineNumber?: number;
 }
 
 export interface DeadlineFormData {

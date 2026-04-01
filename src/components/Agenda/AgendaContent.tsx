@@ -545,7 +545,8 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
     deadline.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     deadline.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     deadline.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    deadline.clientName.toLowerCase().includes(searchTerm.toLowerCase());
+    deadline.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (deadline.deadlineNumber && deadline.deadlineNumber.toString().includes(searchTerm));
 
   const isUserParticipant = (deadline: Deadline, userId: string) =>
     deadline.advogadoResponsavel?.userId === userId ||
@@ -1534,6 +1535,9 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
             <>
               <DialogHeader>
                 <DialogTitle>{selectedDeadline.title}</DialogTitle>
+                {selectedDeadline.deadlineNumber && (
+                  <p className="text-xs text-muted-foreground">Prazo nº {selectedDeadline.deadlineNumber}</p>
+                )}
               </DialogHeader>
               <Tabs defaultValue="info" className="w-full">
                 <TabsList className={cn("grid w-full", selectedDeadline.completed ? "grid-cols-3" : "grid-cols-2")}>
