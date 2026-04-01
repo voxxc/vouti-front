@@ -23,6 +23,12 @@ export interface PlanejadorTask {
   is_subtask?: boolean;
   parent_task_id?: string;
   parent_task_titulo?: string;
+  // Protocolo-as-card fields
+  is_protocolo?: boolean;
+  protocolo_project_name?: string;
+  protocolo_workspace_name?: string;
+  protocolo_project_id?: string;
+  protocolo_workspace_id?: string;
 }
 
 export type KanbanColumn = 
