@@ -189,6 +189,18 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
     setSelectedTask(null);
   }, [deleteTask]);
 
+  const { tenant: tenantSlug } = useParams<{ tenant: string }>();
+
+  const handleTaskClick = useCallback((task: PlanejadorTask) => {
+    if (task.is_protocolo && task.protocolo_project_id) {
+      // Navigate to the project page
+      onOpenChange(false);
+      navigate(`/${tenantSlug}/dashboard?tab=projetos&projectId=${task.protocolo_project_id}`);
+      return;
+    }
+    setSelectedTask(task);
+  }, [tenantSlug, navigate, onOpenChange]);
+
   return (
     <>
       <Sheet open={open} modal={false} onOpenChange={(newOpen) => {
