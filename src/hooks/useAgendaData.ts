@@ -131,7 +131,8 @@ projectName: projectFromJoin || fallback?.name || '',
                  completedByAvatar: deadline.concluido_por_profile?.avatar_url || undefined,
                  comentarioConclusao: deadline.comentario_conclusao || undefined,
                  concluidoEm: deadline.concluido_em ? safeParseTimestamp(deadline.concluido_em) : undefined,
-                 deadlineCategory: deadline.deadline_category || undefined
+                  deadlineCategory: deadline.deadline_category || undefined,
+                  deadlineNumber: deadline.deadline_number || undefined
               };
            });
   

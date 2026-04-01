@@ -1535,6 +1535,9 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
             <>
               <DialogHeader>
                 <DialogTitle>{selectedDeadline.title}</DialogTitle>
+                {selectedDeadline.deadlineNumber && (
+                  <p className="text-xs text-muted-foreground">Prazo nº {selectedDeadline.deadlineNumber}</p>
+                )}
               </DialogHeader>
               <Tabs defaultValue="info" className="w-full">
                 <TabsList className={cn("grid w-full", selectedDeadline.completed ? "grid-cols-3" : "grid-cols-2")}>

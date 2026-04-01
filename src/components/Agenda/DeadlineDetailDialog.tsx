@@ -243,6 +243,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
         completedByAvatar,
         comentarioConclusao: d.comentario_conclusao || undefined,
         concluidoEm: d.concluido_em ? safeParseTimestamp(d.concluido_em) : undefined,
+        deadlineNumber: d.deadline_number || undefined,
       };
 
       setDeadline(mapped);
