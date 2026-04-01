@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { PlanejadorTopBar } from "./PlanejadorTopBar";
 import { PlanejadorKanban } from "./PlanejadorKanban";

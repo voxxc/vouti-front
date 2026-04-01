@@ -2,7 +2,7 @@ import { PlanejadorTask } from "@/hooks/usePlanejadorTasks";
 import { PlanejadorLabel, PlanejadorLabelAssignment } from "@/hooks/usePlanejadorLabels";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Clock, User, ListChecks, Flag } from "lucide-react";
+import { Clock, User, ListChecks, Flag, FileText } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -17,7 +17,7 @@ export function PlanejadorTaskCard({ task, onClick, labels = [], labelAssignment
   const taskLabelIds = labelAssignments.filter(a => a.task_id === task.id).map(a => a.label_id);
   const taskLabels = labels.filter(l => taskLabelIds.includes(l.id));
 
-  // Fetch subtask counts (skip for subtask cards themselves)
+  // Fetch subtask counts (skip for subtask and protocolo cards)
   const { data: subtaskData } = useQuery({
     queryKey: ['planejador-subtask-count', task.id],
     queryFn: async () => {
@@ -30,17 +30,24 @@ export function PlanejadorTaskCard({ task, onClick, labels = [], labelAssignment
       return { total: all.length, completed: all.filter((s: any) => s.concluida).length };
     },
     staleTime: 30000,
-    enabled: !task.is_subtask,
+    enabled: !task.is_subtask && !task.is_protocolo,
   });
 
   return (
     <div
       onClick={onClick}
-      className="bg-white/95 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg p-3.5 cursor-pointer hover:shadow-lg hover:shadow-black/10 hover:scale-[1.01] transition-all duration-200 border border-white/20 dark:border-white/5 group"
+      className={`backdrop-blur-sm rounded-lg p-3.5 cursor-pointer hover:shadow-lg hover:shadow-black/10 hover:scale-[1.01] transition-all duration-200 border group ${
+        task.is_protocolo
+          ? 'bg-blue-50/95 dark:bg-blue-900/30 border-blue-200/40 dark:border-blue-500/20'
+          : 'bg-white/95 dark:bg-slate-800/90 border-white/20 dark:border-white/5'
+      }`}
     >
       <div className="flex items-start gap-1.5 mb-2">
         {task.is_subtask && (
           <Flag className="h-3.5 w-3.5 text-orange-400 shrink-0 mt-0.5" />
+        )}
+        {task.is_protocolo && (
+          <FileText className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400 shrink-0 mt-0.5" />
         )}
         <h4 className="text-sm font-semibold text-slate-900 dark:text-white leading-snug group-hover:text-slate-700 dark:group-hover:text-white/90 line-clamp-2">
           {task.titulo}
@@ -50,6 +57,13 @@ export function PlanejadorTaskCard({ task, onClick, labels = [], labelAssignment
       {task.is_subtask && task.parent_task_titulo && (
         <p className="text-[10px] text-muted-foreground mb-2 truncate">
           ↳ {task.parent_task_titulo}
+        </p>
+      )}
+
+      {task.is_protocolo && task.protocolo_project_name && (
+        <p className="text-[10px] text-blue-600 dark:text-blue-400 mb-2 truncate">
+          📁 {task.protocolo_project_name}
+          {task.protocolo_workspace_name ? ` › ${task.protocolo_workspace_name}` : ''}
         </p>
       )}
 
@@ -82,10 +96,19 @@ export function PlanejadorTaskCard({ task, onClick, labels = [], labelAssignment
               <span>{subtaskData.completed}/{subtaskData.total}</span>
             </div>
           )}
+          {task.is_protocolo && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-800/50 text-blue-700 dark:text-blue-300 font-medium">
+              Protocolo
+            </span>
+          )}
         </div>
         <div className="flex -space-x-1.5 ml-auto">
-          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center ring-2 ring-white dark:ring-slate-800">
-            <User className="h-3 w-3 text-white" />
+          <div className={`w-6 h-6 rounded-full flex items-center justify-center ring-2 ${
+            task.is_protocolo 
+              ? 'bg-gradient-to-br from-blue-400 to-indigo-600 ring-blue-50 dark:ring-blue-900/30'
+              : 'bg-gradient-to-br from-blue-400 to-blue-600 ring-white dark:ring-slate-800'
+          }`}>
+            {task.is_protocolo ? <FileText className="h-3 w-3 text-white" /> : <User className="h-3 w-3 text-white" />}
           </div>
         </div>
       </div>
