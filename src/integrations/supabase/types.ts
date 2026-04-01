@@ -7581,6 +7581,51 @@ export type Database = {
           },
         ]
       }
+      super_admin_security_hotfixes: {
+        Row: {
+          affected_resource: string | null
+          category: string | null
+          created_at: string | null
+          description: string
+          id: string
+          identified_at: string | null
+          notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          status: string
+          title: string
+        }
+        Insert: {
+          affected_resource?: string | null
+          category?: string | null
+          created_at?: string | null
+          description: string
+          id?: string
+          identified_at?: string | null
+          notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity: string
+          status?: string
+          title: string
+        }
+        Update: {
+          affected_resource?: string | null
+          category?: string | null
+          created_at?: string | null
+          description?: string
+          id?: string
+          identified_at?: string | null
+          notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          title?: string
+        }
+        Relationships: []
+      }
       super_admins: {
         Row: {
           created_at: string | null
