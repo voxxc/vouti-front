@@ -413,6 +413,10 @@ export default function SuperAdmin() {
           <TabsContent value="authenticator">
             <SuperAdminAuthenticator />
           </TabsContent>
+
+          <TabsContent value="seguranca">
+            <SuperAdminSecurity />
+          </TabsContent>
         </Tabs>
       </main>
 
