@@ -132,7 +132,7 @@ projectName: projectFromJoin || fallback?.name || '',
                  comentarioConclusao: deadline.comentario_conclusao || undefined,
                  concluidoEm: deadline.concluido_em ? safeParseTimestamp(deadline.concluido_em) : undefined,
                   deadlineCategory: deadline.deadline_category || undefined,
-                  deadlineNumber: deadline.deadline_number || undefined
+                  deadlineNumber: (deadline as any).deadline_number || undefined
               };
            });
   
