@@ -283,7 +283,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                 ) : activeTab === 'lista' ? (
                   <PlanejadorListView
                     tasksByColumn={tasksByColumn}
-                    onTaskClick={setSelectedTask}
+                    onTaskClick={handleTaskClick}
                     onMoveTask={handleMoveTask}
                     searchQuery={searchQuery}
                     columnConfig={columnConfig}
