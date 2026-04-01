@@ -959,6 +959,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
           onOpenChange={setEditPrazoOpen}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['planejador-prazos'] });
+            queryClient.invalidateQueries({ queryKey: ['planejador-tasks'] });
           }}
           tenantId={tenantId}
         />
