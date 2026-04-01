@@ -1,33 +1,48 @@
 
 
-## Plano: Substituir botão de excluir por menu de 3 pontinhos (MoreVertical)
+## Plano: Filtrar Protocolos por Workspace selecionado no EditarPrazoDialog
 
-### Mudança
+### Problema
+Ao editar um prazo, quando o usuário seleciona um Workspace, o seletor de Protocolo continua mostrando **todos** os protocolos do projeto, em vez de apenas os daquele workspace.
 
-No `DeadlineDetailDialog.tsx`, na área de ações (linhas 436-466), substituir o botão de excluir (Trash2) por um `DropdownMenu` com ícone de 3 pontinhos (`MoreVertical`). O dropdown terá duas opções:
+### Solução
 
-1. **Editar prazo** — abre o `EditarPrazoDialog` (já existe no componente)
-2. **Excluir prazo** — abre o `AlertDialog` de confirmação de exclusão (já existe)
+**Arquivo**: `src/components/Agenda/EditarPrazoDialog.tsx`
 
-O botão "Editar" que hoje só aparece quando o prazo está concluído (linha 447-451) será removido de lá e passará a estar **sempre disponível** dentro do menu de 3 pontinhos.
+1. **Ao mudar o Workspace** (`onValueChange` do Select de Workspace, linha 512): disparar uma nova consulta que filtra protocolos por `workspace_id`, resetando protocolo e etapa selecionados.
 
-### Arquivo alterado
+2. **No `handleProjectChange`** (linhas 184-198): quando carrega protocolos do projeto, não filtrar por workspace ainda (pois workspace ainda não foi selecionado).
 
-**`src/components/Agenda/DeadlineDetailDialog.tsx`**
+3. **Nova função `handleWorkspaceChange`**: substitui o `onValueChange` inline do workspace (linha 512):
+   ```ts
+   const handleWorkspaceChange = async (val: string) => {
+     const wsId = val === 'default' ? '' : val;
+     setSelectedWorkspaceId(wsId);
+     setSelectedProtocoloId('');
+     setSelectedEtapaId('');
+     setAvailableEtapas([]);
 
-- Importar `MoreVertical` do lucide-react e componentes `DropdownMenu*` do shadcn
-- Linhas 436-466: reorganizar para:
-  - Botão "Marcar como Concluído" ou "Marcar como Pendente" (mantém como está)
-  - Botão `MoreVertical` com `DropdownMenu` contendo:
-    - Item "Editar" → `setIsEditDialogOpen(true)`
-    - Item "Excluir" (vermelho) → abre AlertDialog de exclusão
-- Remover o botão Editar standalone (linhas 447-451)
+     if (selectedProjectId) {
+       const query = supabase
+         .from('project_protocolos')
+         .select('id, nome, processo_oab_id')
+         .eq('project_id', selectedProjectId)
+         .order('nome');
 
-### Layout final dos botões
+       if (wsId) {
+         query.eq('workspace_id', wsId);
+       }
 
-```text
-[ Marcar como Concluído (flex-1) ]  [ ⋮ ]
-                                      ├─ Editar
-                                      └─ Excluir prazo
-```
+       const { data } = await query;
+       setAvailableProtocolos(data || []);
+     }
+   };
+   ```
+
+4. **No `initCascade`** (linhas 126-151): ao carregar protocolos iniciais, se já existe um `workspaceId` no deadline, filtrar por ele.
+
+5. **No `handleProjectChange`**: ao carregar protocolos após trocar projeto, se `selectedWorkspaceId` estiver definido, filtrar por ele também.
+
+### Resultado
+Workspace → Protocolo → Etapa será uma cascata real: selecionar workspace filtra os protocolos disponíveis, que por sua vez filtra as etapas.
 
