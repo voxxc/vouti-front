@@ -1,18 +1,22 @@
 
 
-## Plano: Corrigir corte de conteúdo nos diálogos de detalhes da Controladoria
+## Plano: Auto-refresh do Planejador ao salvar alterações de prazo
 
 ### Problema
-Os diálogos de detalhes de prazos na Controladoria (abas "Subtarefas" e "Prazos Concluídos") não têm limite de altura nem scroll, fazendo o conteúdo ser cortado quando há muita informação (comentário de conclusão longo + subtarefas).
+Ao editar um prazo no Planejador (ex: mudar a data), o `onSuccess` do `EditarPrazoDialog` só invalida `planejador-prazos` (lista de prazos relacionados dentro do detalhe). Não invalida `planejador-tasks`, que é a query que alimenta as colunas do Kanban. Por isso o card não muda de coluna automaticamente.
 
 ### Solução
-Adicionar `max-h-[85vh] overflow-y-auto` ao `DialogContent` dos dois componentes, igual ao que já foi feito no `DeadlineDetailDialog.tsx`.
 
-### Arquivos a editar
+**Arquivo**: `src/components/Planejador/PlanejadorTaskDetail.tsx` (linha 960-962)
 
-1. **`src/components/Controladoria/CentralSubtarefas.tsx`** (linha 525)
-   - `<DialogContent className="max-w-lg">` → `<DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">`
+Adicionar invalidação de `planejador-tasks` no `onSuccess` do `EditarPrazoDialog`:
 
-2. **`src/components/Controladoria/CentralPrazosConcluidos.tsx`** (linha 477)
-   - `<DialogContent className="max-w-lg">` → `<DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">`
+```tsx
+onSuccess={() => {
+  queryClient.invalidateQueries({ queryKey: ['planejador-prazos'] });
+  queryClient.invalidateQueries({ queryKey: ['planejador-tasks'] });
+}}
+```
+
+Isso faz o Kanban re-buscar os dados automaticamente após salvar, movendo o card para a coluna correta sem precisar de botão de refresh.
 
