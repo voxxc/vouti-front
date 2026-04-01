@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, Trash2, MessageSquare, ExternalLink, Flag, RotateCcw, Pencil } from "lucide-react";
+import { CheckCircle2, Trash2, MessageSquare, ExternalLink, Flag, RotateCcw, Pencil, MoreVertical } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import EditarPrazoDialog from "./EditarPrazoDialog";
 import { DeadlineComentarios } from "./DeadlineComentarios";
 import { Deadline } from "@/types/agenda";
@@ -434,25 +435,33 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                     </Badge>
                   </div>
                   <div className="flex gap-2 pt-4">
-                    {!deadline.completed && (
+                    {!deadline.completed ? (
                       <Button onClick={() => setConfirmCompleteId(deadline.id)} className="flex-1">
                         <CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como Concluído
                       </Button>
-                    )}
-                    {deadline.completed && (
+                    ) : (
                       <Button variant="outline" onClick={() => setReopenDeadlineId(deadline.id)} className="flex-1">
                         <RotateCcw className="h-4 w-4 mr-2" /> Marcar como Pendente
                       </Button>
                     )}
-                    {deadline.completed && (
-                      <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
-                        <Pencil className="h-4 w-4 mr-2" /> Editar
-                      </Button>
-                    )}
                     <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button>
-                      </AlertDialogTrigger>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="icon">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
+                            <Pencil className="h-4 w-4 mr-2" /> Editar
+                          </DropdownMenuItem>
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem className="text-destructive focus:text-destructive">
+                              <Trash2 className="h-4 w-4 mr-2" /> Excluir prazo
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Excluir Prazo</AlertDialogTitle>
