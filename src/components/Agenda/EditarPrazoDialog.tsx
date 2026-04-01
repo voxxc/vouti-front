@@ -515,7 +515,7 @@ export const EditarPrazoDialog = ({
               <label className="text-sm font-medium">Workspace (opcional)</label>
               <Select
                 value={selectedWorkspaceId || 'default'}
-                onValueChange={(val) => setSelectedWorkspaceId(val === 'default' ? '' : val)}
+                onValueChange={handleWorkspaceChange}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Workspace padrão" />
