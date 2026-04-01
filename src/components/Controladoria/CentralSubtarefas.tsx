@@ -522,7 +522,7 @@ export const CentralSubtarefas = () => {
 
       {/* Modal de detalhes */}
       <Dialog open={!!selectedPrazo} onOpenChange={(open) => !open && setSelectedPrazo(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           {selectedPrazo && (
             <>
               <DialogHeader>
