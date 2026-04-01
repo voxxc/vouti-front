@@ -132,12 +132,18 @@ export const EditarPrazoDialog = ({
           .order('is_default', { ascending: false });
         setAvailableWorkspaces(ws || []);
 
-        // Load protocolos for this project
-        const { data: prots } = await supabase
+        // Load protocolos for this project (filtered by workspace if available)
+        const protsQuery = supabase
           .from('project_protocolos')
           .select('id, nome, processo_oab_id')
           .eq('project_id', projId)
           .order('nome');
+        
+        const wsId = deadline.workspaceId || '';
+        if (wsId) {
+          protsQuery.eq('workspace_id', wsId);
+        }
+        const { data: prots } = await protsQuery;
         setAvailableProtocolos(prots || []);
       } else {
         setAvailableWorkspaces([]);
