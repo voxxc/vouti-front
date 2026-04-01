@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search, BookOpen, Activity, Stethoscope, FlaskConical, QrCode, CreditCard, ShieldCheck, Webhook } from 'lucide-react';
+import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search, BookOpen, Activity, Stethoscope, FlaskConical, QrCode, CreditCard, ShieldCheck, Webhook, ShieldAlert } from 'lucide-react';
 import { useSuperAdmin } from '@/hooks/useSuperAdmin';
 import { useAllCredenciaisPendentes } from '@/hooks/useAllCredenciaisPendentes';
 import { useAllPaymentConfirmations } from '@/hooks/useAllPaymentConfirmations';
