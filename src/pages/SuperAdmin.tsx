@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search, BookOpen, Activity, Stethoscope, FlaskConical, QrCode, CreditCard, ShieldCheck, Webhook } from 'lucide-react';
+import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search, BookOpen, Activity, Stethoscope, FlaskConical, QrCode, CreditCard, ShieldCheck, Webhook, ShieldAlert } from 'lucide-react';
 import { useSuperAdmin } from '@/hooks/useSuperAdmin';
 import { useAllCredenciaisPendentes } from '@/hooks/useAllCredenciaisPendentes';
 import { useAllPaymentConfirmations } from '@/hooks/useAllPaymentConfirmations';
@@ -20,6 +20,7 @@ import { SuperAdminImportCNJTest } from '@/components/SuperAdmin/SuperAdminImpor
 import { SuperAdminPixConfig } from '@/components/SuperAdmin/SuperAdminPixConfig';
 import { SuperAdminAuthenticator } from '@/components/SuperAdmin/SuperAdminAuthenticator';
 import { SuperAdminWebhookTest } from '@/components/SuperAdmin/SuperAdminWebhookTest';
+import { SuperAdminSecurity } from '@/components/SuperAdmin/SuperAdminSecurity';
 import { LinkBioSection } from '@/components/SuperAdmin/LinkBioSection';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { Badge } from '@/components/ui/badge';
@@ -282,7 +283,7 @@ export default function SuperAdmin() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-7xl grid-cols-11">
+          <TabsList className="grid w-full max-w-7xl grid-cols-12">
             <TabsTrigger value="tenants" className="flex items-center gap-2">
               <Building2 className="w-4 h-4" />
               Clientes
@@ -326,6 +327,10 @@ export default function SuperAdmin() {
             <TabsTrigger value="authenticator" className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4" />
               Autenticador
+            </TabsTrigger>
+            <TabsTrigger value="seguranca" className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4" />
+              Segurança
             </TabsTrigger>
           </TabsList>
 
@@ -407,6 +412,10 @@ export default function SuperAdmin() {
 
           <TabsContent value="authenticator">
             <SuperAdminAuthenticator />
+          </TabsContent>
+
+          <TabsContent value="seguranca">
+            <SuperAdminSecurity />
           </TabsContent>
         </Tabs>
       </main>
