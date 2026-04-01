@@ -59,6 +59,9 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
   const { tenantId } = useTenantId();
   const { theme } = useTheme();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  const includeProtocolos = user?.email === 'danieldemorais.e@gmail.com';
 
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<PlanejadorTask | null>(null);
@@ -73,7 +76,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
   const [deadlineDetailOpen, setDeadlineDetailOpen] = useState(false);
   const [columnConfig, setColumnConfig] = useState<ColumnConfig[]>(() => loadColumnConfig(tenantId));
 
-  const { tasksByColumn, isLoading, createTask, updateTask, deleteTask } = usePlanejadorTasks();
+  const { tasksByColumn, isLoading, createTask, updateTask, deleteTask } = usePlanejadorTasks({ includeProtocolos });
   const { labels } = usePlanejadorLabels();
   const { data: allLabelAssignments = [] } = useAllLabelAssignments();
 
