@@ -204,6 +204,30 @@ export const EditarPrazoDialog = ({
     }
   };
 
+  // Handle workspace change — filter protocolos by workspace
+  const handleWorkspaceChange = async (val: string) => {
+    const wsId = val === 'default' ? '' : val;
+    setSelectedWorkspaceId(wsId);
+    setSelectedProtocoloId('');
+    setSelectedEtapaId('');
+    setAvailableEtapas([]);
+
+    if (selectedProjectId) {
+      const query = supabase
+        .from('project_protocolos')
+        .select('id, nome, processo_oab_id')
+        .eq('project_id', selectedProjectId)
+        .order('nome');
+
+      if (wsId) {
+        query.eq('workspace_id', wsId);
+      }
+
+      const { data } = await query;
+      setAvailableProtocolos(data || []);
+    }
+  };
+
   // Handle protocolo change
   const handleProtocoloChange = async (val: string) => {
     const protId = val === 'none' ? '' : val;
