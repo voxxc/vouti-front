@@ -1529,7 +1529,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
 
       {/* Deadline Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           {selectedDeadline && (
             <>
               <DialogHeader>
