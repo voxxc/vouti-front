@@ -1,27 +1,35 @@
 
 
-## Plano: Indicadores de Prazos na Controladoria
+## Plano: Reorganizar menu do Super Admin com DropdownMenu agrupado
 
-### Objetivo
-Adicionar uma seção de **Prazos** dentro da aba Indicadores da Controladoria (`ControladoriaIndicadores.tsx`), exibindo:
-- Total de prazos, concluídos e pendentes
-- Tabela de quem concluiu cada prazo (nome, quantidade)
-- Botão de imprimir
+### Problema
+O `TabsList` tem 13 abas em uma linha (`grid-cols-13`), ficando apertado e bagunçado.
+
+### Solução
+Substituir o `TabsList` por uma barra de navegação com botões principais visíveis + menus dropdown para agrupar itens relacionados.
+
+**Grupos propostos:**
+
+| Visível (botões diretos) | Dropdown "Ferramentas" | Dropdown "Judit" | Dropdown "Segurança" |
+|---|---|---|---|
+| Clientes | Busca Geral | Monitoramento | Autenticador |
+| Leads | Teste Webhook | Diagnóstico | Cofre Judit |
+| Suporte | Teste CNJ | Judit Docs | Segurança |
+| Config. PIX | | | |
 
 ### Implementação
 
-**Arquivo**: `src/components/Controladoria/ControladoriaIndicadores.tsx`
+**Arquivo**: `src/pages/SuperAdmin.tsx`
 
-Expandir o componente para buscar dados da tabela `deadlines` (filtrados por tenant via projetos do tenant) com join em `profiles` via `concluido_por`:
+1. Remover `TabsList` com `grid-cols-13` e os 13 `TabsTrigger`
+2. Criar uma barra de navegação com:
+   - Botões diretos para: Clientes, Leads, Suporte, Config. PIX
+   - `DropdownMenu` "Ferramentas" com: Busca Geral, Teste Webhook, Teste CNJ
+   - `DropdownMenu` "Judit" com: Monitoramento, Diagnóstico, Judit Docs, Cofre Judit
+   - `DropdownMenu` "Segurança" com: Autenticador, Segurança
+3. Cada item do dropdown chama `setMainTab(value)` ao clicar
+4. Highlight visual no botão/dropdown ativo (baseado no `mainTab` atual)
+5. Manter todos os `TabsContent` intactos — só muda a navegação
 
-1. **Query adicional**: Buscar deadlines com join em `profiles` (concluido_por) e filtrar pelo tenant
-2. **Cards de resumo**: Total de prazos, Concluídos (com taxa %), Pendentes, Atrasados (>7 dias sem concluir)
-3. **Tabela "Prazos concluídos por usuário"**: Agrupar por `concluido_por`, exibir nome do perfil e quantidade de prazos concluídos
-4. **Tabela "Prazos pendentes"**: Lista dos prazos não concluídos com título, data, projeto
-5. **Botão Imprimir**: No header da seção, botão que chama `window.print()` com CSS `@media print` para formatar a saída
-
-A seção de Processos por Tribunal existente será mantida, e a nova seção de Prazos aparecerá abaixo (ou em grid lado a lado em telas grandes).
-
-### Arquivos a editar
-- `src/components/Controladoria/ControladoriaIndicadores.tsx` — adicionar seção de prazos com cards + tabelas + botão imprimir
+Imports adicionais: `DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger` de `@/components/ui/dropdown-menu`.
 
