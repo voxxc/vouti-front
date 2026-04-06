@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { BarChart3, CheckCircle2, Clock, AlertTriangle, Printer, CalendarClock, ChevronDown, ChevronUp, Filter } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BarChart3, CheckCircle2, Clock, AlertTriangle, Printer, CalendarClock, ChevronDown, ChevronUp, Filter, ChevronLeft, ChevronRight, TableIcon } from "lucide-react";
 import { format } from "date-fns";
 import { parseLocalDate } from "@/lib/dateUtils";
 
@@ -28,14 +28,18 @@ interface RawDeadline {
   completed: boolean;
   concluido_por: string | null;
   concluido_em: string | null;
+  created_at: string;
   project_id: string | null;
   user_id: string;
+  deadline_number: number | null;
 }
 
 interface ProfileInfo {
   name: string;
   avatar?: string;
 }
+
+const ITEMS_PER_PAGE = 50;
 
 export const ControladoriaIndicadores = () => {
   const { tenantId } = useTenantId();
@@ -55,8 +59,14 @@ export const ControladoriaIndicadores = () => {
   const [statusFilter, setStatusFilter] = useState("todos");
   const [userFilter, setUserFilter] = useState("todos");
 
+  // View tab
+  const [viewTab, setViewTab] = useState<"resumo" | "planilha">("resumo");
+
   // Expanded user
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+
+  // Pagination for planilha
+  const [currentPage, setCurrentPage] = useState(1);
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -93,12 +103,12 @@ export const ControladoriaIndicadores = () => {
 
       const { data: deadlines, error } = await supabase
         .from("deadlines")
-        .select("id, title, date, completed, concluido_por, concluido_em, project_id, user_id")
+        .select("id, title, date, completed, concluido_por, concluido_em, created_at, project_id, user_id, deadline_number")
         .eq("tenant_id", tenantId);
 
       if (error) { console.error(error); setLoadingPrazos(false); return; }
 
-      const all = deadlines || [];
+      const all = (deadlines || []) as RawDeadline[];
       setAllDeadlines(all);
 
       // Fetch profiles for all relevant users
@@ -141,11 +151,9 @@ export const ControladoriaIndicadores = () => {
     today.setHours(0, 0, 0, 0);
 
     return allDeadlines.filter(d => {
-      // Date range
       if (dateFrom && d.date < dateFrom) return false;
       if (dateTo && d.date > dateTo) return false;
 
-      // Status
       if (statusFilter === "concluidos" && !d.completed) return false;
       if (statusFilter === "pendentes" && d.completed) return false;
       if (statusFilter === "atrasados") {
@@ -154,7 +162,6 @@ export const ControladoriaIndicadores = () => {
         if (dd >= today) return false;
       }
 
-      // User
       if (userFilter !== "todos") {
         if (d.concluido_por !== userFilter && d.user_id !== userFilter) return false;
       }
@@ -162,6 +169,9 @@ export const ControladoriaIndicadores = () => {
       return true;
     });
   }, [allDeadlines, dateFrom, dateTo, statusFilter, userFilter]);
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, statusFilter, userFilter]);
 
   // Computed stats from filtered
   const stats = useMemo(() => {
@@ -210,8 +220,22 @@ export const ControladoriaIndicadores = () => {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [allDeadlines, profileMap]);
 
+  // Planilha data: sorted by date desc
+  const planilhaData = useMemo(() => {
+    return [...filtered].sort((a, b) => b.date.localeCompare(a.date));
+  }, [filtered]);
+
+  const totalPages = Math.max(1, Math.ceil(planilhaData.length / ITEMS_PER_PAGE));
+  const paginatedPlanilha = planilhaData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const getStatus = (d: RawDeadline) => {
+    if (d.completed) return "concluido";
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    return parseLocalDate(d.date) < today ? "atrasado" : "pendente";
+  };
+
   const handlePrint = () => {
-    const filterDesc = [];
+    const filterDesc: string[] = [];
     if (dateFrom || dateTo) filterDesc.push(`Período: ${dateFrom || "início"} a ${dateTo || "atual"}`);
     if (statusFilter !== "todos") filterDesc.push(`Status: ${statusFilter}`);
     if (userFilter !== "todos") filterDesc.push(`Usuário: ${profileMap.get(userFilter)?.name || userFilter}`);
@@ -219,67 +243,127 @@ export const ControladoriaIndicadores = () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Indicadores - Prazos</title>
-          <style>
-            body { font-family: system-ui, sans-serif; padding: 24px; color: #111; }
-            h1 { font-size: 18px; margin-bottom: 4px; }
-            h2 { font-size: 15px; margin-top: 20px; margin-bottom: 8px; }
-            .filters { font-size: 12px; color: #555; margin-bottom: 12px; }
-            .stats { display: flex; gap: 16px; margin-bottom: 16px; }
-            .stat { border: 1px solid #ddd; border-radius: 8px; padding: 12px 16px; min-width: 120px; }
-            .stat-label { font-size: 12px; color: #666; }
-            .stat-value { font-size: 22px; font-weight: 700; }
-            table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
-            th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eee; }
-            th { font-weight: 600; background: #f9f9f9; }
-            .muted { color: #888; font-size: 12px; }
-            .sub-table { margin-left: 24px; margin-bottom: 12px; }
-            .sub-table td { font-size: 12px; }
-            .overdue { color: #dc2626; font-weight: 600; }
-          </style>
-        </head>
-        <body>
-          <h1>Relatório de Prazos</h1>
-          <p class="muted">Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}</p>
-          ${filterDesc.length > 0 ? `<p class="filters">Filtros: ${filterDesc.join(" | ")}</p>` : ""}
-          <div class="stats">
-            <div class="stat"><div class="stat-label">Total</div><div class="stat-value">${stats.total}</div></div>
-            <div class="stat"><div class="stat-label">Concluídos</div><div class="stat-value">${stats.concluidos}</div></div>
-            <div class="stat"><div class="stat-label">Pendentes</div><div class="stat-value">${stats.pendentes}</div></div>
-            <div class="stat"><div class="stat-label">Atrasados</div><div class="stat-value">${stats.atrasados}</div></div>
-          </div>
-          ${userCounts.length > 0 ? `
-            <h2>Prazos concluídos por usuário</h2>
-            ${userCounts.map(u => {
-              const userDeadlines = getDeadlinesForUser(u.userId);
-              return `
-                <table>
-                  <thead><tr><th colspan="3">${u.name} — ${u.count} concluído(s)</th></tr></thead>
-                  <tbody>
-                    ${userDeadlines.map(d => `<tr><td>${d.title}</td><td>${format(parseLocalDate(d.date), "dd/MM/yyyy")}</td><td>${d.project_id ? projectMap.get(d.project_id) || "—" : "—"}</td></tr>`).join("")}
-                  </tbody>
-                </table>
-              `;
-            }).join("")}
-          ` : ""}
-          ${pendingDeadlines.length > 0 ? `
-            <h2>Prazos pendentes (${pendingDeadlines.length})</h2>
+    if (viewTab === "planilha") {
+      // Print spreadsheet view with ALL filtered data (not just current page)
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Planilha de Prazos</title>
+            <style>
+              body { font-family: system-ui, sans-serif; padding: 16px; color: #111; font-size: 11px; }
+              h1 { font-size: 16px; margin-bottom: 4px; }
+              .meta { font-size: 10px; color: #555; margin-bottom: 8px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+              th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; font-size: 10px; }
+              th { background: #e5e7eb; font-weight: 700; }
+              tr:nth-child(even) { background: #f9fafb; }
+              .status-concluido { background: #d1fae5; color: #065f46; font-weight: 600; }
+              .status-pendente { background: #fef3c7; color: #92400e; font-weight: 600; }
+              .status-atrasado { background: #fee2e2; color: #991b1b; font-weight: 600; }
+              @media print { body { padding: 8px; } }
+            </style>
+          </head>
+          <body>
+            <h1>Planilha de Prazos</h1>
+            <p class="meta">Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")} — ${planilhaData.length} registro(s)</p>
+            ${filterDesc.length > 0 ? `<p class="meta">Filtros: ${filterDesc.join(" | ")}</p>` : ""}
             <table>
-              <thead><tr><th>Título</th><th>Data</th><th>Projeto</th></tr></thead>
-              <tbody>${pendingDeadlines.map(d => {
-                const dd = parseLocalDate(d.date);
-                const today = new Date(); today.setHours(0,0,0,0);
-                const cls = dd < today ? ' class="overdue"' : '';
-                return `<tr><td${cls}>${d.title}</td><td${cls}>${format(dd, "dd/MM/yyyy")}</td><td>${d.project_id ? projectMap.get(d.project_id) || "—" : "—"}</td></tr>`;
-              }).join("")}</tbody>
+              <thead>
+                <tr>
+                  <th>Nº</th>
+                  <th>Título</th>
+                  <th>Data Prazo</th>
+                  <th>Criado em</th>
+                  <th>Concluído em</th>
+                  <th>Status</th>
+                  <th>Responsável</th>
+                  <th>Concluído por</th>
+                  <th>Projeto</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${planilhaData.map(d => {
+                  const status = getStatus(d);
+                  const statusLabel = status === "concluido" ? "Concluído" : status === "atrasado" ? "Atrasado" : "Pendente";
+                  return `<tr>
+                    <td>${d.deadline_number || "—"}</td>
+                    <td>${d.title}</td>
+                    <td>${format(parseLocalDate(d.date), "dd/MM/yyyy")}</td>
+                    <td>${d.created_at ? format(new Date(d.created_at), "dd/MM/yyyy HH:mm") : "—"}</td>
+                    <td>${d.concluido_em ? format(new Date(d.concluido_em), "dd/MM/yyyy HH:mm") : "—"}</td>
+                    <td class="status-${status}">${statusLabel}</td>
+                    <td>${profileMap.get(d.user_id)?.name || "—"}</td>
+                    <td>${d.concluido_por ? (profileMap.get(d.concluido_por)?.name || "—") : "—"}</td>
+                    <td>${d.project_id ? (projectMap.get(d.project_id) || "—") : "—"}</td>
+                  </tr>`;
+                }).join("")}
+              </tbody>
             </table>
-          ` : ""}
-        </body>
-      </html>
-    `);
+          </body>
+        </html>
+      `);
+    } else {
+      // Print resumo view
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Indicadores - Prazos</title>
+            <style>
+              body { font-family: system-ui, sans-serif; padding: 24px; color: #111; }
+              h1 { font-size: 18px; margin-bottom: 4px; }
+              h2 { font-size: 15px; margin-top: 20px; margin-bottom: 8px; }
+              .filters { font-size: 12px; color: #555; margin-bottom: 12px; }
+              .stats { display: flex; gap: 16px; margin-bottom: 16px; }
+              .stat { border: 1px solid #ddd; border-radius: 8px; padding: 12px 16px; min-width: 120px; }
+              .stat-label { font-size: 12px; color: #666; }
+              .stat-value { font-size: 22px; font-weight: 700; }
+              table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+              th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eee; }
+              th { font-weight: 600; background: #f9f9f9; }
+              .muted { color: #888; font-size: 12px; }
+              .overdue { color: #dc2626; font-weight: 600; }
+            </style>
+          </head>
+          <body>
+            <h1>Relatório de Prazos</h1>
+            <p class="muted">Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}</p>
+            ${filterDesc.length > 0 ? `<p class="filters">Filtros: ${filterDesc.join(" | ")}</p>` : ""}
+            <div class="stats">
+              <div class="stat"><div class="stat-label">Total</div><div class="stat-value">${stats.total}</div></div>
+              <div class="stat"><div class="stat-label">Concluídos</div><div class="stat-value">${stats.concluidos}</div></div>
+              <div class="stat"><div class="stat-label">Pendentes</div><div class="stat-value">${stats.pendentes}</div></div>
+              <div class="stat"><div class="stat-label">Atrasados</div><div class="stat-value">${stats.atrasados}</div></div>
+            </div>
+            ${userCounts.length > 0 ? `
+              <h2>Prazos concluídos por usuário</h2>
+              ${userCounts.map(u => {
+                const userDeadlines = getDeadlinesForUser(u.userId);
+                return `
+                  <table>
+                    <thead><tr><th colspan="3">${u.name} — ${u.count} concluído(s)</th></tr></thead>
+                    <tbody>
+                      ${userDeadlines.map(d => `<tr><td>${d.title}</td><td>${format(parseLocalDate(d.date), "dd/MM/yyyy")}</td><td>${d.project_id ? projectMap.get(d.project_id) || "—" : "—"}</td></tr>`).join("")}
+                    </tbody>
+                  </table>
+                `;
+              }).join("")}
+            ` : ""}
+            ${pendingDeadlines.length > 0 ? `
+              <h2>Prazos pendentes (${pendingDeadlines.length})</h2>
+              <table>
+                <thead><tr><th>Título</th><th>Data</th><th>Projeto</th></tr></thead>
+                <tbody>${pendingDeadlines.map(d => {
+                  const dd = parseLocalDate(d.date);
+                  const today = new Date(); today.setHours(0,0,0,0);
+                  const cls = dd < today ? ' class="overdue"' : '';
+                  return `<tr><td${cls}>${d.title}</td><td${cls}>${format(dd, "dd/MM/yyyy")}</td><td>${d.project_id ? projectMap.get(d.project_id) || "—" : "—"}</td></tr>`;
+                }).join("")}</tbody>
+              </table>
+            ` : ""}
+          </body>
+        </html>
+      `);
+    }
     printWindow.document.close();
     printWindow.print();
   };
@@ -357,143 +441,255 @@ export const ControladoriaIndicadores = () => {
               ))}
             </div>
           ) : (
-            <>
-              {/* Cards de resumo */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="rounded-lg border bg-card p-3 space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <CalendarClock className="h-3.5 w-3.5" />
-                    Total
-                  </div>
-                  <p className="text-2xl font-bold tabular-nums">{stats.total}</p>
-                </div>
-                <div className="rounded-lg border bg-card p-3 space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                    Concluídos
-                  </div>
-                  <p className="text-2xl font-bold tabular-nums text-emerald-600">
-                    {stats.concluidos}
-                    {stats.total > 0 && (
-                      <span className="text-xs font-normal text-muted-foreground ml-1">
-                        ({((stats.concluidos / stats.total) * 100).toFixed(0)}%)
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <div className="rounded-lg border bg-card p-3 space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Clock className="h-3.5 w-3.5 text-amber-500" />
-                    Pendentes
-                  </div>
-                  <p className="text-2xl font-bold tabular-nums text-amber-600">{stats.pendentes}</p>
-                </div>
-                <div className="rounded-lg border bg-card p-3 space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
-                    Atrasados
-                  </div>
-                  <p className="text-2xl font-bold tabular-nums text-destructive">{stats.atrasados}</p>
-                </div>
-              </div>
+            <Tabs value={viewTab} onValueChange={v => setViewTab(v as "resumo" | "planilha")}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="resumo" className="gap-1.5">
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  Resumo
+                </TabsTrigger>
+                <TabsTrigger value="planilha" className="gap-1.5">
+                  <TableIcon className="h-3.5 w-3.5" />
+                  Planilha
+                </TabsTrigger>
+              </TabsList>
 
-              {/* Tabela: concluídos por usuário (expandível) */}
-              {userCounts.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Prazos concluídos por usuário</h4>
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Usuário</TableHead>
-                          <TableHead className="w-28 text-right">Concluídos</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {userCounts.map(u => {
-                          const isExpanded = expandedUserId === u.userId;
-                          const userDeadlines = isExpanded ? getDeadlinesForUser(u.userId) : [];
-                          return (
-                            <>
-                              <TableRow
-                                key={u.userId}
-                                className="cursor-pointer hover:bg-muted/50"
-                                onClick={() => setExpandedUserId(isExpanded ? null : u.userId)}
-                              >
-                                <TableCell className="font-medium">
-                                  <div className="flex items-center gap-2">
-                                    {isExpanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
-                                    {u.name}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Badge variant="secondary" className="tabular-nums">{u.count}</Badge>
-                                </TableCell>
-                              </TableRow>
-                              {isExpanded && userDeadlines.map(d => (
-                                <TableRow key={d.id} className="bg-muted/20">
-                                  <TableCell className="pl-10 text-sm text-muted-foreground">{d.title}</TableCell>
-                                  <TableCell className="text-right text-xs text-muted-foreground">
-                                    {format(parseLocalDate(d.date), "dd/MM/yyyy")}
-                                    {d.project_id && projectMap.get(d.project_id) && (
-                                      <span className="ml-2">• {projectMap.get(d.project_id)}</span>
-                                    )}
+              <TabsContent value="resumo" className="space-y-5 mt-0">
+                {/* Cards de resumo */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="rounded-lg border bg-card p-3 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <CalendarClock className="h-3.5 w-3.5" />
+                      Total
+                    </div>
+                    <p className="text-2xl font-bold tabular-nums">{stats.total}</p>
+                  </div>
+                  <div className="rounded-lg border bg-card p-3 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                      Concluídos
+                    </div>
+                    <p className="text-2xl font-bold tabular-nums text-emerald-600">
+                      {stats.concluidos}
+                      {stats.total > 0 && (
+                        <span className="text-xs font-normal text-muted-foreground ml-1">
+                          ({((stats.concluidos / stats.total) * 100).toFixed(0)}%)
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-card p-3 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5 text-amber-500" />
+                      Pendentes
+                    </div>
+                    <p className="text-2xl font-bold tabular-nums text-amber-600">{stats.pendentes}</p>
+                  </div>
+                  <div className="rounded-lg border bg-card p-3 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+                      Atrasados
+                    </div>
+                    <p className="text-2xl font-bold tabular-nums text-destructive">{stats.atrasados}</p>
+                  </div>
+                </div>
+
+                {/* Tabela: concluídos por usuário (expandível) */}
+                {userCounts.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Prazos concluídos por usuário</h4>
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Usuário</TableHead>
+                            <TableHead className="w-28 text-right">Concluídos</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {userCounts.map(u => {
+                            const isExpanded = expandedUserId === u.userId;
+                            const userDeadlines = isExpanded ? getDeadlinesForUser(u.userId) : [];
+                            return (
+                              <>
+                                <TableRow
+                                  key={u.userId}
+                                  className="cursor-pointer hover:bg-muted/50"
+                                  onClick={() => setExpandedUserId(isExpanded ? null : u.userId)}
+                                >
+                                  <TableCell className="font-medium">
+                                    <div className="flex items-center gap-2">
+                                      {isExpanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                                      {u.name}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Badge variant="secondary" className="tabular-nums">{u.count}</Badge>
                                   </TableCell>
                                 </TableRow>
-                              ))}
-                            </>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
+                                {isExpanded && userDeadlines.map(d => (
+                                  <TableRow key={d.id} className="bg-muted/20">
+                                    <TableCell className="pl-10 text-sm text-muted-foreground">{d.title}</TableCell>
+                                    <TableCell className="text-right text-xs text-muted-foreground">
+                                      {format(parseLocalDate(d.date), "dd/MM/yyyy")}
+                                      {d.project_id && projectMap.get(d.project_id) && (
+                                        <span className="ml-2">• {projectMap.get(d.project_id)}</span>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Tabela: prazos pendentes */}
-              {pendingDeadlines.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Prazos pendentes ({pendingDeadlines.length})</h4>
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Título</TableHead>
-                          <TableHead className="w-28">Data</TableHead>
-                          <TableHead>Projeto</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {pendingDeadlines.map(d => {
-                          const deadlineDate = parseLocalDate(d.date);
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          const isOverdue = deadlineDate < today;
+                {/* Tabela: prazos pendentes */}
+                {pendingDeadlines.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Prazos pendentes ({pendingDeadlines.length})</h4>
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Título</TableHead>
+                            <TableHead className="w-28">Data</TableHead>
+                            <TableHead>Projeto</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {pendingDeadlines.map(d => {
+                            const deadlineDate = parseLocalDate(d.date);
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const isOverdue = deadlineDate < today;
 
-                          return (
-                            <TableRow key={d.id}>
-                              <TableCell className="font-medium">{d.title}</TableCell>
-                              <TableCell>
-                                <span className={isOverdue ? "text-destructive font-medium" : ""}>
-                                  {format(deadlineDate, "dd/MM/yyyy")}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {d.project_id ? projectMap.get(d.project_id) || "—" : "—"}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
+                            return (
+                              <TableRow key={d.id}>
+                                <TableCell className="font-medium">{d.title}</TableCell>
+                                <TableCell>
+                                  <span className={isOverdue ? "text-destructive font-medium" : ""}>
+                                    {format(deadlineDate, "dd/MM/yyyy")}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {d.project_id ? projectMap.get(d.project_id) || "—" : "—"}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {stats.total === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">Nenhum prazo encontrado para os filtros selecionados.</p>
-              )}
-            </>
+                {stats.total === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">Nenhum prazo encontrado para os filtros selecionados.</p>
+                )}
+              </TabsContent>
+
+              <TabsContent value="planilha" className="mt-0">
+                {planilhaData.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Nenhum prazo encontrado para os filtros selecionados.</p>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs text-muted-foreground">
+                        {planilhaData.length} registro(s) — Página {currentPage} de {totalPages}
+                      </p>
+                    </div>
+                    <div className="rounded-md border overflow-auto">
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-muted">
+                            <th className="border border-border px-2 py-1.5 text-left font-semibold text-muted-foreground w-12">Nº</th>
+                            <th className="border border-border px-2 py-1.5 text-left font-semibold text-muted-foreground">Título</th>
+                            <th className="border border-border px-2 py-1.5 text-left font-semibold text-muted-foreground w-24">Data Prazo</th>
+                            <th className="border border-border px-2 py-1.5 text-left font-semibold text-muted-foreground w-32">Criado em</th>
+                            <th className="border border-border px-2 py-1.5 text-left font-semibold text-muted-foreground w-32">Concluído em</th>
+                            <th className="border border-border px-2 py-1.5 text-center font-semibold text-muted-foreground w-24">Status</th>
+                            <th className="border border-border px-2 py-1.5 text-left font-semibold text-muted-foreground">Responsável</th>
+                            <th className="border border-border px-2 py-1.5 text-left font-semibold text-muted-foreground">Concluído por</th>
+                            <th className="border border-border px-2 py-1.5 text-left font-semibold text-muted-foreground">Projeto</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paginatedPlanilha.map((d, idx) => {
+                            const status = getStatus(d);
+                            const isEven = idx % 2 === 0;
+                            return (
+                              <tr key={d.id} className={isEven ? "bg-background" : "bg-muted/30"}>
+                                <td className="border border-border px-2 py-1 tabular-nums text-muted-foreground">{d.deadline_number || "—"}</td>
+                                <td className="border border-border px-2 py-1 font-medium">{d.title}</td>
+                                <td className="border border-border px-2 py-1 tabular-nums">{format(parseLocalDate(d.date), "dd/MM/yyyy")}</td>
+                                <td className="border border-border px-2 py-1 tabular-nums text-muted-foreground">
+                                  {d.created_at ? format(new Date(d.created_at), "dd/MM/yyyy HH:mm") : "—"}
+                                </td>
+                                <td className="border border-border px-2 py-1 tabular-nums text-muted-foreground">
+                                  {d.concluido_em ? format(new Date(d.concluido_em), "dd/MM/yyyy HH:mm") : "—"}
+                                </td>
+                                <td className="border border-border px-2 py-1 text-center">
+                                  {status === "concluido" && (
+                                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                                      Concluído
+                                    </span>
+                                  )}
+                                  {status === "pendente" && (
+                                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+                                      Pendente
+                                    </span>
+                                  )}
+                                  {status === "atrasado" && (
+                                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400">
+                                      Atrasado
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="border border-border px-2 py-1">{profileMap.get(d.user_id)?.name || "—"}</td>
+                                <td className="border border-border px-2 py-1">{d.concluido_por ? (profileMap.get(d.concluido_por)?.name || "—") : "—"}</td>
+                                <td className="border border-border px-2 py-1 text-muted-foreground">{d.project_id ? (projectMap.get(d.project_id) || "—") : "—"}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-center gap-2 mt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1"
+                          disabled={currentPage <= 1}
+                          onClick={() => setCurrentPage(p => p - 1)}
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                          Anterior
+                        </Button>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {currentPage} / {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1"
+                          disabled={currentPage >= totalPages}
+                          onClick={() => setCurrentPage(p => p + 1)}
+                        >
+                          Próximo
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </TabsContent>
+            </Tabs>
           )}
         </CardContent>
       </Card>
