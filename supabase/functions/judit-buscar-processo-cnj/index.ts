@@ -48,7 +48,15 @@ serve(async (req) => {
       .maybeSingle();
 
     if (existente) {
-      throw new Error('Este processo ja esta cadastrado para esta OAB');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Este processo já está cadastrado para esta OAB',
+          duplicado: true,
+          processoId: existente.id
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
     }
 
     // Buscar credencial do tenant para usar no request (processos sigilosos)

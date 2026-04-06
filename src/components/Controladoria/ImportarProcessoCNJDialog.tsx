@@ -103,10 +103,19 @@ export const ImportarProcessoCNJDialog = ({
         ...(apartadoFlag && { apartado: true, sufixoApartado: sufixo })
       }
     }).then(({ data, error }) => {
-      if (error || !data?.success) {
+      if (error) {
         toast({
           title: 'Erro ao importar processo',
-          description: error?.message || data?.error || 'Tente novamente',
+          description: error.message || 'Tente novamente',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      if (!data?.success) {
+        toast({
+          title: data?.duplicado ? 'Processo já cadastrado' : 'Erro ao importar processo',
+          description: data?.error || 'Tente novamente',
           variant: 'destructive'
         });
         return;
