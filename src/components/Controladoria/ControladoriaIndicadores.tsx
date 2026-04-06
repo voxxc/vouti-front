@@ -288,6 +288,7 @@ export const ControladoriaIndicadores = () => {
             </style>
           </head>
           <body>
+            ${logoHtml}
             <h1>Planilha de Prazos</h1>
             <p class="meta">Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")} — ${planilhaData.length} registro(s)</p>
             ${filterDesc.length > 0 ? `<p class="meta">Filtros: ${filterDesc.join(" | ")}</p>` : ""}
@@ -346,6 +347,7 @@ export const ControladoriaIndicadores = () => {
             </style>
           </head>
           <body>
+            ${logoHtml}
             <h1>Prazos Concluídos por Usuário</h1>
             <p class="meta">Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}</p>
             ${filterDesc.length > 0 ? `<p class="meta">Filtros: ${filterDesc.join(" | ")}</p>` : ""}
@@ -382,6 +384,7 @@ export const ControladoriaIndicadores = () => {
             </style>
           </head>
           <body>
+            ${logoHtml}
             <h1>Relatório de Prazos</h1>
             <p class="muted">Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}</p>
             ${filterDesc.length > 0 ? `<p class="filters">Filtros: ${filterDesc.join(" | ")}</p>` : ""}
