@@ -52,8 +52,15 @@ import {
   Pencil,
   Save,
   Scale,
-  ExternalLink
+  ExternalLink,
+  MoreVertical
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 import { supabase } from '@/integrations/supabase/client';
 import { ProjectProtocolo, ProjectProtocoloEtapa, CreateEtapaData } from '@/hooks/useProjectProtocolos';
@@ -68,8 +75,12 @@ import { RelatorioProtocolo } from './RelatorioProtocolo';
 import { EditarAdvogadoProjectModal } from './EditarAdvogadoProjectModal';
 import { ProtocoloVinculoTab } from './ProtocoloVinculoTab';
 import { DeadlineComentarios } from '@/components/Agenda/DeadlineComentarios';
+import { EditarPrazoDialog } from '@/components/Agenda/EditarPrazoDialog';
+import { Deadline } from '@/types/agenda';
 import { TaskComentarios } from './TaskComentarios';
 import { Separator } from '@/components/ui/separator';
+import { useTenantId } from '@/hooks/useTenantId';
+import { parseISO, isValid } from 'date-fns';
 
 export interface ProjectProtocoloContentProps {
   protocolo: ProjectProtocolo;
@@ -137,11 +148,15 @@ export function ProjectProtocoloContent({
   const [comentarioConclusao, setComentarioConclusao] = useState('');
   const [criarSubtarefa, setCriarSubtarefa] = useState(false);
   const [subtarefaDescricao, setSubtarefaDescricao] = useState('');
+  const [isEditPrazoOpen, setIsEditPrazoOpen] = useState(false);
+  const [editingDeadlineObj, setEditingDeadlineObj] = useState<Deadline | null>(null);
+  const [deleteDeadlineConfirm, setDeleteDeadlineConfirm] = useState<string | null>(null);
   
   const [tarefasProcesso, setTarefasProcesso] = useState<TarefaOAB[]>([]);
   
   const { user } = useAuth();
   const { toast } = useToast();
+  const { tenantId } = useTenantId();
   const { advogado, refetch: refetchAdvogado } = useProjectAdvogado(projectId || '');
   const { processoVinculado, refetch: refetchVinculo } = useProtocoloVinculo(
     protocolo?.id || null, 
@@ -290,6 +305,60 @@ export function ProjectProtocoloContent({
       }
       toast({ title: "Prazo reaberto", description: "Prazo marcado como pendente." });
     }
+  };
+
+  const safeParseDate = (dateString: string | null | undefined): Date => {
+    if (!dateString) return new Date();
+    try {
+      const parsed = parseISO(dateString + 'T12:00:00');
+      return isValid(parsed) ? parsed : new Date();
+    } catch { return new Date(); }
+  };
+
+  const mapPrazoToDeadline = (prazo: any): Deadline => ({
+    id: prazo.id,
+    title: prazo.title,
+    description: prazo.description || '',
+    date: safeParseDate(prazo.date),
+    projectId: prazo.project_id || projectId || '',
+    projectName: prazo.projects?.name || '',
+    clientName: prazo.projects?.client || '',
+    completed: prazo.completed,
+    advogadoResponsavel: prazo.advogado ? {
+      userId: prazo.advogado.user_id,
+      name: prazo.advogado.full_name,
+      avatar: prazo.advogado.avatar_url,
+    } : undefined,
+    taggedUsers: (prazo.deadline_tags || []).filter((t: any) => t.tagged_user).map((t: any) => ({
+      userId: t.tagged_user.user_id,
+      name: t.tagged_user.full_name || 'Usuário',
+      avatar: t.tagged_user.avatar_url,
+    })),
+    createdAt: new Date(prazo.created_at || Date.now()),
+    updatedAt: new Date(prazo.updated_at || Date.now()),
+    processoOabId: protocolo?.processoOabId || undefined,
+    protocoloEtapaId: prazo.protocolo_etapa_id || undefined,
+    deadlineNumber: prazo.deadline_number || undefined,
+  });
+
+  const handleEditDeadline = (prazo: any) => {
+    setEditingDeadlineObj(mapPrazoToDeadline(prazo));
+    setIsEditPrazoOpen(true);
+  };
+
+  const handleDeleteDeadline = async (deadlineId: string) => {
+    const { error } = await supabase.from('deadlines').delete().eq('id', deadlineId);
+    if (error) {
+      toast({ title: "Erro", description: "Não foi possível excluir o prazo.", variant: "destructive" });
+      return;
+    }
+    setPrazosVinculados(prev => prev.filter(p => p.id !== deadlineId));
+    if (selectedDeadline?.id === deadlineId) {
+      setIsDetailDialogOpen(false);
+      setSelectedDeadline(null);
+    }
+    setDeleteDeadlineConfirm(null);
+    toast({ title: "Prazo excluído" });
   };
 
   useEffect(() => {
@@ -751,7 +820,27 @@ export function ProjectProtocoloContent({
           {selectedDeadline && (
             <>
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2"><Clock className="h-5 w-5" /> {selectedDeadline.title}</DialogTitle>
+                <div className="flex items-center justify-between">
+                  <DialogTitle className="flex items-center gap-2"><Clock className="h-5 w-5" /> {selectedDeadline.title}</DialogTitle>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEditDeadline(selectedDeadline)}>
+                        <Pencil className="h-4 w-4 mr-2" /> Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive" onClick={() => setDeleteDeadlineConfirm(selectedDeadline.id)}>
+                        <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                {selectedDeadline.deadline_number && (
+                  <p className="text-xs text-muted-foreground">Prazo nº {selectedDeadline.deadline_number}</p>
+                )}
               </DialogHeader>
               <Tabs defaultValue="info" className="flex-1 overflow-hidden flex flex-col">
                 <TabsList className="grid w-full grid-cols-2">
@@ -926,6 +1015,34 @@ export function ProjectProtocoloContent({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete deadline confirmation */}
+      <AlertDialog open={!!deleteDeadlineConfirm} onOpenChange={(open) => { if (!open) setDeleteDeadlineConfirm(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir prazo?</AlertDialogTitle>
+            <AlertDialogDescription>Esta ação não pode ser desfeita. O prazo será excluído permanentemente.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => deleteDeadlineConfirm && handleDeleteDeadline(deleteDeadlineConfirm)}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit deadline dialog */}
+      <EditarPrazoDialog
+        deadline={editingDeadlineObj}
+        open={isEditPrazoOpen}
+        onOpenChange={setIsEditPrazoOpen}
+        onSuccess={() => {
+          fetchPrazosVinculados();
+          setIsDetailDialogOpen(false);
+        }}
+        tenantId={tenantId || ''}
+      />
     </>
   );
 }

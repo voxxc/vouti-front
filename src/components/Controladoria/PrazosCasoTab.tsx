@@ -1,15 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, CheckCircle2, Clock, AlertTriangle, Loader2, User } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock, AlertTriangle, Loader2, User, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { toast } from 'sonner';
+import { DeadlineDetailDialog } from '@/components/Agenda/DeadlineDetailDialog';
 
 interface PrazosCasoTabProps {
   processoOabId: string;
@@ -42,6 +44,8 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
   const [prazos, setPrazos] = useState<PrazoCaso[]>([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [selectedDeadlineId, setSelectedDeadlineId] = useState<string | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   const deadlineSelect = `
     id, title, description, date, completed, concluido_em,
@@ -53,31 +57,25 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
   const fetchPrazos = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
 
-    // Query 1: deadlines diretos do caso
     const { data: directData, error: directError } = await supabase
       .from('deadlines')
       .select(deadlineSelect)
       .eq('processo_oab_id', processoOabId)
       .order('date', { ascending: true });
 
-    if (directError) {
-      console.error('[PrazosCasoTab] Direct query error:', directError);
-    }
+    if (directError) console.error('[PrazosCasoTab] Direct query error:', directError);
 
     const directPrazos: PrazoCaso[] = ((directData as any) || []).map((p: any) => ({
       ...p,
       origem: 'caso' as const,
     }));
 
-    // Query 2: buscar etapas de protocolos vinculados ao caso
     const { data: etapas, error: etapasError } = await supabase
       .from('project_protocolo_etapas')
       .select('id, nome, protocolo:project_protocolos!inner(id, nome, processo_oab_id)')
       .eq('protocolo.processo_oab_id', processoOabId);
 
-    if (etapasError) {
-      console.error('[PrazosCasoTab] Etapas query error:', etapasError);
-    }
+    if (etapasError) console.error('[PrazosCasoTab] Etapas query error:', etapasError);
 
     let protocolPrazos: PrazoCaso[] = [];
     const etapasList = (etapas as any) || [];
@@ -92,9 +90,7 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
         .in('protocolo_etapa_id', etapaIds)
         .order('date', { ascending: true });
 
-      if (protError) {
-        console.error('[PrazosCasoTab] Protocol deadlines error:', protError);
-      }
+      if (protError) console.error('[PrazosCasoTab] Protocol deadlines error:', protError);
 
       protocolPrazos = ((protData as any) || []).map((p: any) => {
         const etapa = etapaMap.get(p.protocolo_etapa_id) as any;
@@ -106,30 +102,24 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
       });
     }
 
-    // Merge + deduplica por id
     const allMap = new Map<string, PrazoCaso>();
     directPrazos.forEach(p => allMap.set(p.id, p));
     protocolPrazos.forEach(p => {
       if (!allMap.has(p.id)) allMap.set(p.id, p);
     });
 
-    const merged = Array.from(allMap.values()).sort((a, b) =>
-      a.date.localeCompare(b.date)
-    );
-
+    const merged = Array.from(allMap.values()).sort((a, b) => a.date.localeCompare(b.date));
     setPrazos(merged);
     if (!silent) setLoading(false);
   }, [processoOabId]);
 
   useEffect(() => {
-    // Check if a deadline was recently created while this component was unmounted
     const lastCreated = sessionStorage.getItem('deadline-created-at');
     if (lastCreated && Date.now() - parseInt(lastCreated) < 30000) {
       sessionStorage.removeItem('deadline-created-at');
     }
     fetchPrazos();
   }, [fetchPrazos]);
-
 
   const handleToggleCompleted = async (prazo: PrazoCaso) => {
     setToggling(prazo.id);
@@ -167,6 +157,11 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
     return { label: 'Pendente', icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/30' };
   };
 
+  const openDetail = (prazoId: string) => {
+    setSelectedDeadlineId(prazoId);
+    setIsDetailOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -195,7 +190,7 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
     return (
       <Card key={prazo.id} className={`p-3 ${status.bg} border`}>
         <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openDetail(prazo.id)}>
             <div className="flex items-center gap-2 mb-1">
               <StatusIcon className={`w-4 h-4 shrink-0 ${status.color}`} />
               <span className="font-medium text-sm truncate">{prazo.title}</span>
@@ -234,42 +229,61 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
               </p>
             )}
           </div>
-          <Switch
-            checked={prazo.completed}
-            onCheckedChange={() => handleToggleCompleted(prazo)}
-            disabled={toggling === prazo.id}
-          />
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openDetail(prazo.id)}>
+              <Info className="h-4 w-4" />
+            </Button>
+            <Switch
+              checked={prazo.completed}
+              onCheckedChange={() => handleToggleCompleted(prazo)}
+              disabled={toggling === prazo.id}
+            />
+          </div>
         </div>
       </Card>
     );
   };
 
   return (
-    <ScrollArea className="h-[calc(100vh-420px)]">
-      <div className="space-y-4 pr-4">
-        {pendentes.length > 0 && (
-          <div>
-            <h4 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Pendentes ({pendentes.length})
-            </h4>
-            <div className="space-y-2">
-              {pendentes.map(renderPrazo)}
+    <>
+      <ScrollArea className="h-[calc(100vh-420px)]">
+        <div className="space-y-4 pr-4">
+          {pendentes.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Pendentes ({pendentes.length})
+              </h4>
+              <div className="space-y-2">
+                {pendentes.map(renderPrazo)}
+              </div>
             </div>
-          </div>
-        )}
-        {concluidos.length > 0 && (
-          <div>
-            <h4 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4" />
-              Concluídos ({concluidos.length})
-            </h4>
-            <div className="space-y-2">
-              {concluidos.map(renderPrazo)}
+          )}
+          {concluidos.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                Concluídos ({concluidos.length})
+              </h4>
+              <div className="space-y-2">
+                {concluidos.map(renderPrazo)}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-    </ScrollArea>
+          )}
+        </div>
+      </ScrollArea>
+
+      <DeadlineDetailDialog
+        deadlineId={selectedDeadlineId}
+        open={isDetailOpen}
+        onOpenChange={(open) => {
+          setIsDetailOpen(open);
+          if (!open) {
+            setSelectedDeadlineId(null);
+            fetchPrazos(true);
+          }
+        }}
+      />
+    </>
   );
 };
