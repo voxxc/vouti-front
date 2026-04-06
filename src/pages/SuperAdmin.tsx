@@ -285,60 +285,115 @@ export default function SuperAdmin() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-7xl grid-cols-13">
-            <TabsTrigger value="tenants" className="flex items-center gap-2">
-              <Building2 className="w-4 h-4" />
-              Clientes
-            </TabsTrigger>
-            <TabsTrigger value="leads" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Leads
-            </TabsTrigger>
-            <TabsTrigger value="support" className="flex items-center gap-2">
-              <Headphones className="w-4 h-4" />
-              Suporte
-            </TabsTrigger>
-            <TabsTrigger value="monitoramento" className="flex items-center gap-2">
-              <Activity className="w-4 h-4" />
-              Monitoramento
-            </TabsTrigger>
-            <TabsTrigger value="diagnostico" className="flex items-center gap-2">
-              <Stethoscope className="w-4 h-4" />
-              Diagnóstico
-            </TabsTrigger>
-            <TabsTrigger value="teste-webhook" className="flex items-center gap-2">
-              <Webhook className="w-4 h-4" />
-              Teste Webhook
-            </TabsTrigger>
-            <TabsTrigger value="teste-cnj" className="flex items-center gap-2">
-              <FlaskConical className="w-4 h-4" />
-              Teste CNJ
-            </TabsTrigger>
-            <TabsTrigger value="busca-geral" className="flex items-center gap-2">
-              <Search className="w-4 h-4" />
-              Busca Geral
-            </TabsTrigger>
-            <TabsTrigger value="judit-docs" className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4" />
-              Judit Docs
-            </TabsTrigger>
-            <TabsTrigger value="config-pix" className="flex items-center gap-2">
-              <QrCode className="w-4 h-4" />
-              Config. PIX
-            </TabsTrigger>
-            <TabsTrigger value="authenticator" className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4" />
-              Autenticador
-            </TabsTrigger>
-            <TabsTrigger value="cofre-judit" className="flex items-center gap-2">
-              <Key className="w-4 h-4" />
-              Cofre Judit
-            </TabsTrigger>
-            <TabsTrigger value="seguranca" className="flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4" />
-              Segurança
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/50 p-2">
+            {/* Botões diretos */}
+            <Button
+              variant={mainTab === 'tenants' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setMainTab('tenants')}
+              className="gap-2"
+            >
+              <Building2 className="h-4 w-4" /> Clientes
+            </Button>
+            <Button
+              variant={mainTab === 'leads' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setMainTab('leads')}
+              className="gap-2"
+            >
+              <Users className="h-4 w-4" /> Leads
+            </Button>
+            <Button
+              variant={mainTab === 'support' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setMainTab('support')}
+              className="gap-2"
+            >
+              <Headphones className="h-4 w-4" /> Suporte
+            </Button>
+            <Button
+              variant={mainTab === 'config-pix' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setMainTab('config-pix')}
+              className="gap-2"
+            >
+              <QrCode className="h-4 w-4" /> Config. PIX
+            </Button>
+
+            <div className="h-6 w-px bg-border mx-1" />
+
+            {/* Dropdown Ferramentas */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={['busca-geral', 'teste-webhook', 'teste-cnj'].includes(mainTab) ? 'default' : 'ghost'}
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Wrench className="h-4 w-4" /> Ferramentas <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => setMainTab('busca-geral')} className="gap-2">
+                  <Search className="h-4 w-4" /> Busca Geral
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMainTab('teste-webhook')} className="gap-2">
+                  <Webhook className="h-4 w-4" /> Teste Webhook
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMainTab('teste-cnj')} className="gap-2">
+                  <FlaskConical className="h-4 w-4" /> Teste CNJ
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Dropdown Judit */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={['monitoramento', 'diagnostico', 'judit-docs', 'cofre-judit'].includes(mainTab) ? 'default' : 'ghost'}
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Activity className="h-4 w-4" /> Judit <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => setMainTab('monitoramento')} className="gap-2">
+                  <Activity className="h-4 w-4" /> Monitoramento
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMainTab('diagnostico')} className="gap-2">
+                  <Stethoscope className="h-4 w-4" /> Diagnóstico
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMainTab('judit-docs')} className="gap-2">
+                  <BookOpen className="h-4 w-4" /> Judit Docs
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMainTab('cofre-judit')} className="gap-2">
+                  <Key className="h-4 w-4" /> Cofre Judit
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Dropdown Segurança */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={['authenticator', 'seguranca'].includes(mainTab) ? 'default' : 'ghost'}
+                  size="sm"
+                  className="gap-2"
+                >
+                  <ShieldCheck className="h-4 w-4" /> Segurança <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => setMainTab('authenticator')} className="gap-2">
+                  <ShieldCheck className="h-4 w-4" /> Autenticador
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMainTab('seguranca')} className="gap-2">
+                  <ShieldAlert className="h-4 w-4" /> Segurança
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
           <TabsContent value="tenants">
             <div className="mb-8">
