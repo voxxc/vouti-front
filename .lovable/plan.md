@@ -1,52 +1,45 @@
 
 
-## Plano: Filtros avançados e expansão por usuário nos Indicadores de Prazos
+## Plano: Aba "Planilha" nos Indicadores de Prazos — visão tabular completa
 
 ### Objetivo
-Adicionar filtros de período (de/até), status (Concluídos/Pendentes/Atrasados) e usuário ao painel de Indicadores de Prazos. Permitir expandir cada usuário para ver os prazos concluídos dele. Resultado filtrado imprimível/PDF.
+Adicionar uma nova aba dentro do card "Indicadores de Prazos" que exiba todos os prazos em formato de planilha (como o print enviado), com colunas detalhadas e visual limpo para impressão/PDF.
 
-### Implementação
+### Layout
+
+A seção de Indicadores de Prazos terá duas abas internas (usando `Tabs`):
+- **Resumo** (atual): cards de métricas + tabelas agrupadas por usuário + pendentes
+- **Planilha**: tabela flat estilo spreadsheet com todos os prazos filtrados
+
+Os filtros (período, status, usuário) ficam acima das abas e se aplicam a ambas.
+
+### Colunas da Planilha
+
+| Coluna | Dados |
+|---|---|
+| Nº | `deadline_number` (número sequencial de auditoria) |
+| Título / Descrição | `title` |
+| Data do Prazo | `date` (data fatal) |
+| Criado em | `created_at` (timestamp de criação) |
+| Concluído em | `concluido_em` (timestamp de conclusão, ou "—") |
+| Status | Badge: Concluído (verde), Pendente (amarelo), Atrasado (vermelho) |
+| Responsável | Nome do `user_id` (quem criou/é responsável) |
+| Concluído por | Nome do `concluido_por` |
+| Projeto | Nome do projeto vinculado |
+
+### Detalhes de implementação
 
 **Arquivo**: `src/components/Controladoria/ControladoriaIndicadores.tsx`
 
-#### 1. Novos estados de filtro
-- `dateFrom: string` e `dateTo: string` — campos date input para período
-- `statusFilter: "todos" | "concluidos" | "pendentes" | "atrasados"` — select de status
-- `userFilter: string` — select com "Todos" + lista de usuários do tenant
-- `expandedUserId: string | null` — controla qual usuário está expandido
-
-#### 2. Armazenar dados brutos completos
-- Guardar `allDeadlines` (todos os deadlines do fetch) em estado separado
-- Guardar `allProfiles` (mapa userId → nome) para o select de usuários
-- Guardar detalhes dos prazos concluídos por usuário (`userDeadlines: Map<string, Deadline[]>`)
-
-#### 3. Barra de filtros (abaixo do header, acima dos cards)
-```
-[Data De: ___] [Data Até: ___] [Status: Todos ▼] [Usuário: Todos ▼] [Filtrar]
-```
-- Date inputs com `type="date"` 
-- Select de status: Todos, Concluídos, Pendentes, Atrasados
-- Select de usuário: Todos + nomes dos perfis do tenant
-- Botão "Filtrar" aplica os filtros no client-side sobre `allDeadlines`
-
-#### 4. Filtragem client-side
-- Filtrar `allDeadlines` por período (comparar `d.date` com dateFrom/dateTo)
-- Filtrar por status (completed, !completed, atrasado)
-- Filtrar por usuário (concluido_por ou user_id)
-- Recalcular cards de resumo, tabelas de usuários e pendentes com dados filtrados
-
-#### 5. Expandir usuário ao clicar
-- Na tabela "Prazos concluídos por usuário", ao clicar no nome → toggle `expandedUserId`
-- Ícone ChevronDown/ChevronUp ao lado do nome
-- Abaixo da row, renderizar sub-tabela com: Título, Data, Projeto dos prazos concluídos por aquele usuário (respeitando filtros ativos)
-
-#### 6. Impressão/PDF atualizado
-- O `handlePrint` já gera HTML em nova janela — atualizar para:
-  - Incluir os filtros aplicados no cabeçalho ("Período: X a Y", "Status: Concluídos", etc.)
-  - Incluir os prazos expandidos do usuário selecionado (se houver)
-  - Incluir todos os dados filtrados (não só os 20 primeiros pendentes)
-- Botão "Imprimir" e botão "Exportar PDF" (ambos usam `window.print()` — o navegador oferece "Salvar como PDF")
+1. **Buscar campos adicionais**: Adicionar `created_at` e `deadline_number` ao select da query de deadlines (já existe `concluido_em`)
+2. **Novo estado `viewTab`**: `"resumo" | "planilha"` para alternar entre as duas visões
+3. **Aba Planilha**: Tabela com todas as colunas acima, ordenada por data do prazo decrescente
+4. **Visual estilo spreadsheet**: Bordas em todas as células (`border`), texto compacto (`text-xs`), linhas zebradas, header fixo com fundo cinza — similar ao print do usuário
+5. **Cores de status inline**: Atrasado em vermelho, concluído em verde, pendente em amarelo — aplicado na célula inteira ou apenas no badge
+6. **Paginação**: 50 itens por página com controles simples (anterior/próximo)
+7. **Impressão**: Atualizar `handlePrint` para detectar a aba ativa; se "planilha", gerar HTML com tabela completa estilo spreadsheet com todas as colunas
+8. **Botão "Imprimir" mantido no header** — funciona para ambas as abas
 
 ### Arquivos a editar
-- `src/components/Controladoria/ControladoriaIndicadores.tsx` — todas as mudanças concentradas neste arquivo
+- `src/components/Controladoria/ControladoriaIndicadores.tsx` — adicionar aba planilha, buscar campos extras, atualizar impressão
 
