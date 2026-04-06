@@ -307,6 +307,60 @@ export function ProjectProtocoloContent({
     }
   };
 
+  const safeParseDate = (dateString: string | null | undefined): Date => {
+    if (!dateString) return new Date();
+    try {
+      const parsed = parseISO(dateString + 'T12:00:00');
+      return isValid(parsed) ? parsed : new Date();
+    } catch { return new Date(); }
+  };
+
+  const mapPrazoToDeadline = (prazo: any): Deadline => ({
+    id: prazo.id,
+    title: prazo.title,
+    description: prazo.description || '',
+    date: safeParseDate(prazo.date),
+    projectId: prazo.project_id || projectId || '',
+    projectName: prazo.projects?.name || '',
+    clientName: prazo.projects?.client || '',
+    completed: prazo.completed,
+    advogadoResponsavel: prazo.advogado ? {
+      userId: prazo.advogado.user_id,
+      name: prazo.advogado.full_name,
+      avatar: prazo.advogado.avatar_url,
+    } : undefined,
+    taggedUsers: (prazo.deadline_tags || []).filter((t: any) => t.tagged_user).map((t: any) => ({
+      userId: t.tagged_user.user_id,
+      name: t.tagged_user.full_name || 'Usuário',
+      avatar: t.tagged_user.avatar_url,
+    })),
+    createdAt: new Date(prazo.created_at || Date.now()),
+    updatedAt: new Date(prazo.updated_at || Date.now()),
+    processoOabId: protocolo?.processoOabId || undefined,
+    protocoloEtapaId: prazo.protocolo_etapa_id || undefined,
+    deadlineNumber: prazo.deadline_number || undefined,
+  });
+
+  const handleEditDeadline = (prazo: any) => {
+    setEditingDeadlineObj(mapPrazoToDeadline(prazo));
+    setIsEditPrazoOpen(true);
+  };
+
+  const handleDeleteDeadline = async (deadlineId: string) => {
+    const { error } = await supabase.from('deadlines').delete().eq('id', deadlineId);
+    if (error) {
+      toast({ title: "Erro", description: "Não foi possível excluir o prazo.", variant: "destructive" });
+      return;
+    }
+    setPrazosVinculados(prev => prev.filter(p => p.id !== deadlineId));
+    if (selectedDeadline?.id === deadlineId) {
+      setIsDetailDialogOpen(false);
+      setSelectedDeadline(null);
+    }
+    setDeleteDeadlineConfirm(null);
+    toast({ title: "Prazo excluído" });
+  };
+
   useEffect(() => {
     if (selectedEtapa && protocolo?.etapas) {
       const updatedEtapa = protocolo.etapas.find(e => e.id === selectedEtapa.id);
