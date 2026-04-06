@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, CheckCircle2, Clock, AlertTriangle, Printer, CalendarClock, ChevronDown, ChevronUp, Filter, ChevronLeft, ChevronRight, TableIcon } from "lucide-react";
+import { BarChart3, CheckCircle2, Clock, AlertTriangle, Printer, CalendarClock, ChevronDown, ChevronUp, Filter, ChevronLeft, ChevronRight, TableIcon, Users } from "lucide-react";
 import { format } from "date-fns";
 import { parseLocalDate } from "@/lib/dateUtils";
 
@@ -60,7 +60,7 @@ export const ControladoriaIndicadores = () => {
   const [userFilter, setUserFilter] = useState("todos");
 
   // View tab
-  const [viewTab, setViewTab] = useState<"resumo" | "planilha">("resumo");
+  const [viewTab, setViewTab] = useState<"resumo" | "planilha" | "por-usuario">("resumo");
 
   // Expanded user
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
@@ -302,6 +302,39 @@ export const ControladoriaIndicadores = () => {
           </body>
         </html>
       `);
+    } else if (viewTab === "por-usuario") {
+      const totalConcluidos = userCounts.reduce((s, u) => s + u.count, 0);
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Prazos por Usuário</title>
+            <style>
+              body { font-family: system-ui, sans-serif; padding: 24px; color: #111; }
+              h1 { font-size: 18px; margin-bottom: 4px; }
+              .meta { font-size: 12px; color: #555; margin-bottom: 12px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+              th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+              th { background: #e5e7eb; font-weight: 700; }
+              tr:nth-child(even) { background: #f9fafb; }
+              tfoot td { font-weight: 700; background: #f3f4f6; border-top: 2px solid #999; }
+              .right { text-align: right; }
+              @media print { body { padding: 8px; } }
+            </style>
+          </head>
+          <body>
+            <h1>Prazos Concluídos por Usuário</h1>
+            <p class="meta">Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}</p>
+            ${filterDesc.length > 0 ? `<p class="meta">Filtros: ${filterDesc.join(" | ")}</p>` : ""}
+            <table>
+              <thead><tr><th>Usuário</th><th class="right">Prazos Concluídos</th></tr></thead>
+              <tbody>
+                ${userCounts.map(u => `<tr><td>${u.name}</td><td class="right">${u.count}</td></tr>`).join("")}
+              </tbody>
+              <tfoot><tr><td>Total</td><td class="right">${totalConcluidos}</td></tr></tfoot>
+            </table>
+          </body>
+        </html>
+      `);
     } else {
       // Print resumo view
       printWindow.document.write(`
@@ -441,7 +474,7 @@ export const ControladoriaIndicadores = () => {
               ))}
             </div>
           ) : (
-            <Tabs value={viewTab} onValueChange={v => setViewTab(v as "resumo" | "planilha")}>
+            <Tabs value={viewTab} onValueChange={v => setViewTab(v as "resumo" | "planilha" | "por-usuario")}>
               <TabsList className="mb-4">
                 <TabsTrigger value="resumo" className="gap-1.5">
                   <BarChart3 className="h-3.5 w-3.5" />
@@ -450,6 +483,10 @@ export const ControladoriaIndicadores = () => {
                 <TabsTrigger value="planilha" className="gap-1.5">
                   <TableIcon className="h-3.5 w-3.5" />
                   Planilha
+                </TabsTrigger>
+                <TabsTrigger value="por-usuario" className="gap-1.5">
+                  <Users className="h-3.5 w-3.5" />
+                  Por Usuário
                 </TabsTrigger>
               </TabsList>
 
@@ -687,6 +724,41 @@ export const ControladoriaIndicadores = () => {
                       </div>
                     )}
                   </>
+                )}
+              </TabsContent>
+
+              <TabsContent value="por-usuario" className="mt-0">
+                {userCounts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Nenhum prazo concluído encontrado para os filtros selecionados.</p>
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted">
+                          <TableHead className="font-semibold">Usuário</TableHead>
+                          <TableHead className="w-40 text-right font-semibold">Prazos Concluídos</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {userCounts.map((u, idx) => (
+                          <TableRow key={u.userId} className={idx % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                            <TableCell className="font-medium">{u.name}</TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant="secondary" className="tabular-nums">{u.count}</Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                      <tfoot>
+                        <tr className="border-t bg-muted/50 font-medium">
+                          <td className="p-4 font-semibold">Total</td>
+                          <td className="p-4 text-right">
+                            <Badge className="tabular-nums">{userCounts.reduce((sum, u) => sum + u.count, 0)}</Badge>
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </Table>
+                  </div>
                 )}
               </TabsContent>
             </Tabs>
