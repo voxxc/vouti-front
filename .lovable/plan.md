@@ -1,89 +1,46 @@
 
 
-## Plano: Numeração sequencial de prazos para auditoria
+## Plano: Adicionar menu de edição (3 pontos) nos detalhes de prazo do Protocolo e do Caso
 
-### Objetivo
-Cada prazo receberá um número sequencial único (por tenant) para rastreabilidade e auditoria. Esse número será exibido discretamente nos diálogos de detalhes e será pesquisável na Agenda.
+### Problema
+Nos diálogos de detalhes de prazo abertos via Protocolo (`ProjectProtocoloContent.tsx`) e via Caso (`PrazosCasoTab.tsx`), só existe o botão de concluir/reabrir. Falta o menu de 3 pontos (editar/excluir) que já existe no `DeadlineDetailDialog.tsx` da Agenda.
 
-### 1. Migração de banco de dados
+### Correção do build error
+O build error pendente precisa ser investigado e corrigido primeiro.
 
-Adicionar coluna `deadline_number` (integer) na tabela `deadlines`, com geração automática via trigger:
+### Solução
 
-```sql
--- Coluna
-ALTER TABLE public.deadlines ADD COLUMN deadline_number integer;
+#### 1. `src/components/Project/ProjectProtocoloContent.tsx`
 
--- Função para gerar número sequencial por tenant
-CREATE OR REPLACE FUNCTION public.set_deadline_number()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-DECLARE
-  next_num integer;
-BEGIN
-  SELECT COALESCE(MAX(deadline_number), 0) + 1 INTO next_num
-  FROM public.deadlines
-  WHERE tenant_id = NEW.tenant_id;
-  
-  NEW.deadline_number := next_num;
-  RETURN NEW;
-END;
-$$;
+**Importar**: `MoreVertical` do lucide, `DropdownMenu/DropdownMenuContent/DropdownMenuItem/DropdownMenuTrigger`, `AlertDialogTrigger`, e `EditarPrazoDialog`.
 
--- Trigger BEFORE INSERT
-CREATE TRIGGER trg_set_deadline_number
-  BEFORE INSERT ON public.deadlines
-  FOR EACH ROW
-  EXECUTE FUNCTION public.set_deadline_number();
+**Adicionar estados**:
+- `isEditDialogOpen` / `setIsEditDialogOpen`
+- `editingDeadline` (objeto Deadline mapeado para o EditarPrazoDialog)
 
--- Backfill: numerar prazos existentes por tenant/created_at
-WITH numbered AS (
-  SELECT id, ROW_NUMBER() OVER (PARTITION BY tenant_id ORDER BY created_at) AS rn
-  FROM public.deadlines
-)
-UPDATE public.deadlines d SET deadline_number = n.rn
-FROM numbered n WHERE d.id = n.id;
+**Na área de ações do dialog** (linha ~841-851), ao lado do botão Concluir/Reabrir, adicionar o menu de 3 pontos com:
+- "Editar" → abre `EditarPrazoDialog` com o prazo selecionado
+- "Excluir prazo" → AlertDialog de confirmação + delete do Supabase
 
--- Unique constraint
-CREATE UNIQUE INDEX idx_deadlines_tenant_number ON public.deadlines (tenant_id, deadline_number);
-```
+**Adicionar `EditarPrazoDialog`** no final do componente, com `onSuccess` que faz refetch dos prazos vinculados e atualiza o selectedDeadline.
 
-### 2. Tipo Deadline (`src/types/agenda.ts`)
-Adicionar campo `deadlineNumber?: number`.
+**Mapear o prazo** do formato bruto (do Supabase) para o formato `Deadline` que o `EditarPrazoDialog` espera (mesmo padrão usado no `DeadlineDetailDialog.tsx`).
 
-### 3. Hook de dados (`src/hooks/useAgendaData.ts`)
-Mapear `deadline.deadline_number` → `deadlineNumber` no objeto Deadline.
+#### 2. `src/components/Controladoria/PrazosCasoTab.tsx`
 
-### 4. Exibição discreta nos diálogos de detalhes
+A abordagem mais simples: em vez de replicar toda a lógica de detalhes, **substituir o dialog inline** por abrir o `DeadlineDetailDialog` standalone (que já tem menu de 3 pontos, editar, excluir, comentários, etc.). Isso reaproveita toda a infraestrutura existente e garante que tudo fique sincronizado.
 
-**`src/components/Agenda/DeadlineDetailDialog.tsx`** — No header do dialog, abaixo do título, exibir:
-```tsx
-<p className="text-xs text-muted-foreground">Prazo nº {deadline.deadlineNumber}</p>
-```
+**Alterações**:
+- Importar `DeadlineDetailDialog`
+- Adicionar estado `selectedDeadlineId` / `isDetailOpen`
+- Tornar cada card de prazo clicável (ou adicionar botão Info)
+- Renderizar `<DeadlineDetailDialog>` com `onOpenChange` que faz refetch
 
-**`src/components/Agenda/AgendaContent.tsx`** — No dialog inline de detalhes, mesmo padrão discreto no header.
-
-### 5. Busca por número na Agenda
-
-**`src/components/Agenda/AgendaContent.tsx`** — Atualizar `matchesSearchFilter` para incluir o número:
-```tsx
-const matchesSearchFilter = (deadline: Deadline) =>
-  deadline.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  deadline.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  deadline.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  deadline.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  (deadline.deadlineNumber && deadline.deadlineNumber.toString().includes(searchTerm));
-```
-
-### 6. Fetch no DeadlineDetailDialog
-O dialog standalone faz seu próprio fetch — garantir que `deadline_number` seja incluído na query e mapeado.
+#### 3. Correção do build error
+Investigar e corrigir o erro de build pendente (provavelmente relacionado às alterações anteriores de deadline_number).
 
 ### Arquivos a editar
-- **Migração SQL** (novo)
-- `src/types/agenda.ts`
-- `src/hooks/useAgendaData.ts`
-- `src/components/Agenda/DeadlineDetailDialog.tsx`
-- `src/components/Agenda/AgendaContent.tsx`
+- `src/components/Project/ProjectProtocoloContent.tsx` — adicionar 3 pontos (editar/excluir) no dialog de detalhes
+- `src/components/Controladoria/PrazosCasoTab.tsx` — usar `DeadlineDetailDialog` para consistência
+- Verificar e corrigir build error
 
