@@ -52,8 +52,15 @@ import {
   Pencil,
   Save,
   Scale,
-  ExternalLink
+  ExternalLink,
+  MoreVertical
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 import { supabase } from '@/integrations/supabase/client';
 import { ProjectProtocolo, ProjectProtocoloEtapa, CreateEtapaData } from '@/hooks/useProjectProtocolos';
@@ -68,8 +75,12 @@ import { RelatorioProtocolo } from './RelatorioProtocolo';
 import { EditarAdvogadoProjectModal } from './EditarAdvogadoProjectModal';
 import { ProtocoloVinculoTab } from './ProtocoloVinculoTab';
 import { DeadlineComentarios } from '@/components/Agenda/DeadlineComentarios';
+import { EditarPrazoDialog } from '@/components/Agenda/EditarPrazoDialog';
+import { Deadline } from '@/types/agenda';
 import { TaskComentarios } from './TaskComentarios';
 import { Separator } from '@/components/ui/separator';
+import { useTenantId } from '@/hooks/useTenantId';
+import { parseISO, isValid } from 'date-fns';
 
 export interface ProjectProtocoloContentProps {
   protocolo: ProjectProtocolo;
@@ -137,11 +148,15 @@ export function ProjectProtocoloContent({
   const [comentarioConclusao, setComentarioConclusao] = useState('');
   const [criarSubtarefa, setCriarSubtarefa] = useState(false);
   const [subtarefaDescricao, setSubtarefaDescricao] = useState('');
+  const [isEditPrazoOpen, setIsEditPrazoOpen] = useState(false);
+  const [editingDeadlineObj, setEditingDeadlineObj] = useState<Deadline | null>(null);
+  const [deleteDeadlineConfirm, setDeleteDeadlineConfirm] = useState<string | null>(null);
   
   const [tarefasProcesso, setTarefasProcesso] = useState<TarefaOAB[]>([]);
   
   const { user } = useAuth();
   const { toast } = useToast();
+  const { tenantId } = useTenantId();
   const { advogado, refetch: refetchAdvogado } = useProjectAdvogado(projectId || '');
   const { processoVinculado, refetch: refetchVinculo } = useProtocoloVinculo(
     protocolo?.id || null, 
