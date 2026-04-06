@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, CheckCircle2, Clock, AlertTriangle, Printer, CalendarClock, ChevronDown, ChevronUp, Filter, ChevronLeft, ChevronRight, TableIcon, Users } from "lucide-react";
+import { BarChart3, CheckCircle2, Clock, AlertTriangle, Printer, CalendarClock, ChevronDown, ChevronUp, Filter, ChevronLeft, ChevronRight, TableIcon, Users, Settings, Trash2, Upload } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { parseLocalDate } from "@/lib/dateUtils";
 
@@ -67,6 +68,27 @@ export const ControladoriaIndicadores = () => {
 
   // Pagination for planilha
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Logo config
+  const [logoEscritorio, setLogoEscritorio] = useState<string | null>(() => localStorage.getItem("escritorio_logo"));
+  const [showLogoConfig, setShowLogoConfig] = useState(false);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      localStorage.setItem("escritorio_logo", base64);
+      setLogoEscritorio(base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveLogo = () => {
+    localStorage.removeItem("escritorio_logo");
+    setLogoEscritorio(null);
+  };
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -240,6 +262,8 @@ export const ControladoriaIndicadores = () => {
     if (statusFilter !== "todos") filterDesc.push(`Status: ${statusFilter}`);
     if (userFilter !== "todos") filterDesc.push(`Usuário: ${profileMap.get(userFilter)?.name || userFilter}`);
 
+    const logoHtml = logoEscritorio ? `<div style="text-align:center;margin-bottom:12px;"><img src="${logoEscritorio}" style="max-height:60px;" /></div>` : "";
+
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
@@ -264,6 +288,7 @@ export const ControladoriaIndicadores = () => {
             </style>
           </head>
           <body>
+            ${logoHtml}
             <h1>Planilha de Prazos</h1>
             <p class="meta">Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")} — ${planilhaData.length} registro(s)</p>
             ${filterDesc.length > 0 ? `<p class="meta">Filtros: ${filterDesc.join(" | ")}</p>` : ""}
@@ -322,6 +347,7 @@ export const ControladoriaIndicadores = () => {
             </style>
           </head>
           <body>
+            ${logoHtml}
             <h1>Prazos Concluídos por Usuário</h1>
             <p class="meta">Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}</p>
             ${filterDesc.length > 0 ? `<p class="meta">Filtros: ${filterDesc.join(" | ")}</p>` : ""}
@@ -358,6 +384,7 @@ export const ControladoriaIndicadores = () => {
             </style>
           </head>
           <body>
+            ${logoHtml}
             <h1>Relatório de Prazos</h1>
             <p class="muted">Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}</p>
             ${filterDesc.length > 0 ? `<p class="filters">Filtros: ${filterDesc.join(" | ")}</p>` : ""}
@@ -412,10 +439,15 @@ export const ControladoriaIndicadores = () => {
             <CalendarClock className="h-4 w-4 text-primary" />
             Indicadores de Prazos
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={handlePrint} className="gap-1.5">
-            <Printer className="h-3.5 w-3.5" />
-            Imprimir / PDF
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button variant="ghost" size="icon" onClick={() => setShowLogoConfig(true)} className="h-8 w-8" title="Configurar logo do escritório">
+              <Settings className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={handlePrint} className="gap-1.5">
+              <Printer className="h-3.5 w-3.5" />
+              Imprimir / PDF
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-5">
           {/* Filtros */}
@@ -806,6 +838,48 @@ export const ControladoriaIndicadores = () => {
           </CardFooter>
         )}
       </Card>
+
+      {/* Dialog de configuração de logo */}
+      <Dialog open={showLogoConfig} onOpenChange={setShowLogoConfig}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Settings className="h-4 w-4" />
+              Logo do Escritório
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {logoEscritorio ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-center rounded-md border border-border bg-muted/30 p-4">
+                  <img src={logoEscritorio} alt="Logo do escritório" className="max-h-16 object-contain" />
+                </div>
+                <Button variant="outline" size="sm" onClick={handleRemoveLogo} className="w-full gap-2 text-destructive hover:text-destructive">
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Remover logo
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border p-6 text-center">
+                <Upload className="h-8 w-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Nenhuma logo configurada</p>
+              </div>
+            )}
+            <label className="cursor-pointer">
+              <Button variant="outline" size="sm" className="w-full gap-2" asChild>
+                <span>
+                  <Upload className="h-3.5 w-3.5" />
+                  {logoEscritorio ? "Trocar logo" : "Enviar logo"}
+                </span>
+              </Button>
+              <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+            </label>
+            <p className="text-xs text-muted-foreground text-center">
+              A logo aparecerá no topo dos relatórios impressos
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
