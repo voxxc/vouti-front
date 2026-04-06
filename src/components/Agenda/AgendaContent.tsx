@@ -1668,8 +1668,8 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                     </Badge>
                   </div>
 
-                  <div className="flex gap-2 pt-4">
-                    {!selectedDeadline.completed && (
+                  <div className="flex items-center gap-2 pt-4 border-t">
+                    {!selectedDeadline.completed ? (
                       <Button 
                         onClick={() => setConfirmCompleteDeadlineId(selectedDeadline.id)}
                         className="flex-1"
@@ -1677,8 +1677,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                         <CheckCircle2 className="h-4 w-4 mr-2" />
                         Marcar como Concluído
                       </Button>
-                    )}
-                    {selectedDeadline.completed && (
+                    ) : (
                       <Button 
                         variant="outline"
                         onClick={() => setReopenDeadlineId(selectedDeadline.id)}
@@ -1688,36 +1687,41 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                         Marcar como Pendente
                       </Button>
                     )}
-                    {selectedDeadline.completed && (
-                      <Button 
-                        variant="outline"
-                        onClick={() => openEditDialog(selectedDeadline)}
-                      >
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Editar
-                      </Button>
-                    )}
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="icon">
-                          <Trash2 className="h-4 w-4" />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreVertical className="h-4 w-4" />
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Excluir Prazo</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Tem certeza que deseja excluir este prazo? Esta ação não pode ser desfeita.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDeleteDeadline(selectedDeadline.id)}>
-                            Excluir
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditDialog(selectedDeadline)}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Editar
+                        </DropdownMenuItem>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Excluir prazo
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir Prazo</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja excluir este prazo? Esta ação não pode ser desfeita.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteDeadline(selectedDeadline.id)}>
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </TabsContent>
                 {selectedDeadline.completed && (
