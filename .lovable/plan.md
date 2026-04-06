@@ -1,43 +1,40 @@
 
 
-## Plano: Mover menu 3 pontos para o rodapé (ao lado do botão Concluir)
+## Plano: Aba "Cofre Judit" no Super Admin para verificar e deletar credenciais
 
-### Mudança
+### Objetivo
+Nova aba no painel Super Admin para consultar credenciais cadastradas no cofre Judit (GET) e deletar credenciais específicas (DELETE), usando a API `crawler.prod.judit.io/credentials`.
 
-**Arquivo**: `src/components/Project/ProjectProtocoloContent.tsx`
+### 1. Nova Edge Function: `judit-verificar-credencial`
 
-1. **Remover** o `DropdownMenu` do header (linhas 825-839) — manter apenas o título e o número do prazo no header.
+Endpoint que faz proxy do GET para a API Judit:
+- Recebe `customerKey` no body
+- Chama `GET https://crawler.prod.judit.io/credentials?customer_key={customerKey}` com header `api-key`
+- Retorna a lista de `systems` com `name`, `customer_key` e `credential_status`
 
-2. **Adicionar** o `DropdownMenu` no rodapé (linha 930-940), ao lado do botão "Marcar como Concluído" / "Reabrir Prazo":
+### 2. Novo componente: `SuperAdminCofreJudit.tsx`
 
-```tsx
-<div className="flex items-center gap-2 pt-4 border-t">
-  {!selectedDeadline.completed ? (
-    <Button onClick={() => setConfirmCompleteId(selectedDeadline.id)} className="flex-1">
-      <CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como Concluído
-    </Button>
-  ) : (
-    <Button variant="outline" onClick={() => toggleDeadlineCompletion(...)} className="flex-1">
-      <X className="h-4 w-4 mr-2" /> Reabrir Prazo
-    </Button>
-  )}
-  <DropdownMenu>
-    <DropdownMenuTrigger asChild>
-      <Button variant="ghost" size="icon" className="h-8 w-8">
-        <MoreVertical className="h-4 w-4" />
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end">
-      <DropdownMenuItem onClick={() => handleEditDeadline(selectedDeadline)}>
-        <Pencil className="h-4 w-4 mr-2" /> Editar
-      </DropdownMenuItem>
-      <DropdownMenuItem className="text-destructive" onClick={() => setDeleteDeadlineConfirm(selectedDeadline.id)}>
-        <Trash2 className="h-4 w-4 mr-2" /> Excluir
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
-</div>
-```
+Interface com duas seções:
 
-Isso padroniza com o layout do `DeadlineDetailDialog` (Dashboard/Agenda).
+**Seção "Verificar Credenciais":**
+- Campo de input para `customer_key`
+- Botão "Consultar"
+- Tabela mostrando: System Name, Customer Key, Status (badge active/not exists)
+
+**Seção "Deletar Credencial":**
+- Campos: `customer_key` + `system_name` (select dos tribunais)
+- Botão "Deletar" com confirmação (AlertDialog)
+- Usa a edge function `judit-deletar-credencial` já existente
+
+### 3. Nova aba no Super Admin
+
+**Arquivo**: `src/pages/SuperAdmin.tsx`
+- Adicionar aba "Cofre Judit" no TabsList (ícone `Key`)
+- Grid passa de 12 para 13 colunas
+- Importar e renderizar `SuperAdminCofreJudit` no TabsContent
+
+### Arquivos
+- `supabase/functions/judit-verificar-credencial/index.ts` (novo)
+- `src/components/SuperAdmin/SuperAdminCofreJudit.tsx` (novo)
+- `src/pages/SuperAdmin.tsx` (editar — nova aba)
 
