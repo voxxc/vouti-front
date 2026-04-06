@@ -69,6 +69,27 @@ export const ControladoriaIndicadores = () => {
   // Pagination for planilha
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Logo config
+  const [logoEscritorio, setLogoEscritorio] = useState<string | null>(() => localStorage.getItem("escritorio_logo"));
+  const [showLogoConfig, setShowLogoConfig] = useState(false);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      localStorage.setItem("escritorio_logo", base64);
+      setLogoEscritorio(base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveLogo = () => {
+    localStorage.removeItem("escritorio_logo");
+    setLogoEscritorio(null);
+  };
+
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
