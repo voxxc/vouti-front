@@ -820,7 +820,27 @@ export function ProjectProtocoloContent({
           {selectedDeadline && (
             <>
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2"><Clock className="h-5 w-5" /> {selectedDeadline.title}</DialogTitle>
+                <div className="flex items-center justify-between">
+                  <DialogTitle className="flex items-center gap-2"><Clock className="h-5 w-5" /> {selectedDeadline.title}</DialogTitle>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEditDeadline(selectedDeadline)}>
+                        <Pencil className="h-4 w-4 mr-2" /> Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive" onClick={() => setDeleteDeadlineConfirm(selectedDeadline.id)}>
+                        <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                {selectedDeadline.deadline_number && (
+                  <p className="text-xs text-muted-foreground">Prazo nº {selectedDeadline.deadline_number}</p>
+                )}
               </DialogHeader>
               <Tabs defaultValue="info" className="flex-1 overflow-hidden flex flex-col">
                 <TabsList className="grid w-full grid-cols-2">
