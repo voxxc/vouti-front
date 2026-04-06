@@ -262,7 +262,7 @@ export const ControladoriaIndicadores = () => {
     if (statusFilter !== "todos") filterDesc.push(`Status: ${statusFilter}`);
     if (userFilter !== "todos") filterDesc.push(`Usuário: ${profileMap.get(userFilter)?.name || userFilter}`);
 
-    const logoHtml = logoEscritorio ? `<div style="text-align:center;margin-bottom:12px;"><img src="${logoEscritorio}" style="max-height:60px;" /></div>` : "";
+    const logoHtml = logoEscritorio ? `<div style="text-align:center;margin-bottom:12px;"><img src="${logoEscritorio}" style="max-height:160px;" /></div>` : "";
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
@@ -852,7 +852,7 @@ export const ControladoriaIndicadores = () => {
             {logoEscritorio ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-center rounded-md border border-border bg-muted/30 p-4">
-                  <img src={logoEscritorio} alt="Logo do escritório" className="max-h-16 object-contain" />
+                  <img src={logoEscritorio} alt="Logo do escritório" className="max-h-40 object-contain" />
                 </div>
                 <Button variant="outline" size="sm" onClick={handleRemoveLogo} className="w-full gap-2 text-destructive hover:text-destructive">
                   <Trash2 className="h-3.5 w-3.5" />
