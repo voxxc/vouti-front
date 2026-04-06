@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, CheckCircle2, Clock, AlertTriangle, Printer, CalendarClock, ChevronDown, ChevronUp, Filter, ChevronLeft, ChevronRight, TableIcon, Users } from "lucide-react";
+import { BarChart3, CheckCircle2, Clock, AlertTriangle, Printer, CalendarClock, ChevronDown, ChevronUp, Filter, ChevronLeft, ChevronRight, TableIcon, Users, Settings, Trash2, Upload } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { parseLocalDate } from "@/lib/dateUtils";
 
