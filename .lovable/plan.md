@@ -1,40 +1,27 @@
 
 
-## Plano: Aba "Cofre Judit" no Super Admin para verificar e deletar credenciais
+## Plano: Indicadores de Prazos na Controladoria
 
 ### Objetivo
-Nova aba no painel Super Admin para consultar credenciais cadastradas no cofre Judit (GET) e deletar credenciais específicas (DELETE), usando a API `crawler.prod.judit.io/credentials`.
+Adicionar uma seção de **Prazos** dentro da aba Indicadores da Controladoria (`ControladoriaIndicadores.tsx`), exibindo:
+- Total de prazos, concluídos e pendentes
+- Tabela de quem concluiu cada prazo (nome, quantidade)
+- Botão de imprimir
 
-### 1. Nova Edge Function: `judit-verificar-credencial`
+### Implementação
 
-Endpoint que faz proxy do GET para a API Judit:
-- Recebe `customerKey` no body
-- Chama `GET https://crawler.prod.judit.io/credentials?customer_key={customerKey}` com header `api-key`
-- Retorna a lista de `systems` com `name`, `customer_key` e `credential_status`
+**Arquivo**: `src/components/Controladoria/ControladoriaIndicadores.tsx`
 
-### 2. Novo componente: `SuperAdminCofreJudit.tsx`
+Expandir o componente para buscar dados da tabela `deadlines` (filtrados por tenant via projetos do tenant) com join em `profiles` via `concluido_por`:
 
-Interface com duas seções:
+1. **Query adicional**: Buscar deadlines com join em `profiles` (concluido_por) e filtrar pelo tenant
+2. **Cards de resumo**: Total de prazos, Concluídos (com taxa %), Pendentes, Atrasados (>7 dias sem concluir)
+3. **Tabela "Prazos concluídos por usuário"**: Agrupar por `concluido_por`, exibir nome do perfil e quantidade de prazos concluídos
+4. **Tabela "Prazos pendentes"**: Lista dos prazos não concluídos com título, data, projeto
+5. **Botão Imprimir**: No header da seção, botão que chama `window.print()` com CSS `@media print` para formatar a saída
 
-**Seção "Verificar Credenciais":**
-- Campo de input para `customer_key`
-- Botão "Consultar"
-- Tabela mostrando: System Name, Customer Key, Status (badge active/not exists)
+A seção de Processos por Tribunal existente será mantida, e a nova seção de Prazos aparecerá abaixo (ou em grid lado a lado em telas grandes).
 
-**Seção "Deletar Credencial":**
-- Campos: `customer_key` + `system_name` (select dos tribunais)
-- Botão "Deletar" com confirmação (AlertDialog)
-- Usa a edge function `judit-deletar-credencial` já existente
-
-### 3. Nova aba no Super Admin
-
-**Arquivo**: `src/pages/SuperAdmin.tsx`
-- Adicionar aba "Cofre Judit" no TabsList (ícone `Key`)
-- Grid passa de 12 para 13 colunas
-- Importar e renderizar `SuperAdminCofreJudit` no TabsContent
-
-### Arquivos
-- `supabase/functions/judit-verificar-credencial/index.ts` (novo)
-- `src/components/SuperAdmin/SuperAdminCofreJudit.tsx` (novo)
-- `src/pages/SuperAdmin.tsx` (editar — nova aba)
+### Arquivos a editar
+- `src/components/Controladoria/ControladoriaIndicadores.tsx` — adicionar seção de prazos com cards + tabelas + botão imprimir
 
