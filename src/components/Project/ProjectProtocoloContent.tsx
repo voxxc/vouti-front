@@ -1015,6 +1015,34 @@ export function ProjectProtocoloContent({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete deadline confirmation */}
+      <AlertDialog open={!!deleteDeadlineConfirm} onOpenChange={(open) => { if (!open) setDeleteDeadlineConfirm(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir prazo?</AlertDialogTitle>
+            <AlertDialogDescription>Esta ação não pode ser desfeita. O prazo será excluído permanentemente.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => deleteDeadlineConfirm && handleDeleteDeadline(deleteDeadlineConfirm)}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit deadline dialog */}
+      <EditarPrazoDialog
+        deadline={editingDeadlineObj}
+        open={isEditPrazoOpen}
+        onOpenChange={setIsEditPrazoOpen}
+        onSuccess={() => {
+          fetchPrazosVinculados();
+          setIsDetailDialogOpen(false);
+        }}
+        tenantId={tenantId || ''}
+      />
     </>
   );
 }
