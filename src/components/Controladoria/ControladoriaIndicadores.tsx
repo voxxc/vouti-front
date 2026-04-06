@@ -838,6 +838,48 @@ export const ControladoriaIndicadores = () => {
           </CardFooter>
         )}
       </Card>
+
+      {/* Dialog de configuração de logo */}
+      <Dialog open={showLogoConfig} onOpenChange={setShowLogoConfig}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Settings className="h-4 w-4" />
+              Logo do Escritório
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {logoEscritorio ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-center rounded-md border border-border bg-muted/30 p-4">
+                  <img src={logoEscritorio} alt="Logo do escritório" className="max-h-16 object-contain" />
+                </div>
+                <Button variant="outline" size="sm" onClick={handleRemoveLogo} className="w-full gap-2 text-destructive hover:text-destructive">
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Remover logo
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border p-6 text-center">
+                <Upload className="h-8 w-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Nenhuma logo configurada</p>
+              </div>
+            )}
+            <label className="cursor-pointer">
+              <Button variant="outline" size="sm" className="w-full gap-2" asChild>
+                <span>
+                  <Upload className="h-3.5 w-3.5" />
+                  {logoEscritorio ? "Trocar logo" : "Enviar logo"}
+                </span>
+              </Button>
+              <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+            </label>
+            <p className="text-xs text-muted-foreground text-center">
+              A logo aparecerá no topo dos relatórios impressos
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
