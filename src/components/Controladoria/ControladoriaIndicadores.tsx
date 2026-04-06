@@ -262,6 +262,8 @@ export const ControladoriaIndicadores = () => {
     if (statusFilter !== "todos") filterDesc.push(`Status: ${statusFilter}`);
     if (userFilter !== "todos") filterDesc.push(`Usuário: ${profileMap.get(userFilter)?.name || userFilter}`);
 
+    const logoHtml = logoEscritorio ? `<div style="text-align:center;margin-bottom:12px;"><img src="${logoEscritorio}" style="max-height:60px;" /></div>` : "";
+
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
