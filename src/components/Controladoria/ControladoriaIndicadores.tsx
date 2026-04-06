@@ -434,10 +434,15 @@ export const ControladoriaIndicadores = () => {
             <CalendarClock className="h-4 w-4 text-primary" />
             Indicadores de Prazos
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={handlePrint} className="gap-1.5">
-            <Printer className="h-3.5 w-3.5" />
-            Imprimir / PDF
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button variant="ghost" size="icon" onClick={() => setShowLogoConfig(true)} className="h-8 w-8" title="Configurar logo do escritório">
+              <Settings className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={handlePrint} className="gap-1.5">
+              <Printer className="h-3.5 w-3.5" />
+              Imprimir / PDF
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-5">
           {/* Filtros */}
