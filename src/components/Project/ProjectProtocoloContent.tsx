@@ -820,24 +820,7 @@ export function ProjectProtocoloContent({
           {selectedDeadline && (
             <>
               <DialogHeader>
-                <div className="flex items-center justify-between">
-                  <DialogTitle className="flex items-center gap-2"><Clock className="h-5 w-5" /> {selectedDeadline.title}</DialogTitle>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEditDeadline(selectedDeadline)}>
-                        <Pencil className="h-4 w-4 mr-2" /> Editar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={() => setDeleteDeadlineConfirm(selectedDeadline.id)}>
-                        <Trash2 className="h-4 w-4 mr-2" /> Excluir
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+                <DialogTitle className="flex items-center gap-2"><Clock className="h-5 w-5" /> {selectedDeadline.title}</DialogTitle>
                 {selectedDeadline.deadline_number && (
                   <p className="text-xs text-muted-foreground">Prazo nº {selectedDeadline.deadline_number}</p>
                 )}
@@ -927,7 +910,7 @@ export function ProjectProtocoloContent({
                       </Badge>
                     </div>
                   </div>
-                  <div className="flex gap-2 pt-4 border-t">
+                  <div className="flex items-center gap-2 pt-4 border-t">
                     {!selectedDeadline.completed ? (
                       <Button onClick={() => setConfirmCompleteId(selectedDeadline.id)} className="flex-1">
                         <CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como Concluído
@@ -937,6 +920,21 @@ export function ProjectProtocoloContent({
                         <X className="h-4 w-4 mr-2" /> Reabrir Prazo
                       </Button>
                     )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEditDeadline(selectedDeadline)}>
+                          <Pencil className="h-4 w-4 mr-2" /> Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={() => setDeleteDeadlineConfirm(selectedDeadline.id)}>
+                          <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </TabsContent>
                 <TabsContent value="comments" className="flex-1 overflow-auto mt-4">
