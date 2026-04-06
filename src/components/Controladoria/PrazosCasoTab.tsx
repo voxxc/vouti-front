@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { toast } from 'sonner';
-import DeadlineDetailDialog from '@/components/Agenda/DeadlineDetailDialog';
+import { DeadlineDetailDialog } from '@/components/Agenda/DeadlineDetailDialog';
 
 interface PrazosCasoTabProps {
   processoOabId: string;
