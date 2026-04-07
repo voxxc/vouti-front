@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     const createRes = await fetch('https://requests.prod.judit.io/requests', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${JUDIT_API_KEY}`,
+        'api-key': JUDIT_API_KEY,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
         `https://requests.prod.judit.io/responses?request_id=${requestId}&page=1&page_size=100`,
         {
           headers: {
-            'Authorization': `Bearer ${JUDIT_API_KEY}`,
+            'api-key': JUDIT_API_KEY,
           },
         }
       )
