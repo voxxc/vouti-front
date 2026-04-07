@@ -434,6 +434,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
       const creatorIds = new Set<string>();
       (data || []).forEach((d: any) => {
         if (d.user_id) creatorIds.add(d.user_id);
+        if (d.concluido_por) creatorIds.add(d.concluido_por);
       });
       let creatorMap: Record<string, { full_name: string; avatar_url: string | null }> = {};
       if (creatorIds.size > 0) {
@@ -507,7 +508,13 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
           createdByUserId: deadline.user_id || undefined,
           completedByUserId: deadline.concluido_por || undefined,
           createdByName: deadline.user_id ? creatorMap[deadline.user_id]?.full_name : undefined,
-          createdByAvatar: deadline.user_id ? creatorMap[deadline.user_id]?.avatar_url || undefined : undefined
+          createdByAvatar: deadline.user_id ? creatorMap[deadline.user_id]?.avatar_url || undefined : undefined,
+          completedByName: deadline.concluido_por ? creatorMap[deadline.concluido_por]?.full_name : undefined,
+          completedByAvatar: deadline.concluido_por ? creatorMap[deadline.concluido_por]?.avatar_url || undefined : undefined,
+          comentarioConclusao: deadline.comentario_conclusao || undefined,
+          concluidoEm: deadline.concluido_em ? safeParseTimestamp(deadline.concluido_em) : undefined,
+          deadlineCategory: deadline.deadline_category || undefined,
+          deadlineNumber: (deadline as any).deadline_number || undefined
         };
       });
 
