@@ -1,38 +1,34 @@
 
 
-## Plano: Busca de Processos por CPF via Judit (Super Admin)
+## Plano: Corrigir exibição do comentário de conclusão na Agenda
 
-### Objetivo
-Adicionar funcionalidade no Super Admin para digitar um CPF e listar todos os processos judiciais associados àquela pessoa, usando a API Judit com `search_type: 'cpf'` e `response_type: 'lawsuit'`.
+### Problema
+Ao concluir um prazo, o estado local é atualizado de forma incompleta — apenas `completed: true` é setado, mas `comentarioConclusao`, `concluidoEm`, `completedByName` e `completedByAvatar` ficam vazios. Quando o usuário abre o detalhe do prazo (aba Conclusão), vê "Nenhum comentário de conclusão registrado" mesmo tendo acabado de preencher o campo.
 
-### Implementação
+### Causa raiz
+Dois locais fazem `setDeadline`/`setDeadlines` após concluir, mas não propagam os campos de conclusão:
+1. **AgendaContent.tsx** (linha 830): `{ ...d, completed: true, completedByUserId: user?.id }`  
+2. **DeadlineDetailDialog.tsx** (linha 283): `{ ...deadline, completed: true }`
 
-#### 1. Nova Edge Function: `judit-buscar-processos-cpf`
-- Recebe `{ cpf: string }`
-- Formata CPF com pontuação (xxx.xxx.xxx-xx)
-- Chama `POST https://requests.prod.judit.io/requests` com payload:
-  ```json
-  { "search": { "search_type": "cpf", "search_key": "xxx.xxx.xxx-xx" } }
-  ```
-- Faz polling em `GET /responses?request_id=...&page=1&page_size=100`
-- Retorna lista de processos encontrados (CNJ, partes, tribunal, etc.)
-- Usa `JUDIT_API_KEY` (já configurada)
+### Correção
 
-#### 2. Novo Componente: `SuperAdminBuscaProcessosCPF.tsx`
-- Input de CPF com máscara (xxx.xxx.xxx-xx)
-- Botão "Buscar Processos"
-- Loading com spinner
-- Tabela de resultados com colunas: CNJ, Partes (Ativa/Passiva), Tribunal, Status
-- Accordion ou card expansível para ver detalhes completos (JSON)
-- Contador de processos encontrados
+**Arquivo 1**: `src/components/Agenda/AgendaContent.tsx` (~linha 830-834)
+- Atualizar o `setDeadlines` para incluir todos os campos de conclusão:
+  - `comentarioConclusao: comentarioConclusao.trim()`
+  - `concluidoEm: new Date()`
+  - `completedByUserId: user?.id`
+  - `completedByName: user?.user_metadata?.full_name || user?.email`
+  - `completedByAvatar: user?.user_metadata?.avatar_url`
+- Também atualizar `selectedDeadline` se estiver aberto (para refletir imediatamente na aba Conclusão)
 
-#### 3. Registro no Super Admin (`src/pages/SuperAdmin.tsx`)
-- Adicionar item "Busca CPF (Processos)" no dropdown **Ferramentas**
-- Nova tab value: `busca-cpf-processos`
-- Import e TabsContent do novo componente
+**Arquivo 2**: `src/components/Agenda/DeadlineDetailDialog.tsx` (~linha 283)
+- Atualizar o `setDeadline` para incluir os mesmos campos:
+  - `comentarioConclusao: comentarioConclusao.trim()`
+  - `concluidoEm: new Date()`
+  - `completedByUserId: user?.id`
+  - `completedByName` e `completedByAvatar` (do perfil do usuário logado)
 
-### Arquivos
-- **Criar**: `supabase/functions/judit-buscar-processos-cpf/index.ts`
-- **Criar**: `src/components/SuperAdmin/SuperAdminBuscaProcessosCPF.tsx`
-- **Editar**: `src/pages/SuperAdmin.tsx` (dropdown + tab)
+### Arquivos a editar
+- `src/components/Agenda/AgendaContent.tsx`
+- `src/components/Agenda/DeadlineDetailDialog.tsx`
 
