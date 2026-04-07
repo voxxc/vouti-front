@@ -22,6 +22,7 @@ import { SuperAdminAuthenticator } from '@/components/SuperAdmin/SuperAdminAuthe
 import { SuperAdminWebhookTest } from '@/components/SuperAdmin/SuperAdminWebhookTest';
 import { SuperAdminSecurity } from '@/components/SuperAdmin/SuperAdminSecurity';
 import { SuperAdminCofreJudit } from '@/components/SuperAdmin/SuperAdminCofreJudit';
+import { SuperAdminBuscaProcessosCPF } from '@/components/SuperAdmin/SuperAdminBuscaProcessosCPF';
 import { LinkBioSection } from '@/components/SuperAdmin/LinkBioSection';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { Badge } from '@/components/ui/badge';
@@ -326,7 +327,7 @@ export default function SuperAdmin() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant={['busca-geral', 'teste-webhook', 'teste-cnj'].includes(mainTab) ? 'default' : 'ghost'}
+                  variant={['busca-geral', 'teste-webhook', 'teste-cnj', 'busca-cpf-processos'].includes(mainTab) ? 'default' : 'ghost'}
                   size="sm"
                   className="gap-2"
                 >
@@ -342,6 +343,9 @@ export default function SuperAdmin() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setMainTab('teste-cnj')} className="gap-2">
                   <FlaskConical className="h-4 w-4" /> Teste CNJ
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMainTab('busca-cpf-processos')} className="gap-2">
+                  <Users className="h-4 w-4" /> Busca CPF (Processos)
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -481,6 +485,10 @@ export default function SuperAdmin() {
 
           <TabsContent value="seguranca">
             <SuperAdminSecurity />
+          </TabsContent>
+
+          <TabsContent value="busca-cpf-processos">
+            <SuperAdminBuscaProcessosCPF />
           </TabsContent>
         </Tabs>
       </main>
