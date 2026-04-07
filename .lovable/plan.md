@@ -1,27 +1,51 @@
 
 
-## Plano: Incluir campos de conclusão no mapeamento do AgendaContent
+## Plano: Corrigir isolamento de tenant nas políticas RLS com `has_role()` sem escopo
 
 ### Problema
-O `AgendaContent.tsx` tem sua própria função `fetchDeadlinesAsync` (independente do `useAgendaData`) que NÃO mapeia os campos de conclusão: `comentarioConclusao`, `concluidoEm`, `completedByName`, `completedByAvatar`, `deadlineCategory`, `deadlineNumber`. Por isso, ao clicar num prazo concluído na Agenda, a aba "Conclusão" sempre mostra vazio.
+A função `has_role(auth.uid(), 'admin')` verifica se o usuário tem a role em **qualquer tenant**, sem filtrar pelo tenant atual. Isso permite que um admin do Tenant A acesse dados sensíveis do Tenant B (tokens WhatsApp, credenciais de tribunal, documentos jurídicos, etc).
 
-### Correção
+### Solução
+Substituir `has_role(auth.uid(), 'role')` por `has_role_in_tenant(auth.uid(), 'role', get_user_tenant_id())` em todas as políticas afetadas. Para tabelas que têm coluna `tenant_id`, adicionar também `AND tenant_id = get_user_tenant_id()`.
 
-**Arquivo**: `src/components/Agenda/AgendaContent.tsx` (~linha 508-511)
+### Políticas a corrigir (28 políticas em 18 tabelas)
 
-Adicionar os campos faltantes no mapeamento dentro de `fetchDeadlinesAsync`, logo após `createdByAvatar` (linha 510):
+| Tabela | Política | Role |
+|--------|----------|------|
+| `cliente_pagamento_comentarios` | Admins can manage all... | admin |
+| `processo_andamentos_judit` | Controllers can view all... | controller |
+| `processo_atualizacoes_escavador` | Admins can manage all... | admin |
+| `processo_documentos` | Controllers can view all... | controller |
+| `processo_etiquetas` | Controllers can view/manage all... (2) | controller |
+| `processo_historico` | Controllers can view all... | controller |
+| `processo_monitoramento_escavador` | Admins manage all + Controllers view all (2) | admin/controller |
+| `processo_monitoramento_judit` | Controllers can view all... | controller |
+| `processo_movimentacao_conferencia` | Controllers can manage... (USING+CHECK) | controller/admin |
+| `processo_movimentacoes` | Controllers delete/view + Controllers&admins update (3, USING+CHECK) | controller/admin |
+| `projudi_credentials` | Admins view/update/delete (3) | admin |
+| `reuniao_cliente_arquivos` | Admins manage all + Users view files (2) | admin |
+| `reuniao_cliente_comentarios` | Admins manage all + Users view comments (2) | admin |
+| `reuniao_status` | Agenda+Admins manage + Admins gerenciar (2, USING+CHECK) | admin/agenda |
+| `sector_templates` | Admins can view all... | admin |
+| `tipos_acao` | Admins can manage all... | admin |
+| `tribunal_credentials` | Admins can manage all... | admin |
+| `tribunal_sync_logs` | Admins can view all... | admin |
+| `whatsapp_automations` | Admins can manage all... | admin |
+| `whatsapp_instances` | Admins can manage all... | admin |
+| `whatsapp_messages` | Admins can view all... | admin |
+| `storage.objects` | Admins manage client documents + view attachments (2) | admin |
 
-```ts
-completedByName: deadline.concluido_por ? creatorMap[deadline.concluido_por]?.full_name : undefined,
-completedByAvatar: deadline.concluido_por ? creatorMap[deadline.concluido_por]?.avatar_url || undefined : undefined,
-comentarioConclusao: deadline.comentario_conclusao || undefined,
-concluidoEm: deadline.concluido_em ? safeParseTimestamp(deadline.concluido_em) : undefined,
-deadlineCategory: deadline.deadline_category || undefined,
-deadlineNumber: (deadline as any).deadline_number || undefined,
-```
+### Migração SQL
+Uma única migração SQL que faz `DROP POLICY` + `CREATE POLICY` para cada uma das 28 políticas, substituindo:
+- `has_role(auth.uid(), 'admin')` → `has_role_in_tenant(auth.uid(), 'admin', get_user_tenant_id())`
+- `has_role(auth.uid(), 'controller')` → `has_role_in_tenant(auth.uid(), 'controller', get_user_tenant_id())`
+- `has_role(auth.uid(), 'agenda')` → `has_role_in_tenant(auth.uid(), 'agenda', get_user_tenant_id())`
 
-Também garantir que o `creatorMap` inclua os user_ids de `concluido_por` (verificar se já busca esses perfis — se não, adicionar os IDs de `concluido_por` ao batch de perfis).
+Para tabelas com `tenant_id`, adicionar `AND tenant_id = get_user_tenant_id()` ao USING/WITH CHECK.
 
-### Arquivo a editar
-- `src/components/Agenda/AgendaContent.tsx`
+### Impacto
+- Zero mudança no código frontend (as funções SQL são transparentes)
+- Nenhuma tabela ou coluna nova
+- Apenas políticas RLS reescritas
+- Funcionalidade idêntica para usuários legítimos (cada admin continua vendo só os dados do seu tenant)
 
