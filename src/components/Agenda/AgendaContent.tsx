@@ -827,11 +827,25 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
         return;
       }
 
+      const completionData = {
+        completed: true,
+        updatedAt: new Date(),
+        completedByUserId: user?.id,
+        completedByName: user?.user_metadata?.full_name || user?.email || undefined,
+        completedByAvatar: user?.user_metadata?.avatar_url || undefined,
+        comentarioConclusao: comentarioConclusao.trim(),
+        concluidoEm: new Date(),
+      };
+
       setDeadlines(deadlines.map(d =>
         d.id === confirmCompleteDeadlineId
-          ? { ...d, completed: true, updatedAt: new Date(), completedByUserId: user?.id }
+          ? { ...d, ...completionData }
           : d
       ));
+
+      if (selectedDeadline?.id === confirmCompleteDeadlineId) {
+        setSelectedDeadline({ ...selectedDeadline, ...completionData });
+      }
 
       await createClientHistory(deadline, 'deadline_completed');
 

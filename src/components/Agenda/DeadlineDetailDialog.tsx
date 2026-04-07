@@ -280,7 +280,15 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
       setComentarioConclusao("");
       setCriarSubtarefa(false);
       setSubtarefaDescricao("");
-      setDeadline({ ...deadline, completed: true });
+      setDeadline({
+        ...deadline,
+        completed: true,
+        comentarioConclusao: comentarioConclusao.trim(),
+        concluidoEm: new Date(),
+        completedByUserId: user?.id,
+        completedByName: user?.user_metadata?.full_name || user?.email || undefined,
+        completedByAvatar: user?.user_metadata?.avatar_url || undefined,
+      });
       toast({ title: "Prazo concluído", description: "Prazo marcado como concluído com comentário registrado." });
     } catch { toast({ title: "Erro", description: "Erro inesperado ao concluir prazo.", variant: "destructive" }); }
   };
