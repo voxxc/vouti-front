@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { extrairTribunalDoNumeroProcesso } from "@/utils/processoHelpers";
@@ -430,9 +431,43 @@ export const ControladoriaIndicadores = () => {
 
   const maxCount = data[0]?.count || 1;
 
+  const [activeSubTab, setActiveSubTab] = useState<'prazos' | 'tribunal'>('prazos');
+
   return (
     <div className="space-y-6" ref={printRef}>
-      {/* Seção: Prazos */}
+      {/* Sub-abas underline */}
+      <div className="flex gap-6 border-b flex-shrink-0">
+        <button
+          onClick={() => setActiveSubTab('prazos')}
+          className={cn(
+            "pb-2 text-sm font-medium transition-colors relative",
+            activeSubTab === 'prazos'
+              ? "text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Indicadores de Prazos
+          {activeSubTab === 'prazos' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveSubTab('tribunal')}
+          className={cn(
+            "pb-2 text-sm font-medium transition-colors relative",
+            activeSubTab === 'tribunal'
+              ? "text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Processos por Tribunal
+          {activeSubTab === 'tribunal' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+          )}
+        </button>
+      </div>
+
+      {activeSubTab === 'prazos' && (
       <Card>
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
@@ -797,8 +832,9 @@ export const ControladoriaIndicadores = () => {
           )}
         </CardContent>
       </Card>
+      )}
 
-      {/* Seção existente: Processos por Tribunal */}
+      {activeSubTab === 'tribunal' && (
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
@@ -838,6 +874,7 @@ export const ControladoriaIndicadores = () => {
           </CardFooter>
         )}
       </Card>
+      )}
 
       {/* Dialog de configuração de logo */}
       <Dialog open={showLogoConfig} onOpenChange={setShowLogoConfig}>
