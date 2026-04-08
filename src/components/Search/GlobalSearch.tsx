@@ -569,29 +569,29 @@ export const GlobalSearch = ({ projects = [], onSelectResult }: GlobalSearchProp
                     className="cursor-pointer hover:bg-accent/50 transition-colors"
                     onClick={() => handleSelectResult(result)}
                   >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge className={`text-xs ${getTypeColor(result.type)}`}>
+                    <CardContent className="p-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap min-w-0">
+                            <Badge className={`text-xs shrink-0 ${getTypeColor(result.type)}`}>
                               {getTypeLabel(result.type)}
                             </Badge>
                             {result.projectName && (
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-xs text-muted-foreground truncate">
                                 em {result.projectName}
                               </span>
                             )}
                           </div>
-                          <h4 className="font-medium text-sm truncate">
-                            {result.title}
-                          </h4>
-                          <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                            {result.content}
-                          </p>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                            {new Date(result.date).toLocaleDateString('pt-BR')}
+                          </span>
                         </div>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          {new Date(result.date).toLocaleDateString('pt-BR')}
-                        </span>
+                        <h4 className="font-medium text-sm break-words">
+                          {result.title}
+                        </h4>
+                        <p className="text-xs text-muted-foreground line-clamp-2 break-all">
+                          {result.content}
+                        </p>
                       </div>
                     </CardContent>
                   </Card>
