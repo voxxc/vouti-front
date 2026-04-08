@@ -474,7 +474,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
                 </div>
 
                 <span className="text-[10px] text-muted-foreground mt-0.5 inline-block">
-                  {format(new Date(msg.created_at), "HH:mm", { locale: ptBR })}
+                  {format(new Date(msg.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                 </span>
               </div>
             </div>
