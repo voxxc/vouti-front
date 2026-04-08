@@ -1,56 +1,62 @@
 
 
-## Plano: Isolar bucket `processo-documentos` por tenant
+## Plano: Restringir SELECT do bucket task-attachments ao projeto correto
 
 ### Problema
-As 3 políticas de storage (SELECT, INSERT, DELETE) no bucket `processo-documentos` verificam apenas `bucket_id = 'processo-documentos'` sem nenhum filtro de tenant. Qualquer usuário autenticado pode acessar documentos de qualquer tenant.
+A política SELECT atual permite que qualquer usuário que seja colaborador em **qualquer** projeto leia anexos de **todos** os projetos. A verificação é `EXISTS (SELECT 1 FROM project_collaborators WHERE user_id = auth.uid())` sem filtrar por projeto.
 
 ### Solução
-Reescrever as 3 políticas usando o mesmo padrão já aplicado em `credenciais-documentos`: exigir que a primeira pasta do path seja o `tenant_id` do usuário.
+Reescrever a política SELECT para verificar se o arquivo pertence a um projeto que o usuário tem acesso, usando a tabela `task_files` (que liga `file_path` ao `task_id`) e `tasks` (que liga ao `project_id`).
 
 ### Migração SQL
 
 ```sql
--- SELECT
-DROP POLICY IF EXISTS "Users can view their processos documentos" ON storage.objects;
-CREATE POLICY "Users can view their processos documentos" ON storage.objects
+DROP POLICY IF EXISTS "Users can view task attachments on accessible projects" ON storage.objects;
+
+CREATE POLICY "Users can view task attachments on accessible projects" ON storage.objects
   FOR SELECT TO authenticated
   USING (
-    bucket_id = 'processo-documentos'
+    bucket_id = 'task-attachments'
     AND (
-      (storage.foldername(name))[1] = get_user_tenant_id()::text
-      OR is_super_admin(auth.uid())
-    )
-  );
-
--- INSERT
-DROP POLICY IF EXISTS "Users can upload documentos" ON storage.objects;
-CREATE POLICY "Users can upload documentos" ON storage.objects
-  FOR INSERT TO authenticated
-  WITH CHECK (
-    bucket_id = 'processo-documentos'
-    AND (storage.foldername(name))[1] = get_user_tenant_id()::text
-  );
-
--- DELETE
-DROP POLICY IF EXISTS "Users can delete their documentos" ON storage.objects;
-CREATE POLICY "Users can delete their documentos" ON storage.objects
-  FOR DELETE TO authenticated
-  USING (
-    bucket_id = 'processo-documentos'
-    AND (
-      (storage.foldername(name))[1] = get_user_tenant_id()::text
-      OR is_super_admin(auth.uid())
+      -- Super admin bypass
+      is_super_admin(auth.uid())
+      -- Admin no tenant
+      OR has_role_in_tenant(auth.uid(), 'admin', get_user_tenant_id())
+      -- Arquivo pertence a um projeto que o usuário criou ou é colaborador
+      OR EXISTS (
+        SELECT 1
+        FROM task_files tf
+        JOIN tasks t ON t.id = tf.task_id
+        WHERE tf.file_path = name
+          AND t.tenant_id = get_user_tenant_id()
+          AND (
+            t.project_id IN (SELECT p.id FROM projects p WHERE p.created_by = auth.uid())
+            OR t.project_id IN (SELECT pc.project_id FROM project_collaborators pc WHERE pc.user_id = auth.uid())
+          )
+      )
     )
   );
 ```
 
+Também corrigir a política INSERT para incluir tenant scoping:
+```sql
+DROP POLICY IF EXISTS "Users can upload task attachments" ON storage.objects;
+
+CREATE POLICY "Users can upload task attachments" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'task-attachments'
+    AND auth.role() = 'authenticated'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+```
+
 ### Impacto
-- O bucket está atualmente vazio e sem uso direto no código frontend (nenhum upload/download encontrado em `src/`)
-- Se no futuro for usado, os uploads deverão seguir o padrão `{tenant_id}/...` no path — igual ao `credenciais-documentos`
-- Zero mudança no frontend
-- Super admins mantêm acesso total (SELECT/DELETE)
+- Zero mudança no frontend (paths e queries continuam iguais)
+- Admins do tenant mantêm acesso a todos os arquivos do tenant
+- Usuários comuns só veem arquivos de projetos onde são dono ou colaborador
+- Upload já exige que o primeiro segmento seja o user_id (consistente com o código atual)
 
 ### Arquivo a criar
-- `supabase/migrations/xxx_fix_processo_documentos_storage_rls.sql`
+- `supabase/migrations/xxx_fix_task_attachments_cross_project_read.sql`
 
