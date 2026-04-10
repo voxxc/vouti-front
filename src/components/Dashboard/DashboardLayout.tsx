@@ -122,7 +122,7 @@ const DashboardLayout = ({
   const navigate = useNavigate();
   const { tenant: tenantSlug } = useParams<{ tenant: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user, signOut, loading: authLoading } = useAuth();
+  const { user, signOut, loading: authLoading, userRole } = useAuth();
   const { tenantId, loading: tenantLoading } = useTenantId();
   const { isNavigating } = useNavigationLoading();
 
