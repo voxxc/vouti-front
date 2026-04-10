@@ -10,6 +10,8 @@ import InternalMessaging from "@/components/Communication/InternalMessaging";
 import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 import { EtapaModal } from "@/components/Project/EtapaModal";
 import { LogOut, Settings, Loader2, Clock, UserCircle, Sun, Moon } from "lucide-react";
+import { BillingAlertIndicator } from "./BillingAlertIndicator";
+import { SubscriptionDrawer } from "@/components/Support/SubscriptionDrawer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -127,6 +129,7 @@ const DashboardLayout = ({
   const [users, setUsers] = useState<UserType[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [totpSheetOpen, setTotpSheetOpen] = useState(false);
+  const [billingDrawerOpen, setBillingDrawerOpen] = useState(false);
   const [projectDrawerOpen, setProjectDrawerOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [pendingProtocoloId, setPendingProtocoloId] = useState<string | null>(null);
@@ -414,6 +417,7 @@ const DashboardLayout = ({
             
             {/* Right Side - Tools */}
             <div className="flex items-center gap-1.5 md:gap-3 ml-auto">
+              <BillingAlertIndicator onOpenSubscription={() => setBillingDrawerOpen(true)} />
               <Button 
                 variant="ghost" 
                 size="icon"
