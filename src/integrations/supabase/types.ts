@@ -8823,6 +8823,95 @@ export type Database = {
           },
         ]
       }
+      votech_categorias: {
+        Row: {
+          cor: string | null
+          created_at: string
+          icone: string | null
+          id: string
+          nome: string
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          cor?: string | null
+          created_at?: string
+          icone?: string | null
+          id?: string
+          nome: string
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          cor?: string | null
+          created_at?: string
+          icone?: string | null
+          id?: string
+          nome?: string
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      votech_contas: {
+        Row: {
+          categoria_id: string | null
+          created_at: string
+          data_pagamento: string | null
+          data_vencimento: string
+          descricao: string
+          forma_pagamento: string | null
+          fornecedor_cliente: string | null
+          id: string
+          observacoes: string | null
+          status: string
+          tipo: string
+          updated_at: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          categoria_id?: string | null
+          created_at?: string
+          data_pagamento?: string | null
+          data_vencimento: string
+          descricao: string
+          forma_pagamento?: string | null
+          fornecedor_cliente?: string | null
+          id?: string
+          observacoes?: string | null
+          status?: string
+          tipo: string
+          updated_at?: string
+          user_id: string
+          valor?: number
+        }
+        Update: {
+          categoria_id?: string | null
+          created_at?: string
+          data_pagamento?: string | null
+          data_vencimento?: string
+          descricao?: string
+          forma_pagamento?: string | null
+          fornecedor_cliente?: string | null
+          id?: string
+          observacoes?: string | null
+          status?: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "votech_contas_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "votech_categorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       votech_profiles: {
         Row: {
           avatar_url: string | null
@@ -8858,6 +8947,62 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      votech_transacoes: {
+        Row: {
+          categoria_id: string | null
+          created_at: string
+          data: string
+          descricao: string
+          forma_pagamento: string | null
+          id: string
+          observacoes: string | null
+          recorrente: boolean | null
+          status: string
+          tipo: string
+          updated_at: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          categoria_id?: string | null
+          created_at?: string
+          data?: string
+          descricao: string
+          forma_pagamento?: string | null
+          id?: string
+          observacoes?: string | null
+          recorrente?: boolean | null
+          status?: string
+          tipo: string
+          updated_at?: string
+          user_id: string
+          valor?: number
+        }
+        Update: {
+          categoria_id?: string | null
+          created_at?: string
+          data?: string
+          descricao?: string
+          forma_pagamento?: string | null
+          id?: string
+          observacoes?: string | null
+          recorrente?: boolean | null
+          status?: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "votech_transacoes_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "votech_categorias"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       votech_user_roles: {
         Row: {
@@ -10346,6 +10491,10 @@ export type Database = {
       }
       criar_categorias_custos_padrao: {
         Args: { p_tenant_id: string }
+        Returns: undefined
+      }
+      criar_votech_categorias_padrao: {
+        Args: { p_user_id: string }
         Returns: undefined
       }
       decrypt_credential: {
