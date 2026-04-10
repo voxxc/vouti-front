@@ -417,7 +417,9 @@ const DashboardLayout = ({
             
             {/* Right Side - Tools */}
             <div className="flex items-center gap-1.5 md:gap-3 ml-auto">
-              <BillingAlertIndicator onOpenSubscription={() => setBillingDrawerOpen(true)} />
+              {userRole === 'admin' && (
+                <BillingAlertIndicator onOpenSubscription={() => setBillingDrawerOpen(true)} />
+              )}
               <Button 
                 variant="ghost" 
                 size="icon"
