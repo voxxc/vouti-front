@@ -8823,6 +8823,63 @@ export type Database = {
           },
         ]
       }
+      votech_profiles: {
+        Row: {
+          avatar_url: string | null
+          cargo: string | null
+          created_at: string
+          email: string | null
+          empresa: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          cargo?: string | null
+          created_at?: string
+          email?: string | null
+          empresa?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          cargo?: string | null
+          created_at?: string
+          email?: string | null
+          empresa?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      votech_user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["votech_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["votech_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["votech_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       whatsapp_agent_roles: {
         Row: {
           agent_id: string
@@ -10421,6 +10478,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_votech_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["votech_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_whatsapp_bot_access: {
         Args: { _tenant_id: string; _user_email: string }
         Returns: {
@@ -10510,6 +10574,7 @@ export type Database = {
         | "transito_julgado"
       spn_role: "admin" | "teacher" | "student"
       user_role_type: "admin" | "advogado" | "comercial" | "financeiro"
+      votech_role: "admin" | "usuario" | "contador"
       whatsapp_agent_role: "admin" | "atendente"
     }
     CompositeTypes: {
@@ -10690,6 +10755,7 @@ export const Constants = {
       ],
       spn_role: ["admin", "teacher", "student"],
       user_role_type: ["admin", "advogado", "comercial", "financeiro"],
+      votech_role: ["admin", "usuario", "contador"],
       whatsapp_agent_role: ["admin", "atendente"],
     },
   },
