@@ -507,6 +507,13 @@ const DashboardLayout = ({
       {/* TOTP Sheet */}
       <TOTPSheet open={totpSheetOpen} onOpenChange={setTotpSheetOpen} isAdmin={canSeeTOTP} />
       
+      {/* Billing/Subscription Drawer (from alert indicator) */}
+      <SubscriptionDrawer 
+        open={billingDrawerOpen} 
+        onOpenChange={setBillingDrawerOpen} 
+        initialTab="vencimentos" 
+      />
+      
       {/* Project Drawer (busca rápida) */}
       <ProjectDrawer
         open={projectDrawerOpen}
