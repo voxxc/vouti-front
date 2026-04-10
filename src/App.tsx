@@ -689,6 +689,23 @@ function App() {
             } />
             <Route path="/spn" element={<Navigate to="/spn/auth" replace />} />
             
+            {/* VoTech Routes - Isolated Financial Platform */}
+            <Route path="/votech/auth" element={
+              <VotechAuthProvider>
+                <VotechPublicRoute>
+                  <VotechAuth />
+                </VotechPublicRoute>
+              </VotechAuthProvider>
+            } />
+            <Route path="/votech/dashboard" element={
+              <VotechAuthProvider>
+                <VotechProtectedRoute>
+                  <VotechDashboard />
+                </VotechProtectedRoute>
+              </VotechAuthProvider>
+            } />
+            <Route path="/votech" element={<Navigate to="/votech/auth" replace />} />
+            
             {/* Veridicto Landing Page */}
             <Route path="/veridicto" element={<VeridictoLanding />} />
             
