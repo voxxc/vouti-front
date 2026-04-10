@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { TenantProvider, useTenant } from "@/contexts/TenantContext";
 import { MetalAuthProvider, useMetalAuth } from "@/contexts/MetalAuthContext";
+import { VotechAuthProvider, useVotechAuth } from "@/contexts/VotechAuthContext";
 import { LinkAuthProvider, useLinkAuth } from "@/contexts/LinkAuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { NavigationLoadingProvider } from "@/contexts/NavigationLoadingContext";
@@ -58,6 +59,8 @@ const BatinkDashboard = lazy(() => import("@/pages/BatinkDashboard"));
 const BatinkAdmin = lazy(() => import("@/pages/BatinkAdmin"));
 const SpnAuth = lazy(() => import("@/pages/SpnAuth"));
 const SpnDashboard = lazy(() => import("@/pages/SpnDashboard"));
+const VotechAuth = lazy(() => import("@/pages/VotechAuth"));
+const VotechDashboard = lazy(() => import("@/pages/VotechDashboard"));
 const VeridictoLanding = lazy(() => import("@/pages/VeridictoLanding"));
 const SuperAdmin = lazy(() => import("@/pages/SuperAdmin"));
 const SuperAdminWhatsApp = lazy(() => import("@/pages/SuperAdminWhatsApp"));
@@ -304,6 +307,20 @@ const SpnPublicRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+
+const VotechProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useVotechAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">Carregando...</div>;
+  if (!user) return <Navigate to="/votech/auth" replace />;
+  return <>{children}</>;
+};
+
+const VotechPublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useVotechAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">Carregando...</div>;
+  if (user) return <Navigate to="/votech/dashboard" replace />;
+  return <>{children}</>;
+};
 
 const TenantAwareAuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { tenant } = useTenant();
@@ -671,6 +688,23 @@ function App() {
               </SpnAuthProvider>
             } />
             <Route path="/spn" element={<Navigate to="/spn/auth" replace />} />
+            
+            {/* VoTech Routes - Isolated Financial Platform */}
+            <Route path="/votech/auth" element={
+              <VotechAuthProvider>
+                <VotechPublicRoute>
+                  <VotechAuth />
+                </VotechPublicRoute>
+              </VotechAuthProvider>
+            } />
+            <Route path="/votech/dashboard" element={
+              <VotechAuthProvider>
+                <VotechProtectedRoute>
+                  <VotechDashboard />
+                </VotechProtectedRoute>
+              </VotechAuthProvider>
+            } />
+            <Route path="/votech" element={<Navigate to="/votech/auth" replace />} />
             
             {/* Veridicto Landing Page */}
             <Route path="/veridicto" element={<VeridictoLanding />} />
