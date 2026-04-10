@@ -1,110 +1,54 @@
 
 
-## Plano: Módulos Financeiros Funcionais do VoTech
+## Plano: Alerta de Faturas Próximas do Vencimento no Header
 
-### Visão Geral
-Criar 5 módulos financeiros completos (Receitas, Despesas, Contas a Pagar, Contas a Receber, Relatórios) com tabelas dedicadas no banco, hooks, componentes e navegação funcional no dashboard.
+### Objetivo
+Adicionar um ícone de alerta (triângulo com exclamação, vermelho) no header do dashboard, ao lado do ícone do TOTP (relógio), que mostra quantas faturas estão pendentes ou próximas do vencimento (15 dias). Ao clicar, um dropdown aparece com o aviso. Ao clicar na mensagem do dropdown, abre o SubscriptionDrawer direto na aba "Vencimentos".
 
----
+### Implementação
 
-### 1. Banco de Dados (1 migração)
+#### 1. Hook `useBillingAlert` (`src/hooks/useBillingAlert.ts`)
+- Consulta `tenant_boletos` filtrando por `tenant_id`, `status IN ('pendente', 'vencido')`
+- Calcula quais faturas vencem em até 15 dias ou já venceram
+- Retorna `{ alertCount, boletos, isLoading }`
+- Usa React Query com cache de 5 minutos
 
-**Tabelas a criar:**
+#### 2. Componente `BillingAlertIndicator` (`src/components/Dashboard/BillingAlertIndicator.tsx`)
+- Ícone `AlertTriangle` (lucide) em vermelho com badge numérico (quantidade de faturas)
+- Ao clicar, abre um `DropdownMenu` com mensagem: "Você possui X fatura(s) se aproximando do vencimento"
+- Cada item listado mostra mês de referência e valor
+- Ao clicar na mensagem, dispara callback `onOpenSubscription`
+- Ícone só aparece se `alertCount > 0`
 
-- **`votech_categorias`** — categorias reutilizáveis (receita/despesa)
-  - `id`, `user_id`, `tipo` (receita/despesa), `nome`, `cor`, `icone`, `created_at`
+#### 3. `SubscriptionDrawer` — aceitar prop `initialTab`
+- Adicionar prop opcional `initialTab?: string` (default `'perfil'`)
+- Passar para `<Tabs defaultValue={initialTab}>`
 
-- **`votech_transacoes`** — tabela central de receitas e despesas
-  - `id`, `user_id`, `tipo` (receita/despesa), `descricao`, `valor`, `data`, `categoria_id` (FK), `forma_pagamento`, `status` (pago/pendente), `observacoes`, `recorrente`, `created_at`, `updated_at`
+#### 4. `SupportSheet` — repassar `initialTab` ao `SubscriptionDrawer`
+- Aceitar prop `initialSubscriptionTab`
+- Repassar para o SubscriptionDrawer
 
-- **`votech_contas`** — contas a pagar e a receber
-  - `id`, `user_id`, `tipo` (pagar/receber), `descricao`, `valor`, `data_vencimento`, `data_pagamento`, `status` (pendente/pago/atrasado), `categoria_id` (FK), `fornecedor_cliente`, `forma_pagamento`, `observacoes`, `created_at`, `updated_at`
+#### 5. `DashboardLayout` — integrar tudo
+- Importar `BillingAlertIndicator`
+- Adicionar estado `subscriptionInitialTab`
+- Colocar o componente no header, ao lado do botão TOTP
+- Ao clicar no alerta: abrir `SupportSheet` (via sidebar) e setar tab para `'vencimentos'`
+- Alternativa mais direta: abrir `SubscriptionDrawer` independente direto do layout (sem precisar abrir SupportSheet primeiro)
 
-**RLS**: Todas com `user_id = auth.uid()` (isolamento por usuário, sem tenant — plataforma pessoal/empresarial).
+#### 6. `DashboardSidebar` / `MobileBottomNav`
+- Propagar `initialSubscriptionTab` para o `SupportSheet` já existente
 
-**Seed**: Inserir categorias padrão via função `criar_votech_categorias_padrao(user_id)`.
+### Fluxo do usuário
+1. Fatura pendente a ≤15 dias → ícone vermelho com badge aparece no header
+2. Clica no ícone → dropdown com aviso "Você possui faturas se aproximando"
+3. Clica na mensagem → abre SubscriptionDrawer na aba "Vencimentos"
+4. Ícone permanece visível enquanto houver faturas pendentes/vencidas
 
----
+### Arquivos a criar
+- `src/hooks/useBillingAlert.ts`
+- `src/components/Dashboard/BillingAlertIndicator.tsx`
 
-### 2. Tipos (`src/types/votech.ts`)
-Adicionar interfaces: `VotechCategoria`, `VotechTransacao`, `VotechConta`.
-
----
-
-### 3. Hooks (`src/hooks/votech/`)
-
-- **`useVotechCategorias.ts`** — CRUD de categorias
-- **`useVotechTransacoes.ts`** — CRUD de transações (receitas + despesas), filtros por tipo/período/categoria
-- **`useVotechContas.ts`** — CRUD de contas a pagar/receber, filtros por tipo/status/período
-
----
-
-### 4. Componentes (`src/components/Votech/`)
-
-- **`VotechSidebar.tsx`** — sidebar extraída com navegação por estado (activeView)
-- **`VotechDashboardView.tsx`** — view atual do dashboard com cards de resumo dinâmicos
-- **`VotechTransacoesView.tsx`** — listagem + filtros + formulário modal para receitas OU despesas (prop `tipo`)
-- **`VotechTransacaoForm.tsx`** — dialog de criar/editar transação
-- **`VotechContasView.tsx`** — listagem de contas a pagar OU receber (prop `tipo`)
-- **`VotechContaForm.tsx`** — dialog de criar/editar conta
-- **`VotechRelatoriosView.tsx`** — resumo mensal com totais, gráfico de barras receita vs despesa (recharts)
-
----
-
-### 5. Dashboard Refatorado (`VotechDashboard.tsx`)
-
-Transformar em layout com sidebar + área de conteúdo controlada por `activeView`:
-- `dashboard` → VotechDashboardView (cards com valores reais do banco)
-- `receitas` → VotechTransacoesView tipo="receita"
-- `despesas` → VotechTransacoesView tipo="despesa"
-- `contas-pagar` → VotechContasView tipo="pagar"
-- `contas-receber` → VotechContasView tipo="receber"
-- `relatorios` → VotechRelatoriosView
-
----
-
-### 6. Funcionalidades por módulo
-
-**Receitas/Despesas:**
-- Tabela com filtro por período, categoria, status
-- Cards de resumo (total pago, total pendente)
-- Criar/editar/excluir via modal
-- Categorias com cores
-
-**Contas a Pagar/Receber:**
-- Listagem com badge de status (pendente/pago/atrasado)
-- Marcar como pago com 1 clique
-- Filtro por vencimento (vencidas, hoje, próximos 7 dias, mês)
-- Alertas visuais para contas atrasadas
-
-**Dashboard:**
-- Cards com valores reais (soma de receitas, despesas, saldo, contas pendentes)
-- Lista das últimas 5 transações
-- Contas vencendo nos próximos 7 dias
-
-**Relatórios:**
-- Gráfico de barras mensal (receitas vs despesas) via recharts
-- Tabela resumo por categoria
-- Filtro por período
-
----
-
-### Resumo de arquivos
-
-**Criar (11 arquivos):**
-- `supabase/migrations/xxx_create_votech_financeiro.sql`
-- `src/hooks/votech/useVotechCategorias.ts`
-- `src/hooks/votech/useVotechTransacoes.ts`
-- `src/hooks/votech/useVotechContas.ts`
-- `src/components/Votech/VotechSidebar.tsx`
-- `src/components/Votech/VotechDashboardView.tsx`
-- `src/components/Votech/VotechTransacoesView.tsx`
-- `src/components/Votech/VotechTransacaoForm.tsx`
-- `src/components/Votech/VotechContasView.tsx`
-- `src/components/Votech/VotechContaForm.tsx`
-- `src/components/Votech/VotechRelatoriosView.tsx`
-
-**Editar (2 arquivos):**
-- `src/types/votech.ts` — novos tipos
-- `src/pages/VotechDashboard.tsx` — refatorar para usar sidebar + views
+### Arquivos a editar
+- `src/components/Support/SubscriptionDrawer.tsx` — prop `initialTab`
+- `src/components/Dashboard/DashboardLayout.tsx` — integrar alerta + SubscriptionDrawer independente
 
