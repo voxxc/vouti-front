@@ -65,6 +65,7 @@ import { BoletoPaymentDialog } from './BoletoPaymentDialog';
 interface SubscriptionDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialTab?: string;
 }
 
 interface PerfilFormData {
@@ -78,7 +79,7 @@ interface PerfilFormData {
   cep: string;
 }
 
-export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerProps) {
+export function SubscriptionDrawer({ open, onOpenChange, initialTab = 'perfil' }: SubscriptionDrawerProps) {
   const { perfil, boletos, planoInfo, loading, salvarPerfil, aceitarTermos, downloadBoleto } = useSubscription();
   const { credenciais, isLoading: loadingCredenciais, uploading, createCredencial, deleteCredencial } = useCredenciaisCliente();
   const [saving, setSaving] = useState(false);
@@ -293,7 +294,7 @@ export function SubscriptionDrawer({ open, onOpenChange }: SubscriptionDrawerPro
           </DrawerTitle>
         </DrawerHeader>
 
-        <Tabs defaultValue="perfil" className="flex-1">
+        <Tabs defaultValue={initialTab} key={initialTab} className="flex-1">
           <TabsList className="w-full justify-start rounded-none border-b px-4">
             <TabsTrigger value="perfil" className="gap-2">
               <User className="w-4 h-4" />
