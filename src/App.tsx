@@ -308,6 +308,20 @@ const SpnPublicRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 
+const VotechProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useVotechAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">Carregando...</div>;
+  if (!user) return <Navigate to="/votech/auth" replace />;
+  return <>{children}</>;
+};
+
+const VotechPublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useVotechAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">Carregando...</div>;
+  if (user) return <Navigate to="/votech/dashboard" replace />;
+  return <>{children}</>;
+};
+
 const TenantAwareAuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { tenant } = useTenant();
   return (
