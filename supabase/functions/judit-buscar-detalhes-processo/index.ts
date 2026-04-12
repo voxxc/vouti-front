@@ -284,11 +284,29 @@ serve(async (req) => {
     const responseData = lawsuitData || {};
     let steps = responseData?.steps || responseData?.movements || responseData?.andamentos || [];
     
-    // FALLBACK: Se steps está vazio mas existe last_step, usar como fallback
-    // Isso é comum em processos com segredo de justiça
+    // FALLBACK 1: Se steps está vazio mas existe last_step, usar como fallback
     if (steps.length === 0 && responseData?.last_step) {
       console.log('[Judit Detalhes] Array steps vazio, usando last_step como fallback (segredo de justiça)');
       steps = [responseData.last_step];
+    }
+    
+    // FALLBACK 2: Se steps tem itens mas todos sem content/description, verificar last_step
+    if (steps.length > 0 && responseData?.last_step) {
+      const hasAnyContent = steps.some((s: any) => s.content || s.description || s.descricao);
+      if (!hasAnyContent) {
+        console.log('[Judit Detalhes] Steps sem conteúdo, adicionando last_step como fallback');
+        const lastStepKey = generateAndamentoKey(
+          responseData.last_step.step_date || responseData.last_step.date,
+          responseData.last_step.content || responseData.last_step.description || ''
+        );
+        const existsInSteps = steps.some((s: any) => {
+          const sk = generateAndamentoKey(s.step_date || s.date, s.content || s.description || '');
+          return sk === lastStepKey;
+        });
+        if (!existsInSteps) {
+          steps.push(responseData.last_step);
+        }
+      }
     }
     
     // Extrair summary text se existir
@@ -334,18 +352,22 @@ serve(async (req) => {
 
       for (const step of steps) {
         const dataMovimentacao = step.step_date || step.date || step.data || step.data_movimentacao;
-        const descricao = step.content || step.description || step.descricao || '';
+        const descricaoOriginal = step.content || step.description || step.descricao || '';
+        const tipoMovimentacao = step.step_type || step.type || step.tipo || null;
+        
+        // Fallback: se descrição vazia, usar tipo_movimentacao ou texto padrão
+        const descricao = descricaoOriginal || tipoMovimentacao || 'Movimentação registrada';
         
         const key = generateAndamentoKey(dataMovimentacao, descricao);
         
-        if (!existingKeys.has(key) && descricao) {
+        if (!existingKeys.has(key)) {
           const { error } = await supabase
             .from('processos_oab_andamentos')
             .insert({
               processo_oab_id: sharedProcessId,
               tenant_id: tenantId,
               data_movimentacao: dataMovimentacao,
-              tipo_movimentacao: step.step_type || step.type || step.tipo || null,
+              tipo_movimentacao: tipoMovimentacao,
               descricao: descricao,
               dados_completos: step,
               lida: false
