@@ -243,7 +243,7 @@ export function SuperAdminAuditoriaAndamentos() {
                       {a.sucesso ? (
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                       ) : (
-                        <XCircle className="h-4 w-4 text-red-500" title={a.erro_mensagem || ''} />
+                        <XCircle className="h-4 w-4 text-destructive" />
                       )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">

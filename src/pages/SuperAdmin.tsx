@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search, BookOpen, Activity, Stethoscope, FlaskConical, QrCode, CreditCard, ShieldCheck, Webhook, ShieldAlert, Key, ChevronDown, Wrench } from 'lucide-react';
+import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, KeyRound, Search, BookOpen, Activity, Stethoscope, FlaskConical, QrCode, CreditCard, ShieldCheck, Webhook, ShieldAlert, Key, ChevronDown, Wrench, ClipboardCheck } from 'lucide-react';
 import { useSuperAdmin } from '@/hooks/useSuperAdmin';
 import { useAllCredenciaisPendentes } from '@/hooks/useAllCredenciaisPendentes';
 import { useAllPaymentConfirmations } from '@/hooks/useAllPaymentConfirmations';
@@ -23,6 +23,7 @@ import { SuperAdminWebhookTest } from '@/components/SuperAdmin/SuperAdminWebhook
 import { SuperAdminSecurity } from '@/components/SuperAdmin/SuperAdminSecurity';
 import { SuperAdminCofreJudit } from '@/components/SuperAdmin/SuperAdminCofreJudit';
 import { SuperAdminBuscaProcessosCPF } from '@/components/SuperAdmin/SuperAdminBuscaProcessosCPF';
+import { SuperAdminAuditoriaAndamentos } from '@/components/SuperAdmin/SuperAdminAuditoriaAndamentos';
 import { LinkBioSection } from '@/components/SuperAdmin/LinkBioSection';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { Badge } from '@/components/ui/badge';
@@ -354,7 +355,7 @@ export default function SuperAdmin() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant={['monitoramento', 'diagnostico', 'judit-docs', 'cofre-judit'].includes(mainTab) ? 'default' : 'ghost'}
+                  variant={['monitoramento', 'diagnostico', 'judit-docs', 'cofre-judit', 'auditoria-andamentos'].includes(mainTab) ? 'default' : 'ghost'}
                   size="sm"
                   className="gap-2"
                 >
@@ -373,6 +374,9 @@ export default function SuperAdmin() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setMainTab('cofre-judit')} className="gap-2">
                   <Key className="h-4 w-4" /> Cofre Judit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMainTab('auditoria-andamentos')} className="gap-2">
+                  <ClipboardCheck className="h-4 w-4" /> Auditoria Andamentos
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -489,6 +493,10 @@ export default function SuperAdmin() {
 
           <TabsContent value="busca-cpf-processos">
             <SuperAdminBuscaProcessosCPF />
+          </TabsContent>
+
+          <TabsContent value="auditoria-andamentos">
+            <SuperAdminAuditoriaAndamentos />
           </TabsContent>
         </Tabs>
       </main>
