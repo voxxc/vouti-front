@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      auditoria_andamentos: {
+        Row: {
+          acao_tomada: string | null
+          andamentos_antes: number | null
+          andamentos_depois: number | null
+          andamentos_inseridos: number | null
+          erro_mensagem: string | null
+          executado_em: string | null
+          executado_por: string | null
+          id: string
+          numero_cnj: string | null
+          problema: string | null
+          processo_oab_id: string | null
+          sucesso: boolean | null
+          tenant_id: string | null
+          tenant_nome: string | null
+        }
+        Insert: {
+          acao_tomada?: string | null
+          andamentos_antes?: number | null
+          andamentos_depois?: number | null
+          andamentos_inseridos?: number | null
+          erro_mensagem?: string | null
+          executado_em?: string | null
+          executado_por?: string | null
+          id?: string
+          numero_cnj?: string | null
+          problema?: string | null
+          processo_oab_id?: string | null
+          sucesso?: boolean | null
+          tenant_id?: string | null
+          tenant_nome?: string | null
+        }
+        Update: {
+          acao_tomada?: string | null
+          andamentos_antes?: number | null
+          andamentos_depois?: number | null
+          andamentos_inseridos?: number | null
+          erro_mensagem?: string | null
+          executado_em?: string | null
+          executado_por?: string | null
+          id?: string
+          numero_cnj?: string | null
+          problema?: string | null
+          processo_oab_id?: string | null
+          sucesso?: boolean | null
+          tenant_id?: string | null
+          tenant_nome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auditoria_andamentos_processo_oab_id_fkey"
+            columns: ["processo_oab_id"]
+            isOneToOne: false
+            referencedRelation: "processos_oab"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       avisos_ciencia: {
         Row: {
           aviso_id: string
