@@ -1,86 +1,26 @@
 
 
-## Plano: Revisão de Andamentos + Aba de Auditoria no Super Admin
+## Plano: Adicionar aba "Conclusão" no detalhe de prazo do Protocolo
 
-### Objetivo
-Corrigir a extração de andamentos para que nenhum processo monitorado fique sem movimentações, e criar uma aba "Auditoria Andamentos" no Super Admin para listar os processos afetados e o resultado da revisão.
+### Problema
+O dialog de detalhe de prazo em `ProjectProtocoloContent.tsx` não tem a aba "Conclusão" que existe no `DeadlineDetailDialog` da Agenda. Quando um prazo é concluído com comentário, essa informação não aparece.
 
----
+### Correções
 
-### 1. Fix na Edge Function `judit-buscar-detalhes-processo`
+**Arquivo**: `src/components/Project/ProjectProtocoloContent.tsx`
 
-**Arquivo**: `supabase/functions/judit-buscar-detalhes-processo/index.ts`
+1. **Query de dados** (linha 188): Adicionar campos faltantes no `select`:
+   - `comentario_conclusao, concluido_por, concluido_em, deadline_number, processo_oab_id`
 
-- Quando `descricao` é vazia, usar fallback: `tipo_movimentacao` ou `"Movimentação registrada"`
-- Melhorar fallback do `last_step` para cobrir mais cenários (steps com itens sem content)
+2. **Tabs do dialog** (linha 828-831): Adicionar aba "Conclusão" condicional quando `selectedDeadline.completed === true`, mudando de `grid-cols-2` para `grid-cols-3`
 
-### 2. Nova Edge Function `reprocessar-andamentos-monitorados`
+3. **TabsContent "conclusao"** (após linha 939): Adicionar conteúdo com:
+   - Comentário de conclusão (ou mensagem "Nenhum comentário")
+   - Nome de quem concluiu (buscar profile pelo `concluido_por`)
+   - Data de conclusão formatada
 
-**Arquivo**: `supabase/functions/reprocessar-andamentos-monitorados/index.ts`
+4. **Reabrir prazo** (linha 919): Trocar o botão direto por um flow com motivo obrigatório (consistente com a Agenda), usando AlertDialog com campo de texto
 
-Função que:
-- Busca processos monitorados (com `tracking_id`) que têm 0 andamentos na tabela `processos_oab_andamentos`
-- Também busca processos desatualizados (último andamento antigo)
-- Para cada um, tenta extrair andamentos do JSON `detalhes_completos` já salvo (custo zero)
-- Se não houver dados no JSON, usa o `tracking_id` para buscar via API (GET gratuito)
-- Registra cada ação em uma nova tabela de auditoria
-
-### 3. Tabela de Auditoria (migração)
-
-```sql
-CREATE TABLE auditoria_andamentos (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  processo_oab_id uuid REFERENCES processos_oab(id),
-  numero_cnj text,
-  tenant_id uuid,
-  tenant_nome text,
-  problema text, -- 'sem_andamentos', 'desatualizado', 'descricao_vazia'
-  acao_tomada text, -- 'reprocessado_json', 'reprocessado_api', 'corrigido_descricao'
-  andamentos_antes integer DEFAULT 0,
-  andamentos_depois integer DEFAULT 0,
-  andamentos_inseridos integer DEFAULT 0,
-  sucesso boolean DEFAULT false,
-  erro_mensagem text,
-  executado_em timestamptz DEFAULT now(),
-  executado_por uuid
-);
-
-ALTER TABLE auditoria_andamentos ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Super admins podem ver auditoria"
-  ON auditoria_andamentos FOR SELECT
-  TO authenticated
-  USING (public.is_super_admin(auth.uid()));
-```
-
-### 4. Novo Componente `SuperAdminAuditoriaAndamentos`
-
-**Arquivo**: `src/components/SuperAdmin/SuperAdminAuditoriaAndamentos.tsx`
-
-Componente com:
-- Botão "Executar Revisão" que chama a edge function `reprocessar-andamentos-monitorados`
-- Barra de progresso durante execução
-- Tabela com resultados da auditoria: CNJ, tenant, problema encontrado, ação tomada, andamentos antes/depois, status
-- Filtros por tenant, tipo de problema, status (sucesso/erro)
-- Resumo: total de processos revisados, corrigidos, com erro
-
-### 5. Integrar Aba no Super Admin
-
-**Arquivo**: `src/pages/SuperAdmin.tsx`
-
-- Adicionar item "Auditoria Andamentos" no dropdown "Judit" (ao lado de Monitoramento, Diagnóstico, etc.)
-- Nova `TabsContent value="auditoria-andamentos"` renderizando o componente
-
----
-
-### Arquivos a criar
-- `supabase/functions/reprocessar-andamentos-monitorados/index.ts`
-- `src/components/SuperAdmin/SuperAdminAuditoriaAndamentos.tsx`
-
-### Arquivos a editar
-- `supabase/functions/judit-buscar-detalhes-processo/index.ts` — fix fallback descrição vazia
-- `src/pages/SuperAdmin.tsx` — nova aba no dropdown Judit
-
-### Migração
-- 1 migração: tabela `auditoria_andamentos` com RLS para super admins
+### Resultado
+Paridade total com o `DeadlineDetailDialog` da Agenda: aba "Conclusão" visível para prazos concluídos, mostrando comentário, autor e data.
 
