@@ -1083,7 +1083,35 @@ export function ProjectProtocoloContent({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Edit deadline dialog */}
+      {/* Reopen deadline with reason */}
+      <AlertDialog open={!!reopenConfirmId} onOpenChange={(open) => { if (!open) { setReopenConfirmId(null); setReopenMotivo(''); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reabrir prazo?</AlertDialogTitle>
+            <AlertDialogDescription>Informe o motivo para reabrir este prazo. O motivo será registrado no histórico.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Textarea
+              placeholder="Motivo para reabertura..."
+              value={reopenMotivo}
+              onChange={(e) => setReopenMotivo(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!reopenMotivo.trim()}
+              onClick={() => {
+                if (reopenConfirmId) toggleDeadlineCompletion(reopenConfirmId, true);
+              }}
+            >
+              Reabrir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <EditarPrazoDialog
         deadline={editingDeadlineObj}
         open={isEditPrazoOpen}
