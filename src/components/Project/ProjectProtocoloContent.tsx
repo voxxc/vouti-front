@@ -151,6 +151,9 @@ export function ProjectProtocoloContent({
   const [isEditPrazoOpen, setIsEditPrazoOpen] = useState(false);
   const [editingDeadlineObj, setEditingDeadlineObj] = useState<Deadline | null>(null);
   const [deleteDeadlineConfirm, setDeleteDeadlineConfirm] = useState<string | null>(null);
+  const [reopenConfirmId, setReopenConfirmId] = useState<string | null>(null);
+  const [reopenMotivo, setReopenMotivo] = useState('');
+  const [completedByProfile, setCompletedByProfile] = useState<any | null>(null);
   
   const [tarefasProcesso, setTarefasProcesso] = useState<TarefaOAB[]>([]);
   
@@ -186,8 +189,10 @@ export function ProjectProtocoloContent({
       .from('deadlines')
       .select(`
         id, title, description, date, completed, protocolo_etapa_id, project_id, tenant_id,
+        comentario_conclusao, concluido_por, concluido_em, deadline_number, processo_oab_id,
         projects (name, client),
         advogado:profiles!deadlines_advogado_responsavel_id_fkey (user_id, full_name, avatar_url),
+        concluido_por_profile:profiles!deadlines_concluido_por_fkey (user_id, full_name, avatar_url),
         deadline_tags (tagged_user_id, tagged_user:profiles!deadline_tags_tagged_user_id_fkey (user_id, full_name, avatar_url))
       `)
       .in('protocolo_etapa_id', etapaIds)
@@ -278,9 +283,10 @@ export function ProjectProtocoloContent({
           });
       }
 
-      setPrazosVinculados(prev => prev.map(p => p.id === deadlineId ? { ...p, completed: true } : p));
+      const updatedFields = { completed: true, comentario_conclusao: comentarioConclusao.trim() || null, concluido_por: user?.id || null, concluido_em: new Date().toISOString() };
+      setPrazosVinculados(prev => prev.map(p => p.id === deadlineId ? { ...p, ...updatedFields } : p));
       if (selectedDeadline?.id === deadlineId) {
-        setSelectedDeadline((prev: any) => prev ? { ...prev, completed: true } : null);
+        setSelectedDeadline((prev: any) => prev ? { ...prev, ...updatedFields, concluido_por_profile: { user_id: user?.id, full_name: user?.user_metadata?.full_name || 'Você' } } : null);
       }
       setConfirmCompleteId(null);
       setComentarioConclusao('');
@@ -288,7 +294,10 @@ export function ProjectProtocoloContent({
       setSubtarefaDescricao('');
       toast({ title: "Prazo concluído", description: "Prazo marcado como concluído com sucesso." });
     } else {
-      // Reabrir prazo
+      // Reabrir prazo - registrar motivo no histórico
+      const motivo = reopenMotivo.trim();
+      if (!motivo) return;
+
       const { error } = await supabase
         .from('deadlines')
         .update({ completed: false, comentario_conclusao: null, concluido_por: null, concluido_em: null })
@@ -299,10 +308,21 @@ export function ProjectProtocoloContent({
         return;
       }
 
-      setPrazosVinculados(prev => prev.map(p => p.id === deadlineId ? { ...p, completed: false } : p));
+      // Registrar motivo no histórico de comentários
+      await supabase.from('deadline_comentarios').insert({
+        deadline_id: deadlineId,
+        user_id: user?.id || '',
+        comentario: `🔄 Prazo reaberto. Motivo: ${motivo}`,
+        tenant_id: tenantId || null,
+      });
+
+      const resetFields = { completed: false, comentario_conclusao: null, concluido_por: null, concluido_em: null, concluido_por_profile: null };
+      setPrazosVinculados(prev => prev.map(p => p.id === deadlineId ? { ...p, ...resetFields } : p));
       if (selectedDeadline?.id === deadlineId) {
-        setSelectedDeadline((prev: any) => prev ? { ...prev, completed: false } : null);
+        setSelectedDeadline((prev: any) => prev ? { ...prev, ...resetFields } : null);
       }
+      setReopenConfirmId(null);
+      setReopenMotivo('');
       toast({ title: "Prazo reaberto", description: "Prazo marcado como pendente." });
     }
   };
@@ -826,9 +846,12 @@ export function ProjectProtocoloContent({
                 )}
               </DialogHeader>
               <Tabs defaultValue="info" className="flex-1 overflow-hidden flex flex-col">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className={`grid w-full ${selectedDeadline.completed ? 'grid-cols-3' : 'grid-cols-2'}`}>
                   <TabsTrigger value="info"><Info className="h-4 w-4 mr-2" /> Informações</TabsTrigger>
                   <TabsTrigger value="comments"><MessageSquare className="h-4 w-4 mr-2" /> Comentários</TabsTrigger>
+                  {selectedDeadline.completed && (
+                    <TabsTrigger value="conclusao"><CheckCircle2 className="h-4 w-4 mr-2" /> Conclusão</TabsTrigger>
+                  )}
                 </TabsList>
                 <TabsContent value="info" className="flex-1 overflow-auto space-y-4 mt-4">
                   <div>
@@ -916,7 +939,7 @@ export function ProjectProtocoloContent({
                         <CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como Concluído
                       </Button>
                     ) : (
-                      <Button variant="outline" onClick={() => toggleDeadlineCompletion(selectedDeadline.id, selectedDeadline.completed)} className="flex-1">
+                      <Button variant="outline" onClick={() => setReopenConfirmId(selectedDeadline.id)} className="flex-1">
                         <X className="h-4 w-4 mr-2" /> Reabrir Prazo
                       </Button>
                     )}
@@ -940,6 +963,36 @@ export function ProjectProtocoloContent({
                 <TabsContent value="comments" className="flex-1 overflow-auto mt-4">
                   <DeadlineComentarios deadlineId={selectedDeadline.id} currentUserId={user?.id || ''} />
                 </TabsContent>
+                {selectedDeadline.completed && (
+                  <TabsContent value="conclusao" className="flex-1 overflow-auto mt-4 space-y-4">
+                    <div>
+                      <Label className="text-muted-foreground text-xs uppercase">Comentário de Conclusão</Label>
+                      <p className="mt-1 text-sm whitespace-pre-wrap">{selectedDeadline.comentario_conclusao || 'Nenhum comentário de conclusão registrado.'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground text-xs uppercase">Concluído por</Label>
+                      <div className="flex items-center gap-2 mt-1">
+                        {selectedDeadline.concluido_por_profile ? (
+                          <>
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={selectedDeadline.concluido_por_profile.avatar_url} />
+                              <AvatarFallback className="text-xs">{selectedDeadline.concluido_por_profile.full_name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm">{selectedDeadline.concluido_por_profile.full_name}</span>
+                          </>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">Informação não disponível</span>
+                        )}
+                      </div>
+                    </div>
+                    {selectedDeadline.concluido_em && (
+                      <div>
+                        <Label className="text-muted-foreground text-xs uppercase">Data de Conclusão</Label>
+                        <p className="mt-1 text-sm">{format(new Date(selectedDeadline.concluido_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                )}
               </Tabs>
             </>
           )}
@@ -1030,7 +1083,35 @@ export function ProjectProtocoloContent({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Edit deadline dialog */}
+      {/* Reopen deadline with reason */}
+      <AlertDialog open={!!reopenConfirmId} onOpenChange={(open) => { if (!open) { setReopenConfirmId(null); setReopenMotivo(''); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reabrir prazo?</AlertDialogTitle>
+            <AlertDialogDescription>Informe o motivo para reabrir este prazo. O motivo será registrado no histórico.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Textarea
+              placeholder="Motivo para reabertura..."
+              value={reopenMotivo}
+              onChange={(e) => setReopenMotivo(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!reopenMotivo.trim()}
+              onClick={() => {
+                if (reopenConfirmId) toggleDeadlineCompletion(reopenConfirmId, true);
+              }}
+            >
+              Reabrir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <EditarPrazoDialog
         deadline={editingDeadlineObj}
         open={isEditPrazoOpen}
