@@ -71,6 +71,8 @@ export function UserManagementDrawer({
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [editUserTenantId, setEditUserTenantId] = useState<string | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [deletingUser, setDeletingUser] = useState(false);
   const [editFormData, setEditFormData] = useState({
     name: '',
     email: '',
