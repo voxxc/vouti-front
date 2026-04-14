@@ -675,6 +675,19 @@ export function UserManagementDrawer({
               </div>
             )}
 
+            {/* Separador e Botão Apagar */}
+            <Separator />
+            <Button
+              type="button"
+              variant="destructive"
+              className="w-full gap-2"
+              disabled={loading || deletingUser}
+              onClick={() => setIsDeleteConfirmOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+              {deletingUser ? "Apagando..." : "Apagar Usuário"}
+            </Button>
+
             {/* Botão Salvar */}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Salvando..." : "Salvar Alterações"}
