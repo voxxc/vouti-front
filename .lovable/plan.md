@@ -1,22 +1,18 @@
 
 
-## Plano: Suporte a Ctrl+V de imagens no chat do Planejador
+## Plano: Lightbox para imagens no chat do Planejador
+
+### Problema
+Ao clicar numa imagem no chat, ela abre em nova aba. O usuário quer que abra num overlay/modal na própria tela.
 
 ### Mudança
 
 **Arquivo**: `src/components/Planejador/PlanejadorTaskChat.tsx`
 
-1. Adicionar um handler `onPaste` no `<Input>` (ou no container do chat) que intercepta o evento `paste`
-2. No handler, verificar se `e.clipboardData.files` contém imagens (`file.type.startsWith('image/')`)
-3. Se sim, reutilizar a mesma lógica de upload já existente em `handleFileSelect`: upload para `planejador-chat-files`, obter URL pública, e chamar `sendMessage.mutate` com `messageType: 'image'`
+1. Adicionar state `previewImage: string | null`
+2. Trocar o `<a href target="_blank">` (linha 459) por um `<div onClick={() => setPreviewImage(url)} className="cursor-pointer">`
+3. Adicionar modal de preview no final do componente (overlay fixo com fundo escuro, botão X para fechar, imagem centralizada com `max-h-[90vh]`), mesmo padrão já usado em `ReuniaoArquivos.tsx`
 
-### Detalhes técnicos
-
-- Extrair a lógica de upload de imagem do `handleFileSelect` para uma função compartilhada `uploadImageFile(file: File)`
-- O `onPaste` chama `uploadImageFile` para cada arquivo de imagem encontrado no clipboard
-- Apenas imagens são processadas no paste; texto continua funcionando normalmente
-- Nenhuma mudança de banco ou storage necessária — usa a mesma infraestrutura existente
-
-### Arquivo a editar
-- `src/components/Planejador/PlanejadorTaskChat.tsx`
+### Resultado
+Imagens abrem em lightbox na própria tela, com clique no fundo ou no X para fechar.
 
