@@ -1,8 +1,19 @@
 import { useState, useMemo, useEffect } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Users, Plus, Search, Pencil, CheckCircle2, KeyRound, Loader2 } from "lucide-react";
+import { Users, Plus, Search, Pencil, CheckCircle2, KeyRound, Loader2, Trash2 } from "lucide-react";
 import { User } from "@/types/user";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
