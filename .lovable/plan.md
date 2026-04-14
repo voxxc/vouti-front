@@ -1,50 +1,81 @@
 
+## Diagnóstico: por que ainda persiste no tenant Cordeiro
 
-## Análise: Processos em segredo de justiça sem informações no tenant Cordeiro
+Achei a causa real no fluxo atual.
 
 ### Causa raiz
+O ajuste anterior foi feito nas functions erradas para o fluxo OAB que está sendo usado no app.
 
-O problema está em **duas edge functions** que não enviam a `customer_key` (credencial do advogado) na requisição à API Judit:
+Hoje, no módulo de processos OAB, o sistema usa principalmente:
 
-1. **`judit-ativar-monitoramento/index.ts`** — O POST para criar tracking na Judit (linha 33-47) **não inclui** o campo `credential: { customer_key }`. Sem a credencial, a Judit não consegue acessar o processo sigiloso e retorna dados vazios ("PROCESSO EM SEGREDO DE JUSTIÇA" como parte_ativa, sem partes, sem andamentos detalhados).
+- `judit-ativar-monitoramento-oab`
+- `judit-buscar-detalhes-processo`
+- `judit-buscar-processo-cnj`
 
-2. **`judit-buscar-detalhes-processo/index.ts`** — Quando busca detalhes via `tracking_id` existente (linhas 82-121), o GET no tracking retorna um `request_id` que foi originalmente criado **sem credencial**. Portanto, mesmo que depois faça GET no `/responses`, os dados já vieram sem informações sigilosas. A `customer_key` só é buscada no fallback do POST pago (linha 125+), que raramente é executado se já existe tracking.
+E o problema continua por 2 motivos:
 
-### Evidência no banco
-- Tenant Cordeiro tem 3 credenciais ativas (`rodrigoprojudi`, `rodrigotrf4`, `rodrigotjpr`)
-- Processos sigilosos mostram `parte_ativa = 'PROCESSO EM SEGREDO DE JUSTIÇA'`, `partes_completas = null`, 0 partes
+1. `judit-ativar-monitoramento-oab` ainda cria tracking sem `credential`
+   - O arquivo atual monta `trackingPayload` só com:
+     - `recurrence`
+     - `search`
+     - `callback_url`
+   - Não busca `credenciais_judit`
+   - Não envia `credential: { customer_key }`
+   - Resultado: o tracking nasce “cego” para processo sigiloso
 
-### Correções
+2. `judit-buscar-detalhes-processo` reaproveita `detalhes_request_id` antigo
+   - Antes de fazer nova consulta, ele tenta usar:
+     - `detalhes_request_id` de outro processo com mesmo CNJ
+     - ou `request_id` vindo do `tracking_id`
+   - Se esse request antigo foi criado sem credencial, ele continua retornando dados incompletos
+   - Ou seja: mesmo com credencial válida hoje, o sistema recicla um request “contaminado” do passado
 
-**Arquivo 1: `supabase/functions/judit-ativar-monitoramento/index.ts`**
-- Buscar credencial ativa do tenant na tabela `credenciais_judit`
-- Selecionar a credencial correta baseada no sistema/tribunal do processo (matching por `system_name` ou código do tribunal no CNJ)
-- Adicionar `credential: { customer_key }` no body do POST de tracking
+### Evidência no código
+- `src/hooks/useOABs.ts` e `src/components/Project/ProjectProcessos.tsx` chamam `judit-ativar-monitoramento-oab`
+- `supabase/functions/judit-ativar-monitoramento-oab/index.ts` não injeta `customer_key`
+- `supabase/functions/judit-buscar-detalhes-processo/index.ts` usa `detalhes_request_id` existente antes de forçar nova consulta autenticada
+- `supabase/functions/judit-buscar-processo-cnj/index.ts` já envia credencial, mas escolhe apenas a primeira credencial ativa, sem casar tribunal/sistema
 
-**Arquivo 2: `supabase/functions/judit-buscar-detalhes-processo/index.ts`**
-- Mover a busca de `customer_key` para **antes** do bloco de tracking (antes da linha 82)
-- Quando fizer o POST via tracking que resulta em nova consulta, incluir a credencial
-- Para processos que já foram importados sem credencial: ao buscar detalhes com POST pago (fallback), a credencial já é enviada — isso já funciona, basta forçar o re-fetch
+### O que corrigir
+1. Corrigir `judit-ativar-monitoramento-oab`
+   - Buscar credencial ativa do tenant
+   - Preferir credencial compatível com o tribunal do CNJ
+   - Incluir `credential: { customer_key }` no POST `/tracking`
+   - Se estiver reativando tracking antigo com `/resume`, avaliar recriar tracking quando o processo for sigiloso e o tracking original não tiver sido criado com credencial
 
-### Fluxo corrigido
+2. Corrigir `judit-buscar-detalhes-processo`
+   - Não reaproveitar automaticamente `detalhes_request_id` antigo em processo sigiloso
+   - Se o processo estiver com sinais de sigilo/incompleto (ex.: sem partes, sem andamentos relevantes, parte_ativa genérica), forçar nova consulta com credencial
+   - Opcionalmente ignorar também `request_id` vindo de tracking antigo sem credencial
 
-```text
-1. Ativar monitoramento:
-   - Buscar customer_key do tenant
-   - POST /tracking COM credential: { customer_key }
-   → Judit acessa processo sigiloso com a credencial do advogado
+3. Melhorar seleção de credencial
+   - Hoje o código tende a pegar a primeira credencial ativa
+   - Precisamos casar por tribunal/sistema usando o CNJ
+   - Ex.: TJPR -> credencial `rodrigotjpr`, TRF4 -> `rodrigotrf4`, Projudi -> `rodrigoprojudi` quando fizer sentido
 
-2. Buscar detalhes:
-   - Buscar customer_key ANTES de qualquer lógica
-   - Se tem tracking_id → GET tracking → pegar request_id
-   - GET /responses com request_id (dados já vêm completos pois tracking foi criado com credencial)
-   - Se fallback POST → incluir customer_key (já funciona)
-```
+4. Reprocessamento dos processos já afetados
+   - Mesmo após o fix, processos antigos continuarão com `detalhes_request_id` ruim até serem recarregados
+   - Precisamos ajustar a lógica para “furar cache ruim” e depois acionar atualização manual/automática dos casos do Cordeiro
 
-### Sobre processos já importados
-Os processos do Cordeiro que já foram importados sem credencial precisarão de um re-fetch manual (botão "Atualizar Detalhes") para que a nova lógica faça um POST pago com credencial e traga os dados completos.
-
-### Arquivos a editar
-- `supabase/functions/judit-ativar-monitoramento/index.ts`
+### Implementação proposta
+**Arquivos a editar**
+- `supabase/functions/judit-ativar-monitoramento-oab/index.ts`
 - `supabase/functions/judit-buscar-detalhes-processo/index.ts`
+- `supabase/functions/judit-buscar-processo-cnj/index.ts`
 
+### Resultado esperado
+Depois da correção:
+- novos trackings OAB serão criados com credencial
+- consultas de detalhes deixarão de reaproveitar request antigo inválido para casos sigilosos
+- processos sigilosos do tenant Cordeiro passarão a preencher partes, detalhes e andamentos quando a credencial realmente tiver acesso
+
+### Detalhes técnicos
+```text
+Fluxo atual com falha:
+UI OAB -> judit-ativar-monitoramento-oab -> tracking sem credential
+UI detalhes -> judit-buscar-detalhes-processo -> reutiliza request_id antigo -> resposta incompleta
+
+Fluxo corrigido:
+UI OAB -> judit-ativar-monitoramento-oab -> tracking com credential
+UI detalhes -> se detectar sigilo/cache ruim -> POST novo com credential
+```
