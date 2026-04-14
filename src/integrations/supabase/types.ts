@@ -5764,6 +5764,7 @@ export type Database = {
       project_protocolo_etapas: {
         Row: {
           comentario_conclusao: string | null
+          concluido_por: string | null
           created_at: string | null
           data_conclusao: string | null
           descricao: string | null
@@ -5778,6 +5779,7 @@ export type Database = {
         }
         Insert: {
           comentario_conclusao?: string | null
+          concluido_por?: string | null
           created_at?: string | null
           data_conclusao?: string | null
           descricao?: string | null
@@ -5792,6 +5794,7 @@ export type Database = {
         }
         Update: {
           comentario_conclusao?: string | null
+          concluido_por?: string | null
           created_at?: string | null
           data_conclusao?: string | null
           descricao?: string | null

@@ -1,0 +1,1 @@
+ALTER TABLE public.project_protocolo_etapas ADD COLUMN concluido_por UUID REFERENCES auth.users(id);
