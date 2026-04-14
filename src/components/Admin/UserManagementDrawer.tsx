@@ -1,8 +1,19 @@
 import { useState, useMemo, useEffect } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Users, Plus, Search, Pencil, CheckCircle2, KeyRound, Loader2 } from "lucide-react";
+import { Users, Plus, Search, Pencil, CheckCircle2, KeyRound, Loader2, Trash2 } from "lucide-react";
 import { User } from "@/types/user";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -60,6 +71,8 @@ export function UserManagementDrawer({
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [editUserTenantId, setEditUserTenantId] = useState<string | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [deletingUser, setDeletingUser] = useState(false);
   const [editFormData, setEditFormData] = useState({
     name: '',
     email: '',
@@ -662,6 +675,19 @@ export function UserManagementDrawer({
               </div>
             )}
 
+            {/* Separador e Botão Apagar */}
+            <Separator />
+            <Button
+              type="button"
+              variant="destructive"
+              className="w-full gap-2"
+              disabled={loading || deletingUser}
+              onClick={() => setIsDeleteConfirmOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+              {deletingUser ? "Apagando..." : "Apagar Usuário"}
+            </Button>
+
             {/* Botão Salvar */}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Salvando..." : "Salvar Alterações"}
@@ -770,6 +796,63 @@ export function UserManagementDrawer({
           </form>
         </DialogContent>
       </Dialog>
+      {/* AlertDialog de confirmação de exclusão */}
+      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar usuário</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja apagar <strong>{editingUser?.name}</strong>?
+              <br /><br />
+              O acesso ao sistema será removido permanentemente. Porém, todos os projetos, prazos, comentários e demais registros criados por este usuário serão mantidos para fins de rastreio e auditoria.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingUser}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deletingUser}
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!editingUser) return;
+                setDeletingUser(true);
+                try {
+                  const { data: { session } } = await supabase.auth.getSession();
+                  if (!session) throw new Error('Sessão expirada');
+
+                  await supabase.auth.refreshSession();
+                  const { data: { session: refreshedSession } } = await supabase.auth.getSession();
+
+                  const { data, error } = await supabase.functions.invoke('delete-user', {
+                    body: { userId: editingUser.id },
+                    headers: { Authorization: `Bearer ${refreshedSession?.access_token}` }
+                  });
+
+                  if (error) throw new Error(error.message);
+                  if (data?.error) throw new Error(data.error);
+
+                  toast({ title: "Sucesso", description: "Usuário apagado com sucesso" });
+                  setIsDeleteConfirmOpen(false);
+                  setIsEditOpen(false);
+                  setEditingUser(null);
+                  onDeleteUser(editingUser.id);
+                } catch (error: any) {
+                  console.error('Error deleting user:', error);
+                  toast({
+                    title: "Erro",
+                    description: error.message || "Erro ao apagar usuário",
+                    variant: "destructive"
+                  });
+                } finally {
+                  setDeletingUser(false);
+                }
+              }}
+            >
+              {deletingUser ? "Apagando..." : "Sim, apagar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
