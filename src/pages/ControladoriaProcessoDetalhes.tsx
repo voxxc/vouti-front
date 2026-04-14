@@ -598,9 +598,25 @@ const ControladoriaProcessoDetalhes = () => {
                     <Skeleton className="h-32" />
                   </div>
                 ) : movimentacoes.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">
-                    Nenhuma movimentação registrada ainda.
-                  </p>
+                  <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                    {processo && (new Date().getTime() - new Date(processo.created_at).getTime()) < 5 * 60 * 1000 ? (
+                      <>
+                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Clock className="h-6 w-6 text-primary animate-pulse" />
+                        </div>
+                        <div className="text-center space-y-1">
+                          <p className="font-medium text-foreground">Andamentos sendo processados</p>
+                          <p className="text-sm text-muted-foreground max-w-md">
+                            Os andamentos estão sendo carregados em segundo plano. Você será notificado pelo sino de notificações quando estiverem disponíveis.
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-muted-foreground text-center">
+                        Nenhuma movimentação registrada ainda.
+                      </p>
+                    )}
+                  </div>
                 ) : (
                   <ScrollArea className="h-[600px] pr-4">
                     <div className="space-y-4">

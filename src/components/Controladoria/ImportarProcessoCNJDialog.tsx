@@ -113,11 +113,18 @@ export const ImportarProcessoCNJDialog = ({
       }
 
       if (!data?.success) {
-        toast({
-          title: data?.duplicado ? 'Processo já cadastrado' : 'Erro ao importar processo',
-          description: data?.error || 'Tente novamente',
-          variant: 'destructive'
-        });
+        if (data?.duplicado) {
+          toast({
+            title: '⚠️ Processo já cadastrado',
+            description: 'Este processo já consta na sua base de dados.',
+          });
+        } else {
+          toast({
+            title: 'Erro ao importar processo',
+            description: data?.error || 'Tente novamente',
+            variant: 'destructive'
+          });
+        }
         return;
       }
 
