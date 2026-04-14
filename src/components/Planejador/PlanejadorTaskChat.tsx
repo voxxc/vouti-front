@@ -243,12 +243,11 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
     sendMessage.mutate({ content: message.trim() });
   };
 
-  // File upload
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
+  // Shared image/file upload logic
+  const uploadFile = async (file: File) => {
+    if (!user) return;
 
-    const ext = file.name.split('.').pop();
+    const ext = file.name.split('.').pop() || 'png';
     const path = `${user.id}/${taskId}/${Date.now()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
@@ -272,8 +271,26 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
       fileUrl: urlData.publicUrl,
       fileName: file.name,
     });
+  };
 
+  // File upload via input
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await uploadFile(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Paste image from clipboard
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const files = Array.from(e.clipboardData.files);
+    const images = files.filter(f => f.type.startsWith('image/'));
+    if (images.length > 0) {
+      e.preventDefault();
+      for (const img of images) {
+        await uploadFile(img);
+      }
+    }
   };
 
   // Audio recording
