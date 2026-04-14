@@ -496,6 +496,12 @@ export function EtapaModal({
                       </p>
                     </div>
                   )}
+                  {etapa.concluidoPorNome && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground uppercase">Concluído por</p>
+                      <p className="font-medium">{etapa.concluidoPorNome}</p>
+                    </div>
+                  )}
                 </div>
 
                 <Separator />
@@ -752,6 +758,12 @@ export function EtapaModal({
                         <p className="text-sm font-medium mt-1">
                           {format(etapa.dataConclusao, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                         </p>
+                      </div>
+                    )}
+                    {etapa.concluidoPorNome && (
+                      <div className="p-3 rounded-lg border bg-muted/30">
+                        <p className="text-xs text-muted-foreground uppercase font-medium">Concluído por</p>
+                        <p className="text-sm font-medium mt-1">{etapa.concluidoPorNome}</p>
                       </div>
                     )}
                   </div>
