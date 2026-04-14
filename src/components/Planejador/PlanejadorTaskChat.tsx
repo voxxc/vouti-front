@@ -567,6 +567,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
               value={message}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               placeholder="Digite @ para mencionar..."
               className="flex-1 text-sm"
             />
