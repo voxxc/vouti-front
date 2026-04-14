@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { processoId, numeroProcesso } = await req.json();
+    const { processoId, numeroProcesso, tenantId } = await req.json();
     
     if (!processoId || !numeroProcesso) {
       throw new Error('processoId e numeroProcesso sao obrigatorios');
@@ -24,26 +24,54 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('[Judit] Ativando monitoramento para:', numeroProcesso);
+    const numeroLimpo = numeroProcesso.replace(/\D/g, '');
+    console.log('[Judit] Ativando monitoramento para:', numeroLimpo);
+
+    // Buscar credencial ativa do tenant para processos sigilosos
+    let customerKey: string | null = null;
+    const effectiveTenantId = tenantId || null;
+
+    if (effectiveTenantId) {
+      // Tentar match por código do tribunal no CNJ (dígitos 14-17 do CNJ = código tribunal)
+      const codigoTribunal = numeroLimpo.length >= 17 ? numeroLimpo.substring(13, 17) : null;
+      
+      const { data: credenciais } = await supabase
+        .from('credenciais_judit')
+        .select('customer_key, system_name')
+        .eq('tenant_id', effectiveTenantId)
+        .eq('status', 'active');
+      
+      if (credenciais && credenciais.length > 0) {
+        customerKey = credenciais[0].customer_key;
+        console.log('[Judit] Usando credencial do cofre:', customerKey, '- sistema:', credenciais[0].system_name);
+      }
+    }
 
     // URL do webhook
     const webhookUrl = `${supabaseUrl}/functions/v1/judit-webhook`;
 
-    // Criar tracking na Judit
+    // Criar tracking na Judit (COM credencial para processos sigilosos)
+    const trackingBody: any = {
+      recurrence: 1,
+      search: {
+        search_type: 'lawsuit_cnj',
+        search_key: numeroLimpo,
+      },
+      callback_url: webhookUrl,
+    };
+
+    if (customerKey) {
+      trackingBody.credential = { customer_key: customerKey };
+      console.log('[Judit] Tracking criado COM credencial para acesso a processos sigilosos');
+    }
+
     const trackingResponse = await fetch('https://tracking.prod.judit.io/tracking', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'api-key': juditApiKey,
       },
-      body: JSON.stringify({
-        recurrence: 1, // Diario
-        search: {
-          search_type: 'lawsuit_cnj',
-          search_key: numeroProcesso.replace(/\D/g, ''),
-        },
-        callback_url: webhookUrl,
-      }),
+      body: JSON.stringify(trackingBody),
     });
 
     if (!trackingResponse.ok) {

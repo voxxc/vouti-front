@@ -65,6 +65,22 @@ serve(async (req) => {
     let usedExistingRequest = false;
     let metodoObtencao: 'request_id_existente' | 'tracking_id' | 'nova_consulta' = 'nova_consulta';
 
+    // Buscar credencial do tenant ANTES de qualquer lógica (necessário para processos sigilosos)
+    let customerKey: string | null = null;
+
+    if (tenantId) {
+      const { data: credenciais } = await supabase
+        .from('credenciais_judit')
+        .select('customer_key, system_name')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'active');
+      
+      if (credenciais && credenciais.length > 0) {
+        customerKey = credenciais[0].customer_key;
+        console.log('[Judit Detalhes] Credencial encontrada:', customerKey, '- sistema:', credenciais[0].system_name);
+      }
+    }
+
     if (existingRequestProcess?.detalhes_request_id) {
       // Usar request_id existente de outro processo compartilhado (GET gratuito)
       requestId = existingRequestProcess.detalhes_request_id;
@@ -123,21 +139,6 @@ serve(async (req) => {
 
       // Fallback: Fazer POST pago para obter novo request_id
       if (!requestId) {
-      // Buscar credencial do tenant para usar no request (processos sigilosos)
-      let customerKey: string | null = null;
-
-      if (tenantId) {
-        const { data: credenciais } = await supabase
-          .from('credenciais_judit')
-          .select('customer_key, system_name')
-          .eq('tenant_id', tenantId)
-          .eq('status', 'active');
-        
-        if (credenciais && credenciais.length > 0) {
-          customerKey = credenciais[0].customer_key;
-          console.log('[Judit Detalhes] Usando credencial do cofre:', customerKey);
-        }
-      }
 
       const requestPayload = {
         search: {
