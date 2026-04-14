@@ -8,6 +8,7 @@ import { CreateTenantDialog } from '@/components/SuperAdmin/CreateTenantDialog';
 import { CreateCrmTenantDialog } from '@/components/SuperAdmin/CreateCrmTenantDialog';
 import { EditTenantDialog } from '@/components/SuperAdmin/EditTenantDialog';
 import { SuperAdminThemeToggle } from '@/components/SuperAdmin/SuperAdminThemeToggle';
+import { SuperAdminTOTPTopbar } from '@/components/SuperAdmin/SuperAdminTOTPTopbar';
 import { SuperAdminLeads } from '@/components/SuperAdmin/SuperAdminLeads';
 import { SuperAdminSupport } from '@/components/SuperAdmin/SuperAdminSupport';
 import { SuperAdminAvisosDialog } from '@/components/SuperAdmin/SuperAdminAvisosDialog';
