@@ -25,6 +25,7 @@ import { SuperAdminSecurity } from '@/components/SuperAdmin/SuperAdminSecurity';
 import { SuperAdminCofreJudit } from '@/components/SuperAdmin/SuperAdminCofreJudit';
 import { SuperAdminBuscaProcessosCPF } from '@/components/SuperAdmin/SuperAdminBuscaProcessosCPF';
 import { SuperAdminAuditoriaAndamentos } from '@/components/SuperAdmin/SuperAdminAuditoriaAndamentos';
+import { SuperAdminProcessosSemAndamentos } from '@/components/SuperAdmin/SuperAdminProcessosSemAndamentos';
 import { LinkBioSection } from '@/components/SuperAdmin/LinkBioSection';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { Badge } from '@/components/ui/badge';
@@ -357,7 +358,7 @@ export default function SuperAdmin() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant={['monitoramento', 'diagnostico', 'judit-docs', 'cofre-judit', 'auditoria-andamentos'].includes(mainTab) ? 'default' : 'ghost'}
+                  variant={['monitoramento', 'diagnostico', 'judit-docs', 'cofre-judit', 'auditoria-andamentos', 'processos-sem-andamentos'].includes(mainTab) ? 'default' : 'ghost'}
                   size="sm"
                   className="gap-2"
                 >
@@ -379,6 +380,9 @@ export default function SuperAdmin() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setMainTab('auditoria-andamentos')} className="gap-2">
                   <ClipboardCheck className="h-4 w-4" /> Auditoria Andamentos
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMainTab('processos-sem-andamentos')} className="gap-2">
+                  <AlertTriangle className="h-4 w-4" /> Processos s/ Andamentos
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -499,6 +503,10 @@ export default function SuperAdmin() {
 
           <TabsContent value="auditoria-andamentos">
             <SuperAdminAuditoriaAndamentos />
+          </TabsContent>
+
+          <TabsContent value="processos-sem-andamentos">
+            <SuperAdminProcessosSemAndamentos />
           </TabsContent>
         </Tabs>
       </main>
