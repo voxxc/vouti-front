@@ -36,6 +36,7 @@ interface TenantProfile {
 export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
   const [message, setMessage] = useState("");
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -456,13 +457,13 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
 
                   {/* Image */}
                   {msg.message_type === 'image' && msg.file_url && (
-                    <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="block mb-1">
+                    <div onClick={() => setPreviewImage(msg.file_url)} className="block mb-1 cursor-pointer">
                       <img
                         src={msg.file_url}
                         alt={msg.file_name || 'Foto'}
-                        className="rounded-lg max-w-full max-h-48 object-cover"
+                        className="rounded-lg max-w-full max-h-48 object-cover hover:opacity-90 transition-opacity"
                       />
-                    </a>
+                    </div>
                   )}
 
                   {/* Audio */}
@@ -583,6 +584,25 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
           </div>
         )}
       </div>
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          onClick={() => setPreviewImage(null)}
+        >
+          <button
+            onClick={(e) => { e.stopPropagation(); setPreviewImage(null); }}
+            className="absolute top-4 right-4 text-white hover:text-white/80 z-50"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <img
+            src={previewImage}
+            alt="Preview"
+            className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
