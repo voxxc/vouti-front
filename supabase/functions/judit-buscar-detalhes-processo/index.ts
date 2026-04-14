@@ -550,6 +550,23 @@ serve(async (req) => {
       metodoObtencao
     });
 
+    // Notificar o usuário que importou o processo
+    if (userId && andamentosInseridos > 0) {
+      try {
+        await supabase.from('notifications').insert({
+          user_id: userId,
+          tenant_id: tenantId,
+          type: 'andamento_processo',
+          title: 'Andamentos carregados',
+          content: `${andamentosInseridos} andamento${andamentosInseridos !== 1 ? 's' : ''} registrado${andamentosInseridos !== 1 ? 's' : ''} para o processo ${numeroCnj}`,
+          related_processo_oab_id: processoOabId,
+        });
+        console.log('[Judit Detalhes] Notificação enviada para', userId);
+      } catch (notifErr) {
+        console.error('[Judit Detalhes] Erro ao criar notificação:', notifErr);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

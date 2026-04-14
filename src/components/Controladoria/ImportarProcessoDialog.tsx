@@ -73,6 +73,22 @@ export const ImportarProcessoDialog = ({
       // Extrair partes do processo
       const partesExtraidas = extrairPartesDoProcesso(processo);
 
+      // Verificar duplicidade antes de inserir
+      const { data: existente } = await supabase
+        .from('processos')
+        .select('id')
+        .eq('numero_processo', processo.numero_cnj)
+        .maybeSingle();
+
+      if (existente) {
+        toast({
+          title: '⚠️ Processo já cadastrado',
+          description: 'Este processo já consta na sua base de dados.',
+        });
+        onOpenChange(false);
+        return;
+      }
+
       // 1. Criar processo com todos os dados importados
       const { data: novoProcesso, error: processoError } = await supabase
         .from('processos')
