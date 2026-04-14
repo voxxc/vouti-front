@@ -51,6 +51,21 @@ serve(async (req) => {
     
     console.log('[Judit Detalhes] Buscando detalhes do processo:', numeroLimpo);
 
+    // Buscar processo atual para verificar se é sigiloso/incompleto
+    const { data: processoAtual } = await supabase
+      .from('processos_oab')
+      .select('id, parte_ativa, partes_completas, detalhes_carregados')
+      .eq('id', processoOabId)
+      .single();
+
+    // Detectar se processo parece sigiloso ou com dados incompletos
+    const isSecretOrIncomplete = processoAtual && (
+      (processoAtual.parte_ativa || '').toUpperCase().includes('SEGREDO') ||
+      (processoAtual.parte_ativa || '').includes('sigilo') ||
+      (processoAtual.parte_ativa || '').includes('dados indisponíveis') ||
+      (!processoAtual.partes_completas || (Array.isArray(processoAtual.partes_completas) && processoAtual.partes_completas.length === 0))
+    );
+
     // Verificar se outro processo com mesmo CNJ ja tem request_id (evitar custo duplicado)
     const { data: existingRequestProcess } = await supabase
       .from('processos_oab')
@@ -69,6 +84,29 @@ serve(async (req) => {
     let customerKey: string | null = null;
 
     if (tenantId) {
+      // Extrair tribunal do CNJ para matching de credencial
+      const match = numeroCnj.match(/^\d{7}-\d{2}\.\d{4}\.(\d)\.(\d{2})\.\d{4}$/);
+      let tribunalSigla = '';
+      if (match) {
+        const segmento = match[1];
+        const codigoTribunal = match[2];
+        if (segmento === '8') {
+          const mapaEstadual: Record<string, string> = {
+            '16': 'TJPR', '26': 'TJSP', '19': 'TJRJ', '13': 'TJMG', '21': 'TJRS',
+            '24': 'TJSC', '05': 'TJBA', '06': 'TJCE', '17': 'TJPE', '09': 'TJGO',
+            '07': 'TJDF', '08': 'TJES', '14': 'TJPA', '10': 'TJMA', '25': 'TJSE',
+            '15': 'TJPB', '20': 'TJRN', '04': 'TJAM', '12': 'TJMS', '11': 'TJMT',
+            '18': 'TJPI', '01': 'TJAC', '02': 'TJAL', '03': 'TJAP', '22': 'TJRO',
+            '23': 'TJRR', '27': 'TJTO',
+          };
+          tribunalSigla = mapaEstadual[codigoTribunal] || '';
+        } else if (segmento === '4') {
+          tribunalSigla = `TRF${codigoTribunal}`;
+        } else if (segmento === '5') {
+          tribunalSigla = `TRT${codigoTribunal}`;
+        }
+      }
+
       const { data: credenciais } = await supabase
         .from('credenciais_judit')
         .select('customer_key, system_name')
@@ -76,12 +114,22 @@ serve(async (req) => {
         .eq('status', 'active');
       
       if (credenciais && credenciais.length > 0) {
-        customerKey = credenciais[0].customer_key;
-        console.log('[Judit Detalhes] Credencial encontrada:', customerKey, '- sistema:', credenciais[0].system_name);
+        // Tentar casar credencial pelo tribunal
+        const tribunalLower = tribunalSigla.toLowerCase();
+        const matched = credenciais.find(c => {
+          const sn = (c.system_name || '').toLowerCase();
+          return sn.includes(tribunalLower) || tribunalLower.includes(sn.replace('rodrigo', ''));
+        });
+        customerKey = matched?.customer_key || credenciais[0].customer_key;
+        console.log('[Judit Detalhes] Credencial selecionada:', customerKey, '- tribunal:', tribunalSigla);
       }
     }
 
-    if (existingRequestProcess?.detalhes_request_id) {
+    // Se processo é sigiloso/incompleto E temos credencial, FORÇAR nova consulta (ignorar cache)
+    if (isSecretOrIncomplete && customerKey) {
+      console.log('[Judit Detalhes] Processo sigiloso/incompleto detectado - forçando nova consulta com credencial');
+      // Não usar request_id existente nem tracking - ir direto para POST pago com credencial
+    } else if (existingRequestProcess?.detalhes_request_id) {
       // Usar request_id existente de outro processo compartilhado (GET gratuito)
       requestId = existingRequestProcess.detalhes_request_id;
       usedExistingRequest = true;

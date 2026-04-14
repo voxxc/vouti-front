@@ -39,6 +39,51 @@ serve(async (req) => {
     const webhookUrl = `${supabaseUrl}/functions/v1/judit-webhook-oab`;
     const numeroLimpo = numeroCnj.replace(/\D/g, '');
 
+    // Buscar credencial ativa do tenant para processos sigilosos
+    let customerKey: string | null = null;
+
+    if (processoTenantId) {
+      // Extrair tribunal do CNJ para matching de credencial
+      const match = numeroCnj.match(/^\d{7}-\d{2}\.\d{4}\.(\d)\.(\d{2})\.\d{4}$/);
+      let tribunalSigla = '';
+      if (match) {
+        const segmento = match[1];
+        const codigoTribunal = match[2];
+        if (segmento === '8') {
+          const mapaEstadual: Record<string, string> = {
+            '16': 'TJPR', '26': 'TJSP', '19': 'TJRJ', '13': 'TJMG', '21': 'TJRS',
+            '24': 'TJSC', '05': 'TJBA', '06': 'TJCE', '17': 'TJPE', '09': 'TJGO',
+            '07': 'TJDF', '08': 'TJES', '14': 'TJPA', '10': 'TJMA', '25': 'TJSE',
+            '15': 'TJPB', '20': 'TJRN', '04': 'TJAM', '12': 'TJMS', '11': 'TJMT',
+            '18': 'TJPI', '01': 'TJAC', '02': 'TJAL', '03': 'TJAP', '22': 'TJRO',
+            '23': 'TJRR', '27': 'TJTO',
+          };
+          tribunalSigla = mapaEstadual[codigoTribunal] || '';
+        } else if (segmento === '4') {
+          tribunalSigla = `TRF${codigoTribunal}`;
+        } else if (segmento === '5') {
+          tribunalSigla = `TRT${codigoTribunal}`;
+        }
+      }
+
+      const { data: credenciais } = await supabase
+        .from('credenciais_judit')
+        .select('customer_key, system_name')
+        .eq('tenant_id', processoTenantId)
+        .eq('status', 'active');
+
+      if (credenciais && credenciais.length > 0) {
+        // Tentar casar credencial pelo tribunal
+        const tribunalLower = tribunalSigla.toLowerCase();
+        const matched = credenciais.find(c => {
+          const sn = (c.system_name || '').toLowerCase();
+          return sn.includes(tribunalLower) || tribunalLower.includes(sn.replace('rodrigo', ''));
+        });
+        customerKey = matched?.customer_key || credenciais[0].customer_key;
+        console.log('[Judit Monitor] Credencial selecionada:', customerKey, '- tribunal:', tribunalSigla);
+      }
+    }
+
     if (ativar) {
       // ATIVAR monitoramento
       console.log('[Judit Monitor] Ativando monitoramento para:', numeroLimpo);
@@ -92,14 +137,15 @@ serve(async (req) => {
         }
       }
 
-      // Criar novo tracking
-      const trackingPayload = {
+      // Criar novo tracking COM credencial
+      const trackingPayload: any = {
         recurrence: 1, // Diario
         search: {
           search_type: 'lawsuit_cnj',
           search_key: numeroLimpo,
         },
         callback_url: webhookUrl,
+        ...(customerKey && { credential: { customer_key: customerKey } })
       };
 
       // Registrar log antes da chamada

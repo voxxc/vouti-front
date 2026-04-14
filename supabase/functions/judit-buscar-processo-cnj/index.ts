@@ -63,6 +63,29 @@ serve(async (req) => {
     let customerKey: string | null = null;
 
     if (tenantId) {
+      // Extrair tribunal do CNJ para matching de credencial
+      const match = numeroCnj.match(/^\d{7}-\d{2}\.\d{4}\.(\d)\.(\d{2})\.\d{4}$/);
+      let tribunalSigla = '';
+      if (match) {
+        const segmento = match[1];
+        const codigoTribunal = match[2];
+        if (segmento === '8') {
+          const mapaEstadual: Record<string, string> = {
+            '16': 'TJPR', '26': 'TJSP', '19': 'TJRJ', '13': 'TJMG', '21': 'TJRS',
+            '24': 'TJSC', '05': 'TJBA', '06': 'TJCE', '17': 'TJPE', '09': 'TJGO',
+            '07': 'TJDF', '08': 'TJES', '14': 'TJPA', '10': 'TJMA', '25': 'TJSE',
+            '15': 'TJPB', '20': 'TJRN', '04': 'TJAM', '12': 'TJMS', '11': 'TJMT',
+            '18': 'TJPI', '01': 'TJAC', '02': 'TJAL', '03': 'TJAP', '22': 'TJRO',
+            '23': 'TJRR', '27': 'TJTO',
+          };
+          tribunalSigla = mapaEstadual[codigoTribunal] || '';
+        } else if (segmento === '4') {
+          tribunalSigla = `TRF${codigoTribunal}`;
+        } else if (segmento === '5') {
+          tribunalSigla = `TRT${codigoTribunal}`;
+        }
+      }
+
       const { data: credenciais } = await supabase
         .from('credenciais_judit')
         .select('customer_key, system_name')
@@ -70,9 +93,14 @@ serve(async (req) => {
         .eq('status', 'active');
       
       if (credenciais && credenciais.length > 0) {
-        // Usar primeira credencial ativa do tenant
-        customerKey = credenciais[0].customer_key;
-        console.log('[Judit Import CNJ] Usando credencial do cofre:', customerKey);
+        // Tentar casar credencial pelo tribunal
+        const tribunalLower = tribunalSigla.toLowerCase();
+        const matched = credenciais.find(c => {
+          const sn = (c.system_name || '').toLowerCase();
+          return sn.includes(tribunalLower) || tribunalLower.includes(sn.replace('rodrigo', ''));
+        });
+        customerKey = matched?.customer_key || credenciais[0].customer_key;
+        console.log('[Judit Import CNJ] Credencial selecionada:', customerKey, '- tribunal:', tribunalSigla);
       }
     }
 
