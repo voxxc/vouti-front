@@ -35,6 +35,8 @@ export interface ProjectProtocoloEtapa {
   responsavelNome?: string;
   dataConclusao?: Date;
   comentarioConclusao?: string;
+  concluidoPor?: string;
+  concluidoPorNome?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -97,8 +99,9 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
 
       if (error) throw error;
 
-      // Buscar nomes dos responsáveis
-      const responsavelIds = [...new Set(data?.map(p => p.responsavel_id).filter(Boolean) || [])];
+      // Buscar nomes dos responsáveis e de quem concluiu etapas
+      const etapaConcluidoPorIds = (data || []).flatMap(p => (p.etapas || []).map((e: any) => e.concluido_por)).filter(Boolean);
+      const responsavelIds = [...new Set([...(data?.map(p => p.responsavel_id).filter(Boolean) || []), ...etapaConcluidoPorIds])];
       let responsaveisMap: Record<string, string> = {};
       
       if (responsavelIds.length > 0) {
@@ -140,6 +143,8 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
           responsavelId: e.responsavel_id,
           dataConclusao: e.data_conclusao ? new Date(e.data_conclusao) : undefined,
           comentarioConclusao: e.comentario_conclusao,
+          concluidoPor: e.concluido_por,
+          concluidoPorNome: e.concluido_por ? responsaveisMap[e.concluido_por] : undefined,
           createdAt: new Date(e.created_at),
           updatedAt: new Date(e.updated_at)
         })).sort((a: ProjectProtocoloEtapa, b: ProjectProtocoloEtapa) => a.ordem - b.ordem),
@@ -378,13 +383,21 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
     })));
 
     try {
+      const { data: userData } = await supabase.auth.getUser();
       const updateData: any = {
         updated_at: new Date().toISOString()
       };
       if (data.nome !== undefined) updateData.nome = data.nome;
       if (data.descricao !== undefined) updateData.descricao = data.descricao;
       if (data.responsavelId !== undefined) updateData.responsavel_id = data.responsavelId;
-      if (data.status !== undefined) updateData.status = data.status;
+      if (data.status !== undefined) {
+        updateData.status = data.status;
+        if (data.status === 'concluido' && userData?.user) {
+          updateData.concluido_por = userData.user.id;
+        } else if (data.status !== 'concluido') {
+          updateData.concluido_por = null;
+        }
+      }
       if (data.dataConclusao !== undefined) updateData.data_conclusao = data.dataConclusao?.toISOString() || null;
       if (data.comentarioConclusao !== undefined) updateData.comentario_conclusao = data.comentarioConclusao;
 
