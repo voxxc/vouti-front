@@ -1399,6 +1399,7 @@ export type Database = {
         Row: {
           cpf: string
           created_at: string | null
+          created_by: string | null
           documento_nome: string | null
           documento_url: string | null
           enviado_judit_em: string | null
@@ -1416,6 +1417,7 @@ export type Database = {
         Insert: {
           cpf: string
           created_at?: string | null
+          created_by?: string | null
           documento_nome?: string | null
           documento_url?: string | null
           enviado_judit_em?: string | null
@@ -1433,6 +1435,7 @@ export type Database = {
         Update: {
           cpf?: string
           created_at?: string | null
+          created_by?: string | null
           documento_nome?: string | null
           documento_url?: string | null
           enviado_judit_em?: string | null

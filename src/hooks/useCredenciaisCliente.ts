@@ -70,6 +70,9 @@ export function useCredenciaisCliente() {
     mutationFn: async (data: CreateCredencialData) => {
       if (!tenantId) throw new Error('Tenant não encontrado');
 
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) throw new Error('Não autenticado');
+
       let documentoUrl: string | null = null;
       let documentoNome: string | null = null;
 
@@ -107,6 +110,7 @@ export function useCredenciaisCliente() {
         documento_nome: documentoNome,
         oab_id: null as string | null,
         system_name: data.system_name,
+        created_by: session.session.user.id,
       };
 
       // Buscar OAB existente pelo número e UF
