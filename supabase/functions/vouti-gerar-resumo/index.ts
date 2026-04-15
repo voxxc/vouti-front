@@ -62,6 +62,22 @@ serve(async (req) => {
     const numeroCnj = processo.numero_cnj.replace(/\D/g, "");
     console.log("Solicitando resumo IA para CNJ:", numeroCnj);
 
+    // Buscar credenciais ativas do tenant
+    let customerKey: string | null = null;
+    if (processo.tenant_id) {
+      const { data: credenciais } = await supabase
+        .from('credenciais_judit')
+        .select('customer_key, system_name')
+        .eq('tenant_id', processo.tenant_id)
+        .eq('status', 'active')
+        .is('removido_em', null);
+
+      if (credenciais && credenciais.length > 0) {
+        customerKey = credenciais[0].customer_key;
+        console.log("Usando customer_key do tenant:", processo.tenant_id);
+      }
+    }
+
     // Fazer POST para a API Judit
     const postResponse = await fetch("https://requests.prod.judit.io/requests", {
       method: "POST",
@@ -75,6 +91,7 @@ serve(async (req) => {
           search_key: numeroCnj,
           response_type: "lawsuit+summary",
         },
+        ...(customerKey && { credential: { customer_key: customerKey } }),
       }),
     });
 

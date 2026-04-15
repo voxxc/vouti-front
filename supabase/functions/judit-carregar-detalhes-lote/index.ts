@@ -45,6 +45,22 @@ serve(async (req) => {
 
     console.log('[Judit Carregar Lote] Iniciando para OAB:', oabId);
 
+    // Buscar credenciais ativas do tenant
+    let customerKey: string | null = null;
+    if (tenantId) {
+      const { data: credenciais } = await supabase
+        .from('credenciais_judit')
+        .select('customer_key, system_name')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'active')
+        .is('removido_em', null);
+
+      if (credenciais && credenciais.length > 0) {
+        customerKey = credenciais[0].customer_key;
+        console.log('[Judit Carregar Lote] Usando customer_key do tenant:', tenantId);
+      }
+    }
+
     // Buscar todos os processos da OAB
     const { data: processos, error: fetchError } = await supabase
       .from('processos_oab')
@@ -127,7 +143,8 @@ serve(async (req) => {
                 search_type: 'lawsuit_cnj',
                 search_key: numeroCnjLimpo,
                 on_demand: true
-              }
+              },
+              ...(customerKey && { credential: { customer_key: customerKey } }),
             }),
           });
 
