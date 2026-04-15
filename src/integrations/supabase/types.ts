@@ -1475,6 +1475,7 @@ export type Database = {
           enviado_por: string | null
           id: string
           oab_id: string | null
+          removido_em: string | null
           status: string | null
           system_name: string
           tenant_id: string
@@ -1488,6 +1489,7 @@ export type Database = {
           enviado_por?: string | null
           id?: string
           oab_id?: string | null
+          removido_em?: string | null
           status?: string | null
           system_name?: string
           tenant_id: string
@@ -1501,6 +1503,7 @@ export type Database = {
           enviado_por?: string | null
           id?: string
           oab_id?: string | null
+          removido_em?: string | null
           status?: string | null
           system_name?: string
           tenant_id?: string

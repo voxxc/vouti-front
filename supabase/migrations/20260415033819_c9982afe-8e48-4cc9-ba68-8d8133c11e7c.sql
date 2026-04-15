@@ -1,0 +1,1 @@
+ALTER TABLE public.credenciais_judit ADD COLUMN removido_em timestamptz DEFAULT NULL;
