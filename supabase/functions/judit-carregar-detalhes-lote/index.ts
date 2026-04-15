@@ -143,7 +143,8 @@ serve(async (req) => {
                 search_type: 'lawsuit_cnj',
                 search_key: numeroCnjLimpo,
                 on_demand: true
-              }
+              },
+              ...(customerKey && { credential: { customer_key: customerKey } }),
             }),
           });
 
