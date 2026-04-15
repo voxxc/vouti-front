@@ -26,6 +26,32 @@ serve(async (req) => {
 
     console.log('[Judit] Buscando processo:', numeroProcesso);
 
+    // Buscar tenant_id do processo para obter credenciais
+    let customerKey: string | null = null;
+    if (processoId) {
+      const { data: processoData } = await supabase
+        .from('processos_oab')
+        .select('tenant_id')
+        .eq('id', processoId)
+        .single();
+
+      if (processoData?.tenant_id) {
+        const { data: credenciais } = await supabase
+          .from('credenciais_judit')
+          .select('customer_key, system_name')
+          .eq('tenant_id', processoData.tenant_id)
+          .eq('status', 'active')
+          .is('removido_em', null);
+
+        if (credenciais && credenciais.length > 0) {
+          customerKey = credenciais[0].customer_key;
+          console.log('[Judit] Usando customer_key do tenant:', processoData.tenant_id);
+        }
+      }
+    }
+
+    const numeroCnjLimpo = numeroProcesso.replace(/\D/g, '');
+
     // Fazer requisicao a API Judit com payload correto
     const juditResponse = await fetch('https://requests.prod.judit.io/requests', {
       method: 'POST',
@@ -36,8 +62,9 @@ serve(async (req) => {
       body: JSON.stringify({
         search: {
           search_type: 'lawsuit_cnj',
-          search_key: numeroProcesso.replace(/\D/g, ''),
-        }
+          search_key: numeroCnjLimpo,
+        },
+        ...(customerKey && { credential: { customer_key: customerKey } }),
       }),
     });
 
