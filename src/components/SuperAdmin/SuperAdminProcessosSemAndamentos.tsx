@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RefreshCw, AlertTriangle, SearchX } from 'lucide-react';
+import { Loader2, RefreshCw, AlertTriangle, SearchX, Send, CheckCircle2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -22,12 +22,14 @@ interface ProcessoComProblema {
   created_by: string | null;
   detalhes_carregados: boolean;
   motivo: 'sem_andamentos' | 'not_found';
+  notificado_em: string | null;
 }
 
 export const SuperAdminProcessosSemAndamentos = () => {
   const [processos, setProcessos] = useState<ProcessoComProblema[]>([]);
   const [loading, setLoading] = useState(true);
   const [reprocessando, setReprocessando] = useState<string | null>(null);
+  const [notificando, setNotificando] = useState<string | null>(null);
   const [abaAtiva, setAbaAtiva] = useState('todos');
 
   const fetchProcessos = async () => {
@@ -46,6 +48,7 @@ export const SuperAdminProcessosSemAndamentos = () => {
           detalhes_carregados,
           capa_completa,
           detalhes_completos,
+          notificado_em,
           tenants!inner(slug, name)
         `)
         .order('created_at', { ascending: false });
@@ -54,7 +57,6 @@ export const SuperAdminProcessosSemAndamentos = () => {
 
       const allProcessos = data || [];
       
-      // Identificar processos NOT_FOUND
       const notFoundIds = new Set<string>();
       allProcessos.forEach((p: any) => {
         const capa = p.capa_completa || {};
@@ -64,7 +66,6 @@ export const SuperAdminProcessosSemAndamentos = () => {
         }
       });
 
-      // Buscar quais têm andamentos
       const processoIds = allProcessos.map((p: any) => p.id);
       
       let idsComAndamentos = new Set<string>();
@@ -96,6 +97,7 @@ export const SuperAdminProcessosSemAndamentos = () => {
           created_by: p.created_by,
           detalhes_carregados: p.detalhes_carregados ?? false,
           motivo: isNotFound ? 'not_found' : 'sem_andamentos',
+          notificado_em: p.notificado_em,
         });
       });
 
@@ -140,6 +142,56 @@ export const SuperAdminProcessosSemAndamentos = () => {
       });
     } finally {
       setReprocessando(null);
+    }
+  };
+
+  const handleNotificar = async (processo: ProcessoComProblema) => {
+    if (!processo.created_by) {
+      toast({ title: 'Erro', description: 'Processo sem usuário criador identificado.', variant: 'destructive' });
+      return;
+    }
+
+    setNotificando(processo.id);
+    try {
+      // Inserir notificação para o usuário
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: processo.created_by,
+          tenant_id: processo.tenant_id,
+          type: 'processo_processado' as any,
+          title: 'Processo concluído',
+          content: `O processo ${processo.numero_cnj} foi processado e está disponível para consulta.`,
+          triggered_by_user_id: processo.created_by,
+        });
+
+      if (notifError) throw notifError;
+
+      // Marcar como notificado
+      const { error: updateError } = await supabase
+        .from('processos_oab')
+        .update({ notificado_em: new Date().toISOString() } as any)
+        .eq('id', processo.id);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: '✅ Notificação enviada',
+        description: `Usuário foi notificado sobre o processo ${processo.numero_cnj}`,
+      });
+
+      // Atualizar estado local
+      setProcessos(prev => prev.map(p => 
+        p.id === processo.id ? { ...p, notificado_em: new Date().toISOString() } : p
+      ));
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao notificar',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setNotificando(null);
     }
   };
 
@@ -212,7 +264,7 @@ export const SuperAdminProcessosSemAndamentos = () => {
                       <TableHead>Importado em</TableHead>
                       <TableHead>Motivo</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Ação</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -243,7 +295,7 @@ export const SuperAdminProcessosSemAndamentos = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 flex-wrap">
                             {p.monitoramento_ativo && (
                               <Badge variant="outline" className="text-xs">Monitorado</Badge>
                             )}
@@ -252,22 +304,48 @@ export const SuperAdminProcessosSemAndamentos = () => {
                             ) : (
                               <Badge variant="destructive" className="text-xs">Sem detalhes</Badge>
                             )}
+                            {p.notificado_em && (
+                              <Badge className="text-xs bg-green-100 text-green-700 border-green-300">
+                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                Notificado
+                              </Badge>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleReprocessar(p)}
-                            disabled={reprocessando === p.id}
-                          >
-                            {reprocessando === p.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <RefreshCw className="h-4 w-4" />
-                            )}
-                            <span className="ml-1">Reprocessar</span>
-                          </Button>
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleReprocessar(p)}
+                              disabled={reprocessando === p.id}
+                            >
+                              {reprocessando === p.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <RefreshCw className="h-4 w-4" />
+                              )}
+                              <span className="ml-1 hidden sm:inline">Reprocessar</span>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={p.notificado_em ? 'ghost' : 'default'}
+                              onClick={() => handleNotificar(p)}
+                              disabled={notificando === p.id || !p.created_by}
+                              title={!p.created_by ? 'Sem usuário criador' : p.notificado_em ? 'Já notificado — clique para reenviar' : 'Notificar usuário'}
+                            >
+                              {notificando === p.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : p.notificado_em ? (
+                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <Send className="h-4 w-4" />
+                              )}
+                              <span className="ml-1 hidden sm:inline">
+                                {p.notificado_em ? 'Reenviar' : 'Notificar'}
+                              </span>
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

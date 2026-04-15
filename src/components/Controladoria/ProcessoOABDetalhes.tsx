@@ -503,19 +503,17 @@ export const ProcessoOABDetalhes = ({
             </Card>
           )}
 
-          {/* Alerta de Processo Não Encontrado */}
+          {/* Alerta de Processo Em Processamento */}
           {isProcessoNaoEncontrado && (
-            <Card className="p-3 bg-destructive/10 border-destructive/30">
+            <Card className="p-3 bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
+                <Clock className="w-5 h-5 text-green-600 mt-0.5 shrink-0 animate-pulse" />
                 <div>
-                  <p className="font-medium text-destructive text-sm">
-                    Processo não localizado
+                  <p className="font-medium text-green-800 dark:text-green-200 text-sm">
+                    Processo em processamento
                   </p>
-                  <p className="text-xs text-destructive/80">
-                    Este processo não foi encontrado nas bases judiciais automáticas (LAWSUIT_NOT_FOUND). 
-                    Verifique se o número CNJ está correto, preencha os dados manualmente usando o modo edição, 
-                    ou tente reprocessar mais tarde.
+                  <p className="text-xs text-green-700 dark:text-green-300">
+                    Seu processo está sendo processado. Ao finalizar, você será notificado.
                   </p>
                 </div>
               </div>
