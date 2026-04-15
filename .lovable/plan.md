@@ -1,54 +1,36 @@
 
 
-## Plano: Proteger senhas na tabela `credenciais_cliente`
+## Diagnóstico: Credenciais "apagadas"
 
-### Problema
-A política RLS de SELECT usa apenas `tenant_id = get_user_tenant_id()`, permitindo que **qualquer membro** do tenant leia senhas e secrets de credenciais criadas por outros usuários.
+### Situação atual
+Verifiquei o banco de dados e **todos os registros estão presentes**:
+- `credenciais_cliente` (SOLVENZA): **13 registros** — nenhum foi deletado
+- `credenciais_judit` (SOLVENZA): **18 registros** — todos intactos
 
-### Contexto do uso atual
-- **Clientes** criam credenciais via `SubscriptionDrawer.tsx` (formulário)
-- **Super Admin** lê e envia para Judit via `TenantCredenciaisDialog.tsx`
-- As senhas precisam ser recuperáveis (enviadas à API Judit), então não podem ser hasheadas
+### Problema encontrado: Política RLS duplicada
+A migration de segurança criou a nova política `credenciais_select_restrito` mas **não removeu** a política antiga `"Clientes podem ver próprias credenciais"`. Existem duas SELECT policies:
 
-### Solução: Restringir acesso + mascarar dados sensíveis
+1. `"Clientes podem ver próprias credenciais"` — política antiga AMPLA (`tenant_id = get_user_tenant_id() OR is_super_admin`)
+2. `"credenciais_select_restrito"` — política nova RESTRITIVA
 
-**1. Migration: adicionar `created_by` e restringir RLS**
-- Adicionar coluna `created_by UUID REFERENCES auth.users(id)` na `credenciais_cliente`
-- Preencher registros existentes com `enviado_por` onde disponível
-- Substituir a política SELECT por:
-  - O **criador** (`created_by = auth.uid()`) pode ver tudo
-  - **Admin/controller** do tenant pode ver tudo (precisam enviar para Judit)
-  - Demais membros do tenant **não veem** as credenciais de outros
-- Adicionar política para super_admins (`is_super_admin(auth.uid())`)
+No PostgreSQL, múltiplas políticas SELECT se combinam com **OR**, então a política antiga anula a nova. A correção de segurança não está efetiva.
 
-**2. Atualizar `useCredenciaisCliente.ts`**
-- Gravar `created_by: user.id` ao inserir nova credencial
+### O que pode estar causando a percepção de "credenciais apagadas"
+Se a visualização está cortada no scroll, os 13 registros existem mas nem todos aparecem na viewport. Porém, se o usuário está logado como um membro não-admin do tenant, a política dupla faz com que todos os registros continuem visíveis (o oposto do esperado).
 
-**3. Atualizar `SubscriptionDrawer.tsx`**
-- Sem mudança visual, apenas garantir que o `created_by` é preenchido
+### Plano de correção
 
-### RLS proposta
-```sql
--- SELECT: criador, admin/controller do tenant, ou super admin
-CREATE POLICY "credenciais_select_restrito" ON credenciais_cliente
-FOR SELECT USING (
-  tenant_id = get_user_tenant_id() AND (
-    created_by = auth.uid()
-    OR is_admin_or_controller_in_tenant()
-  )
-  OR is_super_admin(auth.uid())
-);
-```
+**1. Migration: remover política SELECT antiga**
+- `DROP POLICY "Clientes podem ver próprias credenciais" ON credenciais_cliente`
+- Manter apenas `credenciais_select_restrito` (que já inclui super admin, admin/controller e criador)
+
+**2. Garantir que os registros sem `created_by` sejam corrigidos**
+- Atualizar registros onde `created_by IS NULL` e `enviado_por IS NOT NULL` (o backfill pode ter falhado para algum registro)
 
 ### Arquivos
-| Acao | Arquivo |
+| Ação | Arquivo |
 |------|---------|
-| Migration | Nova coluna `created_by` + RLS restrita |
-| Editar | `src/hooks/useCredenciaisCliente.ts` (gravar `created_by`) |
+| Migration | Remover política SELECT duplicada |
 
-### Resultado
-- Estagiários e advogados comuns só veem as credenciais que eles mesmos criaram
-- Admins e controllers continuam vendo tudo do tenant (necessário para gestão)
-- Super admins mantêm acesso total
-- Senhas continuam recuperáveis para envio à API Judit
+Isso corrige a segurança (sem expor senhas a membros não-admins) sem afetar a visibilidade dos dados para super admin e admin/controller.
 
