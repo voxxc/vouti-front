@@ -440,6 +440,10 @@ export const ProcessoOABDetalhes = ({
     !Array.isArray(processo.partes_completas) || 
     processo.partes_completas.length === 0;
 
+  // Verificar se processo não foi encontrado na API
+  const detalhes = processo.detalhes_completos || {};
+  const isProcessoNaoEncontrado = capa?.code === 2 || detalhes?.code === 2 || detalhes?.message === 'LAWSUIT_NOT_FOUND' || capa?.message === 'LAWSUIT_NOT_FOUND';
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-xl">
@@ -493,6 +497,25 @@ export const ProcessoOABDetalhes = ({
                   </p>
                   <p className="text-xs text-amber-700 dark:text-amber-300">
                     Algumas informações podem estar indisponíveis. Use o modo edição para preencher manualmente.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Alerta de Processo Não Encontrado */}
+          {isProcessoNaoEncontrado && (
+            <Card className="p-3 bg-destructive/10 border-destructive/30">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-destructive text-sm">
+                    Processo não localizado
+                  </p>
+                  <p className="text-xs text-destructive/80">
+                    Este processo não foi encontrado nas bases judiciais automáticas (LAWSUIT_NOT_FOUND). 
+                    Verifique se o número CNJ está correto, preencha os dados manualmente usando o modo edição, 
+                    ou tente reprocessar mais tarde.
                   </p>
                 </div>
               </div>
