@@ -631,10 +631,11 @@ export function TenantCredenciaisDialog({
                   <Table className="table-fixed w-full">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[150px]">Customer Key</TableHead>
-                        <TableHead className="w-[180px]">Sistema</TableHead>
-                        <TableHead className="w-[130px]">CPF</TableHead>
-                        <TableHead className="w-[80px]">Ação</TableHead>
+                         <TableHead className="w-[150px]">Customer Key</TableHead>
+                         <TableHead className="w-[180px]">Sistema</TableHead>
+                         <TableHead className="w-[130px]">CPF</TableHead>
+                         <TableHead className="w-[90px]">Status</TableHead>
+                         <TableHead className="w-[80px]">Ação</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -651,34 +652,47 @@ export function TenantCredenciaisDialog({
                           <TableCell className="font-mono text-xs whitespace-nowrap">
                             {formatCpf(cred.username)}
                           </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={async () => {
-                                if (!confirm(`Remover credencial ${cred.customer_key} do sistema ${cred.system_name}?`)) {
-                                  return;
-                                }
-                                setDeletandoId(cred.id);
-                                try {
-                                  await deletarCredencialJudit.mutateAsync({
-                                    credencialJuditId: cred.id,
-                                    systemName: cred.system_name,
-                                    customerKey: cred.customer_key,
-                                  });
-                                } finally {
-                                  setDeletandoId(null);
-                                }
-                              }}
-                              disabled={deletandoId === cred.id}
-                            >
-                              {deletandoId === cred.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-4 h-4" />
-                              )}
-                            </Button>
-                          </TableCell>
+                           <TableCell>
+                             {cred.status === 'removed' || cred.removido_em ? (
+                               <Badge variant="secondary" className="text-xs bg-muted text-muted-foreground">
+                                 Removido
+                               </Badge>
+                             ) : (
+                               <Badge variant="default" className="text-xs bg-green-600">
+                                 Ativo
+                               </Badge>
+                             )}
+                           </TableCell>
+                           <TableCell>
+                             {cred.status !== 'removed' && !cred.removido_em ? (
+                               <Button
+                                 variant="destructive"
+                                 size="sm"
+                                 onClick={async () => {
+                                   if (!confirm(`Remover credencial ${cred.customer_key} do sistema ${cred.system_name}?`)) {
+                                     return;
+                                   }
+                                   setDeletandoId(cred.id);
+                                   try {
+                                     await deletarCredencialJudit.mutateAsync({
+                                       credencialJuditId: cred.id,
+                                       systemName: cred.system_name,
+                                       customerKey: cred.customer_key,
+                                     });
+                                   } finally {
+                                     setDeletandoId(null);
+                                   }
+                                 }}
+                                 disabled={deletandoId === cred.id}
+                               >
+                                 {deletandoId === cred.id ? (
+                                   <Loader2 className="w-4 h-4 animate-spin" />
+                                 ) : (
+                                   <Trash2 className="w-4 h-4" />
+                                 )}
+                               </Button>
+                             ) : null}
+                           </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

@@ -33,7 +33,8 @@ interface CredencialJudit {
   customer_key: string;
   system_name: string;
   username: string;
-  status: 'active' | 'error';
+  status: 'active' | 'error' | 'removed';
+  removido_em: string | null;
   enviado_por: string | null;
   created_at: string;
   updated_at: string;
@@ -255,10 +256,10 @@ export function useTenantCredenciais(tenantId: string | null) {
         throw new Error(response.data.error);
       }
 
-      // Deletar registro local da tabela credenciais_judit
+      // Soft delete: marcar como removido ao invés de deletar
       const { error } = await supabase
         .from('credenciais_judit')
-        .delete()
+        .update({ status: 'removed', removido_em: new Date().toISOString() })
         .eq('id', credencialJuditId);
 
       if (error) throw error;
