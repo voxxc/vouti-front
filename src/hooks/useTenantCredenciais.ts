@@ -33,7 +33,8 @@ interface CredencialJudit {
   customer_key: string;
   system_name: string;
   username: string;
-  status: 'active' | 'error';
+  status: 'active' | 'error' | 'removed';
+  removido_em: string | null;
   enviado_por: string | null;
   created_at: string;
   updated_at: string;
