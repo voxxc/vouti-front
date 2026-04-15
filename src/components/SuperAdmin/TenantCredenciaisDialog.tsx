@@ -631,10 +631,11 @@ export function TenantCredenciaisDialog({
                   <Table className="table-fixed w-full">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[150px]">Customer Key</TableHead>
-                        <TableHead className="w-[180px]">Sistema</TableHead>
-                        <TableHead className="w-[130px]">CPF</TableHead>
-                        <TableHead className="w-[80px]">Ação</TableHead>
+                         <TableHead className="w-[150px]">Customer Key</TableHead>
+                         <TableHead className="w-[180px]">Sistema</TableHead>
+                         <TableHead className="w-[130px]">CPF</TableHead>
+                         <TableHead className="w-[90px]">Status</TableHead>
+                         <TableHead className="w-[80px]">Ação</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
