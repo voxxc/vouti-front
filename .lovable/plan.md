@@ -1,20 +1,35 @@
 
 
-## Plano: Corrigir vínculo e system_name do PROJUDI TJPR (SOLVENZA)
+## Plano: Soft delete para credenciais do cofre Judit
 
 ### Problema
-- `credenciais_cliente` id `7433c021` tem o secret válido (`JMZT KNLC...`) mas `system_name = NULL` — aparece sem nome de tribunal
-- `credenciais_judit` id `5d8c5cd6` (PROJUDI TJPR - 1º grau, customer_key `111056/PR`) tem `credencial_cliente_id = NULL` — sem vínculo com o registro acima
+Ao deletar uma credencial do cofre Judit, o registro é removido fisicamente da tabela `credenciais_judit` (`.delete()`), perdendo o histórico.
 
-### Correção (data fix via insert tool)
+### Solução
+Substituir o `DELETE` por um `UPDATE` que marca o registro como `removed`, preservando o histórico.
 
-1. **Atualizar `credenciais_cliente`**: definir `system_name = 'PROJUDI TJPR - 1º grau'` no registro `7433c021`
-2. **Atualizar `credenciais_judit`**: definir `credencial_cliente_id = '7433c021-9226-429c-9e45-145ec11b4f90'` no registro `5d8c5cd6`
+### Alterações
 
-### Resultado
-- O registro aparecerá com o badge "PROJUDI TJPR - 1º grau" na aba Recebidas
-- O Histórico mostrará o vínculo correto entre a credencial Judit e a credencial cliente
+**1. Migration: adicionar coluna `removido_em`**
+```sql
+ALTER TABLE public.credenciais_judit 
+ADD COLUMN removido_em timestamptz DEFAULT NULL;
+```
+- `NULL` = ativo, preenchido = removido do cofre
+
+**2. `src/hooks/useTenantCredenciais.ts`**
+- No `deletarCredencialJudit`: trocar `.delete()` por `.update({ status: 'removed', removido_em: new Date().toISOString() })`
+- No query de `credenciaisJudit`: **não filtrar** removidos — manter todos no histórico
+
+**3. UI (TenantCredenciaisDialog ou equivalente)**
+- Na aba Histórico: mostrar badge "Removido" (cinza) quando `removido_em` estiver preenchido
+- Desabilitar botão de deletar para registros já removidos
 
 ### Arquivos
-Nenhum arquivo de código precisa ser alterado — apenas 2 UPDATEs no banco de dados.
+
+| Ação | Arquivo |
+|------|---------|
+| Migration | Adicionar coluna `removido_em` em `credenciais_judit` |
+| Editar | `src/hooks/useTenantCredenciais.ts` — soft delete |
+| Editar | Componente de histórico — badge de removido |
 
