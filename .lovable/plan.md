@@ -1,29 +1,49 @@
 
 
-## Plano: Alerta verde "Em processamento" + Botão de notificação no Super Admin
+## Plano: Garantir envio de `customer_key` em todas as funções de request CNJ
+
+### Problema
+As funções `judit-buscar-processo` e `vouti-gerar-resumo` fazem POST para `/requests` da Judit **sem** incluir `credential.customer_key`, mesmo quando o tenant tem credenciais ativas no cofre. Isso causa `LAWSUIT_NOT_FOUND` para processos sigilosos ou de tribunais que exigem login.
 
 ### Alterações
 
-**1. `src/components/Controladoria/ProcessoOABDetalhes.tsx` — Mudar alerta**
-- Trocar cor de vermelho/destructive para **verde** (`bg-green-50 border-green-200`)
-- Trocar ícone de `AlertTriangle` para `Clock` ou `Loader2`
-- Texto: "Seu processo está sendo processado. Ao finalizar, você será notificado." (sem mencionar "não encontrado")
+**1. `supabase/functions/judit-buscar-processo/index.ts`**
+- Receber `tenantId` no body (ou buscar do processo)
+- Buscar credenciais ativas em `credenciais_judit` para o tenant
+- Extrair tribunal do CNJ e fazer matching de credencial (mesma lógica de `judit-buscar-processo-cnj`)
+- Incluir `credential: { customer_key }` no payload do POST
 
-**2. `src/components/SuperAdmin/SuperAdminProcessosSemAndamentos.tsx` — Botão "Notificar Conclusão"**
-- Adicionar coluna "Quem adicionou" mostrando o `created_by`
-- Adicionar botão **"Notificar"** ao lado de "Reprocessar" para cada processo
-- Ao clicar, inserir uma notificação na tabela `notifications` para o `created_by` do processo com mensagem sobre conclusão/resolução do processo
-- Marcar visualmente o processo como "notificado" (pode usar campo local ou um campo `notificado_em` na tabela)
+**2. `supabase/functions/vouti-gerar-resumo/index.ts`**
+- Usar o `tenant_id` do processo para buscar credenciais ativas
+- Incluir `credential: { customer_key }` no payload do POST para `/requests`
 
-**3. Migration: Novo tipo de notificação + campo de controle**
-- Adicionar `processo_processado` ao `notifications_type_check` constraint
-- Adicionar coluna `notificado_em timestamptz` em `processos_oab` para rastrear se o super admin já notificou o usuário
+**3. `supabase/functions/judit-carregar-detalhes-lote/index.ts`** (verificar e corrigir se necessário)
+
+### Padrão a replicar
+Mesmo bloco já usado em `judit-buscar-processo-cnj` e `judit-buscar-detalhes-processo`:
+```typescript
+// Buscar credencial do tenant
+const { data: credenciais } = await supabase
+  .from('credenciais_judit')
+  .select('customer_key, system_name')
+  .eq('tenant_id', tenantId)
+  .eq('status', 'active');
+
+// Incluir no payload
+const payload = {
+  search: { search_type: 'lawsuit_cnj', search_key: numeroCnj },
+  ...(customerKey && { credential: { customer_key: customerKey } })
+};
+```
 
 ### Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Migration | Adicionar tipo `processo_processado` + coluna `notificado_em` |
-| Editar | `ProcessoOABDetalhes.tsx` — alerta verde "em processamento" |
-| Editar | `SuperAdminProcessosSemAndamentos.tsx` — botão notificar conclusão |
+| Editar | `supabase/functions/judit-buscar-processo/index.ts` — adicionar credential |
+| Editar | `supabase/functions/vouti-gerar-resumo/index.ts` — adicionar credential |
+| Verificar | `supabase/functions/judit-carregar-detalhes-lote/index.ts` |
+
+### Sem migration
+Não precisa de alteração no banco — apenas nas Edge Functions.
 
