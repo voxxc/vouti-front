@@ -4869,6 +4869,7 @@ export type Database = {
           juizo: string | null
           link_tribunal: string | null
           monitoramento_ativo: boolean | null
+          notificado_em: string | null
           numero_cnj: string
           oab_id: string
           ordem_lista: number | null
@@ -4906,6 +4907,7 @@ export type Database = {
           juizo?: string | null
           link_tribunal?: string | null
           monitoramento_ativo?: boolean | null
+          notificado_em?: string | null
           numero_cnj: string
           oab_id: string
           ordem_lista?: number | null
@@ -4943,6 +4945,7 @@ export type Database = {
           juizo?: string | null
           link_tribunal?: string | null
           monitoramento_ativo?: boolean | null
+          notificado_em?: string | null
           numero_cnj?: string
           oab_id?: string
           ordem_lista?: number | null
