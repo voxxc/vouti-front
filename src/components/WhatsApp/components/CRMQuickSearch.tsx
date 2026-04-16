@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
+import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantId } from '@/hooks/useTenantId';
@@ -20,7 +21,6 @@ export const CRMQuickSearch = ({ onSelectProject }: CRMQuickSearchProps) => {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState<ProjectItem[]>([]);
-  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const { user } = useAuth();
   const { tenantId } = useTenantId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -101,56 +101,11 @@ export const CRMQuickSearch = ({ onSelectProject }: CRMQuickSearchProps) => {
     )
   );
 
-  const visibleProjects = filteredProjects.slice(0, 5);
-
-  // Reset highlight when search changes
-  useEffect(() => {
-    setHighlightedIndex(0);
-  }, [searchTerm]);
-
   const handleSelect = (projectId: string) => {
     onSelectProject?.(projectId);
     setSearchTerm('');
     setOpen(false);
     inputRef.current?.blur();
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!open || visibleProjects.length === 0) {
-      if (e.key === 'Escape') {
-        setSearchTerm('');
-        setOpen(false);
-        inputRef.current?.blur();
-      }
-      return;
-    }
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setHighlightedIndex(prev => 
-          prev < visibleProjects.length - 1 ? prev + 1 : 0
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setHighlightedIndex(prev => 
-          prev > 0 ? prev - 1 : visibleProjects.length - 1
-        );
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (visibleProjects[highlightedIndex]) {
-          handleSelect(visibleProjects[highlightedIndex].id);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setSearchTerm('');
-        setOpen(false);
-        inputRef.current?.blur();
-        break;
-    }
   };
 
   return (
@@ -168,33 +123,32 @@ export const CRMQuickSearch = ({ onSelectProject }: CRMQuickSearchProps) => {
           onFocus={() => {
             if (searchTerm.length >= 1) setOpen(true);
           }}
-          onKeyDown={handleKeyDown}
           className="w-48 h-8 text-xs pl-8 bg-background/50 border-border/50 focus:bg-background placeholder:text-xs"
         />
       </div>
       
-      {open && visibleProjects.length > 0 && (
-        <div className="absolute top-full left-0 mt-1 w-64 z-[60] bg-popover border border-border rounded-md shadow-lg overflow-hidden">
-          <div className="p-1">
-            {visibleProjects.map((project, index) => (
-              <div
-                key={project.id}
-                onClick={() => handleSelect(project.id)}
-                className={`relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors ${
-                  index === highlightedIndex
-                    ? 'bg-accent text-accent-foreground'
-                    : 'hover:bg-accent hover:text-accent-foreground'
-                }`}
-              >
-                <div className="flex flex-col">
-                  <span className="font-medium text-sm">{project.name}</span>
-                  {project.client && (
-                    <span className="text-xs text-muted-foreground">{project.client}</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+      {open && filteredProjects.length > 0 && (
+        <div className="absolute top-full left-0 mt-1 w-64 z-[60] bg-popover border border-border rounded-md shadow-lg">
+          <Command>
+            <CommandList>
+              <CommandGroup>
+                {filteredProjects.slice(0, 5).map((project) => (
+                  <CommandItem
+                    key={project.id}
+                    onSelect={() => handleSelect(project.id)}
+                    className="cursor-pointer"
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-medium text-sm">{project.name}</span>
+                      {project.client && (
+                        <span className="text-xs text-muted-foreground">{project.client}</span>
+                      )}
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
         </div>
       )}
     </div>

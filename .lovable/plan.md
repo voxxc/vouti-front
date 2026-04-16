@@ -1,27 +1,25 @@
 
 
-## Plano: Navegação por teclado na Busca Rápida do CRM
+## Plano: Adicionar opção "Cumprir Etapa" no dialog de Conclusão do Prazo
 
-### Problema
-O componente `CRMQuickSearch` usa um `<Input>` separado do `<Command>`, então as teclas de seta não navegam pelos resultados. O `cmdk` (Command) já tem navegação por teclado nativa, mas o input precisa estar integrado.
+### Objetivo
+Quando o prazo está vinculado a uma etapa de protocolo (`protocoloEtapaId`), exibir um checkbox no dialog de conclusão para também marcar a etapa como concluída automaticamente.
 
-### Solução
-Adicionar um estado `highlightedIndex` controlado manualmente via `onKeyDown` no input, com suporte a:
-- **Seta para baixo**: avança o índice
-- **Seta para cima**: volta o índice
-- **Enter**: seleciona o item destacado
-- **Escape**: fecha o dropdown
+### Alterações
 
-### Alteração (1 arquivo)
+**Arquivo: `src/components/Agenda/DeadlineDetailDialog.tsx`**
 
-**`src/components/WhatsApp/components/CRMQuickSearch.tsx`**
+1. Adicionar estado `cumprirEtapa` (boolean, default `true` quando há etapa vinculada)
+2. No dialog de confirmação (linha ~541), após o bloco de subtarefa, adicionar um checkbox "Cumprir etapa do protocolo" que só aparece quando `deadline.protocoloOrigem` ou `deadline.protocoloEtapaId` existe e a etapa não está concluída
+3. No `handleConfirmComplete`, quando `cumprirEtapa` estiver ativo, fazer update na tabela `project_protocolo_etapas` setando `status = 'concluido'`, `data_conclusao = now()`, `comentario_conclusao = comentarioConclusao`
+4. Buscar o status atual da etapa no fetch para saber se já está concluída (e não mostrar o checkbox nesse caso)
+5. Resetar `cumprirEtapa` junto com os outros estados no close do dialog
 
-1. Adicionar estado `highlightedIndex` (default: 0), resetado quando `searchTerm` muda
-2. Adicionar `onKeyDown` no `<Input>` para ArrowDown, ArrowUp, Enter e Escape
-3. Aplicar classe de destaque visual (`bg-accent`) no item com índice correspondente ao `highlightedIndex`
-4. Trocar `<Command>/<CommandItem>` por `<div>` simples para evitar conflito de foco com o cmdk — o input mantém o foco enquanto as setas controlam o highlight
+**Arquivo: `src/components/Agenda/AgendaContent.tsx`**
+- Mesma lógica duplicada no dialog de conclusão que existe nesse arquivo (linhas ~1800)
 
 ### Visual
-- Item destacado terá `bg-accent text-accent-foreground` (mesmo visual do hover atual)
-- O foco permanece no input durante toda a navegação
+- Checkbox com ícone de etapa, texto "Cumprir etapa do protocolo" e nome da etapa abaixo
+- Posicionado entre o checkbox de subtarefa e os botões de ação
+- Vem pré-selecionado quando há etapa vinculada
 
