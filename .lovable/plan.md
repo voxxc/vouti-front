@@ -1,22 +1,47 @@
 
+Objetivo: corrigir a busca rápida que você está usando agora no `/dashboard`, porque ela não é a do CRM.
 
-## Plano: Menu de 3 pontos para apagar mensagem no chat + lixeira com dupla confirmação para excluir tarefa
+Diagnóstico
+- A seta não funciona aí porque essa tela usa `src/components/Search/ProjectQuickSearch.tsx`.
+- O ajuste anterior foi feito em `src/components/WhatsApp/components/CRMQuickSearch.tsx`, que é outra busca.
+- Em `ProjectQuickSearch`, o input está fora do fluxo de navegação do `cmdk`, então as setas não controlam os resultados.
 
-### 1. Menu de 3 pontos nas mensagens do chat (`PlanejadorTaskChat.tsx`)
+O que vou ajustar
+1. Implementar navegação por teclado em `src/components/Search/ProjectQuickSearch.tsx`
+   - `ArrowDown` desce
+   - `ArrowUp` sobe
+   - `Enter` seleciona o item destacado
+   - `Escape` fecha a lista
+2. Criar um índice destacado controlado manualmente
+   - resetar ao mudar o texto
+   - respeitar a lista combinada de resultados visíveis
+3. Dar destaque visual real ao item ativo
+   - mesmo padrão visual de hover/seleção
+4. Garantir que o foco permaneça no input
+   - sem depender da navegação nativa do `Command`
 
-- Ao lado de cada mensagem (onde já existe o botão de Reply), adicionar um ícone `MoreVertical` (3 pontinhos) que aparece no hover do grupo
-- Ao clicar, abre um dropdown (`DropdownMenu`) com a opção "Apagar mensagem" (com ícone de lixeira)
-- Só aparece para mensagens do próprio usuário (`msg.user_id === user?.id`)
-- Criar mutation `deleteMessage` que faz `DELETE` na tabela `planejador_task_messages` pelo `id` da mensagem
-- Após deletar, invalidar a query `planejador-messages`
+Abordagem
+- Unificar os resultados visíveis de projetos + protocolos em uma lista navegável
+- Controlar o item ativo via estado (`highlightedIndex`)
+- Adicionar `onKeyDown` no input da busca
+- Mapear clique e Enter para a mesma lógica de seleção
+- Manter o dropdown atual, mas sem depender do comportamento implícito do `cmdk`
 
-### 2. Botão de excluir tarefa com lixeira + dupla confirmação (`PlanejadorTaskDetail.tsx`)
+Arquivos
+- `src/components/Search/ProjectQuickSearch.tsx`
+- Se necessário para consistência visual/comportamental, também alinhar `src/components/WhatsApp/components/CRMQuickSearch.tsx`
 
-- Trocar o botão "Excluir" (texto) por um botão com ícone `Trash2` (lixeira)
-- Em vez de executar `onDelete` diretamente, abrir um `AlertDialog` de dupla confirmação
-- O dialog pergunta "Tem certeza que deseja excluir esta tarefa?" com botões "Cancelar" e "Excluir" (destructive)
+Validação
+- Digitar 1 termo e usar seta para baixo/cima
+- Confirmar que o destaque anda item por item
+- Pressionar Enter e abrir o projeto/protocolo correto
+- Testar com:
+  - só projetos
+  - só protocolos
+  - mistura dos dois
+  - 0 resultados
+  - mouse + teclado no mesmo fluxo
 
-### Arquivos alterados
-- `src/components/Planejador/PlanejadorTaskChat.tsx` — menu de 3 pontos + delete mutation
-- `src/components/Planejador/PlanejadorTaskDetail.tsx` — lixeira + AlertDialog
-
+Detalhes técnicos
+- O problema não é o input em si; é que a busca do dashboard ainda está em outro componente.
+- Para evitar novo desencontro, vou deixar a lógica de teclado explícita e controlada no próprio componente, em vez de confiar no `Command` com input separado.
