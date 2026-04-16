@@ -1100,6 +1100,8 @@ export function ProjectProtocoloContent({
                 setComentarioConclusao('');
                 setCriarSubtarefa(false);
                 setSubtarefaDescricao('');
+                setCumprirEtapa(false);
+                setEtapaJaConcluida(false);
               }}>
                 Cancelar
               </Button>
