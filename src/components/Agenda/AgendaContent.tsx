@@ -225,6 +225,8 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
   const [comentarioConclusao, setComentarioConclusao] = useState("");
   const [criarSubtarefa, setCriarSubtarefa] = useState(false);
   const [subtarefaDescricao, setSubtarefaDescricao] = useState("");
+  const [cumprirEtapa, setCumprirEtapa] = useState(false);
+  const [etapaJaConcluida, setEtapaJaConcluida] = useState(false);
   
 
   // Project/workspace/processo/etapa selection for creation
