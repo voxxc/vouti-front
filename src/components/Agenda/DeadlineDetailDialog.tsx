@@ -106,6 +106,8 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
   const [comentarioConclusao, setComentarioConclusao] = useState("");
   const [criarSubtarefa, setCriarSubtarefa] = useState(false);
   const [subtarefaDescricao, setSubtarefaDescricao] = useState("");
+  const [cumprirEtapa, setCumprirEtapa] = useState(false);
+  const [etapaJaConcluida, setEtapaJaConcluida] = useState(false);
   const [reopenDeadlineId, setReopenDeadlineId] = useState<string | null>(null);
   const [reopenMotivo, setReopenMotivo] = useState("");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -152,7 +154,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
           advogado:profiles!deadlines_advogado_responsavel_id_fkey (user_id, full_name, avatar_url),
           deadline_tags (tagged_user_id, tagged_user:profiles!deadline_tags_tagged_user_id_fkey (user_id, full_name, avatar_url)),
           processo_oab:processos_oab (id, numero_cnj, parte_ativa, parte_passiva, tribunal),
-          protocolo_etapa:project_protocolo_etapas (id, nome, protocolo:project_protocolos (id, nome, project_id, processo_oab_id, workspace_id))
+          protocolo_etapa:project_protocolo_etapas (id, nome, status, protocolo:project_protocolos (id, nome, project_id, processo_oab_id, workspace_id))
         `)
         .eq('id', id)
         .single();
