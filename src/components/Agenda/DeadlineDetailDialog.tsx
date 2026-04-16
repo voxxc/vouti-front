@@ -106,6 +106,8 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
   const [comentarioConclusao, setComentarioConclusao] = useState("");
   const [criarSubtarefa, setCriarSubtarefa] = useState(false);
   const [subtarefaDescricao, setSubtarefaDescricao] = useState("");
+  const [cumprirEtapa, setCumprirEtapa] = useState(false);
+  const [etapaJaConcluida, setEtapaJaConcluida] = useState(false);
   const [reopenDeadlineId, setReopenDeadlineId] = useState<string | null>(null);
   const [reopenMotivo, setReopenMotivo] = useState("");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -152,7 +154,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
           advogado:profiles!deadlines_advogado_responsavel_id_fkey (user_id, full_name, avatar_url),
           deadline_tags (tagged_user_id, tagged_user:profiles!deadline_tags_tagged_user_id_fkey (user_id, full_name, avatar_url)),
           processo_oab:processos_oab (id, numero_cnj, parte_ativa, parte_passiva, tribunal),
-          protocolo_etapa:project_protocolo_etapas (id, nome, protocolo:project_protocolos (id, nome, project_id, processo_oab_id, workspace_id))
+          protocolo_etapa:project_protocolo_etapas (id, nome, status, protocolo:project_protocolos (id, nome, project_id, processo_oab_id, workspace_id))
         `)
         .eq('id', id)
         .single();
@@ -232,6 +234,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
         // When deadline has protocolo_etapa_id, only show processo if the protocolo itself references that processo
         processoOrigem: d.processo_oab && (!d.protocolo_etapa_id || protocoloProcessoOabId === d.processo_oab_id) ? { id: d.processo_oab.id, numeroCnj: d.processo_oab.numero_cnj, parteAtiva: d.processo_oab.parte_ativa, partePassiva: d.processo_oab.parte_passiva, tribunal: d.processo_oab.tribunal } : undefined,
         protocoloOrigem: d.protocolo_etapa ? { etapaId: d.protocolo_etapa.id, etapaNome: d.protocolo_etapa.nome, protocoloNome: d.protocolo_etapa.protocolo?.nome, projectId: d.protocolo_etapa.protocolo?.project_id } : undefined,
+        protocoloEtapaId: d.protocolo_etapa_id || undefined,
         casoVinculado: casoVinculado ? { id: casoVinculado.id, numeroCnj: casoVinculado.numero_cnj, parteAtiva: casoVinculado.parte_ativa, partePassiva: casoVinculado.parte_passiva, tribunal: casoVinculado.tribunal } : undefined,
         protocoloVinculado: protocoloVinculado ? { etapaId: '', protocoloNome: protocoloVinculado.nome, projectId: protocoloVinculado.project_id, protocoloId: protocoloVinculado.id } : undefined,
         workspaceName,
@@ -247,6 +250,12 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
       };
 
       setDeadline(mapped);
+      
+      // Check if linked etapa is already completed
+      const etapaStatus = d.protocolo_etapa?.status;
+      const etapaDone = etapaStatus === 'concluido' || etapaStatus === 'concluída';
+      setEtapaJaConcluida(etapaDone);
+      setCumprirEtapa(!!d.protocolo_etapa_id && !etapaDone);
     } catch (err) {
       console.error('[DeadlineDetailDialog] Error:', err);
     } finally {
@@ -276,10 +285,23 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
         await supabase.from('deadline_subtarefas').insert({ deadline_id: confirmCompleteId, descricao: subtarefaDescricao.trim(), criado_por: user?.id, tenant_id: tenantId });
       }
 
+      // Cumprir etapa do protocolo se checkbox ativo
+      if (cumprirEtapa && deadline.protocoloEtapaId) {
+        await supabase
+          .from('project_protocolo_etapas')
+          .update({
+            status: 'concluido',
+            data_conclusao: new Date().toISOString(),
+            comentario_conclusao: comentarioConclusao.trim(),
+          })
+          .eq('id', deadline.protocoloEtapaId);
+      }
+
       setConfirmCompleteId(null);
       setComentarioConclusao("");
       setCriarSubtarefa(false);
       setSubtarefaDescricao("");
+      setCumprirEtapa(false);
       setDeadline({
         ...deadline,
         completed: true,
@@ -289,7 +311,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
         completedByName: user?.user_metadata?.full_name || user?.email || undefined,
         completedByAvatar: user?.user_metadata?.avatar_url || undefined,
       });
-      toast({ title: "Prazo concluído", description: "Prazo marcado como concluído com comentário registrado." });
+      toast({ title: "Prazo concluído", description: cumprirEtapa ? "Prazo concluído e etapa do protocolo cumprida." : "Prazo marcado como concluído com comentário registrado." });
     } catch { toast({ title: "Erro", description: "Erro inesperado ao concluir prazo.", variant: "destructive" }); }
   };
 
@@ -527,7 +549,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
       </Dialog>
 
       {/* Confirm complete dialog */}
-      <AlertDialog open={!!confirmCompleteId} onOpenChange={(open) => { if (!open) { setConfirmCompleteId(null); setComentarioConclusao(""); setCriarSubtarefa(false); setSubtarefaDescricao(""); } }}>
+      <AlertDialog open={!!confirmCompleteId} onOpenChange={(open) => { if (!open) { setConfirmCompleteId(null); setComentarioConclusao(""); setCriarSubtarefa(false); setSubtarefaDescricao(""); setCumprirEtapa(false); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Conclusão do Prazo</AlertDialogTitle>
@@ -538,7 +560,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
             <Textarea value={comentarioConclusao} onChange={(e) => setComentarioConclusao(e.target.value)} placeholder="Descreva o que foi realizado..." rows={4} className="mt-2" />
             {!comentarioConclusao.trim() && <p className="text-xs text-muted-foreground mt-1">O comentário é obrigatório para concluir o prazo.</p>}
           </div>
-          <div className="border-t pt-4">
+          <div className="border-t pt-4 space-y-3">
             <div className="flex items-center space-x-2">
               <Checkbox id="criar-subtarefa-standalone" checked={criarSubtarefa} onCheckedChange={(c) => setCriarSubtarefa(c === true)} />
               <label htmlFor="criar-subtarefa-standalone" className="text-sm font-medium cursor-pointer flex items-center gap-2">
@@ -549,6 +571,19 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
               <div className="mt-3 pl-6">
                 <label className="text-sm font-medium">Descrição da subtarefa</label>
                 <Textarea value={subtarefaDescricao} onChange={(e) => setSubtarefaDescricao(e.target.value)} placeholder="Descreva a subtarefa..." rows={2} className="mt-1" />
+              </div>
+            )}
+            {deadline?.protocoloEtapaId && !etapaJaConcluida && (
+              <div className="flex items-start space-x-2">
+                <Checkbox id="cumprir-etapa-standalone" checked={cumprirEtapa} onCheckedChange={(c) => setCumprirEtapa(c === true)} />
+                <div>
+                  <label htmlFor="cumprir-etapa-standalone" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" /> Cumprir etapa do protocolo
+                  </label>
+                  {deadline.protocoloOrigem?.etapaNome && (
+                    <p className="text-xs text-muted-foreground mt-0.5 pl-6">{deadline.protocoloOrigem.protocoloNome} › {deadline.protocoloOrigem.etapaNome}</p>
+                  )}
+                </div>
               </div>
             )}
           </div>

@@ -225,7 +225,29 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
   const [comentarioConclusao, setComentarioConclusao] = useState("");
   const [criarSubtarefa, setCriarSubtarefa] = useState(false);
   const [subtarefaDescricao, setSubtarefaDescricao] = useState("");
-  
+  const [cumprirEtapa, setCumprirEtapa] = useState(false);
+  const [etapaJaConcluida, setEtapaJaConcluida] = useState(false);
+
+  // Check etapa status when confirm dialog opens
+  useEffect(() => {
+    if (!confirmCompleteDeadlineId) return;
+    const dl = deadlines.find(d => d.id === confirmCompleteDeadlineId);
+    if (!dl?.protocoloEtapaId) {
+      setCumprirEtapa(false);
+      setEtapaJaConcluida(false);
+      return;
+    }
+    supabase
+      .from('project_protocolo_etapas')
+      .select('status')
+      .eq('id', dl.protocoloEtapaId)
+      .single()
+      .then(({ data }) => {
+        const done = data?.status === 'concluido' || data?.status === 'concluída';
+        setEtapaJaConcluida(done);
+        setCumprirEtapa(!done);
+      });
+  }, [confirmCompleteDeadlineId, deadlines]);
 
   // Project/workspace/processo/etapa selection for creation
   const [availableProjects, setAvailableProjects] = useState<Array<{ id: string; name: string; client: string }>>([]);
@@ -867,16 +889,29 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
             tenant_id: tenantId
           });
       }
+
+      // Cumprir etapa do protocolo se checkbox ativo
+      if (cumprirEtapa && deadline.protocoloEtapaId) {
+        await supabase
+          .from('project_protocolo_etapas')
+          .update({
+            status: 'concluido',
+            data_conclusao: new Date().toISOString(),
+            comentario_conclusao: comentarioConclusao.trim(),
+          })
+          .eq('id', deadline.protocoloEtapaId);
+      }
       
       setConfirmCompleteDeadlineId(null);
       setComentarioConclusao("");
       setCriarSubtarefa(false);
       setSubtarefaDescricao("");
+      setCumprirEtapa(false);
       setIsDetailDialogOpen(false);
       
       toast({
         title: "Prazo concluído",
-        description: "Prazo marcado como concluído com comentário registrado.",
+        description: cumprirEtapa ? "Prazo concluído e etapa do protocolo cumprida." : "Prazo marcado como concluído com comentário registrado.",
       });
     } catch (error) {
       console.error('Error:', error);
@@ -1793,7 +1828,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
             setComentarioConclusao("");
             setCriarSubtarefa(false);
             setSubtarefaDescricao("");
-            
+            setCumprirEtapa(false);
           }
         }}
       >
@@ -1823,7 +1858,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
           </div>
 
           {/* Subtarefa checkbox */}
-          <div className="border-t pt-4">
+          <div className="border-t pt-4 space-y-3">
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="criar-subtarefa"
@@ -1849,6 +1884,23 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                 </div>
               </div>
             )}
+            {(() => {
+              const dl = deadlines.find(d => d.id === confirmCompleteDeadlineId);
+              if (!dl?.protocoloEtapaId || etapaJaConcluida) return null;
+              return (
+                <div className="flex items-start space-x-2">
+                  <Checkbox id="cumprir-etapa" checked={cumprirEtapa} onCheckedChange={(c) => setCumprirEtapa(c === true)} />
+                  <div>
+                    <label htmlFor="cumprir-etapa" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" /> Cumprir etapa do protocolo
+                    </label>
+                    {dl.protocoloOrigem?.etapaNome && (
+                      <p className="text-xs text-muted-foreground mt-0.5 pl-6">{dl.protocoloOrigem.protocoloNome} › {dl.protocoloOrigem.etapaNome}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
           
           <AlertDialogFooter>
