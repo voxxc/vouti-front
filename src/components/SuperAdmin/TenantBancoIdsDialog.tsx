@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, Copy, Check, Scale, FileText, Radio, Database } from 'lucide-react';
+import { Search, Copy, Check, Scale, FileText, Radio, Database, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -105,6 +105,52 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
   });
 
   const getCountByType = (tipo: TipoId) => bancoIds.filter((item) => item.tipo === tipo).length;
+
+  const escapeCsv = (value: string) => {
+    if (value == null) return '';
+    const str = String(value);
+    if (/[",;\n\r]/.test(str)) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const handleDownloadReport = () => {
+    if (bancoIds.length === 0) {
+      toast({ title: 'Nada para exportar', description: 'Não há IDs registrados.', variant: 'destructive' });
+      return;
+    }
+
+    const headers = ['Tipo', 'Descrição', 'CNJ / Documento', 'ID Externo (Request/Tracking)', 'Referência ID', 'Tribunal', 'Criado em'];
+    const rows = bancoIds.map((item) => {
+      const meta = (item.metadata || {}) as Record<string, unknown>;
+      const cnj = (meta.numero_cnj as string) || (meta.documento as string) || '';
+      const tribunal = (meta.tribunal as string) || '';
+      return [
+        TIPO_LABELS[item.tipo as TipoId]?.label || item.tipo,
+        item.descricao,
+        cnj,
+        item.external_id || '',
+        item.referencia_id || '',
+        tribunal,
+        format(new Date(item.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+      ].map(escapeCsv).join(';');
+    });
+
+    const csv = '\uFEFF' + [headers.join(';'), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeName = tenantName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    link.href = url;
+    link.download = `banco-ids-${safeName}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({ title: 'Relatório gerado', description: `${bancoIds.length} IDs exportados.` });
+  };
 
   const renderIdItem = (item: BancoId) => {
     const Icon = TIPO_LABELS[item.tipo as TipoId]?.icon || Database;
@@ -271,9 +317,15 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
 
         <div className="flex justify-between items-center pt-4 border-t border-border text-sm text-muted-foreground">
           <span>Total: {bancoIds.length} IDs registrados</span>
-          <Button variant="outline" size="sm" onClick={() => fetchBancoIds()}>
-            Atualizar
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleDownloadReport} disabled={loading || bancoIds.length === 0}>
+              <Download className="h-4 w-4 mr-1" />
+              Baixar Relatório
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => fetchBancoIds()}>
+              Atualizar
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
