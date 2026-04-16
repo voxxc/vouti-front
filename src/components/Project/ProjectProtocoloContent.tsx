@@ -148,6 +148,8 @@ export function ProjectProtocoloContent({
   const [comentarioConclusao, setComentarioConclusao] = useState('');
   const [criarSubtarefa, setCriarSubtarefa] = useState(false);
   const [subtarefaDescricao, setSubtarefaDescricao] = useState('');
+  const [cumprirEtapa, setCumprirEtapa] = useState(false);
+  const [etapaJaConcluida, setEtapaJaConcluida] = useState(false);
   const [isEditPrazoOpen, setIsEditPrazoOpen] = useState(false);
   const [editingDeadlineObj, setEditingDeadlineObj] = useState<Deadline | null>(null);
   const [deleteDeadlineConfirm, setDeleteDeadlineConfirm] = useState<string | null>(null);
