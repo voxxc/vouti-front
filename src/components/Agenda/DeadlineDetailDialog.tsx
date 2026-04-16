@@ -285,10 +285,23 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
         await supabase.from('deadline_subtarefas').insert({ deadline_id: confirmCompleteId, descricao: subtarefaDescricao.trim(), criado_por: user?.id, tenant_id: tenantId });
       }
 
+      // Cumprir etapa do protocolo se checkbox ativo
+      if (cumprirEtapa && deadline.protocoloEtapaId) {
+        await supabase
+          .from('project_protocolo_etapas')
+          .update({
+            status: 'concluido',
+            data_conclusao: new Date().toISOString(),
+            comentario_conclusao: comentarioConclusao.trim(),
+          })
+          .eq('id', deadline.protocoloEtapaId);
+      }
+
       setConfirmCompleteId(null);
       setComentarioConclusao("");
       setCriarSubtarefa(false);
       setSubtarefaDescricao("");
+      setCumprirEtapa(false);
       setDeadline({
         ...deadline,
         completed: true,
@@ -298,7 +311,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
         completedByName: user?.user_metadata?.full_name || user?.email || undefined,
         completedByAvatar: user?.user_metadata?.avatar_url || undefined,
       });
-      toast({ title: "Prazo concluído", description: "Prazo marcado como concluído com comentário registrado." });
+      toast({ title: "Prazo concluído", description: cumprirEtapa ? "Prazo concluído e etapa do protocolo cumprida." : "Prazo marcado como concluído com comentário registrado." });
     } catch { toast({ title: "Erro", description: "Erro inesperado ao concluir prazo.", variant: "destructive" }); }
   };
 
