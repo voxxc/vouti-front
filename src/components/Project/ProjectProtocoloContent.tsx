@@ -311,7 +311,8 @@ export function ProjectProtocoloContent({
       setSubtarefaDescricao('');
       setCumprirEtapa(false);
       setEtapaJaConcluida(false);
-      toast({ title: "Prazo concluído", description: "Prazo marcado como concluído com sucesso." });
+      toast({ title: "Prazo concluído", description: cumprirEtapa ? "Prazo concluído e etapa cumprida com sucesso." : "Prazo marcado como concluído com sucesso." });
+      if (cumprirEtapa && onRefetch) await onRefetch();
     } else {
       // Reabrir prazo - registrar motivo no histórico
       const motivo = reopenMotivo.trim();
