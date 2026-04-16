@@ -285,6 +285,21 @@ export function ProjectProtocoloContent({
           });
       }
 
+      // Cumprir etapa do protocolo se solicitado
+      if (cumprirEtapa) {
+        const prazoData = prazosVinculados.find(p => p.id === deadlineId);
+        if (prazoData?.protocolo_etapa_id) {
+          await supabase
+            .from('project_protocolo_etapas')
+            .update({
+              status: 'concluido',
+              data_conclusao: new Date().toISOString(),
+              comentario_conclusao: comentarioConclusao.trim() || null,
+            })
+            .eq('id', prazoData.protocolo_etapa_id);
+        }
+      }
+
       const updatedFields = { completed: true, comentario_conclusao: comentarioConclusao.trim() || null, concluido_por: user?.id || null, concluido_em: new Date().toISOString() };
       setPrazosVinculados(prev => prev.map(p => p.id === deadlineId ? { ...p, ...updatedFields } : p));
       if (selectedDeadline?.id === deadlineId) {
@@ -937,7 +952,23 @@ export function ProjectProtocoloContent({
                   </div>
                   <div className="flex items-center gap-2 pt-4 border-t">
                     {!selectedDeadline.completed ? (
-                      <Button onClick={() => setConfirmCompleteId(selectedDeadline.id)} className="flex-1">
+                      <Button onClick={async () => {
+                        setConfirmCompleteId(selectedDeadline.id);
+                        // Check if linked etapa is already completed
+                        if (selectedDeadline.protocolo_etapa_id) {
+                          const { data: etapaData } = await supabase
+                            .from('project_protocolo_etapas')
+                            .select('status')
+                            .eq('id', selectedDeadline.protocolo_etapa_id)
+                            .single();
+                          const jaConcluida = etapaData?.status === 'concluido';
+                          setEtapaJaConcluida(jaConcluida);
+                          setCumprirEtapa(!jaConcluida);
+                        } else {
+                          setEtapaJaConcluida(true);
+                          setCumprirEtapa(false);
+                        }
+                      }} className="flex-1">
                         <CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como Concluído
                       </Button>
                     ) : (
