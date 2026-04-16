@@ -1808,7 +1808,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
             setComentarioConclusao("");
             setCriarSubtarefa(false);
             setSubtarefaDescricao("");
-            
+            setCumprirEtapa(false);
           }
         }}
       >
