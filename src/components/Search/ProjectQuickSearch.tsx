@@ -34,6 +34,7 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtoc
   const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [protocolos, setProtocolos] = useState<ProtocoloItem[]>([]);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { tenantId } = useTenantId();
@@ -181,7 +182,32 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtoc
       )
     : [];
 
+  const visibleProjects = filteredProjects.slice(0, 4);
+  const visibleProtocolos = filteredProtocolos.slice(0, 5);
+  const visibleResults = [
+    ...visibleProjects.map((project) => ({
+      type: 'project' as const,
+      id: project.id,
+      onSelect: () => handleSelectProject(project.id),
+    })),
+    ...visibleProtocolos.map((protocolo) => ({
+      type: 'protocolo' as const,
+      id: protocolo.id,
+      onSelect: () => handleSelectProtocolo(protocolo.project_id, protocolo.id),
+    })),
+  ];
+
   const hasResults = filteredProjects.length > 0 || filteredProtocolos.length > 0;
+
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (highlightedIndex > visibleResults.length - 1) {
+      setHighlightedIndex(Math.max(visibleResults.length - 1, 0));
+    }
+  }, [highlightedIndex, visibleResults.length]);
 
   const handleSelectProject = (projectId: string) => {
     if (onSelectProject) {
@@ -205,6 +231,38 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtoc
     inputRef.current?.blur();
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!open || visibleResults.length === 0) {
+      if (e.key === 'Escape') {
+        setSearchTerm('');
+        setOpen(false);
+        inputRef.current?.blur();
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex((prev) => Math.min(prev + 1, visibleResults.length - 1));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        visibleResults[highlightedIndex]?.onSelect();
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setSearchTerm('');
+        setOpen(false);
+        inputRef.current?.blur();
+        break;
+    }
+  };
+
   return (
     <div ref={containerRef} className="relative">
       <div className="relative">
@@ -220,6 +278,7 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtoc
           onFocus={() => {
             if (searchTerm.length >= 1) setOpen(true);
           }}
+          onKeyDown={handleKeyDown}
           className="w-48 h-8 text-xs pl-8 bg-background/50 border-border/50 focus:bg-background placeholder:text-xs"
         />
       </div>
@@ -234,11 +293,13 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtoc
             <CommandList>
               {filteredProjects.length > 0 && (
                 <CommandGroup heading="Projetos">
-                  {filteredProjects.slice(0, 4).map((project) => (
+                  {visibleProjects.map((project, index) => (
                     <CommandItem
                       key={project.id}
                       onSelect={() => handleSelectProject(project.id)}
+                      onMouseEnter={() => setHighlightedIndex(index)}
                       className="cursor-pointer"
+                      data-selected={index === highlightedIndex}
                     >
                       <FolderOpen className="h-3.5 w-3.5 mr-2 text-muted-foreground flex-shrink-0" />
                       <div className="flex flex-col min-w-0">
@@ -253,11 +314,16 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtoc
               )}
               {filteredProtocolos.length > 0 && (
                 <CommandGroup heading="Processos (Protocolos)">
-                  {filteredProtocolos.slice(0, 5).map((protocolo) => (
+                  {visibleProtocolos.map((protocolo, index) => {
+                    const itemIndex = visibleProjects.length + index;
+
+                    return (
                     <CommandItem
                       key={protocolo.id}
                       onSelect={() => handleSelectProtocolo(protocolo.project_id, protocolo.id)}
+                      onMouseEnter={() => setHighlightedIndex(itemIndex)}
                       className="cursor-pointer"
+                      data-selected={itemIndex === highlightedIndex}
                     >
                       <FileText className="h-3.5 w-3.5 mr-2 text-muted-foreground flex-shrink-0" />
                       <div className="flex flex-col min-w-0">
@@ -267,7 +333,8 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtoc
                         </span>
                       </div>
                     </CommandItem>
-                  ))}
+                    );
+                  })}
                 </CommandGroup>
               )}
             </CommandList>
