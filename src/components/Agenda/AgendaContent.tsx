@@ -227,7 +227,27 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
   const [subtarefaDescricao, setSubtarefaDescricao] = useState("");
   const [cumprirEtapa, setCumprirEtapa] = useState(false);
   const [etapaJaConcluida, setEtapaJaConcluida] = useState(false);
-  
+
+  // Check etapa status when confirm dialog opens
+  useEffect(() => {
+    if (!confirmCompleteDeadlineId) return;
+    const dl = deadlines.find(d => d.id === confirmCompleteDeadlineId);
+    if (!dl?.protocoloEtapaId) {
+      setCumprirEtapa(false);
+      setEtapaJaConcluida(false);
+      return;
+    }
+    supabase
+      .from('project_protocolo_etapas')
+      .select('status')
+      .eq('id', dl.protocoloEtapaId)
+      .single()
+      .then(({ data }) => {
+        const done = data?.status === 'concluido' || data?.status === 'concluída';
+        setEtapaJaConcluida(done);
+        setCumprirEtapa(!done);
+      });
+  }, [confirmCompleteDeadlineId, deadlines]);
 
   // Project/workspace/processo/etapa selection for creation
   const [availableProjects, setAvailableProjects] = useState<Array<{ id: string; name: string; client: string }>>([]);
