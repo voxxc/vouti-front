@@ -1,53 +1,38 @@
 
-Objetivo: corrigir de vez a navegação por seta na busca rápida do `/solvenza/dashboard`.
 
-Diagnóstico
-- O componente correto dessa tela é `src/components/Search/ProjectQuickSearch.tsx`.
-- Ele já tem `onKeyDown` e `highlightedIndex`, então o problema não é mais “falta de listener”.
-- O defeito restante está na combinação atual:
-  - o input é um `<Input>` separado
-  - os resultados são renderizados com `Command / CommandItem` (`cmdk`)
-- Assim, o teclado está sendo tratado manualmente, mas o visual/seleção ainda depende do `cmdk`, que controla o estado selecionado internamente. Isso deixa a seta sem efeito visível ou inconsistente.
-- A captura mostra exatamente esse sintoma: o primeiro item continua “preso” como selecionado.
+## Plano: Relatório PDF dos processos em segredo de justiça do tenant cordeiro
 
-O que vou ajustar
-1. Remover a dependência de `CommandItem` dentro de `ProjectQuickSearch`
-   - manter o portal/dropdown atual
-   - trocar os itens por linhas renderizadas manualmente (`div`/`button`)
-   - aplicar destaque via `className` usando `highlightedIndex`, sem depender de `data-selected` do `cmdk`
+### Diagnóstico real
+- A consulta correta deve incluir 4 critérios (não só `secrecy_level >= 1`):
+  - `capa_completa.secrecy_level >= 1`
+  - `detalhes_completos.secrecy_level >= 1`
+  - `parte_ativa` contém "sigilo" / "segredo" / "dados indisponíveis"
+  - `capa_completa.sigilo = true`
+- Resultado real: **26 processos** no tenant cordeiro (não 6).
+- A aba "Banco de IDs" no Super Admin **já lista** automaticamente todos os `detalhes_request_id` na sub-aba "Requests" (44 itens visíveis na sua print) — está sendo populada corretamente pelo trigger `registrar_banco_id_processo`. **Nada precisa ser atualizado lá**.
 
-2. Manter a navegação 100% controlada pelo componente
-   - `ArrowDown` avança
-   - `ArrowUp` volta
-   - `Enter` seleciona o item destacado
-   - `Escape` fecha e limpa
-   - resetar índice ao mudar o termo
+### O que vou entregar
+1. **Listagem completa dos 26 processos** com CNJ + `detalhes_request_id` ao lado, agrupados em:
+   - Sigilosos confirmados (`secrecy_level >= 1`): 5 processos
+   - Sem dados / sigilo presumido (`parte_ativa` com marcação): 21 processos
+2. **Relatório PDF** salvo em `/mnt/documents/processos-sigilo-cordeiro.pdf` contendo:
+   - Cabeçalho: "Processos em Segredo de Justiça — Tenant: cordeiro"
+   - Data de geração
+   - Tabela com colunas: # / CNJ / Partes / Tribunal / Nível Sigilo / Detalhes Request ID / Monitoramento
+   - Total ao final
+   - Identidade visual sóbria (preto/branco para impressão)
 
-3. Continuar usando uma lista unificada de resultados
-   - projetos + protocolos em uma única sequência navegável
-   - mouse hover sincroniza com o mesmo índice do teclado
+### Como vou gerar o PDF
+- Script Python com `reportlab` (já disponível no sandbox)
+- Dados via `psql` (mesma query que validei)
+- QA: converter PDF para imagem e inspecionar todas as páginas antes de entregar
 
-4. Garantir usabilidade no dropdown
-   - se necessário, adicionar `scrollIntoView` no item ativo para a seta continuar funcionando mesmo com lista maior
+### Arquivos
+- Apenas saída: `/mnt/documents/processos-sigilo-cordeiro.pdf`
+- Nenhuma alteração de código no projeto
 
-5. Alinhar comportamento com a outra busca rápida
-   - revisar `src/components/WhatsApp/components/CRMQuickSearch.tsx` para evitar novo desencontro entre buscas parecidas
+### Validação
+- Verificar que aparecem os 26 processos
+- Verificar que cada linha tem o `detalhes_request_id` correto
+- Verificar que o PDF abre, está paginado e legível
 
-Arquivos
-- `src/components/Search/ProjectQuickSearch.tsx`
-- se necessário para consistência: `src/components/WhatsApp/components/CRMQuickSearch.tsx`
-
-Validação
-- digitar um nome e usar seta para baixo/cima
-- confirmar que o destaque realmente muda de item
-- pressionar Enter e abrir o projeto/protocolo correto
-- testar:
-  - só projetos
-  - só protocolos
-  - mistura dos dois
-  - 0 resultados
-  - interação alternando mouse + teclado
-
-Detalhe técnico
-- A correção mais segura não é “mexer mais no `data-selected`”.
-- A correção segura é parar de misturar input externo com seleção interna do `cmdk` nesse componente e deixar toda a navegação explícita no React.
