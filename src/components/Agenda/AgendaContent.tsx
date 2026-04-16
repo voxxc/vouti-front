@@ -1838,7 +1838,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
           </div>
 
           {/* Subtarefa checkbox */}
-          <div className="border-t pt-4">
+          <div className="border-t pt-4 space-y-3">
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="criar-subtarefa"
@@ -1864,6 +1864,23 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                 </div>
               </div>
             )}
+            {(() => {
+              const dl = deadlines.find(d => d.id === confirmCompleteDeadlineId);
+              if (!dl?.protocoloEtapaId || etapaJaConcluida) return null;
+              return (
+                <div className="flex items-start space-x-2">
+                  <Checkbox id="cumprir-etapa" checked={cumprirEtapa} onCheckedChange={(c) => setCumprirEtapa(c === true)} />
+                  <div>
+                    <label htmlFor="cumprir-etapa" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" /> Cumprir etapa do protocolo
+                    </label>
+                    {dl.protocoloOrigem?.etapaNome && (
+                      <p className="text-xs text-muted-foreground mt-0.5 pl-6">{dl.protocoloOrigem.protocoloNome} › {dl.protocoloOrigem.etapaNome}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
           
           <AlertDialogFooter>
