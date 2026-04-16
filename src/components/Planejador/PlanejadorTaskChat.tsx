@@ -5,7 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTenantId } from "@/hooks/useTenantId";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, User, MessageSquare, Paperclip, Mic, MicOff, X, Reply, Image as ImageIcon } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Send, User, MessageSquare, Paperclip, Mic, MicOff, X, Reply, Image as ImageIcon, MoreVertical, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -95,6 +96,24 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
         p.user_id !== user?.id
       ).slice(0, 5)
     : [];
+
+  // Delete message mutation
+  const deleteMessage = useMutation({
+    mutationFn: async (messageId: string) => {
+      const { error } = await supabase
+        .from('planejador_task_messages')
+        .delete()
+        .eq('id', messageId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planejador-messages', taskId] });
+      toast.success("Mensagem apagada");
+    },
+    onError: () => {
+      toast.error("Erro ao apagar mensagem");
+    },
+  });
 
   // Send message mutation
   const sendMessage = useMutation({
@@ -489,6 +508,32 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
                   >
                     <Reply className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
+
+                  {/* 3-dot menu for own messages */}
+                  {isOwn && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          className={cn(
+                            "absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-muted",
+                            isOwn ? "-left-16" : "-right-8"
+                          )}
+                          title="Opções"
+                        >
+                          <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="min-w-[160px]">
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive cursor-pointer"
+                          onClick={() => deleteMessage.mutate(msg.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Apagar mensagem
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
 
                 <span className="text-[10px] text-muted-foreground mt-0.5 inline-block">
