@@ -1,38 +1,32 @@
 
 
-## Plano: Relatório PDF dos processos em segredo de justiça do tenant cordeiro
+## Plano: Inserir request_detalhes faltantes no Banco de IDs + botão de download de relatório
 
-### Diagnóstico real
-- A consulta correta deve incluir 4 critérios (não só `secrecy_level >= 1`):
-  - `capa_completa.secrecy_level >= 1`
-  - `detalhes_completos.secrecy_level >= 1`
-  - `parte_ativa` contém "sigilo" / "segredo" / "dados indisponíveis"
-  - `capa_completa.sigilo = true`
-- Resultado real: **26 processos** no tenant cordeiro (não 6).
-- A aba "Banco de IDs" no Super Admin **já lista** automaticamente todos os `detalhes_request_id` na sub-aba "Requests" (44 itens visíveis na sua print) — está sendo populada corretamente pelo trigger `registrar_banco_id_processo`. **Nada precisa ser atualizado lá**.
+### Situação atual
+- O tenant cordeiro tem **58 processos** cadastrados (39 com `detalhes_request_id`, 19 sem).
+- Na tabela `tenant_banco_ids`, já existem **85 registros de tipo "processo"** e **42 de tipo "request_detalhes"**.
+- Faltam **4 processos** com `detalhes_request_id` que não têm registro correspondente no banco de IDs:
+  - `0007787-93.2023.8.16.0021` → `c166f5b1-...`
+  - `0011615-17.2024.8.16.0003` → `3a06e9ea-...`
+  - `0011615-17.2024.8.16.0004` → `d9ed10ec-...`
+  - `5099572-24.2025.8.24.0000` → `fe687d40-...`
 
-### O que vou entregar
-1. **Listagem completa dos 26 processos** com CNJ + `detalhes_request_id` ao lado, agrupados em:
-   - Sigilosos confirmados (`secrecy_level >= 1`): 5 processos
-   - Sem dados / sigilo presumido (`parte_ativa` com marcação): 21 processos
-2. **Relatório PDF** salvo em `/mnt/documents/processos-sigilo-cordeiro.pdf` contendo:
-   - Cabeçalho: "Processos em Segredo de Justiça — Tenant: cordeiro"
-   - Data de geração
-   - Tabela com colunas: # / CNJ / Partes / Tribunal / Nível Sigilo / Detalhes Request ID / Monitoramento
-   - Total ao final
-   - Identidade visual sóbria (preto/branco para impressão)
+### O que vou fazer
 
-### Como vou gerar o PDF
-- Script Python com `reportlab` (já disponível no sandbox)
-- Dados via `psql` (mesma query que validei)
-- QA: converter PDF para imagem e inspecionar todas as páginas antes de entregar
+**1. Inserir os 4 registros faltantes no `tenant_banco_ids`**
+- Inserir via SQL (migration ou psql) as 4 entradas de tipo `request_detalhes` que estão faltando, com os dados corretos de `referencia_id`, `external_id` e `descricao`.
 
-### Arquivos
-- Apenas saída: `/mnt/documents/processos-sigilo-cordeiro.pdf`
-- Nenhuma alteração de código no projeto
+**2. Adicionar botão "Baixar Relatório" no `TenantBancoIdsDialog.tsx`**
+- Ao lado do botão "Atualizar", adicionar um botão com ícone `Download` para exportar CSV/PDF.
+- O relatório conterá: nº do processo (CNJ), tipo do registro, ID externo (request_id / tracking_id), descrição e data.
+- Formato: CSV (mais prático para 50+ linhas), com todas as abas consolidadas ou filtrado pela aba ativa.
+- Gerado no navegador via `Blob` + download, sem necessidade de backend.
+
+### Arquivos alterados
+- `src/components/SuperAdmin/TenantBancoIdsDialog.tsx` — botão de download + lógica de exportação CSV
+- SQL insert para os 4 registros faltantes
 
 ### Validação
-- Verificar que aparecem os 26 processos
-- Verificar que cada linha tem o `detalhes_request_id` correto
-- Verificar que o PDF abre, está paginado e legível
+- Abrir Banco de IDs do tenant cordeiro e confirmar que a aba Requests mostra 46 itens (42 + 4)
+- Clicar em "Baixar Relatório" e verificar o CSV gerado com todos os processos e request IDs
 
