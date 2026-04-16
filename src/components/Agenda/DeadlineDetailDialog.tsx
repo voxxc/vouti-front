@@ -250,6 +250,12 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
       };
 
       setDeadline(mapped);
+      
+      // Check if linked etapa is already completed
+      const etapaStatus = d.protocolo_etapa?.status;
+      const etapaDone = etapaStatus === 'concluido' || etapaStatus === 'concluída';
+      setEtapaJaConcluida(etapaDone);
+      setCumprirEtapa(!!d.protocolo_etapa_id && !etapaDone);
     } catch (err) {
       console.error('[DeadlineDetailDialog] Error:', err);
     } finally {
