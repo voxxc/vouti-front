@@ -148,6 +148,8 @@ export function ProjectProtocoloContent({
   const [comentarioConclusao, setComentarioConclusao] = useState('');
   const [criarSubtarefa, setCriarSubtarefa] = useState(false);
   const [subtarefaDescricao, setSubtarefaDescricao] = useState('');
+  const [cumprirEtapa, setCumprirEtapa] = useState(false);
+  const [etapaJaConcluida, setEtapaJaConcluida] = useState(false);
   const [isEditPrazoOpen, setIsEditPrazoOpen] = useState(false);
   const [editingDeadlineObj, setEditingDeadlineObj] = useState<Deadline | null>(null);
   const [deleteDeadlineConfirm, setDeleteDeadlineConfirm] = useState<string | null>(null);
@@ -283,6 +285,21 @@ export function ProjectProtocoloContent({
           });
       }
 
+      // Cumprir etapa do protocolo se solicitado
+      if (cumprirEtapa) {
+        const prazoData = prazosVinculados.find(p => p.id === deadlineId);
+        if (prazoData?.protocolo_etapa_id) {
+          await supabase
+            .from('project_protocolo_etapas')
+            .update({
+              status: 'concluido',
+              data_conclusao: new Date().toISOString(),
+              comentario_conclusao: comentarioConclusao.trim() || null,
+            })
+            .eq('id', prazoData.protocolo_etapa_id);
+        }
+      }
+
       const updatedFields = { completed: true, comentario_conclusao: comentarioConclusao.trim() || null, concluido_por: user?.id || null, concluido_em: new Date().toISOString() };
       setPrazosVinculados(prev => prev.map(p => p.id === deadlineId ? { ...p, ...updatedFields } : p));
       if (selectedDeadline?.id === deadlineId) {
@@ -292,7 +309,10 @@ export function ProjectProtocoloContent({
       setComentarioConclusao('');
       setCriarSubtarefa(false);
       setSubtarefaDescricao('');
-      toast({ title: "Prazo concluído", description: "Prazo marcado como concluído com sucesso." });
+      setCumprirEtapa(false);
+      setEtapaJaConcluida(false);
+      toast({ title: "Prazo concluído", description: cumprirEtapa ? "Prazo concluído e etapa cumprida com sucesso." : "Prazo marcado como concluído com sucesso." });
+      if (cumprirEtapa && onRefetch) await onRefetch();
     } else {
       // Reabrir prazo - registrar motivo no histórico
       const motivo = reopenMotivo.trim();
@@ -935,7 +955,23 @@ export function ProjectProtocoloContent({
                   </div>
                   <div className="flex items-center gap-2 pt-4 border-t">
                     {!selectedDeadline.completed ? (
-                      <Button onClick={() => setConfirmCompleteId(selectedDeadline.id)} className="flex-1">
+                      <Button onClick={async () => {
+                        setConfirmCompleteId(selectedDeadline.id);
+                        // Check if linked etapa is already completed
+                        if (selectedDeadline.protocolo_etapa_id) {
+                          const { data: etapaData } = await supabase
+                            .from('project_protocolo_etapas')
+                            .select('status')
+                            .eq('id', selectedDeadline.protocolo_etapa_id)
+                            .single();
+                          const jaConcluida = etapaData?.status === 'concluido';
+                          setEtapaJaConcluida(jaConcluida);
+                          setCumprirEtapa(!jaConcluida);
+                        } else {
+                          setEtapaJaConcluida(true);
+                          setCumprirEtapa(false);
+                        }
+                      }} className="flex-1">
                         <CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como Concluído
                       </Button>
                     ) : (
@@ -1005,6 +1041,8 @@ export function ProjectProtocoloContent({
           setComentarioConclusao('');
           setCriarSubtarefa(false);
           setSubtarefaDescricao('');
+          setCumprirEtapa(false);
+          setEtapaJaConcluida(false);
         }
       }}>
         <DialogContent className="sm:max-w-md">
@@ -1042,12 +1080,29 @@ export function ProjectProtocoloContent({
                 />
               </div>
             )}
+            {confirmCompleteId && !etapaJaConcluida && (() => {
+              const prazo = prazosVinculados.find(p => p.id === confirmCompleteId);
+              return prazo?.protocolo_etapa_id ? (
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="cumprir-etapa-proto"
+                    checked={cumprirEtapa}
+                    onCheckedChange={(v) => setCumprirEtapa(v === true)}
+                  />
+                  <Label htmlFor="cumprir-etapa-proto" className="cursor-pointer text-sm">
+                    Cumprir etapa do protocolo
+                  </Label>
+                </div>
+              ) : null;
+            })()}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => {
                 setConfirmCompleteId(null);
                 setComentarioConclusao('');
                 setCriarSubtarefa(false);
                 setSubtarefaDescricao('');
+                setCumprirEtapa(false);
+                setEtapaJaConcluida(false);
               }}>
                 Cancelar
               </Button>

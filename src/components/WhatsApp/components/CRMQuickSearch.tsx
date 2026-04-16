@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
-import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantId } from '@/hooks/useTenantId';
@@ -21,6 +20,7 @@ export const CRMQuickSearch = ({ onSelectProject }: CRMQuickSearchProps) => {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const { user } = useAuth();
   const { tenantId } = useTenantId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -101,11 +101,52 @@ export const CRMQuickSearch = ({ onSelectProject }: CRMQuickSearchProps) => {
     )
   );
 
+  const visibleResults = filteredProjects.slice(0, 5);
+
+  // Reset highlight when search changes
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [searchTerm]);
+
   const handleSelect = (projectId: string) => {
     onSelectProject?.(projectId);
     setSearchTerm('');
     setOpen(false);
     inputRef.current?.blur();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!open || visibleResults.length === 0) {
+      if (e.key === 'Escape') {
+        setSearchTerm('');
+        setOpen(false);
+        inputRef.current?.blur();
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex(prev => Math.min(prev + 1, visibleResults.length - 1));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex(prev => Math.max(prev - 1, 0));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (visibleResults[highlightedIndex]) {
+          handleSelect(visibleResults[highlightedIndex].id);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setSearchTerm('');
+        setOpen(false);
+        inputRef.current?.blur();
+        break;
+    }
   };
 
   return (
@@ -123,32 +164,30 @@ export const CRMQuickSearch = ({ onSelectProject }: CRMQuickSearchProps) => {
           onFocus={() => {
             if (searchTerm.length >= 1) setOpen(true);
           }}
+          onKeyDown={handleKeyDown}
           className="w-48 h-8 text-xs pl-8 bg-background/50 border-border/50 focus:bg-background placeholder:text-xs"
         />
       </div>
       
-      {open && filteredProjects.length > 0 && (
-        <div className="absolute top-full left-0 mt-1 w-64 z-[60] bg-popover border border-border rounded-md shadow-lg">
-          <Command>
-            <CommandList>
-              <CommandGroup>
-                {filteredProjects.slice(0, 5).map((project) => (
-                  <CommandItem
-                    key={project.id}
-                    onSelect={() => handleSelect(project.id)}
-                    className="cursor-pointer"
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-medium text-sm">{project.name}</span>
-                      {project.client && (
-                        <span className="text-xs text-muted-foreground">{project.client}</span>
-                      )}
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
+      {open && visibleResults.length > 0 && (
+        <div className="absolute top-full left-0 mt-1 w-64 z-[60] bg-popover border border-border rounded-md shadow-lg overflow-hidden">
+          {visibleResults.map((project, index) => (
+            <div
+              key={project.id}
+              onClick={() => handleSelect(project.id)}
+              onMouseEnter={() => setHighlightedIndex(index)}
+              className={`flex flex-col px-3 py-2 cursor-pointer transition-colors ${
+                index === highlightedIndex
+                  ? 'bg-accent text-accent-foreground'
+                  : 'hover:bg-accent/50'
+              }`}
+            >
+              <span className="font-medium text-sm">{project.name}</span>
+              {project.client && (
+                <span className="text-xs text-muted-foreground">{project.client}</span>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
