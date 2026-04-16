@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
-import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantId } from '@/hooks/useTenantId';
@@ -286,59 +285,62 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtoc
       {open && hasResults && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed w-72 z-[60] bg-popover border border-border rounded-md shadow-lg max-h-80 overflow-y-auto"
+          className="fixed w-72 z-[60] bg-popover border border-border rounded-md shadow-lg max-h-80 overflow-y-auto py-1"
           style={{ top: dropdownPos.top, left: dropdownPos.left }}
         >
-          <Command>
-            <CommandList>
-              {filteredProjects.length > 0 && (
-                <CommandGroup heading="Projetos">
-                  {visibleProjects.map((project, index) => (
-                    <CommandItem
-                      key={project.id}
-                      onSelect={() => handleSelectProject(project.id)}
-                      onMouseEnter={() => setHighlightedIndex(index)}
-                      className="cursor-pointer"
-                      data-selected={index === highlightedIndex}
-                    >
-                      <FolderOpen className="h-3.5 w-3.5 mr-2 text-muted-foreground flex-shrink-0" />
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-medium text-sm truncate">{project.name}</span>
-                        {project.client && (
-                          <span className="text-xs text-muted-foreground truncate">{project.client}</span>
-                        )}
-                      </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-              {filteredProtocolos.length > 0 && (
-                <CommandGroup heading="Processos (Protocolos)">
-                  {visibleProtocolos.map((protocolo, index) => {
-                    const itemIndex = visibleProjects.length + index;
-
-                    return (
-                    <CommandItem
-                      key={protocolo.id}
-                      onSelect={() => handleSelectProtocolo(protocolo.project_id, protocolo.id)}
-                      onMouseEnter={() => setHighlightedIndex(itemIndex)}
-                      className="cursor-pointer"
-                      data-selected={itemIndex === highlightedIndex}
-                    >
-                      <FileText className="h-3.5 w-3.5 mr-2 text-muted-foreground flex-shrink-0" />
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-medium text-sm truncate">{protocolo.nome}</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          {protocolo.project_name}{protocolo.project_client ? ` · ${protocolo.project_client}` : ''}
-                        </span>
-                      </div>
-                    </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              )}
-            </CommandList>
-          </Command>
+          {filteredProjects.length > 0 && (
+            <div className="px-1">
+              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Projetos</div>
+              {visibleProjects.map((project, index) => (
+                <div
+                  key={project.id}
+                  onClick={() => handleSelectProject(project.id)}
+                  onMouseEnter={() => setHighlightedIndex(index)}
+                  className={`flex items-center px-2 py-1.5 rounded-sm cursor-pointer transition-colors ${
+                    index === highlightedIndex
+                      ? 'bg-accent text-accent-foreground'
+                      : 'hover:bg-accent/50'
+                  }`}
+                >
+                  <FolderOpen className="h-3.5 w-3.5 mr-2 text-muted-foreground flex-shrink-0" />
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-medium text-sm truncate">{project.name}</span>
+                    {project.client && (
+                      <span className="text-xs text-muted-foreground truncate">{project.client}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {filteredProtocolos.length > 0 && (
+            <div className="px-1">
+              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Processos (Protocolos)</div>
+              {visibleProtocolos.map((protocolo, index) => {
+                const itemIndex = visibleProjects.length + index;
+                return (
+                  <div
+                    key={protocolo.id}
+                    onClick={() => handleSelectProtocolo(protocolo.project_id, protocolo.id)}
+                    onMouseEnter={() => setHighlightedIndex(itemIndex)}
+                    className={`flex items-center px-2 py-1.5 rounded-sm cursor-pointer transition-colors ${
+                      itemIndex === highlightedIndex
+                        ? 'bg-accent text-accent-foreground'
+                        : 'hover:bg-accent/50'
+                    }`}
+                  >
+                    <FileText className="h-3.5 w-3.5 mr-2 text-muted-foreground flex-shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-sm truncate">{protocolo.nome}</span>
+                      <span className="text-xs text-muted-foreground truncate">
+                        {protocolo.project_name}{protocolo.project_client ? ` · ${protocolo.project_client}` : ''}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>,
         document.body
       )}
