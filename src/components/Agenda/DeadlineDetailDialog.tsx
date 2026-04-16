@@ -549,7 +549,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
       </Dialog>
 
       {/* Confirm complete dialog */}
-      <AlertDialog open={!!confirmCompleteId} onOpenChange={(open) => { if (!open) { setConfirmCompleteId(null); setComentarioConclusao(""); setCriarSubtarefa(false); setSubtarefaDescricao(""); } }}>
+      <AlertDialog open={!!confirmCompleteId} onOpenChange={(open) => { if (!open) { setConfirmCompleteId(null); setComentarioConclusao(""); setCriarSubtarefa(false); setSubtarefaDescricao(""); setCumprirEtapa(false); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Conclusão do Prazo</AlertDialogTitle>
@@ -560,7 +560,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
             <Textarea value={comentarioConclusao} onChange={(e) => setComentarioConclusao(e.target.value)} placeholder="Descreva o que foi realizado..." rows={4} className="mt-2" />
             {!comentarioConclusao.trim() && <p className="text-xs text-muted-foreground mt-1">O comentário é obrigatório para concluir o prazo.</p>}
           </div>
-          <div className="border-t pt-4">
+          <div className="border-t pt-4 space-y-3">
             <div className="flex items-center space-x-2">
               <Checkbox id="criar-subtarefa-standalone" checked={criarSubtarefa} onCheckedChange={(c) => setCriarSubtarefa(c === true)} />
               <label htmlFor="criar-subtarefa-standalone" className="text-sm font-medium cursor-pointer flex items-center gap-2">
@@ -571,6 +571,19 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
               <div className="mt-3 pl-6">
                 <label className="text-sm font-medium">Descrição da subtarefa</label>
                 <Textarea value={subtarefaDescricao} onChange={(e) => setSubtarefaDescricao(e.target.value)} placeholder="Descreva a subtarefa..." rows={2} className="mt-1" />
+              </div>
+            )}
+            {deadline?.protocoloEtapaId && !etapaJaConcluida && (
+              <div className="flex items-start space-x-2">
+                <Checkbox id="cumprir-etapa-standalone" checked={cumprirEtapa} onCheckedChange={(c) => setCumprirEtapa(c === true)} />
+                <div>
+                  <label htmlFor="cumprir-etapa-standalone" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" /> Cumprir etapa do protocolo
+                  </label>
+                  {deadline.protocoloOrigem?.etapaNome && (
+                    <p className="text-xs text-muted-foreground mt-0.5 pl-6">{deadline.protocoloOrigem.protocoloNome} › {deadline.protocoloOrigem.etapaNome}</p>
+                  )}
+                </div>
               </div>
             )}
           </div>
