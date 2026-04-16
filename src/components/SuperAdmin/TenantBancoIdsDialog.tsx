@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
@@ -106,50 +108,87 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
 
   const getCountByType = (tipo: TipoId) => bancoIds.filter((item) => item.tipo === tipo).length;
 
-  const escapeCsv = (value: string) => {
-    if (value == null) return '';
-    const str = String(value);
-    if (/[",;\n\r]/.test(str)) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
-  };
-
   const handleDownloadReport = () => {
     if (bancoIds.length === 0) {
       toast({ title: 'Nada para exportar', description: 'Não há IDs registrados.', variant: 'destructive' });
       return;
     }
 
-    const headers = ['Tipo', 'Descrição', 'CNJ / Documento', 'ID Externo (Request/Tracking)', 'Referência ID', 'Tribunal', 'Criado em'];
-    const rows = bancoIds.map((item) => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const generatedAt = format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+
+    // Cabeçalho
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text(`Banco de IDs — ${tenantName}`, pageWidth / 2, 14, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(
+      `Gerado em ${generatedAt}  •  Total: ${bancoIds.length} IDs registrados`,
+      pageWidth / 2,
+      20,
+      { align: 'center' }
+    );
+
+    // Ordenar: tipo, depois data desc
+    const sorted = [...bancoIds].sort((a, b) => {
+      if (a.tipo !== b.tipo) return a.tipo.localeCompare(b.tipo);
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    const body = sorted.map((item) => {
       const meta = (item.metadata || {}) as Record<string, unknown>;
       const cnj = (meta.numero_cnj as string) || (meta.documento as string) || '';
       const tribunal = (meta.tribunal as string) || '';
       return [
         TIPO_LABELS[item.tipo as TipoId]?.label || item.tipo,
-        item.descricao,
+        item.descricao || '',
         cnj,
         item.external_id || '',
         item.referencia_id || '',
         tribunal,
         format(new Date(item.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
-      ].map(escapeCsv).join(';');
+      ];
     });
 
-    const csv = '\uFEFF' + [headers.join(';'), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    const safeName = tenantName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    link.href = url;
-    link.download = `banco-ids-${safeName}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    autoTable(doc, {
+      startY: 26,
+      head: [['Tipo', 'Descrição', 'CNJ / Documento', 'ID Externo', 'Referência ID', 'Tribunal', 'Criado em']],
+      body,
+      styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
+      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontSize: 8.5, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      columnStyles: {
+        0: { cellWidth: 24 },
+        1: { cellWidth: 55 },
+        2: { cellWidth: 42, font: 'courier', fontSize: 7.5 },
+        3: { cellWidth: 55, font: 'courier', fontSize: 7.5 },
+        4: { cellWidth: 45, font: 'courier', fontSize: 7.5 },
+        5: { cellWidth: 18 },
+        6: { cellWidth: 26 },
+      },
+      didDrawPage: () => {
+        const pageCount = doc.getNumberOfPages();
+        const currentPage = doc.getCurrentPageInfo().pageNumber;
+        const pageHeight = doc.internal.pageSize.getHeight();
+        doc.setFontSize(8);
+        doc.setTextColor(120);
+        doc.text(
+          `Página ${currentPage} de ${pageCount}`,
+          pageWidth - 14,
+          pageHeight - 6,
+          { align: 'right' }
+        );
+        doc.setTextColor(0);
+      },
+    });
 
-    toast({ title: 'Relatório gerado', description: `${bancoIds.length} IDs exportados.` });
+    const safeName = tenantName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    doc.save(`banco-ids-${safeName}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+
+    toast({ title: 'Relatório gerado', description: `${bancoIds.length} IDs exportados em PDF.` });
   };
 
   const renderIdItem = (item: BancoId) => {
