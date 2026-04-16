@@ -309,6 +309,8 @@ export function ProjectProtocoloContent({
       setComentarioConclusao('');
       setCriarSubtarefa(false);
       setSubtarefaDescricao('');
+      setCumprirEtapa(false);
+      setEtapaJaConcluida(false);
       toast({ title: "Prazo concluído", description: "Prazo marcado como concluído com sucesso." });
     } else {
       // Reabrir prazo - registrar motivo no histórico
@@ -1038,6 +1040,8 @@ export function ProjectProtocoloContent({
           setComentarioConclusao('');
           setCriarSubtarefa(false);
           setSubtarefaDescricao('');
+          setCumprirEtapa(false);
+          setEtapaJaConcluida(false);
         }
       }}>
         <DialogContent className="sm:max-w-md">
@@ -1075,6 +1079,21 @@ export function ProjectProtocoloContent({
                 />
               </div>
             )}
+            {confirmCompleteId && !etapaJaConcluida && (() => {
+              const prazo = prazosVinculados.find(p => p.id === confirmCompleteId);
+              return prazo?.protocolo_etapa_id ? (
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="cumprir-etapa-proto"
+                    checked={cumprirEtapa}
+                    onCheckedChange={(v) => setCumprirEtapa(v === true)}
+                  />
+                  <Label htmlFor="cumprir-etapa-proto" className="cursor-pointer text-sm">
+                    Cumprir etapa do protocolo
+                  </Label>
+                </div>
+              ) : null;
+            })()}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => {
                 setConfirmCompleteId(null);
