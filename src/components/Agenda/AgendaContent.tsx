@@ -869,16 +869,29 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
             tenant_id: tenantId
           });
       }
+
+      // Cumprir etapa do protocolo se checkbox ativo
+      if (cumprirEtapa && deadline.protocoloEtapaId) {
+        await supabase
+          .from('project_protocolo_etapas')
+          .update({
+            status: 'concluido',
+            data_conclusao: new Date().toISOString(),
+            comentario_conclusao: comentarioConclusao.trim(),
+          })
+          .eq('id', deadline.protocoloEtapaId);
+      }
       
       setConfirmCompleteDeadlineId(null);
       setComentarioConclusao("");
       setCriarSubtarefa(false);
       setSubtarefaDescricao("");
+      setCumprirEtapa(false);
       setIsDetailDialogOpen(false);
       
       toast({
         title: "Prazo concluído",
-        description: "Prazo marcado como concluído com comentário registrado.",
+        description: cumprirEtapa ? "Prazo concluído e etapa do protocolo cumprida." : "Prazo marcado como concluído com comentário registrado.",
       });
     } catch (error) {
       console.error('Error:', error);
