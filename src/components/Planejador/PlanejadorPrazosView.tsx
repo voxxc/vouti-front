@@ -12,6 +12,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 interface PlanejadorPrazosViewProps {
   onDeadlineClick: (deadlineId: string) => void;
   searchQuery?: string;
+  /** ID do usuário selecionado no filtro do TopBar. `null` = "Todos" (sem filtro de usuário). `undefined` = usar usuário logado (fallback). */
+  selectedUserId?: string | null;
+  /** ID do usuário logado (fallback quando selectedUserId é undefined). */
+  currentUserId?: string | null;
 }
 
 interface PrazosColumn {
@@ -22,21 +26,25 @@ interface PrazosColumn {
   items: Deadline[];
 }
 
-export function PlanejadorPrazosView({ onDeadlineClick, searchQuery = "" }: PlanejadorPrazosViewProps) {
+export function PlanejadorPrazosView({ onDeadlineClick, searchQuery = "", selectedUserId, currentUserId }: PlanejadorPrazosViewProps) {
   const { deadlines, isLoading } = useAgendaData();
   const { user } = useAuth();
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
   const columns = useMemo<PrazosColumn[]>(() => {
-    const userId = user?.id;
-    if (!userId) return [];
+    // Resolver qual usuário filtrar:
+    // - selectedUserId === null  => "Todos" (sem filtro de usuário, RLS ainda restringe)
+    // - selectedUserId string    => filtra pelo usuário selecionado
+    // - selectedUserId undefined => fallback ao usuário logado (compat)
+    const effectiveUserId =
+      selectedUserId === undefined ? (currentUserId ?? user?.id ?? null) : selectedUserId;
 
-    // Filter deadlines assigned to user (responsible or tagged)
+    // Filter deadlines assigned to user (responsible or tagged) — ou todos se "Todos"
     const myDeadlines = deadlines.filter(d => {
-      if (d.advogadoResponsavel?.userId === userId) return true;
-      if (d.taggedUsers?.some(t => t.userId === userId)) return true;
-      
+      if (effectiveUserId === null) return true; // "Todos"
+      if (d.advogadoResponsavel?.userId === effectiveUserId) return true;
+      if (d.taggedUsers?.some(t => t.userId === effectiveUserId)) return true;
       return false;
     }).filter(d => {
       if (!searchQuery.trim()) return true;
@@ -90,7 +98,7 @@ export function PlanejadorPrazosView({ onDeadlineClick, searchQuery = "" }: Plan
       { id: "futuro", label: "Futuro", color: "#06b6d4", icon: <CalendarCheck className="h-3.5 w-3.5" />, items: futuro },
       { id: "concluido", label: "Concluído", color: "#22c55e", icon: <CheckCircle2 className="h-3.5 w-3.5" />, items: concluido },
     ];
-  }, [deadlines, user?.id, searchQuery]);
+  }, [deadlines, user?.id, searchQuery, selectedUserId, currentUserId]);
 
   const text = isDark ? "text-white" : "text-foreground";
   const textMuted = isDark ? "text-white/60" : "text-foreground/60";
