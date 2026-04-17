@@ -12,6 +12,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 interface PlanejadorPrazosViewProps {
   onDeadlineClick: (deadlineId: string) => void;
   searchQuery?: string;
+  /** ID do usuário selecionado no filtro do TopBar. `null` = "Todos" (sem filtro de usuário). `undefined` = usar usuário logado (fallback). */
+  selectedUserId?: string | null;
+  /** ID do usuário logado (fallback quando selectedUserId é undefined). */
+  currentUserId?: string | null;
 }
 
 interface PrazosColumn {
