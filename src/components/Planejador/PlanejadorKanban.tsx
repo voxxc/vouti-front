@@ -11,6 +11,7 @@ interface PlanejadorKanbanProps {
   tasksByColumn: Record<KanbanColumn, PlanejadorTask[]>;
   onTaskClick: (task: PlanejadorTask) => void;
   onMoveTask: (taskId: string, updates: Partial<PlanejadorTask>) => void;
+  onReorderTask?: (taskId: string, newOrdem: number) => void;
   searchQuery: string;
   locked?: boolean;
   columnConfig?: ColumnConfig[];
