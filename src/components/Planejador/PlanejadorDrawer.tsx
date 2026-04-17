@@ -162,6 +162,18 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
     updateTask.mutate({ id: taskId, ...updates });
   }, [updateTask, tasksByColumn]);
 
+  const handleReorderTask = useCallback(async (taskId: string, newOrdem: number) => {
+    const { error } = await (supabase as any).rpc('reorder_planejador_task', {
+      p_task_id: taskId,
+      p_new_ordem: newOrdem,
+    });
+    if (!error) {
+      queryClient.invalidateQueries({ queryKey: ['planejador-tasks'] });
+    } else {
+      console.error('[reorder_planejador_task]', error);
+    }
+  }, [queryClient]);
+
   const handleUpdateTask = useCallback((id: string, updates: Partial<PlanejadorTask>) => {
     // Check if this is a subtask
     const allTasks = Object.values(tasksByColumn).flat();
@@ -297,6 +309,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                     tasksByColumn={tasksByColumn}
                     onTaskClick={setSelectedTask}
                     onMoveTask={handleMoveTask}
+                    onReorderTask={handleReorderTask}
                     searchQuery={searchQuery}
                     locked={locked}
                     columnConfig={columnConfig}
