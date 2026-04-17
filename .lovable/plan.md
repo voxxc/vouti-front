@@ -2,37 +2,44 @@
 
 ## Causa raiz
 
-A RLS de `processos_oab` só permite SELECT onde `tenant_id = get_user_tenant_id()`. Como super admin Daniel está no tenant **vouti**, a query direta `supabase.from('processos_oab').select('tenant_id').is('detalhes_request_id', null)` retorna **zero linhas dos outros tenants** — por isso os badges aparecem vazios mesmo havendo 329 processos incompletos no banco (98 oliveira, 94 demorais, 74 harles, 44 vouti, 19 cordeiro).
+No `PlanejadorDrawer.tsx` linha 73:
+```tsx
+const [columnConfig, setColumnConfig] = useState<ColumnConfig[]>(() => loadColumnConfig(tenantId));
+```
 
-O `TenantProcessosIncompletosDialog` tem o mesmo problema: lista vazia para qualquer tenant que não seja o do super admin.
+No primeiro render, `tenantId` ainda é `null` (vem assíncrono do `useTenantId`), então o `loadColumnConfig` retorna o padrão (`getDefaultColumnConfig()`) sem nem tentar ler o localStorage. Quando o `tenantId` chega depois, o `useState` **não roda de novo** — o estado fica preso no padrão.
+
+Resultado: você ajusta as colunas → o `handleColumnConfigChange` salva corretamente no localStorage com a chave `planejador-column-config-{tenantId}` → você fecha e reabre → o estado inicial volta para o padrão porque `tenantId` está `null` no momento do `useState`.
+
+Confirmação: a função `saveColumnConfig` já funciona (salva certo), e o `loadColumnConfig` também funciona — o problema é só o **timing** da inicialização.
 
 ## Correção
 
-Criar 2 funções RPC `SECURITY DEFINER` que verificam super admin antes de retornar dados cross-tenant, e refatorar o hook + dialog para usar essas RPCs.
+Adicionar um `useEffect` que re-hidrata o `columnConfig` quando o `tenantId` finalmente chega.
 
-### Migration SQL
+```tsx
+// Hidratar config ao receber tenantId (primeira carga é null)
+useEffect(() => {
+  if (tenantId) {
+    setColumnConfig(loadColumnConfig(tenantId));
+  }
+}, [tenantId]);
+```
 
-**`get_incomplete_processos_count_by_tenant()`** — retorna `tenant_id, count` agrupado.
-- Verifica `is_super_admin(auth.uid())`; se falso, retorna apenas o próprio tenant.
-- `SELECT tenant_id, COUNT(*) FROM processos_oab WHERE detalhes_request_id IS NULL AND numero_cnj IS NOT NULL GROUP BY tenant_id`.
+Isso faz: assim que o `tenantId` resolve, lê o localStorage e aplica a config salva. Se não houver nada salvo, mantém o padrão.
 
-**`get_incomplete_processos_by_tenant(p_tenant_id uuid)`** — retorna lista detalhada para o dialog.
-- Verifica super admin OU se tenant_id bate com o do usuário.
-- Retorna `id, numero_cnj, created_at, monitoramento_ativo, oab_id`.
+### Edge case adicional
 
-### Refactor frontend
+O `saveColumnConfig` atual ignora se `tenantId` for null (linha 51), então **alterações feitas antes do tenantId carregar seriam perdidas**. Vou adicionar guard no `handleColumnConfigChange` para não salvar enquanto `tenantId` ainda é null (cenário raro, mas evita inconsistência).
 
-- `src/hooks/useIncompleteProcessosCount.ts` — trocar query direta por `supabase.rpc('get_incomplete_processos_count_by_tenant')`.
-- `src/components/SuperAdmin/TenantProcessosIncompletosDialog.tsx` (linhas 46-62) — trocar query direta por `supabase.rpc('get_incomplete_processos_by_tenant', { p_tenant_id: tenant.id })`.
+## Arquivos afetados
+
+- `src/components/Planejador/PlanejadorDrawer.tsx` — adicionar 1 `useEffect` (~5 linhas) próximo ao `handleColumnConfigChange`. Sem mudanças em qualquer outro arquivo.
 
 ## Validação
 
-Após deploy, abrir `/super-admin` → conferir badges:
-- oliveira (`f04593b2`): **98**
-- demorais (`27492091`): **94**
-- harles (`f0c6c87a`): **74**
-- vouti (`d395b3a1`): **44**
-- cordeiro (`272d9707`): **19**
-
-Clicar no badge da Solvenza/Cordeiro → ver lista preenchida com CNJs reais.
+1. Abrir Planejador → arrastar colunas para reordenar (ex: trocar "Hoje" e "Esta semana")
+2. Fechar o drawer
+3. Reabrir o drawer → as colunas devem manter a ordem ajustada
+4. Fechar e abrir o navegador inteiro → ainda persistido (já estava no localStorage antes, agora vai realmente carregar)
 
