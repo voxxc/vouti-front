@@ -1,36 +1,38 @@
 
 
-### Vou executar agora (3 itens)
+## Causa raiz
 
-**Item 1 — RLS no `password_reset_codes`** (defesa em profundidade)
-- Migration SQL: criar política `FOR ALL USING (false)` para bloquear acesso via client
-- Service role (edge functions) continua funcionando normalmente
-- Zero impacto em código existente
+A RLS de `processos_oab` só permite SELECT onde `tenant_id = get_user_tenant_id()`. Como super admin Daniel está no tenant **vouti**, a query direta `supabase.from('processos_oab').select('tenant_id').is('detalhes_request_id', null)` retorna **zero linhas dos outros tenants** — por isso os badges aparecem vazios mesmo havendo 329 processos incompletos no banco (98 oliveira, 94 demorais, 74 harles, 44 vouti, 19 cordeiro).
 
-**Item 4 — Lista de Processos Incompletos no Super Admin**
+O `TenantProcessosIncompletosDialog` tem o mesmo problema: lista vazia para qualquer tenant que não seja o do super admin.
 
-Arquivos a criar/editar:
-- `src/components/SuperAdmin/TenantProcessosIncompletosDialog.tsx` (novo) — dialog com tabela: CNJ, OAB, data criação, monitoramento ativo, botão "Recarregar detalhes"
-- `src/components/SuperAdmin/TenantCard.tsx` — adicionar botão `FileWarning` com badge da contagem (consulta `processos_oab` onde `detalhes_request_id IS NULL` filtrado por `tenant_id`)
-- `supabase/functions/judit-backfill-detalhes-tenant/index.ts` (nova edge function) — recebe `tenant_id`, busca em lotes de 50 os processos sem detalhes, chama `judit-buscar-detalhes-processo` para cada (com delay de 200ms entre cada para não estourar rate limit)
-- Hook query para contar `processos_oab` faltando detalhes por tenant (passa para `TenantCard` via prop `incompleteProcessosCount`)
+## Correção
 
-**Item 5 — Rate limit em landing leads**
+Criar 2 funções RPC `SECURITY DEFINER` que verificam super admin antes de retornar dados cross-tenant, e refatorar o hook + dialog para usar essas RPCs.
 
-Arquivos a criar/editar:
-- `supabase/functions/submit-landing-lead/index.ts` (nova) — valida payload (zod), checa rate limit por IP (5/10min) e por telefone (3/dia) usando uma tabela auxiliar `landing_lead_rate_limits` (ou consulta direto `landing_leads` por `created_at`), insere o lead se passar
-- Migration: criar tabela `landing_lead_rate_limits (ip, phone, created_at)` com índices para query rápida — OU pular tabela e usar query direta em `landing_leads` (mais simples, vou seguir essa abordagem)
-- Localizar componente do formulário da landing (provavelmente `src/pages/Landing*` ou similar — vou buscar `landing_leads` no código) e trocar `supabase.from('landing_leads').insert()` por `supabase.functions.invoke('submit-landing-lead')`
+### Migration SQL
 
-### Vai ficar para conversar depois
+**`get_incomplete_processos_count_by_tenant()`** — retorna `tenant_id, count` agrupado.
+- Verifica `is_super_admin(auth.uid())`; se falso, retorna apenas o próprio tenant.
+- `SELECT tenant_id, COUNT(*) FROM processos_oab WHERE detalhes_request_id IS NULL AND numero_cnj IS NOT NULL GROUP BY tenant_id`.
 
-- **Item 3 — Credenciais Judit (multi-credencial loop):** preciso entender custo Judit por request vazio + se faz sentido cachear matching tribunal→credencial antes de implementar
-- **Item 6 — HIBP:** sem ação possível pelo nosso lado, fica fora do escopo
+**`get_incomplete_processos_by_tenant(p_tenant_id uuid)`** — retorna lista detalhada para o dialog.
+- Verifica super admin OU se tenant_id bate com o do usuário.
+- Retorna `id, numero_cnj, created_at, monitoramento_ativo, oab_id`.
 
-### Validação pós-deploy
+### Refactor frontend
 
-1. Abrir Super Admin → ver botão "Processos Incompletos" com badge nos cards (ex: Solvenza 94, Oliveira 98, Harles 74, Cordeiro 19)
-2. Clicar no botão → ver lista → clicar "Recarregar todos" → conferir contador descer ao longo do tempo
-3. Tentar enviar 6 leads em sequência pelo mesmo IP → 6º deve ser rejeitado com "Muitas tentativas, tente novamente em alguns minutos"
-4. Verificar que fluxo "esqueci senha" continua funcionando (RLS não quebrou nada)
+- `src/hooks/useIncompleteProcessosCount.ts` — trocar query direta por `supabase.rpc('get_incomplete_processos_count_by_tenant')`.
+- `src/components/SuperAdmin/TenantProcessosIncompletosDialog.tsx` (linhas 46-62) — trocar query direta por `supabase.rpc('get_incomplete_processos_by_tenant', { p_tenant_id: tenant.id })`.
+
+## Validação
+
+Após deploy, abrir `/super-admin` → conferir badges:
+- oliveira (`f04593b2`): **98**
+- demorais (`27492091`): **94**
+- harles (`f0c6c87a`): **74**
+- vouti (`d395b3a1`): **44**
+- cordeiro (`272d9707`): **19**
+
+Clicar no badge da Solvenza/Cordeiro → ver lista preenchida com CNJs reais.
 
