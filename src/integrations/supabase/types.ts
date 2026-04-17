@@ -3682,6 +3682,7 @@ export type Database = {
           created_by: string
           descricao: string | null
           id: string
+          ordem: number | null
           prazo: string | null
           prioridade: string
           processo_oab_id: string | null
@@ -3698,6 +3699,7 @@ export type Database = {
           created_by: string
           descricao?: string | null
           id?: string
+          ordem?: number | null
           prazo?: string | null
           prioridade?: string
           processo_oab_id?: string | null
@@ -3714,6 +3716,7 @@ export type Database = {
           created_by?: string
           descricao?: string | null
           id?: string
+          ordem?: number | null
           prazo?: string | null
           prioridade?: string
           processo_oab_id?: string | null
@@ -10782,6 +10785,10 @@ export type Database = {
         Returns: boolean
       }
       normalize_descricao: { Args: { txt: string }; Returns: string }
+      reorder_planejador_task: {
+        Args: { p_new_ordem: number; p_task_id: string }
+        Returns: undefined
+      }
       truncate_minute: { Args: { ts: string }; Returns: string }
       user_belongs_to_tenant: { Args: { _tenant_id: string }; Returns: boolean }
     }
