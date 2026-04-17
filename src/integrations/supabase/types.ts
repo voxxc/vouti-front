@@ -10617,6 +10617,23 @@ export type Database = {
         }[]
       }
       get_dashboard_processos_count: { Args: never; Returns: number }
+      get_incomplete_processos_by_tenant: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          monitoramento_ativo: boolean
+          numero_cnj: string
+          oab_id: string
+        }[]
+      }
+      get_incomplete_processos_count_by_tenant: {
+        Args: never
+        Returns: {
+          count: number
+          tenant_id: string
+        }[]
+      }
       get_project_basic_info: {
         Args: { project_ids: string[] }
         Returns: {
