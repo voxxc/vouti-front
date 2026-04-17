@@ -11,21 +11,15 @@ export function useIncompleteProcessosCount() {
 
   const fetchCounts = useCallback(async () => {
     try {
-      // Busca todas as linhas com detalhes_request_id null e numero_cnj não nulo
-      // Limit alto pois super admin precisa ver tudo. Se ficar pesado, virar RPC.
-      const { data, error } = await supabase
-        .from('processos_oab')
-        .select('tenant_id')
-        .is('detalhes_request_id', null)
-        .not('numero_cnj', 'is', null)
-        .limit(10000);
+      // RPC SECURITY DEFINER: super admin vê todos os tenants, usuário comum vê só o seu.
+      const { data, error } = await supabase.rpc('get_incomplete_processos_count_by_tenant');
 
       if (error) throw error;
 
       const grouped: Record<string, number> = {};
-      (data || []).forEach((row) => {
+      (data || []).forEach((row: { tenant_id: string; count: number }) => {
         if (row.tenant_id) {
-          grouped[row.tenant_id] = (grouped[row.tenant_id] || 0) + 1;
+          grouped[row.tenant_id] = Number(row.count) || 0;
         }
       });
       setCounts(grouped);

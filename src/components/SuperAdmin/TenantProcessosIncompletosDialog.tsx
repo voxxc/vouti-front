@@ -46,16 +46,13 @@ export function TenantProcessosIncompletosDialog({ open, onOpenChange, tenant, o
   const fetchProcessos = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('processos_oab')
-        .select('id, numero_cnj, created_at, monitoramento_ativo, oab_id')
-        .eq('tenant_id', tenant.id)
-        .is('detalhes_request_id', null)
-        .not('numero_cnj', 'is', null)
-        .order('created_at', { ascending: false });
+      // RPC SECURITY DEFINER permite super admin ver dados cross-tenant
+      const { data, error } = await supabase.rpc('get_incomplete_processos_by_tenant', {
+        p_tenant_id: tenant.id,
+      });
 
       if (error) throw error;
-      setProcessos(data || []);
+      setProcessos((data || []) as ProcessoIncompleto[]);
     } catch (err) {
       console.error('Erro ao carregar processos incompletos:', err);
       toast.error('Erro ao carregar processos');
