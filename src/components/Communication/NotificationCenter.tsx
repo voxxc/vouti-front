@@ -121,6 +121,15 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
     if (notification.type === 'comment_mention') {
       const target = getCommentMentionTarget(notification);
       const entityId = notification.related_task_id;
+      const titleLower = (notification.title || '').toLowerCase();
+
+      // Planejador mentions → open the task in Planejador drawer
+      if ((titleLower.includes('planejador') || target === 'task' && !notification.related_project_id)
+          && entityId && onPlanejadorTaskNavigation) {
+        onPlanejadorTaskNavigation(entityId);
+        setIsOpen(false);
+        return;
+      }
 
       if (target === 'protocolo') {
         const resolveAndNavigate = async (projectId: string, protocoloId: string) => {
@@ -180,6 +189,12 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
       if (target === 'task' && notification.related_project_id && onProjectNavigation) {
         onProjectNavigation(notification.related_project_id);
+        return;
+      }
+
+      // Final fallback for comment_mention without project context: try Planejador
+      if (entityId && onPlanejadorTaskNavigation && !notification.related_project_id) {
+        onPlanejadorTaskNavigation(entityId);
         setIsOpen(false);
         return;
       }
