@@ -78,7 +78,9 @@ export function usePlanejadorTasks() {
         .from('planejador_tasks')
         .select('*')
         .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
+        .order('ordem', { ascending: true, nullsFirst: false })
+        .order('prazo', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true });
       if (tasksError) throw tasksError;
       const tasks = (tasksData || []) as PlanejadorTask[];
 
