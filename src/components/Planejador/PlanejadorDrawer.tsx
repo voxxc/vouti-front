@@ -303,6 +303,8 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                       setDeadlineDetailOpen(true);
                     }}
                     searchQuery={searchQuery}
+                    selectedUserId={selectedUserId}
+                    currentUserId={currentUserId}
                   />
                 ) : (
                   <PlanejadorKanban
