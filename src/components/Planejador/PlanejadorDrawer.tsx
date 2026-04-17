@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePlanejadorLabels, useAllLabelAssignments } from "@/hooks/usePlanejadorLabels";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useTheme } from "@/contexts/ThemeContext";
+import { usePlanejadorTaskViews } from "@/hooks/usePlanejadorTaskViews";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
@@ -75,6 +76,12 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
   const { tasksByColumn, isLoading, createTask, updateTask, deleteTask } = usePlanejadorTasks();
   const { labels } = usePlanejadorLabels();
   const { data: allLabelAssignments = [] } = useAllLabelAssignments();
+  const { markTaskAsViewed } = usePlanejadorTaskViews();
+
+  const handleSelectTask = useCallback((task: PlanejadorTask | null) => {
+    setSelectedTask(task);
+    if (task?.id) markTaskAsViewed(task.id);
+  }, [markTaskAsViewed]);
 
   // Fetch profiles for filters
   const { data: profiles = [] } = useQuery({
@@ -115,12 +122,13 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
       const task = allTasks.find(t => t.id === initialTaskId);
       if (task) {
         setSelectedTask(task);
+        markTaskAsViewed(task.id);
         // Clear filter to "all" so task is visible
         setSelectedUserId(null);
       }
       onInitialTaskConsumed?.();
     }
-  }, [open, initialTaskId, isLoading, tasksByColumn, onInitialTaskConsumed]);
+  }, [open, initialTaskId, isLoading, tasksByColumn, onInitialTaskConsumed, markTaskAsViewed]);
 
   // Re-hidratar config quando tenantId resolve (no primeiro render é null)
   useEffect(() => {
@@ -286,7 +294,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                 ) : activeTab === 'lista' ? (
                   <PlanejadorListView
                     tasksByColumn={tasksByColumn}
-                    onTaskClick={setSelectedTask}
+                    onTaskClick={handleSelectTask}
                     onMoveTask={handleMoveTask}
                     searchQuery={searchQuery}
                     columnConfig={columnConfig}
@@ -309,7 +317,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                 ) : (
                   <PlanejadorKanban
                     tasksByColumn={tasksByColumn}
-                    onTaskClick={setSelectedTask}
+                    onTaskClick={handleSelectTask}
                     onMoveTask={handleMoveTask}
                     onReorderTask={handleReorderTask}
                     searchQuery={searchQuery}

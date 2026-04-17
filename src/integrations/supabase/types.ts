@@ -3525,6 +3525,7 @@ export type Database = {
         Row: {
           content: string
           created_at: string
+          edited_at: string | null
           file_name: string | null
           file_url: string | null
           id: string
@@ -3537,6 +3538,7 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string
+          edited_at?: string | null
           file_name?: string | null
           file_url?: string | null
           id?: string
@@ -3549,6 +3551,7 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string
+          edited_at?: string | null
           file_name?: string | null
           file_url?: string | null
           id?: string
@@ -3674,6 +3677,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      planejador_task_views: {
+        Row: {
+          created_at: string
+          id: string
+          last_viewed_at: string
+          task_id: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_viewed_at?: string
+          task_id: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_viewed_at?: string
+          task_id?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       planejador_tasks: {
         Row: {

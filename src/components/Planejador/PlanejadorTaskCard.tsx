@@ -11,9 +11,10 @@ interface PlanejadorTaskCardProps {
   onClick: () => void;
   labels?: PlanejadorLabel[];
   labelAssignments?: PlanejadorLabelAssignment[];
+  needsAttention?: boolean;
 }
 
-export function PlanejadorTaskCard({ task, onClick, labels = [], labelAssignments = [] }: PlanejadorTaskCardProps) {
+export function PlanejadorTaskCard({ task, onClick, labels = [], labelAssignments = [], needsAttention = false }: PlanejadorTaskCardProps) {
   const taskLabelIds = labelAssignments.filter(a => a.task_id === task.id).map(a => a.label_id);
   const taskLabels = labels.filter(l => taskLabelIds.includes(l.id));
 
@@ -36,7 +37,11 @@ export function PlanejadorTaskCard({ task, onClick, labels = [], labelAssignment
   return (
     <div
       onClick={onClick}
-      className="bg-white/95 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg p-3.5 cursor-pointer hover:shadow-lg hover:shadow-black/10 hover:scale-[1.01] transition-all duration-200 border border-white/20 dark:border-white/5 group"
+      className={`backdrop-blur-sm rounded-lg p-3.5 cursor-pointer hover:shadow-lg hover:shadow-black/10 hover:scale-[1.01] transition-all duration-200 group border ${
+        needsAttention
+          ? "bg-orange-50/90 dark:bg-orange-900/30 border-orange-400 dark:border-orange-500/60 ring-1 ring-orange-300/50 dark:ring-orange-500/30"
+          : "bg-white/95 dark:bg-slate-800/90 border-white/20 dark:border-white/5"
+      }`}
     >
       <div className="flex items-start gap-1.5 mb-2">
         {task.is_subtask && (

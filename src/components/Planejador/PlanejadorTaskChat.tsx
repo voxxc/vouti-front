@@ -4,9 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantId } from "@/hooks/useTenantId";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Send, User, MessageSquare, Paperclip, Mic, MicOff, X, Reply, Image as ImageIcon, MoreVertical, Trash2 } from "lucide-react";
+import { Send, User, MessageSquare, Paperclip, Mic, MicOff, X, Reply, Image as ImageIcon, MoreVertical, Trash2, Pencil, Check } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,7 @@ interface ChatMessage {
   reply_to_id: string | null;
   tenant_id: string;
   created_at: string;
+  edited_at?: string | null;
 }
 
 interface TenantProfile {
@@ -43,13 +44,15 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
   const [showMentions, setShowMentions] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const { user } = useAuth();
   const { tenantId } = useTenantId();
@@ -115,6 +118,41 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
     },
   });
 
+  // Update (edit) message mutation
+  const updateMessage = useMutation({
+    mutationFn: async ({ messageId, content }: { messageId: string; content: string }) => {
+      const { error } = await (supabase as any)
+        .from('planejador_task_messages')
+        .update({ content, edited_at: new Date().toISOString() })
+        .eq('id', messageId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planejador-messages', taskId] });
+      setEditingMessageId(null);
+      setEditingContent("");
+      toast.success("Mensagem editada");
+    },
+    onError: () => {
+      toast.error("Erro ao editar mensagem");
+    },
+  });
+
+  const startEditing = (msg: ChatMessage) => {
+    setEditingMessageId(msg.id);
+    setEditingContent(msg.content);
+  };
+
+  const cancelEditing = () => {
+    setEditingMessageId(null);
+    setEditingContent("");
+  };
+
+  const saveEditing = () => {
+    if (!editingMessageId || !editingContent.trim()) return;
+    updateMessage.mutate({ messageId: editingMessageId, content: editingContent.trim() });
+  };
+
   // Send message mutation
   const sendMessage = useMutation({
     mutationFn: async (params: {
@@ -136,7 +174,25 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
       });
       if (error) throw error;
 
-      // Send notifications to all participants + owner (except sender)
+      // Parse @mentions from content
+      const mentionedUserIds = new Set<string>();
+      if (params.messageType === 'text' || !params.messageType) {
+        const mentionRegex = /@([^\s@][^\n@]*?)(?=\s|$|@)/g;
+        let m: RegExpExecArray | null;
+        while ((m = mentionRegex.exec(params.content)) !== null) {
+          const name = m[1].trim();
+          // Try exact full_name match (longest first)
+          const candidates = profiles
+            .filter(p => p.user_id !== user.id)
+            .sort((a, b) => (b.full_name?.length || 0) - (a.full_name?.length || 0));
+          const matched = candidates.find(p =>
+            p.full_name && (name === p.full_name || name.startsWith(p.full_name + ' ') || name.startsWith(p.full_name))
+          );
+          if (matched) mentionedUserIds.add(matched.user_id);
+        }
+      }
+
+      // Send notifications to all participants + owner (except sender + mentioned)
       try {
         // Get task info
         const { data: taskData } = await (supabase as any)
@@ -163,8 +219,26 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
         const truncatedMsg = params.content.length > 60 ? params.content.slice(0, 57) + '...' : params.content;
         const taskTitle = taskData?.titulo || 'Tarefa';
 
-        if (recipientIds.size > 0) {
-          const notifications = Array.from(recipientIds).map(uid => ({
+        const allNotifications: any[] = [];
+
+        // Direct mention notifications (priority — overrides generic chat notif for that user)
+        mentionedUserIds.forEach(uid => {
+          allNotifications.push({
+            user_id: uid,
+            tenant_id: tenantId,
+            type: 'comment_mention',
+            title: `Você foi mencionado em uma tarefa do Planejador: ${taskTitle}`,
+            content: `${senderName}: "${truncatedMsg}"`,
+            related_task_id: taskId,
+            triggered_by_user_id: user.id,
+          });
+          // Remove from generic chat recipients to avoid double notification
+          recipientIds.delete(uid);
+        });
+
+        // Generic chat notification for remaining recipients
+        recipientIds.forEach(uid => {
+          allNotifications.push({
             user_id: uid,
             tenant_id: tenantId,
             type: 'planejador_chat_message',
@@ -172,8 +246,11 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
             content: `${senderName}: "${truncatedMsg}"`,
             related_task_id: taskId,
             triggered_by_user_id: user.id,
-          }));
-          await supabase.from('notifications').insert(notifications);
+          });
+        });
+
+        if (allNotifications.length > 0) {
+          await supabase.from('notifications').insert(allNotifications);
         }
       } catch (notifErr) {
         console.error('Error sending chat notifications:', notifErr);
@@ -194,7 +271,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
   }, [messages]);
 
   // Detect @ mentions in input
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setMessage(val);
 
@@ -492,9 +569,38 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
                     </audio>
                   )}
 
-                  {/* Text content */}
+                  {/* Text content (with inline edit mode) */}
                   {msg.message_type === 'text' && (
-                    <p className="whitespace-pre-wrap break-words">{renderContent(msg.content)}</p>
+                    editingMessageId === msg.id ? (
+                      <div className="space-y-2 min-w-[200px]">
+                        <Textarea
+                          value={editingContent}
+                          onChange={(e) => setEditingContent(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              saveEditing();
+                            } else if (e.key === 'Escape') {
+                              cancelEditing();
+                            }
+                          }}
+                          autoFocus
+                          rows={2}
+                          className="text-sm bg-background text-foreground min-h-[60px] resize-none"
+                        />
+                        <div className="flex gap-1 justify-end">
+                          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={cancelEditing}>
+                            Cancelar
+                          </Button>
+                          <Button size="sm" className="h-6 px-2 text-xs" onClick={saveEditing} disabled={!editingContent.trim()}>
+                            <Check className="h-3 w-3 mr-1" />
+                            Salvar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap break-words">{renderContent(msg.content)}</p>
+                    )
                   )}
                   {msg.message_type !== 'text' && msg.message_type !== 'image' && msg.message_type !== 'audio' && (
                     <p className="whitespace-pre-wrap break-words">{msg.content}</p>
@@ -524,6 +630,15 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start" className="min-w-[160px]">
+                        {msg.message_type === 'text' && (
+                          <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={() => startEditing(msg)}
+                          >
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Editar mensagem
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                           className="text-destructive focus:text-destructive cursor-pointer"
                           onClick={() => deleteMessage.mutate(msg.id)}
@@ -538,6 +653,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
 
                 <span className="text-[10px] text-muted-foreground mt-0.5 inline-block">
                   {format(new Date(msg.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                  {msg.edited_at && <span className="italic ml-1 opacity-70">(editado)</span>}
                 </span>
               </div>
             </div>
@@ -608,14 +724,15 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
             <Button size="icon" variant="ghost" onClick={() => fileInputRef.current?.click()} className="shrink-0">
               <Paperclip className="h-4 w-4" />
             </Button>
-            <Input
+            <Textarea
               ref={inputRef}
               value={message}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              placeholder="Digite @ para mencionar..."
-              className="flex-1 text-sm"
+              placeholder="Digite @ para mencionar... (Shift+Enter para nova linha)"
+              rows={1}
+              className="flex-1 text-sm min-h-[40px] max-h-32 resize-none py-2"
             />
             {message.trim() ? (
               <Button size="icon" onClick={handleSend} disabled={!message.trim()}>
