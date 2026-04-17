@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus, FileStack, Loader2 } from 'lucide-react';
+import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus, FileStack, Loader2, FileWarning } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import { TenantCredenciaisDialog } from './TenantCredenciaisDialog';
 import { TenantBancoIdsDialog } from './TenantBancoIdsDialog';
 import { CreateTenantAdminDialog } from './CreateTenantAdminDialog';
 import { TenantPushDocsDialog } from './TenantPushDocsDialog';
+import { TenantProcessosIncompletosDialog } from './TenantProcessosIncompletosDialog';
 import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
 import CloudIcon from '@/components/CloudIcon';
 import { supabase } from '@/integrations/supabase/client';
@@ -41,10 +42,12 @@ interface TenantCardProps {
   onToggleStatus: (tenantId: string, isActive: boolean) => void;
   onDelete: (tenantId: string, tenantName: string) => void;
   pendingPayments?: number;
+  incompleteProcessosCount?: number;
   onSettingsChange?: (tenantId: string, settings: unknown) => void;
+  onIncompleteRefresh?: () => void;
 }
 
-export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDelete, pendingPayments = 0, onSettingsChange }: TenantCardProps) {
+export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDelete, pendingPayments = 0, incompleteProcessosCount = 0, onSettingsChange, onIncompleteRefresh }: TenantCardProps) {
   const [showStats, setShowStats] = useState(false);
   const [showJuditLogs, setShowJuditLogs] = useState(false);
   const [showBoletos, setShowBoletos] = useState(false);
@@ -52,6 +55,7 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
   const [showBancoIds, setShowBancoIds] = useState(false);
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
   const [showPushDocs, setShowPushDocs] = useState(false);
+  const [showProcessosIncompletos, setShowProcessosIncompletos] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [whatsAppLoading, setWhatsAppLoading] = useState(false);
@@ -276,6 +280,23 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
               variant="ghost" 
               size="icon"
               className="h-8 w-8 relative"
+              onClick={() => setShowProcessosIncompletos(true)}
+              title="Processos sem detalhes"
+            >
+              <FileWarning className="h-4 w-4" />
+              {incompleteProcessosCount > 0 && (
+                <Badge 
+                  variant="destructive" 
+                  className="absolute -top-1 -right-1 h-4 min-w-4 p-0 flex items-center justify-center text-[10px]"
+                >
+                  {incompleteProcessosCount > 99 ? '99+' : incompleteProcessosCount}
+                </Badge>
+              )}
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-8 w-8 relative"
               onClick={() => setShowBoletos(true)}
               title="Gerenciar pagamentos"
             >
@@ -356,6 +377,13 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
         open={showPushDocs}
         onOpenChange={setShowPushDocs}
         tenant={tenant}
+      />
+
+      <TenantProcessosIncompletosDialog
+        open={showProcessosIncompletos}
+        onOpenChange={setShowProcessosIncompletos}
+        tenant={tenant}
+        onComplete={onIncompleteRefresh}
       />
     </>
   );

@@ -2260,6 +2260,27 @@ export type Database = {
           },
         ]
       }
+      landing_lead_rate_limits: {
+        Row: {
+          created_at: string
+          id: string
+          ip: string
+          phone: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip: string
+          phone?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip?: string
+          phone?: string | null
+        }
+        Relationships: []
+      }
       landing_leads: {
         Row: {
           atendido_por: string | null
@@ -10544,6 +10565,7 @@ export type Database = {
         Returns: string
       }
       classify_deadline_category: { Args: { p_title: string }; Returns: string }
+      cleanup_landing_lead_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_sync_signals: { Args: never; Returns: undefined }
       create_default_kanban_columns: {
         Args: { p_agent_id: string; p_tenant_id?: string }
