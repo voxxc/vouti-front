@@ -122,12 +122,13 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
       const task = allTasks.find(t => t.id === initialTaskId);
       if (task) {
         setSelectedTask(task);
+        markTaskAsViewed(task.id);
         // Clear filter to "all" so task is visible
         setSelectedUserId(null);
       }
       onInitialTaskConsumed?.();
     }
-  }, [open, initialTaskId, isLoading, tasksByColumn, onInitialTaskConsumed]);
+  }, [open, initialTaskId, isLoading, tasksByColumn, onInitialTaskConsumed, markTaskAsViewed]);
 
   // Re-hidratar config quando tenantId resolve (no primeiro render é null)
   useEffect(() => {
@@ -293,7 +294,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                 ) : activeTab === 'lista' ? (
                   <PlanejadorListView
                     tasksByColumn={tasksByColumn}
-                    onTaskClick={setSelectedTask}
+                    onTaskClick={handleSelectTask}
                     onMoveTask={handleMoveTask}
                     searchQuery={searchQuery}
                     columnConfig={columnConfig}
@@ -316,7 +317,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                 ) : (
                   <PlanejadorKanban
                     tasksByColumn={tasksByColumn}
-                    onTaskClick={setSelectedTask}
+                    onTaskClick={handleSelectTask}
                     onMoveTask={handleMoveTask}
                     onReorderTask={handleReorderTask}
                     searchQuery={searchQuery}
