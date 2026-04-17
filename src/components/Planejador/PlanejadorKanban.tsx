@@ -24,7 +24,7 @@ interface PlanejadorKanbanProps {
 }
 
 export function PlanejadorKanban({
-  tasksByColumn, onTaskClick, onMoveTask, searchQuery, locked = false, columnConfig,
+  tasksByColumn, onTaskClick, onMoveTask, onReorderTask, searchQuery, locked = false, columnConfig,
   selectedUserId, selectedLabelIds = [], labels = [], allLabelAssignments = [], participantTaskIds,
 }: PlanejadorKanbanProps) {
   const { theme } = useTheme();
