@@ -309,6 +309,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                     tasksByColumn={tasksByColumn}
                     onTaskClick={setSelectedTask}
                     onMoveTask={handleMoveTask}
+                    onReorderTask={handleReorderTask}
                     searchQuery={searchQuery}
                     locked={locked}
                     columnConfig={columnConfig}
