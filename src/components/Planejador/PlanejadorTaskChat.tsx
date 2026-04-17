@@ -118,6 +118,41 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
     },
   });
 
+  // Update (edit) message mutation
+  const updateMessage = useMutation({
+    mutationFn: async ({ messageId, content }: { messageId: string; content: string }) => {
+      const { error } = await (supabase as any)
+        .from('planejador_task_messages')
+        .update({ content, edited_at: new Date().toISOString() })
+        .eq('id', messageId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planejador-messages', taskId] });
+      setEditingMessageId(null);
+      setEditingContent("");
+      toast.success("Mensagem editada");
+    },
+    onError: () => {
+      toast.error("Erro ao editar mensagem");
+    },
+  });
+
+  const startEditing = (msg: ChatMessage) => {
+    setEditingMessageId(msg.id);
+    setEditingContent(msg.content);
+  };
+
+  const cancelEditing = () => {
+    setEditingMessageId(null);
+    setEditingContent("");
+  };
+
+  const saveEditing = () => {
+    if (!editingMessageId || !editingContent.trim()) return;
+    updateMessage.mutate({ messageId: editingMessageId, content: editingContent.trim() });
+  };
+
   // Send message mutation
   const sendMessage = useMutation({
     mutationFn: async (params: {
