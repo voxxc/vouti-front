@@ -569,9 +569,38 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
                     </audio>
                   )}
 
-                  {/* Text content */}
+                  {/* Text content (with inline edit mode) */}
                   {msg.message_type === 'text' && (
-                    <p className="whitespace-pre-wrap break-words">{renderContent(msg.content)}</p>
+                    editingMessageId === msg.id ? (
+                      <div className="space-y-2 min-w-[200px]">
+                        <Textarea
+                          value={editingContent}
+                          onChange={(e) => setEditingContent(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              saveEditing();
+                            } else if (e.key === 'Escape') {
+                              cancelEditing();
+                            }
+                          }}
+                          autoFocus
+                          rows={2}
+                          className="text-sm bg-background text-foreground min-h-[60px] resize-none"
+                        />
+                        <div className="flex gap-1 justify-end">
+                          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={cancelEditing}>
+                            Cancelar
+                          </Button>
+                          <Button size="sm" className="h-6 px-2 text-xs" onClick={saveEditing} disabled={!editingContent.trim()}>
+                            <Check className="h-3 w-3 mr-1" />
+                            Salvar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap break-words">{renderContent(msg.content)}</p>
+                    )
                   )}
                   {msg.message_type !== 'text' && msg.message_type !== 'image' && msg.message_type !== 'audio' && (
                     <p className="whitespace-pre-wrap break-words">{msg.content}</p>
@@ -601,6 +630,15 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start" className="min-w-[160px]">
+                        {msg.message_type === 'text' && (
+                          <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={() => startEditing(msg)}
+                          >
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Editar mensagem
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                           className="text-destructive focus:text-destructive cursor-pointer"
                           onClick={() => deleteMessage.mutate(msg.id)}
@@ -615,6 +653,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
 
                 <span className="text-[10px] text-muted-foreground mt-0.5 inline-block">
                   {format(new Date(msg.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                  {msg.edited_at && <span className="italic ml-1 opacity-70">(editado)</span>}
                 </span>
               </div>
             </div>
