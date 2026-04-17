@@ -724,14 +724,15 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
             <Button size="icon" variant="ghost" onClick={() => fileInputRef.current?.click()} className="shrink-0">
               <Paperclip className="h-4 w-4" />
             </Button>
-            <Input
+            <Textarea
               ref={inputRef}
               value={message}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              placeholder="Digite @ para mencionar..."
-              className="flex-1 text-sm"
+              placeholder="Digite @ para mencionar... (Shift+Enter para nova linha)"
+              rows={1}
+              className="flex-1 text-sm min-h-[40px] max-h-32 resize-none py-2"
             />
             {message.trim() ? (
               <Button size="icon" onClick={handleSend} disabled={!message.trim()}>
