@@ -174,7 +174,25 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
       });
       if (error) throw error;
 
-      // Send notifications to all participants + owner (except sender)
+      // Parse @mentions from content
+      const mentionedUserIds = new Set<string>();
+      if (params.messageType === 'text' || !params.messageType) {
+        const mentionRegex = /@([^\s@][^\n@]*?)(?=\s|$|@)/g;
+        let m: RegExpExecArray | null;
+        while ((m = mentionRegex.exec(params.content)) !== null) {
+          const name = m[1].trim();
+          // Try exact full_name match (longest first)
+          const candidates = profiles
+            .filter(p => p.user_id !== user.id)
+            .sort((a, b) => (b.full_name?.length || 0) - (a.full_name?.length || 0));
+          const matched = candidates.find(p =>
+            p.full_name && (name === p.full_name || name.startsWith(p.full_name + ' ') || name.startsWith(p.full_name))
+          );
+          if (matched) mentionedUserIds.add(matched.user_id);
+        }
+      }
+
+      // Send notifications to all participants + owner (except sender + mentioned)
       try {
         // Get task info
         const { data: taskData } = await (supabase as any)
@@ -201,8 +219,26 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
         const truncatedMsg = params.content.length > 60 ? params.content.slice(0, 57) + '...' : params.content;
         const taskTitle = taskData?.titulo || 'Tarefa';
 
-        if (recipientIds.size > 0) {
-          const notifications = Array.from(recipientIds).map(uid => ({
+        const allNotifications: any[] = [];
+
+        // Direct mention notifications (priority — overrides generic chat notif for that user)
+        mentionedUserIds.forEach(uid => {
+          allNotifications.push({
+            user_id: uid,
+            tenant_id: tenantId,
+            type: 'comment_mention',
+            title: `Você foi mencionado em uma tarefa do Planejador: ${taskTitle}`,
+            content: `${senderName}: "${truncatedMsg}"`,
+            related_task_id: taskId,
+            triggered_by_user_id: user.id,
+          });
+          // Remove from generic chat recipients to avoid double notification
+          recipientIds.delete(uid);
+        });
+
+        // Generic chat notification for remaining recipients
+        recipientIds.forEach(uid => {
+          allNotifications.push({
             user_id: uid,
             tenant_id: tenantId,
             type: 'planejador_chat_message',
@@ -210,8 +246,11 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
             content: `${senderName}: "${truncatedMsg}"`,
             related_task_id: taskId,
             triggered_by_user_id: user.id,
-          }));
-          await supabase.from('notifications').insert(notifications);
+          });
+        });
+
+        if (allNotifications.length > 0) {
+          await supabase.from('notifications').insert(allNotifications);
         }
       } catch (notifErr) {
         console.error('Error sending chat notifications:', notifErr);
@@ -232,7 +271,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
   }, [messages]);
 
   // Detect @ mentions in input
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setMessage(val);
 
