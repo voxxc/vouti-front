@@ -3,6 +3,7 @@ import { Shield, Loader2, Eye, EyeOff, LogOut, Users, Headphones, Building2, Key
 import { useSuperAdmin } from '@/hooks/useSuperAdmin';
 import { useAllCredenciaisPendentes } from '@/hooks/useAllCredenciaisPendentes';
 import { useAllPaymentConfirmations } from '@/hooks/useAllPaymentConfirmations';
+import { useIncompleteProcessosCount } from '@/hooks/useIncompleteProcessosCount';
 import { SystemTypeSection } from '@/components/SuperAdmin/SystemTypeSection';
 import { CreateTenantDialog } from '@/components/SuperAdmin/CreateTenantDialog';
 import { CreateCrmTenantDialog } from '@/components/SuperAdmin/CreateCrmTenantDialog';
@@ -55,6 +56,7 @@ export default function SuperAdmin() {
 
   const { totalPendentes } = useAllCredenciaisPendentes();
   const { totalPendentes: totalPagamentosPendentes, porTenant: pagamentosPorTenant } = useAllPaymentConfirmations();
+  const { counts: incompleteProcessosPorTenant, refetch: refetchIncompletos } = useIncompleteProcessosCount();
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -435,6 +437,8 @@ export default function SuperAdmin() {
                     onDeleteTenant={deleteTenant}
                     onOpenAvisos={handleOpenAvisos}
                     pagamentosPorTenant={pagamentosPorTenant}
+                    incompleteProcessosPorTenant={incompleteProcessosPorTenant}
+                    onIncompleteRefresh={refetchIncompletos}
                   />
                 )
               ))}
