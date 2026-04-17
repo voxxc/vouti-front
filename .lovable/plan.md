@@ -1,54 +1,43 @@
 
 
-## Causa raiz
+## Objetivo
 
-No `PlanejadorKanban.tsx`, o `handleDragEnd` só processa **mudança de coluna** (atualiza `status` e `prazo` baseado na `destination.droppableId`). Não há lógica para **reordenação dentro da mesma coluna** — quando você arrasta o último card para a 2ª posição da mesma coluna, ele chama `onMoveTask` aplicando os mesmos `status`/`prazo` que o card já tem, e como o backend reordena pelo critério padrão (provavelmente `created_at` ou `prazo`), o card volta para o lugar original no próximo render.
+Adicionar uma seção fixa **"Impacto"** em todo plano de revisão, explicando claramente o que vai mudar para o usuário (UX, dados, performance, comportamento) após a aplicação. Isso torna cada plano mais completo e ajuda na decisão de aprovar.
 
-Falta:
-1. Coluna `ordem` (ou `position`) na tabela `planejador_tasks` para persistir ordem manual por coluna.
-2. Handler reconhecer `source.droppableId === destination.droppableId` e atualizar a ordem.
-3. Query de tasks ordenar por essa coluna.
+## Estrutura nova dos planos
 
-## Correção
+Daqui pra frente, todo plano que eu apresentar vai seguir este formato:
 
-### Migration SQL
-- Adicionar `ordem INTEGER` em `planejador_tasks` (default null).
-- Backfill: para cada tenant, numerar tasks existentes por `prazo NULLS LAST, created_at` (sequencial 0,1,2... globalmente — a coluna do Kanban é derivada, então ordem global basta).
-- Index: `(tenant_id, ordem)`.
+1. **Causa raiz** — o porquê do bug ou a justificativa da feature
+2. **Correção / Implementação** — o que vou mudar tecnicamente
+3. **Arquivos afetados** — lista dos arquivos
+4. **Impacto** *(NOVO)* — o que vai acontecer na prática:
+   - O que muda para o usuário final (UX, telas, fluxos)
+   - O que muda nos dados (migrations, RLS, performance)
+   - Riscos colaterais (algo que pode quebrar, algo que muda comportamento sutilmente)
+   - Quem é afetado (admin, advogado, todos os tenants, só um tenant, etc.)
+5. **Validação** — passos pra você conferir que funcionou
 
-### RPC `reorder_planejador_task(p_task_id uuid, p_new_ordem integer)`
-- `SECURITY DEFINER`, valida tenant do usuário.
-- Reorganiza `ordem` deslocando outras tasks (estratégia: setar `ordem = p_new_ordem`, e nas demais com `ordem >= p_new_ordem` somar 1). Simples e suficiente para volume típico.
+## Exemplo prático
 
-### Frontend
+Pra ilustrar, se fosse o último plano (filtro de usuário no Planejador), a seção Impacto ficaria:
 
-**`src/components/Planejador/PlanejadorKanban.tsx`**
-- No `handleDragEnd`, detectar `source.droppableId === destination.droppableId`:
-  - Calcular novo `ordem` baseado em `destination.index` e nas tasks atuais da coluna.
-  - Chamar nova prop `onReorderTask(taskId, newOrdem)` em vez de `onMoveTask`.
-- Para reorder cross-column: continuar com `onMoveTask` mas também passar `ordem` do destino.
+> **Impacto**
+> - **Admins** ganham visão completa: ao trocar usuário no dropdown, veem tasks e prazos do colega selecionado nas duas abas (Colunas e Prazos).
+> - **Advogados comuns** continuam restritos pelo RLS — selecionar outro usuário só mostra o que já têm permissão de ver (compartilhados/participantes).
+> - **Aba Prazos** muda comportamento: hoje mostra só do logado, depois respeita o filtro. Se admin esquecer no "Todos", vai ver todos os prazos do tenant — útil mas pode causar visual mais carregado.
+> - **Sem migration** nem mudança de dados — mudança puramente frontend.
+> - **Risco baixo**: nenhum endpoint novo, RLS já protege contra acesso indevido.
 
-**`src/components/Planejador/PlanejadorDrawer.tsx`**
-- Adicionar `handleReorderTask` que chama `supabase.rpc('reorder_planejador_task', ...)` e invalida a query.
-- Passar como prop pro `PlanejadorKanban` e pro `PlanejadorListView` (se aplicável).
+## Onde isso fica registrado
 
-**`src/hooks/usePlanejadorTasks.ts`**
-- Ajustar `ORDER BY` da query para `ordem ASC NULLS LAST, prazo ASC NULLS LAST, created_at ASC` (mantém fallback para tasks sem ordem).
-
-**Subtasks (edge case):** subtasks (`is_subtask: true`) vivem em `planejador_task_subtasks`, não na tabela principal. Para escopo desta correção, vou **bloquear reorder de subtasks** (skip se `task.is_subtask`) e tratar em iteração futura se você quiser.
+Vou salvar essa preferência em memória (`mem://~user`) pra aplicar automaticamente em todos os planos futuros, em qualquer projeto seu. Sem precisar lembrar de pedir de novo.
 
 ## Arquivos afetados
 
-- `supabase/migrations/{timestamp}_planejador_task_ordem.sql` (novo)
-- `src/hooks/usePlanejadorTasks.ts` (ORDER BY)
-- `src/components/Planejador/PlanejadorKanban.tsx` (handleDragEnd + nova prop)
-- `src/components/Planejador/PlanejadorDrawer.tsx` (handler + passar prop)
-- `src/integrations/supabase/types.ts` (regenerar types da nova RPC)
+- `mem://~user` — adicionar regra: "Em todo plano de revisão, incluir seção 'Impacto' explicando consequências práticas (UX, dados, riscos, quem é afetado)."
 
 ## Validação
 
-1. Abrir Planejador → arrastar último card de "Hoje" para 2ª posição → deve fixar
-2. Fechar e reabrir drawer → ordem mantida
-3. Mover card entre colunas (ex: Hoje → Esta Semana) → continua funcionando como antes (status/prazo atualizam)
-4. Recarregar navegador → ordem persistida
+No próximo plano que eu apresentar (qualquer mudança que você pedir), confira que tem a seção **Impacto** com os 4 pontos: usuário final, dados, riscos, quem é afetado.
 
