@@ -167,7 +167,7 @@ function normalizePhoneNumber(phone?: string): string | null {
   return cleaned || null;
 }
 
-// Funcao para criar lead (usada na landing page)
+// Funcao para criar lead (usada na landing page) — agora via edge function com rate limit
 export async function createLandingLead(data: {
   nome: string;
   email?: string;
@@ -175,18 +175,26 @@ export async function createLandingLead(data: {
   tamanho_escritorio?: string;
   origem?: string;
 }) {
-  // Normaliza o telefone antes de salvar
-  const normalizedPhone = normalizePhoneNumber(data.telefone);
-
-  const { error } = await supabase
-    .from('landing_leads')
-    .insert({
+  const { data: result, error } = await supabase.functions.invoke('submit-landing-lead', {
+    body: {
       nome: data.nome,
-      email: data.email || null,
-      telefone: normalizedPhone,
-      tamanho_escritorio: data.tamanho_escritorio || null,
-      origem: data.origem || 'vouti_landing'
-    });
+      email: data.email,
+      telefone: data.telefone,
+      tamanho_escritorio: data.tamanho_escritorio,
+      origem: data.origem || 'vouti_landing',
+    },
+  });
 
-  if (error) throw error;
+  if (error) {
+    // Tentar extrair mensagem amigável do edge function
+    const message = (result as { error?: string })?.error || error.message || 'Erro ao enviar';
+    throw new Error(message);
+  }
+
+  if (result?.error) {
+    throw new Error(result.error);
+  }
 }
+
+// Mantém função para uso interno (referência, não usado mais na landing)
+export { normalizePhoneNumber };
