@@ -42,8 +42,29 @@ export function PlanejadorKanban({
 
   const handleDragEnd = (result: DropResult) => {
     if (locked || !result.destination) return;
+    const sourceColumn = result.source.droppableId as KanbanColumn;
     const destColumn = result.destination.droppableId as KanbanColumn;
     const taskId = result.draggableId;
+
+    // Reordenação dentro da mesma coluna
+    if (sourceColumn === destColumn) {
+      if (!onReorderTask) return;
+      const draggedTask = (tasksByColumn[sourceColumn] || []).find(t => t.id === taskId);
+      // Subtasks não têm ordem persistida (vivem em outra tabela)
+      if (draggedTask?.is_subtask) return;
+
+      // Calcular novo `ordem` global baseado nos vizinhos no destino
+      const columnTasks = filterTasks(tasksByColumn[destColumn] || []).filter(t => t.id !== taskId);
+      const destIndex = result.destination.index;
+      const neighbor = columnTasks[destIndex] ?? columnTasks[destIndex - 1];
+      const neighborOrdem = (neighbor as any)?.ordem;
+      const fallbackOrdem = (draggedTask as any)?.ordem ?? 0;
+      const newOrdem = typeof neighborOrdem === 'number' ? neighborOrdem : fallbackOrdem;
+      onReorderTask(taskId, newOrdem);
+      return;
+    }
+
+    // Mudança de coluna: atualizar status/prazo
     const now = new Date();
     const updates: Partial<PlanejadorTask> = {};
 
