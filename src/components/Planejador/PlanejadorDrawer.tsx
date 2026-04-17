@@ -122,8 +122,16 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
     }
   }, [open, initialTaskId, isLoading, tasksByColumn, onInitialTaskConsumed]);
 
+  // Re-hidratar config quando tenantId resolve (no primeiro render é null)
+  useEffect(() => {
+    if (tenantId) {
+      setColumnConfig(loadColumnConfig(tenantId));
+    }
+  }, [tenantId]);
+
   const handleColumnConfigChange = useCallback((newConfig: ColumnConfig[]) => {
     setColumnConfig(newConfig);
+    if (!tenantId) return; // evita perder config antes do tenantId carregar
     saveColumnConfig(tenantId, newConfig);
   }, [tenantId]);
 
