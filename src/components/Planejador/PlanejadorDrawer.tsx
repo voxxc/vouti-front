@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePlanejadorLabels, useAllLabelAssignments } from "@/hooks/usePlanejadorLabels";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useTheme } from "@/contexts/ThemeContext";
+import { usePlanejadorTaskViews } from "@/hooks/usePlanejadorTaskViews";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";

@@ -6,6 +6,7 @@ import { PlanejadorLabel, PlanejadorLabelAssignment } from "@/hooks/usePlanejado
 import { endOfWeek, addWeeks, setHours, subDays, startOfDay } from "date-fns";
 import { useMemo } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
+import { usePlanejadorTaskViews } from "@/hooks/usePlanejadorTaskViews";
 
 interface PlanejadorKanbanProps {
   tasksByColumn: Record<KanbanColumn, PlanejadorTask[]>;
@@ -29,6 +30,7 @@ export function PlanejadorKanban({
 }: PlanejadorKanbanProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const { viewedTodayIds } = usePlanejadorTaskViews();
 
   const columns = useMemo(() => {
     if (!columnConfig || columnConfig.length === 0) {
@@ -172,6 +174,10 @@ export function PlanejadorKanban({
                                 onClick={() => onTaskClick(task)}
                                 labels={labels}
                                 labelAssignments={allLabelAssignments}
+                                needsAttention={
+                                  task.status !== 'completed' &&
+                                  !viewedTodayIds.has(task.id)
+                                }
                               />
                             </div>
                           )}
