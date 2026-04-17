@@ -76,6 +76,12 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
   const { tasksByColumn, isLoading, createTask, updateTask, deleteTask } = usePlanejadorTasks();
   const { labels } = usePlanejadorLabels();
   const { data: allLabelAssignments = [] } = useAllLabelAssignments();
+  const { markTaskAsViewed } = usePlanejadorTaskViews();
+
+  const handleSelectTask = useCallback((task: PlanejadorTask | null) => {
+    setSelectedTask(task);
+    if (task?.id) markTaskAsViewed(task.id);
+  }, [markTaskAsViewed]);
 
   // Fetch profiles for filters
   const { data: profiles = [] } = useQuery({
