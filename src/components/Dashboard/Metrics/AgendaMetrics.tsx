@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+// Card components removed — using kpi-card utility instead
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
