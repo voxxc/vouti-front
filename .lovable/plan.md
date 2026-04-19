@@ -1,79 +1,48 @@
 
 
-## Fase 4.6 — Polimento Final (Bot Workflow + Auth + Settings)
+## Ajustes no Dashboard Admin
 
-### Causa raiz / Justificativa
+### Causa raiz
 
-Última sub-fase do roadmap. Restam três áreas com visual ainda pré-Apple:
-1. **Bot Workflow Canvas** — editor visual de automações WhatsApp (React Flow).
-2. **Auth pages** — telas de login/signup do sistema jurídico, CRM standalone e Veridicto.
-3. **Settings** — configurações gerais do sistema (perfil, integrações, equipe, etc.).
+1. KPI "Total de Projetos" mostra 86 (count de `projects`), mas o usuário quer ver clientes cadastrados — a métrica correta vem da tabela `clientes` (47 hoje no Solvenza).
+2. O painel "Minhas Tarefas e Prazos" (`PrazosAbertosPanel`) hoje aparece **abaixo** dos 4 KPIs. O usuário quer invertido: painel de tarefas/prazos no topo, KPIs abaixo.
 
-### Exploração necessária
+### Correção
 
-Vou ler antes de aplicar:
-- `src/components/WhatsApp/settings/bot/` — WorkflowCanvas, NodePalette, nodes individuais (TriggerNode, SendMessageNode, etc.)
-- `src/pages/Auth.tsx`, `src/pages/CrmAuth.tsx` (e variantes Veridicto se houver)
-- `src/components/Settings/` ou `src/pages/Settings.tsx` — estrutura de abas e formulários
+**1. Trocar KPI "Total de Projetos" → "Total de Clientes"** (`AdminMetrics.tsx`)
+- Na query do React Query, substituir `projects.count` por `clientes.count` filtrado por `tenant_id` (RLS já restringe ao tenant atual via `get_user_tenant_id`).
+- Renomear a chave de `totalProjects` para `totalClientes`.
+- Atualizar o card: label "Total de Clientes", subtítulo "Cadastrados", manter ícone `FolderKanban` ou trocar por `Users` (mantenho `Users` para coerência semântica e movo `Users` do card "Casos" para outro ícone — proponho `Briefcase` em "Casos").
 
-### O que vai mudar
+**2. Reordenar layout** (`AdminMetrics.tsx`)
+- Mover `<PrazosAbertosPanel />` + `<DeadlineDetailDialog />` para **antes** do grid de KPIs.
+- Sequência final:
+  1. Header (saudação + toggle privacidade)
+  2. **PrazosAbertosPanel** (Minhas Tarefas e Prazos)
+  3. Grid de KPIs (4 cards: Clientes, Casos, Processos, Prazos)
+  4. ClienteAnalytics, ProcessosMetrics, TasksMetrics, etc. (mantém)
 
-**1. Bot Workflow Canvas**
-- Background do canvas: dots mais sutis (`color="#2a2a3e"` com opacidade reduzida).
-- **Nodes** (9 tipos): container `rounded-2xl`, `border-border/60`, sombra `shadow-md`, header com cor tintada da categoria + ícone em container `rounded-xl bg-{color}/15`.
-- Handles (pontos de conexão) refinados: `rounded-full`, ring sutil.
-- Edges (conexões) já com `stroke-primary` — manter.
-- **NodePalette**: já está OK (Fase 2 herdada), refinar items para `rounded-xl` consistente, container com `glass-surface`.
-- **Controls e MiniMap** do React Flow: aplicar tema claro/escuro consistente, `rounded-xl`.
-- Botão "Salvar" no canto: já refinado.
+### Arquivos afetados
 
-**2. Auth pages (Login/Signup)**
-- Card central com `rounded-2xl`, `glass-surface` ou `bg-card border-border/60 shadow-xl`.
-- Logo/título com tipografia `apple-h1` + `apple-subtitle`.
-- Inputs `rounded-xl` (já herda Fase 2).
-- Botão primário grande com `rounded-xl`, `font-semibold`.
-- Tabs Login/Signup como `apple-segmented`.
-- Background: gradiente sutil ou padrão de pontos discreto.
-- Footer com links em `text-muted-foreground hover:text-foreground`.
-
-**3. Settings**
-- Header com `apple-h1`/`apple-subtitle`.
-- Sidebar de abas com `apple-list-item` (rounded-xl, hover suave, ativo em `bg-primary/10`).
-- Cards de seção com `rounded-2xl border-border/60`.
-- Toggles, selects e inputs já refinados — validar.
-- Empty states com `apple-empty`.
-
-### Arquivos afetados (estimativa)
-
-- `src/components/WhatsApp/settings/bot/WorkflowCanvas.tsx`
-- `src/components/WhatsApp/settings/bot/WorkflowNodePalette.tsx`
-- `src/components/WhatsApp/settings/bot/nodes/*.tsx` (9 arquivos)
-- `src/pages/Auth.tsx`, `src/pages/CrmAuth.tsx` (+ variantes)
-- `src/components/Settings/*` ou `src/pages/Settings.tsx`
+- `src/components/Dashboard/Metrics/AdminMetrics.tsx` (única mudança)
 
 ### Impacto
 
-- **UX**: trinca final fica coesa com todo o ecossistema. Bot canvas com aparência de Linear/n8n moderno. Auth com primeira impressão Apple-grade. Settings consistente com Dashboard/Financeiro.
-- **Dados**: zero mudanças. Lógica do canvas (memory `bot-workflow-canvas-architecture`), auth (memories `crm-standalone-auth-navigation-details`, `access-control-gate`) e settings — tudo intacto.
-- **Performance**: imperceptível.
-- **Riscos colaterais**:
-  - React Flow tem CSS próprio (`@xyflow/react/dist/style.css`) — vou usar overrides via classes Tailwind sem quebrar internals.
-  - Auth tem múltiplas variantes (jurídico/CRM/Veridicto) — Veridicto tem identidade visual distinta (memory `veridicto-system-type`), **não vou tocar**.
-  - Settings pode ter sub-rotas — vou listar antes de aplicar.
-- **Quem é afetado**: admins (bot + settings), todos os usuários (auth do sistema jurídico + CRM standalone). Veridicto e VoTech preservam suas identidades próprias.
+- **UX**: 
+  - Admin vê primeiro o que importa pro dia (tarefas/prazos pessoais), depois métricas globais — fluxo mais acionável.
+  - KPI "Clientes" reflete a base real cadastrada (47), não a soma técnica de projects (86 — inclui possíveis duplicações/legados).
+- **Dados**: zero migration. Apenas troca de query de leitura. RLS de `clientes` já restringe ao tenant.
+- **Performance**: imperceptível (mesma quantidade de queries paralelas).
+- **Riscos colaterais**: 
+  - O número vai cair visualmente de 86 → 47 no KPI principal — confirmar com usuário se isso bate com a expectativa dele de "clientes ativos" (pode haver diferença entre clientes ativos vs. arquivados — vou contar todos por padrão, alinhado com o card atual).
+  - Outras roles (`AdvogadoMetrics`, etc.) **não são afetadas** — só o painel admin.
+- **Quem é afetado**: apenas admins do tenant ao acessar `/:tenant/dashboard`.
 
 ### Validação
 
-1. `/solvenza/crm` → Settings → Bot → editor visual refinado.
-2. `/solvenza/auth` e `crm.vouti.co/solvenza/auth` → cards refinados.
-3. `/solvenza/settings` (ou equivalente) → sidebar e cards consistentes.
-4. Veridicto (`/veridicto`) e VoTech (`/votech`) → zero alteração visual.
-5. Dark mode + viewport 390px → tudo legível.
-6. Outros módulos refinados (Dashboard, Agenda, Financeiro, Planejador, CRM) → zero regressão.
-
-### Próximo passo após aprovação
-
-1. Listar diretórios `bot/nodes/`, identificar Auth e Settings reais.
-2. Aplicar refinamentos: Bot nodes → Canvas → Auth → Settings.
-3. Validar visual. **Encerra a Fase 4** completa.
+1. `/solvenza/dashboard` (admin) → painel "Minhas Tarefas e Prazos" no topo.
+2. KPI "Total de Clientes" mostra 47 (Solvenza).
+3. Demais cards (Casos, Processos, Prazos) intactos.
+4. Outras roles (advogado, financeiro, etc.) sem alteração.
+5. Dark mode + 390px → layout responsivo ok.
 
