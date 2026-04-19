@@ -3,37 +3,42 @@
 ## Ajustes no Dashboard Admin
 
 ### Causa raiz
-1. Grid de 4 KPIs (Clientes / Casos / Processos / PrazosDistribution) está logo abaixo do painel de Prazos. Usuário quer mover para **depois** do bloco `ClienteAnalytics`.
-2. Componente `ClienteAnalytics` exibe título "Analytics de Clientes" — usuário quer renomear para **"Indicadores de Clientes"**.
+1. Bloco `<ProcessosMetrics />` ("CONTROLADORIA - PROCESSOS") está poluindo o dashboard admin — usuário quer remover.
+2. Reordenação anterior moveu o grid de KPIs (Clientes/Casos/Processos/Prazos) para **abaixo** de `ClienteAnalytics`, perdendo o título "Indicadores" que ficava acima — usuário quer o título de volta sobre os 4 cards.
 
-### Correção
+### Correção (`AdminMetrics.tsx`)
 
-**1. Reordenar `AdminMetrics.tsx`**
-Sequência nova:
+**1. Remover `<ProcessosMetrics />`**
+- Excluir a linha `<ProcessosMetrics />` e o import correspondente.
+
+**2. Adicionar título "Indicadores" acima do grid de 4 KPIs**
+- Inserir bloco de cabeçalho antes do `<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">`:
+  ```tsx
+  <div>
+    <h2 className="apple-h1 mb-1">Indicadores</h2>
+    <p className="apple-subtitle">Visão geral do escritório</p>
+  </div>
+  ```
+
+### Sequência final
 1. Header (saudação + toggle privacidade)
-2. PrazosAbertosPanel (Minhas Tarefas e Prazos)
-3. **ClienteAnalytics** (Indicadores de Clientes)
-4. **Grid de 4 KPIs** (Clientes / Casos / Processos / PrazosDistribution) ← movido pra cá
-5. ProcessosMetrics, TasksMetrics, ClienteTasksMetrics, OverviewSection, AgendaMetrics (mantém)
-
-**2. Renomear título no `ClienteAnalytics.tsx`**
-- Localizar string "Analytics de Clientes" (ou variações como "Analytics") e trocar para "Indicadores de Clientes".
-- Vou ler o arquivo antes pra confirmar a string exata e se há subtítulo associado.
+2. PrazosAbertosPanel
+3. ClienteAnalytics ("Indicadores de Clientes")
+4. **Indicadores** (novo título) + Grid de 4 KPIs
+5. TasksMetrics, ClienteTasksMetrics, OverviewSection, AgendaMetrics
 
 ### Arquivos afetados
-- `src/components/Dashboard/Metrics/AdminMetrics.tsx` (reordenação)
-- `src/components/Dashboard/ClienteAnalytics.tsx` (renomear título)
+- `src/components/Dashboard/Metrics/AdminMetrics.tsx`
 
 ### Impacto
-- **UX**: fluxo de leitura passa a ser: prazos pessoais → indicadores de clientes (visão estratégica) → KPIs operacionais → demais métricas. Faz mais sentido hierárquico.
-- **Dados**: zero. Só reordenação visual + label.
-- **Performance**: nenhuma — mesmas queries, mesma ordem de execução (componentes React independentes).
-- **Riscos colaterais**: nenhum. Componentes são autônomos com suas próprias queries.
-- **Quem é afetado**: apenas admins em `/:tenant/dashboard`. Outras roles não usam `AdminMetrics`.
+- **UX**: dashboard mais enxuto, hierarquia clara (Indicadores de Clientes → Indicadores gerais → tarefas → reuniões).
+- **Dados**: zero. `ProcessosMetrics` continua existindo no codebase — apenas não é renderizado aqui (pode ser usado em outras páginas se necessário no futuro).
+- **Performance**: melhora marginal (menos uma query de processos na home admin).
+- **Riscos colaterais**: nenhum. Componente é autônomo.
+- **Quem é afetado**: apenas admins em `/:tenant/dashboard`.
 
 ### Validação
-1. `/solvenza/dashboard` (admin) → ordem: Prazos → Indicadores de Clientes → 4 KPIs → resto.
-2. Título "Indicadores de Clientes" visível no lugar de "Analytics".
-3. Dark mode + 390px → layout responsivo intacto.
-4. Outras roles → sem alteração.
+1. `/solvenza/dashboard` → bloco "CONTROLADORIA - PROCESSOS" sumiu.
+2. Título "Indicadores" visível acima dos 4 cards (Clientes/Casos/Processos/Prazos).
+3. Demais seções intactas.
 
