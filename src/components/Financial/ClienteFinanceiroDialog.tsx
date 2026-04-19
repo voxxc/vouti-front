@@ -231,8 +231,8 @@ export const ClienteFinanceiroDialog = ({
         </div>
       ) : (
         <Tabs defaultValue="contratual" className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between mb-4">
-            <TabsList>
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+            <TabsList className="apple-segmented">
               <TabsTrigger value="contratual" className="gap-2">
                 <FileIcon className="w-4 h-4" />
                 Contratual
@@ -248,7 +248,7 @@ export const ClienteFinanceiroDialog = ({
               size="sm"
               variant="outline"
               onClick={() => setCreateDividaOpen(true)}
-              className="gap-1"
+              className="gap-1 rounded-xl"
             >
               <Plus className="w-4 h-4" />
               Nova Dívida
@@ -269,41 +269,49 @@ export const ClienteFinanceiroDialog = ({
                   </div>
                 )}
 
-                {/* Estatísticas Gerais */}
+                {/* Estatísticas Gerais — estilo Apple KPI */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="p-4 rounded-lg border bg-card">
+                  <div className="kpi-card">
                     <div className="flex items-center gap-2 mb-2">
-                      <DollarSign className="w-4 h-4 text-muted-foreground" />
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-muted/60 text-muted-foreground">
+                        <DollarSign className="w-4 h-4" />
+                      </span>
                       <span className="text-sm text-muted-foreground">Valor Total</span>
                     </div>
-                    <p className="text-2xl font-bold">{formatCurrency(cliente.valor_contrato)}</p>
+                    <p className="text-2xl font-semibold tracking-tight">{formatCurrency(cliente.valor_contrato)}</p>
                   </div>
 
-                  <div className="p-4 rounded-lg border bg-card">
+                  <div className="kpi-card">
                     <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle2 className="w-4 h-4 text-primary" />
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary">
+                        <CheckCircle2 className="w-4 h-4" />
+                      </span>
                       <span className="text-sm text-muted-foreground">Total Pago</span>
                     </div>
-                    <p className="text-2xl font-bold text-primary">{formatCurrency(totalPago)}</p>
-                    <p className="text-xs text-muted-foreground">{parcelasPagas.length} parcelas</p>
+                    <p className="text-2xl font-semibold tracking-tight text-primary">{formatCurrency(totalPago)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{parcelasPagas.length} parcelas</p>
                   </div>
 
-                  <div className="p-4 rounded-lg border bg-card">
+                  <div className="kpi-card">
                     <div className="flex items-center gap-2 mb-2">
-                      <Clock className="w-4 h-4 text-muted-foreground" />
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-muted/60 text-muted-foreground">
+                        <Clock className="w-4 h-4" />
+                      </span>
                       <span className="text-sm text-muted-foreground">Pendente</span>
                     </div>
-                    <p className="text-2xl font-bold">{formatCurrency(totalPendente)}</p>
-                    <p className="text-xs text-muted-foreground">{parcelasPendentes.length + parcelasAtrasadas.length} parcelas</p>
+                    <p className="text-2xl font-semibold tracking-tight">{formatCurrency(totalPendente)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{parcelasPendentes.length + parcelasAtrasadas.length} parcelas</p>
                   </div>
 
-                  <div className="p-4 rounded-lg border bg-card">
+                  <div className="kpi-card">
                     <div className="flex items-center gap-2 mb-2">
-                      <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-accent/40 text-foreground">
+                        <TrendingUp className="w-4 h-4" />
+                      </span>
                       <span className="text-sm text-muted-foreground">Progresso</span>
                     </div>
-                    <p className="text-2xl font-bold">{progressoPagamento.toFixed(0)}%</p>
-                    <Progress value={progressoPagamento} className="mt-2 h-2" />
+                    <p className="text-2xl font-semibold tracking-tight">{progressoPagamento.toFixed(0)}%</p>
+                    <Progress value={progressoPagamento} className="mt-2 h-1.5" />
                   </div>
                 </div>
 
@@ -311,15 +319,19 @@ export const ClienteFinanceiroDialog = ({
 
                 {/* Timeline de Parcelas */}
                 <div>
-                  <h3 className="font-semibold mb-4 flex items-center gap-2">
-                    <Calendar className="w-5 h-5" />
+                  <h3 className="text-base font-semibold tracking-tight mb-4 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
                     Histórico de Parcelas
                   </h3>
 
                   {parcelas.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      Nenhuma parcela encontrada. Cliente com pagamento à vista.
-                    </p>
+                    <div className="apple-empty">
+                      <div className="apple-empty-icon">
+                        <Calendar className="h-5 w-5" />
+                      </div>
+                      <p className="apple-empty-title">Nenhuma parcela encontrada</p>
+                      <p className="apple-empty-subtitle">Cliente com pagamento à vista.</p>
+                    </div>
                   ) : (
                     <div className="space-y-2">
                       {parcelas.map((parcela, index) => {

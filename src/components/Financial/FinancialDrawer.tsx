@@ -59,20 +59,27 @@ export function FinancialDrawer({ open, onOpenChange }: FinancialDrawerProps) {
       >
         <SheetTitle className="sr-only">Financeiro</SheetTitle>
         
-        {/* Header dinâmico */}
-        <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
+        {/* Header dinâmico — glass surface estilo Apple */}
+        <div className="glass-surface flex items-center gap-3 px-6 py-4 border-b border-border/60 sticky top-0 z-10">
           {view !== 'lista' && (
             <Button 
               variant="ghost" 
               size="icon" 
               onClick={handleBack}
-              className="h-8 w-8"
+              className="h-8 w-8 rounded-lg"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
           )}
-          <DollarSign className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-lg">{getTitle()}</span>
+          <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-primary/10 text-primary">
+            <DollarSign className="h-4 w-4" />
+          </div>
+          <div className="flex flex-col leading-tight">
+            <span className="apple-h1 text-lg md:text-xl">{getTitle()}</span>
+            {view === 'lista' && (
+              <span className="apple-subtitle">Clientes, colaboradores e custos</span>
+            )}
+          </div>
         </div>
 
         {/* Conteúdo scrollável */}

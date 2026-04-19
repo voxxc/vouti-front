@@ -176,54 +176,31 @@ export function FinancialContent({ onNavigateMetrics, onViewCliente }: Financial
 
   return (
     <div className="space-y-6">
-      {/* Navegação minimalista */}
-      <div className="flex items-center justify-between border-b pb-2">
+      {/* Navegação minimalista — estilo Apple tabs */}
+      <div className="flex items-center justify-between border-b border-border/60 pb-2">
         <div className="flex gap-6">
-          <button
-            onClick={() => setActiveTab('clients')}
-            className={cn(
-              "pb-2 text-sm font-medium transition-colors relative",
-              activeTab === 'clients' 
-                ? "text-foreground" 
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Clientes
-            {activeTab === 'clients' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('colaboradores')}
-            className={cn(
-              "pb-2 text-sm font-medium transition-colors relative",
-              activeTab === 'colaboradores' 
-                ? "text-foreground" 
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Colaboradores
-            {activeTab === 'colaboradores' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('custos')}
-            className={cn(
-              "pb-2 text-sm font-medium transition-colors relative",
-              activeTab === 'custos' 
-                ? "text-foreground" 
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Custos
-            {activeTab === 'custos' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-            )}
-          </button>
+          {(['clients', 'colaboradores', 'custos'] as const).map((tab) => {
+            const labels = { clients: 'Clientes', colaboradores: 'Colaboradores', custos: 'Custos' };
+            const active = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  "pb-2 text-sm font-medium transition-colors relative",
+                  active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {labels[tab]}
+                {active && (
+                  <span className="absolute -bottom-px left-0 right-0 h-0.5 bg-primary rounded-full" />
+                )}
+              </button>
+            );
+          })}
         </div>
         
-        {/* Link Métricas */}
+        {/* Link Indicadores */}
         <button
           onClick={onNavigateMetrics}
           className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -236,20 +213,20 @@ export function FinancialContent({ onNavigateMetrics, onViewCliente }: Financial
       {activeTab === 'clients' && (
         <>
           {/* Filtros e Pesquisa */}
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col md:flex-row gap-3">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Pesquisar por nome, email ou telefone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 rounded-xl"
               />
             </div>
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-[200px] rounded-xl">
                   <SelectValue placeholder="Filtrar por status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -265,38 +242,43 @@ export function FinancialContent({ onNavigateMetrics, onViewCliente }: Financial
 
           {/* Lista de Clientes */}
           {clientesFiltrados.length === 0 ? (
-            <div className="py-8 text-center">
-              <Users className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-2" />
-              <p className="text-muted-foreground">
+            <div className="apple-empty">
+              <div className="apple-empty-icon">
+                <Users className="h-6 w-6" />
+              </div>
+              <p className="apple-empty-title">
                 {searchTerm || statusFilter !== 'todos' 
                   ? 'Nenhum cliente encontrado'
                   : 'Nenhum cliente cadastrado'}
               </p>
+              <p className="apple-empty-subtitle">
+                {searchTerm || statusFilter !== 'todos'
+                  ? 'Ajuste os filtros para ver mais resultados'
+                  : 'Cadastre clientes para gerenciá-los aqui'}
+              </p>
             </div>
           ) : (
             <>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {clientesFiltrados.map((cliente) => {
                   const statusConfig = getStatusBadge(cliente.status);
                   return (
-                    <div 
-                      key={cliente.id} 
-                      className="flex items-center justify-between py-2 px-1 hover:bg-muted/50 rounded transition-colors"
+                    <button
+                      key={cliente.id}
+                      onClick={() => onViewCliente?.(cliente)}
+                      className="apple-list-item w-full text-left"
                     >
-                      <button
-                        onClick={() => onViewCliente?.(cliente)}
-                        className="text-sm font-medium text-foreground hover:text-foreground/80 text-left transition-colors"
-                      >
+                      <span className="text-sm font-medium text-foreground truncate">
                         {getNomeCliente(cliente)}
-                      </button>
-                      <Badge variant={statusConfig.variant} className="text-xs">
+                      </span>
+                      <Badge variant={statusConfig.variant} className="text-xs rounded-full shrink-0">
                         {statusConfig.label}
                       </Badge>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
-              <p className="text-sm text-muted-foreground mt-4">
+              <p className="text-xs text-muted-foreground mt-4">
                 {clientesFiltrados.length} {clientesFiltrados.length === 1 ? 'cliente' : 'clientes'} encontrado(s)
               </p>
             </>
