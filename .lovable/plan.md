@@ -1,96 +1,95 @@
 
 
-## Fase 2 — Componentes shadcn globais + Sidebar (Apple-style)
+## Fase 3 — Refinamento do Dashboard (charts, formulários, empty states)
 
 ### Causa raiz / Justificativa
 
-Fase 1 estabeleceu tokens e refinou KPIs do Dashboard. Agora vamos refinar os **componentes base do shadcn/ui** que aparecem em **todo o sistema** (botões, inputs, cards, dialogs, dropdowns, sheets) e a **sidebar do DashboardLayout**. Isso eleva a linguagem Apple pra todos os módulos automaticamente, sem precisar tocar em cada um.
+Fases 1 e 2 estabeleceram tokens, KPIs do Dashboard e refinaram componentes shadcn globais. Agora **Fase 3** foca em polir o **interior do Dashboard** — charts, listas, empty states e formulários que aparecem nele — pra ficar 100% coerente com a linguagem Apple antes de avançar pra outros módulos (Fase 4).
+
+### Exploração antes de implementar
+
+Preciso ler para mapear exatamente o que renderiza no Dashboard hoje:
+- `src/components/Dashboard/Metrics/AdminMetrics.tsx` (já refinado na Fase 1, mas tem charts internos)
+- `src/components/Dashboard/Metrics/AdvogadoMetrics.tsx` (idem)
+- Outros painéis de role: `ComercialMetrics`, `FinanceiroMetrics`, `AgendaMetrics`, `EstagiarioMetrics`, `PeritoMetrics`, `ControllerMetrics`
+- Charts que aparecem dentro deles (recharts wrappers)
+- Empty states e loading states
 
 ### O que vai mudar
 
-**1. Sidebar (`DashboardLayout.tsx`)**
-- Fundo translúcido com `glass-surface` (igual topbar).
-- Item ativo vira **pílula arredondada** (`rounded-xl`) com fundo `bg-primary/10` e texto `text-primary` — sem barra colorida cheia.
-- Item inativo: hover sutil com `bg-muted/50`, transição suave.
-- Ícones um pouco maiores (`h-5 w-5`), espaçamento mais generoso.
-- Logo/header da sidebar com tipografia refinada.
+**1. Charts (Recharts) — paleta e estilo Apple**
+- Grid: `strokeDasharray="2 4"` mais sutil, cor `border/40`.
+- Eixos: tick fontSize 11, cor `muted-foreground`.
+- Tooltip: fundo `bg-popover/95` com `backdrop-blur`, `rounded-xl`, `shadow-apple-md`.
+- Linhas: `strokeWidth={2.5}`, dots maiores e suaves.
+- Barras: `radius={[8, 8, 0, 0]}` mais arredondadas.
+- Paleta: usar tokens semânticos (`--chart-1` a `--chart-5`) com cores dessaturadas estilo iOS.
 
-**2. Button (`src/components/ui/button.tsx`)**
-- Altura padrão `h-10` → `h-11` (mais confortável, estilo iOS).
-- Cantos: `rounded-md` → `rounded-xl`.
-- Variant `default`: sombra sutil + hover com leve elevação.
-- Variant `outline`: borda mais fina, hover com `bg-muted/50`.
-- Transição com easing Apple (já existe).
-- Manter todas as variants e sizes existentes — só refinar visual.
+**2. Cards de listas (próximos prazos, atividades recentes, etc.)**
+- Items com `rounded-xl`, hover sutil (`bg-muted/40`), divisores mais leves.
+- Avatares e badges refinados (pílulas com `bg-primary/10`).
 
-**3. Card (`src/components/ui/card.tsx`)**
-- `rounded-lg` → `rounded-2xl`.
-- `shadow-sm` → `shadow-apple-sm` (token criado na Fase 1).
-- Padding do header: manter `p-6`.
+**3. Empty states**
+- Ícone grande em container `kpi-icon` (cor temática a 10%).
+- Título `text-lg font-medium`, subtítulo `text-muted-foreground`.
+- Botão de ação primário se aplicável.
 
-**4. Input / Textarea / Select**
-- Altura `h-10` → `h-11`.
-- `rounded-md` → `rounded-xl`.
-- Focus ring mais elegante (`ring-2 ring-primary/30` em vez de ring forte).
-- Borda mais sutil em estado normal.
+**4. Loading states (skeletons)**
+- `rounded-xl`, `bg-muted/60`, animação `animate-pulse` mais suave.
+- Esqueletos com forma do conteúdo final (não retângulos genéricos).
 
-**5. Dialog / Sheet / Drawer**
-- Backdrop com `backdrop-blur-md` (blur leve atrás do modal).
-- Conteúdo com `rounded-2xl`, sombra `shadow-apple-lg`.
-- Animação de entrada já existe — ajustar duração pra `duration-300` com easing Apple.
+**5. Outros painéis de role (replicar Fase 1 nos demais)**
+- Aplicar `kpi-card`, `kpi-icon`, `apple-h1`, `apple-subtitle` em:
+  - `ComercialMetrics`, `FinanceiroMetrics`, `AgendaMetrics`, `EstagiarioMetrics`, `PeritoMetrics`, `ControllerMetrics`.
+- Garantir que **qualquer role** que o usuário tenha veja o mesmo padrão visual.
 
-**6. DropdownMenu / Popover / ContextMenu**
-- `rounded-xl`, sombra refinada.
-- Items com hover sutil (`bg-muted/60`), padding ligeiramente maior.
+**6. Token novo — paleta de chart Apple**
+Adicionar em `index.css`:
+- `--chart-1` a `--chart-5` refinados (tons dessaturados de azul, verde, laranja, roxo, vermelho).
 
-**7. Tooltip**
-- `rounded-lg`, fundo `bg-foreground/95` com leve blur, texto crisp.
+### Arquivos afetados (estimativa)
 
-### Escopo
+- `src/index.css` — tokens de chart refinados.
+- `src/components/Dashboard/Metrics/ComercialMetrics.tsx`
+- `src/components/Dashboard/Metrics/FinanceiroMetrics.tsx`
+- `src/components/Dashboard/Metrics/AgendaMetrics.tsx`
+- `src/components/Dashboard/Metrics/EstagiarioMetrics.tsx`
+- `src/components/Dashboard/Metrics/PeritoMetrics.tsx`
+- `src/components/Dashboard/Metrics/ControllerMetrics.tsx`
+- Charts internos do Dashboard (Recharts wrappers que vou identificar lendo os Metrics).
+- Empty states e skeletons usados nesses painéis.
 
-- **Componentes shadcn afetam o sistema inteiro** — todos os módulos (CRM, Planejador, Controladoria, Agenda, Financeiro, etc.) recebem o refinamento automaticamente.
-- **Sidebar refinada** aparece em todas as páginas que usam `DashboardLayout`.
-- **Não mexer ainda** em: páginas específicas dos módulos (Fase 4), componentes custom não-shadcn.
-
-### Arquivos afetados
-
-- `src/components/Dashboard/DashboardLayout.tsx` — sidebar com glass + pílulas.
-- `src/components/ui/button.tsx`
-- `src/components/ui/card.tsx`
-- `src/components/ui/input.tsx`
-- `src/components/ui/textarea.tsx`
-- `src/components/ui/select.tsx`
-- `src/components/ui/dialog.tsx`
-- `src/components/ui/sheet.tsx`
-- `src/components/ui/dropdown-menu.tsx`
-- `src/components/ui/popover.tsx`
-- `src/components/ui/tooltip.tsx`
+Vou listar exatamente quais arquivos depois de explorar a pasta `Metrics/` no início da implementação.
 
 ### Impacto
 
 - **Usuário final (UX)**:
-  - **Todo o sistema** ganha visual mais premium imediatamente — botões, modais, dropdowns, inputs ficam mais arredondados, com sombras suaves e animações refinadas.
-  - Sidebar do dashboard com pílulas estilo macOS Sequoia, fundo translúcido.
-  - Sensação de produto coeso e moderno.
+  - Dashboard fica visualmente **100% coerente** independente do role do usuário (admin, advogado, comercial, financeiro, etc.).
+  - Charts ficam mais elegantes e legíveis (paleta dessaturada cansa menos).
+  - Empty/loading states deixam de parecer "vazios" e viram parte da experiência polida.
 - **Dados**: zero mudanças.
-- **Performance**: imperceptível. `backdrop-blur` em modais/sidebar tem custo leve em GPU, ok em hardware moderno.
+- **Performance**: imperceptível. Recharts já é otimizado.
 - **Riscos colaterais**:
-  - Mudança de altura de botões/inputs (`h-10` → `h-11`) pode quebrar **layouts compactos** que dependiam da altura exata (ex: toolbars densas, tabelas inline). Vou mitigar mantendo o size `sm` (`h-9`) para casos compactos — quem precisa de denso usa `size="sm"`.
-  - Cards com `rounded-2xl` em containers muito pequenos podem parecer estranhos — improvável, mas vou checar.
-  - Componentes que sobrescrevem classes (ex: `className="rounded-md"`) continuam funcionando — a mudança é no default, sobrescrita prevalece.
-- **Quem é afetado**: **todos os usuários de todos os tenants** em **todos os módulos**. Veridicto, Vouti.co landing, VoTech, Vouti Link-in-Bio: **não afetados** (têm seus próprios componentes ou estilos isolados).
+  - Mudança na paleta `--chart-X` afeta **qualquer chart** em outros módulos que use esses tokens (ex: relatórios de Controladoria, Financeiro). Isso é **bom** (consistência), mas se algum lugar dependia de cores específicas vou verificar.
+  - Charts que usam cores hardcoded (`fill="#22c55e"`) continuam iguais — vou identificar e migrar pros tokens onde fizer sentido.
+  - Outros painéis de role podem ter estruturas diferentes do Admin/Advogado — vou adaptar caso a caso, mantendo a lógica intacta.
+- **Quem é afetado**: todos os usuários do sistema jurídico ao acessar Dashboard, em qualquer role. Veridicto/Vouti.co/VoTech: não afetados.
 
 ### Validação
 
-1. `/solvenza/dashboard` → sidebar com pílulas + glass, botões e cards refinados.
-2. Abrir `UserManagementDrawer` (botão "Adicionar Usuário") → sheet com cantos arredondados, backdrop com blur.
-3. Navegar pra `/solvenza/crm`, `/solvenza/planejador`, `/solvenza/controladoria` → verificar consistência visual sem quebras.
-4. Abrir dropdowns (menus de tenant, perfil) → cantos arredondados, sombras suaves.
-5. Testar formulários (criar prazo, criar cliente) → inputs `h-11`, focus ring elegante.
-6. Dark mode em todas as telas acima → contraste ok.
-7. Viewport mobile (390px) → sidebar/topbar responsivos, sem quebras.
+1. `/solvenza/dashboard` em cada role (admin, advogado, comercial, financeiro, agenda) → confirmar visual consistente.
+2. Charts com dados reais → cores legíveis, tooltips elegantes, animações suaves.
+3. Empty state (tenant novo sem dados) → ícone bonito, mensagem clara.
+4. Loading inicial → skeletons suaves.
+5. Dark mode em todas as roles → contraste ok.
+6. Viewport 768px e mobile (390px) → responsivo, charts redimensionam.
+7. Outros módulos (CRM, Controladoria) → confirmar que tokens de chart não causaram regressão.
 
 ### Próximo passo após aprovação
 
-Aplico as mudanças nos 11 arquivos listados, com cuidado pra preservar variantes e sizes existentes. Depois você valida visualmente e decide se vamos pra **Fase 3** (refinamentos por módulo: dashboard charts, formulários custom, empty states).
+1. Listar `src/components/Dashboard/Metrics/` pra mapear todos os painéis de role e seus charts.
+2. Adicionar tokens de chart refinados no `index.css`.
+3. Aplicar refinamentos nos painéis de role um por um.
+4. Refinar empty/loading states.
+5. Validar visualmente e propor **Fase 4** (refinamento por módulo: Planejador, Controladoria, CRM, etc.).
 
