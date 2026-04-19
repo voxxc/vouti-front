@@ -42,7 +42,7 @@ export const CRMTopbar = ({ onSectionChange, sidebarCollapsed, onToggleSidebar }
 
   return (
     <>
-      <header className="h-12 bg-card border-b border-border flex items-center justify-between px-4 shrink-0">
+      <header className="h-12 glass-surface border-b border-border/60 flex items-center justify-between px-4 shrink-0">
         {/* Left: Logo + Sidebar Toggle */}
         <div className="flex items-center gap-1">
           <Button
