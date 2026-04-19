@@ -82,7 +82,7 @@ const PrazosAbertosPanel = ({ userId, maxItems = 10, onOpenAgendaDrawer }: Prazo
         `)
         .eq('completed', false)
         .eq('tenant_id', tenantId)
-        .or(`user_id.eq.${userId},advogado_responsavel_id.eq.${userId}${taggedIds.length > 0 ? `,id.in.(${taggedIds.join(',')})` : ''}`)
+        .or(`advogado_responsavel_id.eq.${userId}${taggedIds.length > 0 ? `,id.in.(${taggedIds.join(',')})` : ''}`)
         .order('date', { ascending: true })
         .limit(maxItems);
 
