@@ -299,16 +299,19 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
                       axisLine={false}
                     />
                     <Tooltip
+                      cursor={{ fill: "hsl(var(--muted) / 0.4)" }}
                       contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "6px",
+                        backgroundColor: "hsl(var(--popover) / 0.95)",
+                        backdropFilter: "saturate(180%) blur(12px)",
+                        border: "1px solid hsl(var(--border) / 0.6)",
+                        borderRadius: "12px",
                         fontSize: "11px",
-                        color: "hsl(var(--card-foreground))",
+                        color: "hsl(var(--popover-foreground))",
+                        boxShadow: "var(--shadow-apple-md)",
                       }}
-                      itemStyle={{ color: "hsl(var(--card-foreground))" }}
+                      itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                     />
-                    <Bar dataKey="concluidos" name="Concluídos" stackId="a" fill={COLORS.concluidos} radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="concluidos" name="Concluídos" stackId="a" fill={COLORS.concluidos} radius={[4, 0, 0, 4]} />
                     <Bar dataKey="atrasados" name="Atrasados" stackId="a" fill={COLORS.atrasados} />
                     <Bar dataKey="pendentes" name="Pendentes" stackId="a" fill={COLORS.pendentes} radius={[0, 4, 4, 0]} />
                   </BarChart>
@@ -355,14 +358,16 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
                   <Tooltip
                     formatter={(value: number, name: string) => [`${value}`, name]}
                     contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "6px",
+                      backgroundColor: "hsl(var(--popover) / 0.95)",
+                      backdropFilter: "saturate(180%) blur(12px)",
+                      border: "1px solid hsl(var(--border) / 0.6)",
+                      borderRadius: "12px",
                       fontSize: "11px",
-                      color: "hsl(var(--card-foreground))",
+                      color: "hsl(var(--popover-foreground))",
+                      boxShadow: "var(--shadow-apple-md)",
                     }}
-                    itemStyle={{ color: "hsl(var(--card-foreground))" }}
-                    labelStyle={{ color: "hsl(var(--card-foreground))" }}
+                    itemStyle={{ color: "hsl(var(--popover-foreground))" }}
+                    labelStyle={{ color: "hsl(var(--popover-foreground))" }}
                   />
                 </PieChart>
               </ResponsiveContainer>
