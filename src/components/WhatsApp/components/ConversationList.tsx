@@ -179,9 +179,9 @@ export const ConversationList = ({
   }
 
   return (
-    <div className="w-80 border-r border-border flex flex-col bg-card">
+    <div className="w-80 border-r border-border/60 flex flex-col bg-card">
       {/* Search Header */}
-      <div className="p-4 border-b border-border">
+      <div className="p-4 border-b border-border/60">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -189,14 +189,14 @@ export const ConversationList = ({
               placeholder="Buscar conversa..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              className="pl-9 rounded-xl"
             />
           </div>
           <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
             <PopoverTrigger asChild>
               <button
                 className={cn(
-                  "p-2 rounded-md border border-input transition-colors relative",
+                  "p-2 rounded-xl border border-border/60 transition-colors relative",
                   selectedLabelId
                     ? "bg-primary/10 text-primary border-primary/30"
                     : "text-muted-foreground hover:bg-muted/50"
@@ -272,7 +272,7 @@ export const ConversationList = ({
       </div>
 
       {/* Tabs Bar */}
-      <div className="px-2 py-1.5 border-b border-border flex items-center gap-1">
+      <div className="px-2 py-2 border-b border-border/60 flex items-center gap-1">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const count = tabCounts[tab.value];
@@ -282,17 +282,17 @@ export const ConversationList = ({
               key={tab.value}
               onClick={() => onTabChange(tab.value)}
               className={cn(
-                "flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors relative",
+                "flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all relative",
                 isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted/50"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-muted/40"
               )}
             >
               <Icon className="h-3.5 w-3.5" />
               {count > 0 && (
                 <span className={cn(
-                  "min-w-[16px] h-4 rounded-full text-[10px] flex items-center justify-center px-1",
-                  isActive ? "bg-primary text-primary-foreground" : "bg-muted-foreground/20 text-muted-foreground"
+                  "min-w-[16px] h-4 rounded-full text-[10px] flex items-center justify-center px-1 font-semibold",
+                  isActive ? "bg-primary text-primary-foreground" : "bg-muted-foreground/15 text-muted-foreground"
                 )}>
                   {count}
                 </span>
@@ -330,17 +330,20 @@ export const ConversationList = ({
                 key={`${conversation.id}-${conversation.agentId || 'no-agent'}`}
                 onClick={() => onSelectConversation(conversation)}
                 className={cn(
-                  "w-full p-3 rounded-lg flex items-start gap-3 text-left transition-colors",
+                  "w-full p-3 rounded-xl flex items-start gap-3 text-left transition-all relative",
                   selectedConversation?.id === conversation.id
-                    ? "bg-primary/10"
-                    : "hover:bg-muted/50"
+                    ? "bg-primary/5 shadow-sm"
+                    : "hover:bg-muted/40"
                 )}
               >
-                <Avatar className="h-10 w-10 shrink-0">
+                {selectedConversation?.id === conversation.id && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-0.5 rounded-r-full bg-primary" />
+                )}
+                <Avatar className="h-10 w-10 shrink-0 ring-1 ring-border/40">
                   {profilePics[conversation.contactNumber] && (
                     <AvatarImage src={profilePics[conversation.contactNumber]} alt={conversation.contactName} />
                   )}
-                  <AvatarFallback className="bg-green-500/20 text-green-600 text-sm">
+                  <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
                     {conversation.contactNumber.includes('@g.us') ? (
                       <Users className="h-4 w-4" />
                     ) : (
@@ -352,15 +355,15 @@ export const ConversationList = ({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       {showAgentBadge && conversation.agentName && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary shrink-0">
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20 rounded-full shrink-0">
                           {conversation.agentName}
                         </Badge>
                       )}
-                      <span className="font-medium text-foreground truncate text-sm">
+                      <span className="font-medium tracking-tight text-foreground truncate text-sm">
                         {conversation.contactName}
                       </span>
                     </div>
-                    <span className="text-xs text-muted-foreground shrink-0">
+                    <span className="text-[11px] text-muted-foreground shrink-0">
                       {formatTime(conversation.lastMessageTime)}
                     </span>
                   </div>
@@ -373,7 +376,7 @@ export const ConversationList = ({
                         <TicketCountdown acceptedAt={conversation.acceptedAt} />
                       )}
                       {conversation.unreadCount > 0 && (
-                        <Badge className="h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-green-500">
+                        <Badge className="h-5 min-w-5 rounded-full p-0 px-1.5 flex items-center justify-center text-[10px] font-semibold bg-primary text-primary-foreground">
                           {conversation.unreadCount}
                         </Badge>
                       )}
