@@ -37,17 +37,17 @@ export function PlanejadorTaskCard({ task, onClick, labels = [], labelAssignment
   return (
     <div
       onClick={onClick}
-      className={`backdrop-blur-sm rounded-lg p-3.5 cursor-pointer hover:shadow-lg hover:shadow-black/10 hover:scale-[1.01] transition-all duration-200 group border ${
+      className={`backdrop-blur-sm rounded-xl p-3.5 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group border ${
         needsAttention
-          ? "bg-orange-50/90 dark:bg-orange-900/30 border-orange-400 dark:border-orange-500/60 ring-1 ring-orange-300/50 dark:ring-orange-500/30"
-          : "bg-white/95 dark:bg-slate-800/90 border-white/20 dark:border-white/5"
+          ? "bg-orange-50/90 dark:bg-orange-900/30 border-orange-400/70 dark:border-orange-500/60 ring-1 ring-orange-300/40 dark:ring-orange-500/30"
+          : "bg-white/95 dark:bg-slate-800/90 border-black/[0.04] dark:border-white/5"
       }`}
     >
       <div className="flex items-start gap-1.5 mb-2">
         {task.is_subtask && (
           <Flag className="h-3.5 w-3.5 text-orange-400 shrink-0 mt-0.5" />
         )}
-        <h4 className="text-sm font-semibold text-slate-900 dark:text-white leading-snug group-hover:text-slate-700 dark:group-hover:text-white/90 line-clamp-2">
+        <h4 className="text-sm font-medium tracking-tight text-slate-900 dark:text-white leading-snug group-hover:text-slate-700 dark:group-hover:text-white/90 line-clamp-2">
           {task.titulo}
         </h4>
       </div>
@@ -62,7 +62,7 @@ export function PlanejadorTaskCard({ task, onClick, labels = [], labelAssignment
       {taskLabels.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-2">
           {taskLabels.map(l => (
-            <span key={l.id} className="px-1.5 py-0.5 rounded text-[10px] font-medium text-white" style={{ backgroundColor: l.color }}>
+            <span key={l.id} className="px-2 py-0.5 rounded-full text-[10px] font-medium text-white tracking-tight" style={{ backgroundColor: l.color }}>
               {l.name}
             </span>
           ))}
