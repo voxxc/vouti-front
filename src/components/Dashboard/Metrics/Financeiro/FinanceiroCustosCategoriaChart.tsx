@@ -1,5 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { AppleChartTooltip } from "./AppleChartTooltip";
+import { PieChart as PieChartIcon } from "lucide-react";
 
 interface CategoriaData {
   name: string;
@@ -25,26 +27,30 @@ const FALLBACK_COLORS = [
 
 export function FinanceiroCustosCategoriaChart({ data }: Props) {
   return (
-    <Card className="bg-card">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Custos por Categoria</CardTitle>
+        <CardTitle className="text-base font-semibold tracking-tight">Custos por Categoria</CardTitle>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
-          <p className="text-sm text-muted-foreground h-[220px] flex items-center justify-center">
-            Sem dados para exibir
-          </p>
+          <div className="apple-empty h-[220px]">
+            <span className="apple-empty-icon"><PieChartIcon className="h-6 w-6" /></span>
+            <p className="apple-empty-title">Sem custos registrados</p>
+            <p className="apple-empty-subtitle">Categorias de despesa aparecerão aqui.</p>
+          </div>
         ) : (
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie
                 data={data}
                 cx="50%"
                 cy="50%"
-                innerRadius={45}
-                outerRadius={80}
+                innerRadius={50}
+                outerRadius={88}
                 paddingAngle={2}
                 dataKey="value"
+                stroke="hsl(var(--background))"
+                strokeWidth={2}
                 label={({ name, percent }) =>
                   `${name} ${(percent * 100).toFixed(0)}%`
                 }
@@ -57,7 +63,7 @@ export function FinanceiroCustosCategoriaChart({ data }: Props) {
                   />
                 ))}
               </Pie>
-              <Tooltip formatter={(v: number) => formatCurrency(v)} />
+              <Tooltip content={<AppleChartTooltip valueFormatter={formatCurrency} />} />
             </PieChart>
           </ResponsiveContainer>
         )}

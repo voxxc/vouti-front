@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock } from "lucide-react";
+import { Clock, CalendarCheck } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -20,27 +20,26 @@ const formatCurrency = (v: number) =>
 
 export function FinanceiroProximosVencimentos({ data }: Props) {
   return (
-    <Card className="bg-card">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Próximos Vencimentos (7 dias)</CardTitle>
+        <CardTitle className="text-base font-semibold tracking-tight">Próximos Vencimentos (7 dias)</CardTitle>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Nenhum vencimento nos próximos 7 dias
-          </p>
+          <div className="apple-empty">
+            <span className="apple-empty-icon"><CalendarCheck className="h-6 w-6" /></span>
+            <p className="apple-empty-title">Tudo em dia</p>
+            <p className="apple-empty-subtitle">Nenhum vencimento nos próximos 7 dias.</p>
+          </div>
         ) : (
-          <div className="space-y-3 max-h-[280px] overflow-y-auto">
+          <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
             {data.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border-l-4 border-primary"
-              >
+              <div key={item.id} className="apple-list-item">
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">
+                  <p className="font-medium text-sm truncate text-foreground">
                     {item.cliente_nome}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Vence em{" "}
                     {format(new Date(item.data_vencimento + "T12:00:00"), "dd/MM", {
                       locale: ptBR,
@@ -48,10 +47,10 @@ export function FinanceiroProximosVencimentos({ data }: Props) {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 ml-2">
-                  <span className="text-sm font-semibold whitespace-nowrap">
+                  <span className="text-sm font-semibold whitespace-nowrap tabular-nums text-foreground">
                     {formatCurrency(item.valor)}
                   </span>
-                  <Badge variant="outline" className="shrink-0">
+                  <Badge variant="outline" className="shrink-0 rounded-full font-normal">
                     <Clock className="w-3 h-3 mr-1" />
                     Pendente
                   </Badge>

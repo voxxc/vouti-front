@@ -84,11 +84,14 @@ const ComercialMetrics = ({ userId, userName }: ComercialMetricsProps) => {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-64" />
+      <div className="space-y-8">
+        <div>
+          <Skeleton className="h-8 w-64 mb-2" />
+          <Skeleton className="h-4 w-48" />
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-32" />
+            <Skeleton key={i} className="h-32 rounded-2xl" />
           ))}
         </div>
       </div>
@@ -96,77 +99,81 @@ const ComercialMetrics = ({ userId, userName }: ComercialMetricsProps) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-semibold mb-2 text-foreground">{getFullGreeting(userName)}</h2>
-        <p className="text-muted-foreground">Painel Comercial</p>
+        <h2 className="apple-h1 mb-1">{getFullGreeting(userName)}</h2>
+        <p className="apple-subtitle">Painel Comercial</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Em Captação</CardTitle>
-            <Clock className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics?.leadsCaptacao}</div>
-            <p className="text-xs text-muted-foreground mt-1">Aguardando qualificação</p>
-          </CardContent>
-        </Card>
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Em Captação</span>
+            <span className="kpi-icon bg-primary/10 text-primary">
+              <Clock className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-3xl font-semibold tracking-tight text-foreground">{metrics?.leadsCaptacao}</div>
+          <p className="text-xs text-muted-foreground mt-1.5">Aguardando qualificação</p>
+        </div>
 
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Qualificados</CardTitle>
-            <UserCheck className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics?.leadsQualificados}</div>
-            <p className="text-xs text-muted-foreground mt-1">Prontos para conversão</p>
-          </CardContent>
-        </Card>
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Qualificados</span>
+            <span className="kpi-icon bg-violet-500/10 text-violet-600 dark:text-violet-400">
+              <UserCheck className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-3xl font-semibold tracking-tight text-foreground">{metrics?.leadsQualificados}</div>
+          <p className="text-xs text-muted-foreground mt-1.5">Prontos para conversão</p>
+        </div>
 
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Convertidos</CardTitle>
-            <TrendingUp className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics?.leadsConvertidos}</div>
-            <p className="text-xs text-muted-foreground mt-1">Viraram clientes</p>
-          </CardContent>
-        </Card>
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Convertidos</span>
+            <span className="kpi-icon bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <TrendingUp className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-3xl font-semibold tracking-tight text-foreground">{metrics?.leadsConvertidos}</div>
+          <p className="text-xs text-muted-foreground mt-1.5">Viraram clientes</p>
+        </div>
 
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Taxa de Conversão</CardTitle>
-            <AlertCircle className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics?.conversionRate}%</div>
-            <p className="text-xs text-muted-foreground mt-1">Performance geral</p>
-          </CardContent>
-        </Card>
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Taxa de Conversão</span>
+            <span className="kpi-icon bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <AlertCircle className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-3xl font-semibold tracking-tight text-foreground">{metrics?.conversionRate}%</div>
+          <p className="text-xs text-muted-foreground mt-1.5">Performance geral</p>
+        </div>
       </div>
 
-      <Card className="bg-card">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Últimas Interações com Leads</CardTitle>
+          <CardTitle className="text-base font-semibold tracking-tight">Últimas Interações com Leads</CardTitle>
         </CardHeader>
         <CardContent>
           {recentLeads.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum lead registrado ainda</p>
+            <div className="apple-empty">
+              <span className="apple-empty-icon"><UserCheck className="h-6 w-6" /></span>
+              <p className="apple-empty-title">Nenhum lead registrado</p>
+              <p className="apple-empty-subtitle">Novos leads aparecerão aqui automaticamente.</p>
+            </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {recentLeads.slice(0, 5).map((lead) => (
-                <div key={lead.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{lead.nome}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
+                <div key={lead.id} className="apple-list-item">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-foreground truncate">{lead.nome}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
                       {lead.origem} • Atualizado {format(new Date(lead.updated_at), "dd/MM/yyyy", { locale: ptBR })}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 ml-2">
-                    <Badge variant={getStatusBadgeVariant(lead.status)} className="text-xs">
+                  <div className="flex items-center gap-2 ml-2 shrink-0">
+                    <Badge variant={getStatusBadgeVariant(lead.status)} className="text-xs rounded-full font-normal">
                       {lead.status}
                     </Badge>
                     <AlertCircle className={`w-4 h-4 ${getPriorityColor(lead.prioridade)}`} />

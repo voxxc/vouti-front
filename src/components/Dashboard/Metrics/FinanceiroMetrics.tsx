@@ -176,11 +176,14 @@ const FinanceiroMetrics = ({ userId, userName }: FinanceiroMetricsProps) => {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-64" />
+      <div className="space-y-8">
+        <div>
+          <Skeleton className="h-8 w-64 mb-2" />
+          <Skeleton className="h-4 w-48" />
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(8)].map((_, i) => (
-            <Skeleton key={i} className="h-32" />
+            <Skeleton key={i} className="h-32 rounded-2xl" />
           ))}
         </div>
       </div>
@@ -191,104 +194,104 @@ const FinanceiroMetrics = ({ userId, userName }: FinanceiroMetricsProps) => {
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-semibold mb-2 text-foreground">{getFullGreeting(userName)}</h2>
-        <p className="text-muted-foreground">Painel Financeiro</p>
+        <h2 className="apple-h1 mb-1">{getFullGreeting(userName)}</h2>
+        <p className="apple-subtitle">Painel Financeiro</p>
       </div>
 
       {/* KPI Cards - Row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receita do Mês</CardTitle>
-            <DollarSign className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">{formatCurrency(metrics?.receitaMes || 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Valores recebidos</p>
-          </CardContent>
-        </Card>
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Receita do Mês</span>
+            <span className="kpi-icon bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <DollarSign className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">{formatCurrency(metrics?.receitaMes || 0)}</div>
+          <p className="text-xs text-muted-foreground mt-1.5">Valores recebidos</p>
+        </div>
 
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">A Receber</CardTitle>
-            <Receipt className="h-4 w-4 text-chart-3" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(metrics?.aReceber || 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Pendente + parcial</p>
-          </CardContent>
-        </Card>
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">A Receber</span>
+            <span className="kpi-icon bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <Receipt className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">{formatCurrency(metrics?.aReceber || 0)}</div>
+          <p className="text-xs text-muted-foreground mt-1.5">Pendente + parcial</p>
+        </div>
 
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Custos do Mês</CardTitle>
-            <Wallet className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">{formatCurrency(metrics?.custosMes || 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Despesas registradas</p>
-          </CardContent>
-        </Card>
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Custos do Mês</span>
+            <span className="kpi-icon bg-destructive/10 text-destructive">
+              <Wallet className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">{formatCurrency(metrics?.custosMes || 0)}</div>
+          <p className="text-xs text-muted-foreground mt-1.5">Despesas registradas</p>
+        </div>
 
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Folha de Pagamento</CardTitle>
-            <Users2 className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(metrics?.folhaPagamento || 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Colaboradores do mês</p>
-          </CardContent>
-        </Card>
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Folha de Pagamento</span>
+            <span className="kpi-icon bg-violet-500/10 text-violet-600 dark:text-violet-400">
+              <Users2 className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">{formatCurrency(metrics?.folhaPagamento || 0)}</div>
+          <p className="text-xs text-muted-foreground mt-1.5">Colaboradores do mês</p>
+        </div>
       </div>
 
       {/* KPI Cards - Row 2 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Projetos Ativos</CardTitle>
-            <TrendingUp className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics?.activeProjects}</div>
-            <p className="text-xs text-muted-foreground mt-1">Em faturamento</p>
-          </CardContent>
-        </Card>
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Projetos Ativos</span>
+            <span className="kpi-icon bg-primary/10 text-primary">
+              <TrendingUp className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-3xl font-semibold tracking-tight text-foreground">{metrics?.activeProjects}</div>
+          <p className="text-xs text-muted-foreground mt-1.5">Em faturamento</p>
+        </div>
 
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Inadimplência</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">{metrics?.inadimplencia}</div>
-            <p className="text-xs text-muted-foreground mt-1">Parcelas vencidas</p>
-          </CardContent>
-        </Card>
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Inadimplência</span>
+            <span className="kpi-icon bg-destructive/10 text-destructive">
+              <AlertTriangle className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-3xl font-semibold tracking-tight text-foreground">{metrics?.inadimplencia}</div>
+          <p className="text-xs text-muted-foreground mt-1.5">Parcelas vencidas</p>
+        </div>
 
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Prazos</CardTitle>
-            <Calendar className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics?.totalDeadlines}</div>
-            <p className="text-xs text-muted-foreground mt-1">No sistema</p>
-          </CardContent>
-        </Card>
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Total de Prazos</span>
+            <span className="kpi-icon bg-primary/10 text-primary">
+              <Calendar className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-3xl font-semibold tracking-tight text-foreground">{metrics?.totalDeadlines}</div>
+          <p className="text-xs text-muted-foreground mt-1.5">No sistema</p>
+        </div>
 
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Taxa de Adimplência</CardTitle>
-            <TrendingUp className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics?.complianceRate}%</div>
-            <p className="text-xs text-muted-foreground mt-1">Prazos cumpridos</p>
-          </CardContent>
-        </Card>
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Taxa de Adimplência</span>
+            <span className="kpi-icon bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <TrendingUp className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-3xl font-semibold tracking-tight text-foreground">{metrics?.complianceRate}%</div>
+          <p className="text-xs text-muted-foreground mt-1.5">Prazos cumpridos</p>
+        </div>
       </div>
 
       {/* Line Chart - Receitas vs Custos */}
@@ -304,24 +307,28 @@ const FinanceiroMetrics = ({ userId, userName }: FinanceiroMetricsProps) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <FinanceiroProximosVencimentos data={data?.proximosVencimentos || []} />
 
-        <Card className="bg-card">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Prazos Vencidos para Cobrança</CardTitle>
+            <CardTitle className="text-base font-semibold tracking-tight">Prazos Vencidos para Cobrança</CardTitle>
           </CardHeader>
           <CardContent>
             {overdueItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum prazo vencido no momento</p>
+              <div className="apple-empty">
+                <span className="apple-empty-icon"><Calendar className="h-6 w-6" /></span>
+                <p className="apple-empty-title">Nenhum prazo vencido</p>
+                <p className="apple-empty-subtitle">Tudo em dia. 🎉</p>
+              </div>
             ) : (
-              <div className="space-y-3 max-h-[280px] overflow-y-auto">
+              <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
                 {overdueItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border-l-4 border-destructive">
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{item.title}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
+                  <div key={item.id} className="apple-list-item">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-foreground truncate">{item.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         Venceu em {format(new Date(item.date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                       </p>
                     </div>
-                    <Badge variant="destructive" className="ml-2">
+                    <Badge variant="destructive" className="ml-2 rounded-full font-normal">
                       <AlertTriangle className="w-3 h-3 mr-1" />
                       Vencido
                     </Badge>

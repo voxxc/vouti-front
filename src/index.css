@@ -95,6 +95,13 @@ All colors MUST be HSL.
     --vlink-neutral: 220 9% 46%;
     --vlink-light: 220 14% 96%;
     --vlink-accent: 220 13% 26%;
+
+    /* Apple-style chart palette (desaturated, iOS-like) - Light Mode */
+    --chart-1: 211 80% 55%;   /* iOS blue */
+    --chart-2: 145 55% 48%;   /* iOS green */
+    --chart-3: 32 90% 55%;    /* iOS orange */
+    --chart-4: 270 55% 60%;   /* iOS purple */
+    --chart-5: 0 75% 60%;     /* iOS red */
   }
 
   .dark {
@@ -156,6 +163,13 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 220 20% 15%;
     --sidebar-border: 220 8% 80%;
     --sidebar-ring: 215 30% 25%;
+
+    /* Apple-style chart palette - Dark Mode (slightly brighter for contrast) */
+    --chart-1: 211 90% 62%;
+    --chart-2: 145 60% 55%;
+    --chart-3: 32 95% 60%;
+    --chart-4: 270 65% 68%;
+    --chart-5: 0 80% 65%;
   }
 }
 
@@ -202,6 +216,25 @@ All colors MUST be HSL.
   }
   .apple-subtitle {
     @apply text-sm text-muted-foreground font-normal;
+  }
+
+  /* Apple-style empty state */
+  .apple-empty {
+    @apply flex flex-col items-center justify-center py-10 text-center;
+  }
+  .apple-empty-icon {
+    @apply inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-muted/60 text-muted-foreground mb-4;
+  }
+  .apple-empty-title {
+    @apply text-base font-medium text-foreground;
+  }
+  .apple-empty-subtitle {
+    @apply text-sm text-muted-foreground mt-1;
+  }
+
+  /* Apple-style list item (rows inside cards) */
+  .apple-list-item {
+    @apply flex items-center justify-between gap-3 p-3 rounded-xl bg-muted/30 hover:bg-muted/60 transition-colors;
   }
 }
 

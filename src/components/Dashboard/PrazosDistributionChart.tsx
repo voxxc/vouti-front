@@ -21,9 +21,9 @@ const PERIOD_OPTIONS = [
 ];
 
 const COLORS = {
-  concluidos: "#22c55e",
-  atrasados: "#ef4444",
-  pendentes: "#3b82f6",
+  concluidos: "hsl(var(--chart-2))",
+  atrasados: "hsl(var(--chart-5))",
+  pendentes: "hsl(var(--chart-1))",
 };
 
 const TOGGLE_ROLES = ["admin", "controller", "perito"];
@@ -186,7 +186,7 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
   const viewTitle = view === "categorias" ? "Por Categoria" : view === "pericial" ? "Periciais" : "Prazos";
 
   return (
-    <Card className="bg-card hover:shadow-elegant transition-shadow">
+    <Card className="bg-card transition-all duration-300 hover:-translate-y-px">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex items-center gap-1 flex-wrap min-w-0 flex-1">
           <ViewIcon className="h-4 w-4 text-primary shrink-0" />
@@ -299,16 +299,19 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
                       axisLine={false}
                     />
                     <Tooltip
+                      cursor={{ fill: "hsl(var(--muted) / 0.4)" }}
                       contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "6px",
+                        backgroundColor: "hsl(var(--popover) / 0.95)",
+                        backdropFilter: "saturate(180%) blur(12px)",
+                        border: "1px solid hsl(var(--border) / 0.6)",
+                        borderRadius: "12px",
                         fontSize: "11px",
-                        color: "hsl(var(--card-foreground))",
+                        color: "hsl(var(--popover-foreground))",
+                        boxShadow: "var(--shadow-apple-md)",
                       }}
-                      itemStyle={{ color: "hsl(var(--card-foreground))" }}
+                      itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                     />
-                    <Bar dataKey="concluidos" name="Concluídos" stackId="a" fill={COLORS.concluidos} radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="concluidos" name="Concluídos" stackId="a" fill={COLORS.concluidos} radius={[4, 0, 0, 4]} />
                     <Bar dataKey="atrasados" name="Atrasados" stackId="a" fill={COLORS.atrasados} />
                     <Bar dataKey="pendentes" name="Pendentes" stackId="a" fill={COLORS.pendentes} radius={[0, 4, 4, 0]} />
                   </BarChart>
@@ -355,14 +358,16 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
                   <Tooltip
                     formatter={(value: number, name: string) => [`${value}`, name]}
                     contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "6px",
+                      backgroundColor: "hsl(var(--popover) / 0.95)",
+                      backdropFilter: "saturate(180%) blur(12px)",
+                      border: "1px solid hsl(var(--border) / 0.6)",
+                      borderRadius: "12px",
                       fontSize: "11px",
-                      color: "hsl(var(--card-foreground))",
+                      color: "hsl(var(--popover-foreground))",
+                      boxShadow: "var(--shadow-apple-md)",
                     }}
-                    itemStyle={{ color: "hsl(var(--card-foreground))" }}
-                    labelStyle={{ color: "hsl(var(--card-foreground))" }}
+                    itemStyle={{ color: "hsl(var(--popover-foreground))" }}
+                    labelStyle={{ color: "hsl(var(--popover-foreground))" }}
                   />
                 </PieChart>
               </ResponsiveContainer>
