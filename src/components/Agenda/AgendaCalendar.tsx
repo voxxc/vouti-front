@@ -115,8 +115,8 @@ const AgendaCalendar = ({ selectedDate, onSelectDate, deadlines, compact = false
 
   const renderDaysOfWeek = () => {
     const days = compact
-      ? ["D", "S", "T", "Q", "Q", "S", "S"]
-      : ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+      ? ["S", "T", "Q", "Q", "S", "S", "D"]
+      : ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
     return (
       <div className="grid grid-cols-7 rounded-t-xl border border-b-0 border-border/60 overflow-hidden bg-muted/20">
         {days.map((day, index) => (
@@ -138,8 +138,8 @@ const AgendaCalendar = ({ selectedDate, onSelectDate, deadlines, compact = false
   const renderCells = () => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(monthStart);
-    const startDate = startOfWeek(monthStart, { weekStartsOn: 0 });
-    const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
+    const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
 
     const rows: JSX.Element[] = [];
     let days: JSX.Element[] = [];
