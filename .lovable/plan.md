@@ -1,60 +1,44 @@
 
 
-## Corrigir filtro do painel "Minhas Tarefas e Prazos"
+## Adicionar linhas de grade no calendário da Agenda
 
 ### Causa raiz
+O componente `AgendaCalendar.tsx` renderiza as células dos dias usando `<div>` com `grid grid-cols-7` mas **sem nenhuma borda** entre células ou linhas. Isso faz o calendário parecer "flutuante" / sem divisões visuais — diferente de um calendário tradicional com grid.
 
-No componente `PrazosAbertosPanel.tsx` (linha 85), a query da aba **Prazos** usa:
+### Correção (`src/components/Agenda/AgendaCalendar.tsx`)
 
-```ts
-.or(`user_id.eq.${userId},advogado_responsavel_id.eq.${userId},id.in.(${taggedIds})`)
+**1. Wrapper do grid de células** — envolver `renderCells` em um container com borda externa e divisões internas:
+```tsx
+<div className="rounded-xl border border-border/60 overflow-hidden">
+  {rows}
+</div>
 ```
 
-Isso traz prazos onde o usuário é apenas **criador** (`user_id`), mesmo sem ser responsável (`advogado_responsavel_id`) nem estar tagueado (`deadline_tags`). Resultado: aparecem prazos "destinados a outros" só porque o usuário logado os criou.
-
-Verificação nas demais abas:
-- **Tarefas Administrativas** (`task_tarefas`) e **Tarefas Jurídicas** (`processos_oab_tarefas`): essas tabelas têm **apenas** o campo `user_id` (= criador). Não existe coluna de "responsável" separada. Atualmente filtram por `user_id = userId`, ou seja, mostram só o que o próprio usuário criou. **Está coerente** — mas o usuário pode considerar "minhas tarefas" como "tarefas em que sou taggeado/responsável". Como não há esse campo no schema dessas tabelas hoje, mantenho como está e sinalizo no impacto.
-
-### Correção
-
-**Arquivo: `src/components/Dashboard/PrazosAbertosPanel.tsx` (linha 85)**
-
-Trocar:
-```ts
-.or(`user_id.eq.${userId},advogado_responsavel_id.eq.${userId}${taggedIds.length > 0 ? `,id.in.(${taggedIds.join(',')})` : ''}`)
+**2. Cada linha (`row`)** — adicionar `border-b border-border/60` (exceto última):
+```tsx
+<div className="grid grid-cols-7 border-b border-border/60 last:border-b-0">
 ```
 
-Por (remove `user_id.eq.${userId}`):
-```ts
-const orFilter = `advogado_responsavel_id.eq.${userId}${taggedIds.length > 0 ? `,id.in.(${taggedIds.join(',')})` : ''}`;
-// ...
-.or(orFilter)
-```
+**3. Cada célula (`day`)** — adicionar `border-r border-border/60` (exceto última coluna). Como cada linha tem 7 colunas, usar `[&>*:not(:last-child)]:border-r` no row OU adicionar via index `i < 6`.
 
-Edge case: se o usuário não for responsável de nada **e** não estiver tagueado em nada, `taggedIds = []` e o filtro vira só `advogado_responsavel_id.eq.${userId}` — comportamento correto (lista vazia se não tiver nada).
+**4. Ajustar `rounded-xl` das células** para `rounded-none` (modo full e compact) já que agora a borda externa cuida do arredondamento. Manter `hover:bg-muted/60` e o highlight de seleção/hoje.
+
+**5. Cabeçalho dos dias da semana** (`renderDaysOfWeek`) — adicionar `border-b border-border/60` para separar do grid, e opcionalmente `border-r` entre dias para alinhar com as colunas abaixo.
 
 ### Arquivos afetados
-
-- `src/components/Dashboard/PrazosAbertosPanel.tsx` (1 linha)
+- `src/components/Agenda/AgendaCalendar.tsx` (apenas classes Tailwind)
 
 ### Impacto
-
-- **UX**: 
-  - Aba "Prazos" do painel passa a mostrar **só** prazos onde o usuário é o **advogado responsável** OU está **tagueado** — alinhado com a expectativa de "meus prazos".
-  - Prazos criados pelo usuário mas atribuídos a outra pessoa **deixam de aparecer** no painel pessoal (continuam visíveis na Agenda completa).
-  - Usuários que costumavam ver "todos os prazos que criaram" vão notar uma lista menor — esse é o comportamento desejado.
-- **Dados**: zero migration. Apenas filtro de leitura.
-- **Performance**: marginalmente melhor (filtro mais restritivo).
-- **Riscos colaterais**: 
-  - Se houver prazos legados criados sem `advogado_responsavel_id` definido e sem tags, o criador deixa de vê-los aqui — precisará abrir Agenda. **Mitigação**: aceitável; o painel é "minhas tarefas e prazos", não "tudo que criei".
-  - Tarefas Admin e Jurídicas continuam mostrando o que o usuário criou (limitação do schema atual). Se o usuário quiser que essas também sejam filtradas por "responsável/tagueado", precisaria de uma migration adicionando essas colunas — fora do escopo desta correção.
-- **Quem é afetado**: todos os usuários do sistema jurídico em `/:tenant/dashboard` (admin e demais roles, pois o `PrazosAbertosPanel` é usado em `AdminMetrics` e `AdvogadoMetrics`).
+- **UX**: calendário ganha aparência tradicional de grade, com linhas separando dias e semanas — mais legível e familiar. Funciona tanto no modo full (Agenda) quanto no compact (sidebar/mobile).
+- **Dados**: zero. Apenas estilização.
+- **Performance**: nenhuma.
+- **Riscos colaterais**: nenhum. Lógica de seleção, dots de status e click handlers permanecem intactos.
+- **Quem é afetado**: todos os usuários que abrem `/:tenant/agenda` (e qualquer lugar que use `AgendaCalendar`, incluindo a versão mobile compact).
 
 ### Validação
-
-1. `/solvenza/dashboard` → aba "Prazos": só aparecem prazos onde sou responsável OU estou tagueado.
-2. Criar um prazo atribuindo a outro advogado → **não** deve aparecer no meu painel.
-3. Criar um prazo atribuindo a mim mesmo → aparece.
-4. Ser tagueado em prazo de terceiro → aparece.
-5. Abas "Tarefas Admin" e "Tarefas Jurídicas": comportamento mantido (mostram tarefas criadas pelo usuário).
+1. `/solvenza/agenda` → calendário exibe grade com linhas verticais (entre colunas) e horizontais (entre semanas).
+2. Borda externa arredondada visível.
+3. Hover e seleção de dia continuam funcionando.
+4. Modo compact (mobile) também com grade.
+5. Dark mode → linhas usam `border-border/60` (visíveis sem ofuscar).
 
