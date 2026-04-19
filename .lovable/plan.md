@@ -1,77 +1,82 @@
 
 
-## Fase 4.4 — Agenda (Calendário + Eventos)
+## Fase 4.1 — Planejador (Kanban + Chat)
 
 ### Causa raiz / Justificativa
 
-Próxima sub-fase pendente. A Agenda usa o `react-day-picker` (via `Calendar` do shadcn) e tem componentes próprios (lista de eventos, modais de prazo, filtros) que ainda têm visual da fase pré-Apple.
+Próxima sub-fase pendente. O Planejador tem layout Kanban custom (colunas + cards de tarefa) e um chat lateral, ambos com visual pré-Apple. É o módulo mais complexo visualmente das sub-fases restantes (depois só sobra CRM).
 
 ### Exploração necessária antes de implementar
 
-Vou ler para mapear a estrutura real:
-- `src/components/Agenda/AgendaContent.tsx` (componente raiz compartilhado)
-- `src/components/Agenda/` (lista de arquivos: cards de evento, modais, filtros)
-- `src/components/ui/calendar.tsx` (já visto — base do react-day-picker)
-- Verificar se há `AgendaCalendar`, `EventList`, `DeadlineDialog` ou similares
+Vou ler para mapear:
+- `src/pages/Planejador.tsx` (ou similar) — header e layout raiz
+- `src/components/Planejador/` — Kanban board, colunas, cards, chat
+- Identificar arquivos: `KanbanBoard`, `KanbanColumn`, `TaskCard`, `TaskDialog`, `ChatPanel` (ou nomes equivalentes)
 
 ### O que vai mudar
 
-**1. Header da Agenda (`Agenda.tsx` + `AgendaContent.tsx`)**
-- Tipografia `apple-h1` / `apple-subtitle`.
-- Botão "Voltar" e ações com estilo refinado (já herda da Fase 2).
-- Drawer (`AgendaDrawer.tsx`) com `glass-surface` no header (igual fizemos no Financeiro).
+**1. Header da página**
+- `apple-h1` / `apple-subtitle`.
+- Toolbar (filtros, busca, botão "Nova tarefa") com espaçamento mais arejado, botões refinados.
 
-**2. Calendário (`calendar.tsx`)**
-- Células de dia com `rounded-xl` (atualmente `rounded-md` implícito).
-- `day_today`: pílula `bg-primary/10 text-primary` em vez de `bg-accent`.
-- `day_selected`: manter `bg-primary` mas com `rounded-xl`.
-- Hover suave nas células (`hover:bg-muted/60`).
-- Caption com tipografia mais elegante (font-medium → font-semibold, tracking-tight).
-- Nav buttons (chevrons) com `rounded-xl` e hover refinado.
+**2. Colunas do Kanban**
+- Container da coluna: `rounded-2xl`, `bg-muted/30`, `border-border/40`.
+- Header da coluna: tipografia `font-semibold tracking-tight`, contador como pílula sutil (`bg-background/60 rounded-full`).
+- Indicador de cor da coluna (já existe via `KANBAN_COLUMNS`) refinado como dot/bar lateral.
+- Espaçamento interno mais generoso.
 
-**3. Lista de eventos / prazos**
-- Items com `apple-list-item` (rounded-xl, hover suave, divisores leves).
-- Badges de status/categoria como pílulas (`rounded-full`, `bg-{cor}/15`).
-- Indicadores de prioridade refinados.
-- Empty state com `apple-empty`.
+**3. Cards de tarefa**
+- `rounded-xl`, `border-border/60`, sombra muito sutil (`shadow-sm`).
+- Hover: leve elevação (`hover:shadow-md hover:-translate-y-0.5 transition-all`).
+- Tipografia do título: `font-medium tracking-tight`.
+- Badges de prioridade/prazo como pílulas (`rounded-full`, cores tintadas).
+- Avatar do responsável + ícones de meta (anexos, comentários) mais sutis.
+- Indicador visual quando é subtask (já existe lógica `is_subtask`).
 
-**4. Filtros e toolbar**
-- Tabs (se houver) com `apple-segmented`.
-- Inputs e selects já refinados na Fase 2 — validar.
+**4. Chat lateral (se houver no Planejador)**
+- Bolhas de mensagem `rounded-2xl` (cantos arredondados estilo iOS).
+- Recebida: `bg-muted`, enviada: `bg-primary/10 text-foreground` (sutil, não chapado).
+- Input com `glass-surface` ou borda refinada, `rounded-xl`.
+- Header do chat com `glass-surface` se for drawer.
 
-**5. Modais de criação/edição de prazo**
-- Já herdam da Fase 2 (Dialog refinado), validar visual.
-- Se tiver header custom, aplicar `glass-surface` + tipografia.
+**5. Dialog de criação/edição de tarefa**
+- Já herda da Fase 2 (Dialog refinado), validar visual.
+- Formulário interno com espaçamento e tipografia consistentes.
+
+**6. Empty states**
+- Coluna vazia: texto sutil + ícone (`apple-empty` simplificado).
 
 ### Arquivos afetados (estimativa, vou confirmar lendo o diretório)
 
-- `src/pages/Agenda.tsx` — header da página standalone.
-- `src/components/Agenda/AgendaDrawer.tsx` — header do drawer com glass.
-- `src/components/Agenda/AgendaContent.tsx` — layout interno.
-- `src/components/ui/calendar.tsx` — refinamento das células e tipografia.
-- Possíveis: `EventList`, `DeadlineCard`, `DeadlineDialog` (vou listar antes).
+- `src/pages/Planejador.tsx` (header)
+- `src/components/Planejador/KanbanBoard.tsx` (ou similar)
+- `src/components/Planejador/KanbanColumn.tsx`
+- `src/components/Planejador/TaskCard.tsx`
+- `src/components/Planejador/TaskDialog.tsx` (validação)
+- `src/components/Planejador/ChatPanel.tsx` ou `ChatDrawer.tsx` (se existir)
 
 ### Impacto
 
-- **UX**: Agenda fica visualmente alinhada com Dashboard/Controladoria/Financeiro. Calendário com aparência iOS Calendar (células arredondadas, "hoje" como pílula sutil). Lista de eventos mais legível.
-- **Dados**: zero mudanças.
-- **Performance**: imperceptível.
+- **UX**: Planejador fica visualmente coeso com Dashboard/Controladoria/Financeiro/Agenda. Kanban com aparência de Linear/Notion (cards arredondados, hover sutil). Chat com bolhas estilo iMessage.
+- **Dados**: zero mudanças. Lógica de categorização Kanban (memory `planejador-kanban-column-logic`), subtasks-as-cards, drag-and-drop, RLS de arquivos (memory `planejador-files-access`) — **tudo intacto**.
+- **Performance**: imperceptível (só CSS).
 - **Riscos colaterais**:
-  - `calendar.tsx` é usado **em todo lugar** (DatePickers em formulários do CRM, Financeiro, Planejador). Mudança visual afeta todos esses pickers — é o objetivo (consistência), mas vou validar que não quebra nenhum layout.
-  - Lógica de visibilidade da Agenda (memory `agenda-visibility-logic-non-admin`) e timezone (`parseLocalDate`) **não serão tocadas** — só refinamento visual.
-- **Quem é afetado**: todos os usuários do sistema jurídico (Agenda é multi-role) + qualquer formulário com DatePicker.
+  - Kanban tem drag-and-drop — mudanças de padding/border podem afetar cálculo visual do drop zone. Vou preservar dimensões base e mexer só em estética (cores, borders, sombras).
+  - Cards reutilizados em outros lugares? Vou verificar antes.
+- **Quem é afetado**: todos os usuários do sistema jurídico que usam o Planejador (todas as roles têm acesso, conforme memory `agenda-visibility-logic-non-admin`).
 
 ### Validação
 
-1. `/solvenza/agenda` (página standalone) → header + calendário + lista refinados.
-2. Drawer da Agenda (abrir via ícone na sidebar/topbar) → glass header.
-3. Abrir DatePicker em outro contexto (ex: criar prazo, criar tarefa no Planejador) → calendário refinado herda corretamente.
-4. Dark mode + viewport 390px → contraste e responsividade ok.
-5. Outros módulos (Dashboard, Financeiro) → zero regressão visual.
+1. `/solvenza/planejador` → header + colunas + cards refinados.
+2. Drag-and-drop entre colunas → funciona normal, sem glitch visual.
+3. Abrir dialog de tarefa → formulário consistente.
+4. Chat lateral (se houver) → bolhas e input refinados.
+5. Dark mode + viewport 390px (mobile o Kanban vira scroll horizontal — validar).
+6. Outros módulos (Dashboard, Agenda, Financeiro) → zero regressão.
 
 ### Próximo passo após aprovação
 
-1. Listar `src/components/Agenda/` pra mapear arquivos exatos.
-2. Aplicar refinamentos: `calendar.tsx` → `AgendaDrawer.tsx` → `AgendaContent.tsx` → cards/listas internas.
-3. Validar visualmente. Depois sigo pra **Fase 4.1 — Planejador**.
+1. Listar `src/components/Planejador/` pra mapear arquivos exatos.
+2. Aplicar refinamentos: header → colunas → cards → chat → dialog.
+3. Validar visualmente. Depois sigo pra **Fase 4.3 — CRM** (a mais complexa, deixei por último entre os módulos grandes).
 
