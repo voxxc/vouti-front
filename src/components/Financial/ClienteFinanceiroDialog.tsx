@@ -231,8 +231,8 @@ export const ClienteFinanceiroDialog = ({
         </div>
       ) : (
         <Tabs defaultValue="contratual" className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between mb-4">
-            <TabsList>
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+            <TabsList className="apple-segmented">
               <TabsTrigger value="contratual" className="gap-2">
                 <FileIcon className="w-4 h-4" />
                 Contratual
@@ -248,7 +248,7 @@ export const ClienteFinanceiroDialog = ({
               size="sm"
               variant="outline"
               onClick={() => setCreateDividaOpen(true)}
-              className="gap-1"
+              className="gap-1 rounded-xl"
             >
               <Plus className="w-4 h-4" />
               Nova Dívida
