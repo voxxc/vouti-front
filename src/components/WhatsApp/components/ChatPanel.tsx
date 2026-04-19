@@ -388,15 +388,15 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
   return (
     <div className="flex-1 flex flex-col bg-background min-w-0 overflow-hidden">
       {/* Chat Header */}
-      <div className="h-16 px-4 border-b border-border flex items-center justify-between bg-card">
+      <div className="h-16 px-4 border-b border-border/60 flex items-center justify-between glass-surface">
         <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10">
-            <AvatarFallback className="bg-green-500/20 text-green-600">
+          <Avatar className="h-10 w-10 ring-1 ring-border/40">
+            <AvatarFallback className="bg-primary/10 text-primary font-medium">
               {conversation.contactName.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="font-medium text-foreground">{conversation.contactName}</h3>
+            <h3 className="font-semibold tracking-tight text-foreground">{conversation.contactName}</h3>
             <p className="text-xs text-muted-foreground">{conversation.contactNumber}</p>
           </div>
         </div>
@@ -473,17 +473,17 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
                 >
                   <div
                     className={cn(
-                      "max-w-[70%] rounded-lg px-4 py-2 shadow-sm",
+                      "max-w-[70%] rounded-2xl px-3.5 py-2 shadow-sm",
                       message.isFromMe
-                        ? "bg-green-500 text-white rounded-br-none"
-                        : "bg-card text-foreground rounded-bl-none"
+                        ? "bg-primary text-primary-foreground rounded-br-md"
+                        : "bg-card text-foreground border border-border/40 rounded-bl-md"
                     )}
                   >
                     <MediaRenderer message={message} />
                     <p
                       className={cn(
                         "text-[10px] mt-1 text-right",
-                        message.isFromMe ? "text-green-100" : "text-muted-foreground"
+                        message.isFromMe ? "text-primary-foreground/70" : "text-muted-foreground"
                       )}
                     >
                       {formatMessageTime(message.timestamp)}
@@ -544,7 +544,7 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
       )}
 
       {/* Input Area */}
-      <div className="p-4 border-t border-border bg-card">
+      <div className="p-4 border-t border-border/60 glass-surface">
         {isRecording ? (
           <div className="flex items-center gap-3">
             <Button
@@ -562,7 +562,7 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
             </div>
             <Button
               size="icon"
-              className="h-10 w-10 shrink-0 bg-green-500 hover:bg-green-600"
+              className="h-10 w-10 shrink-0 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
               onClick={stopRecordingAndSend}
               disabled={isUploading}
             >
@@ -611,13 +611,13 @@ export const ChatPanel = ({ conversation, messages, onSendMessage, ticketStatus,
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              className="flex-1"
+              className="flex-1 rounded-xl"
               disabled={isUploading}
             />
             {(newMessage.trim() || pendingFile) ? (
               <Button
                 size="icon"
-                className="h-10 w-10 shrink-0 bg-green-500 hover:bg-green-600"
+                className="h-10 w-10 shrink-0 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
                 onClick={handleSend}
                 disabled={isUploading}
               >
