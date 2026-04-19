@@ -118,12 +118,13 @@ const AgendaCalendar = ({ selectedDate, onSelectDate, deadlines, compact = false
       ? ["D", "S", "T", "Q", "Q", "S", "S"]
       : ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     return (
-      <div className="grid grid-cols-7 mb-1">
+      <div className="grid grid-cols-7 rounded-t-xl border border-b-0 border-border/60 overflow-hidden bg-muted/20">
         {days.map((day, index) => (
           <div
             key={index}
             className={cn(
               "text-center font-medium text-muted-foreground py-1",
+              index < 6 && "border-r border-border/60",
               compact ? "text-[10px]" : "text-sm py-2"
             )}
           >
