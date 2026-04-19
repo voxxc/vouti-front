@@ -1,73 +1,54 @@
 
 
-## Fase 4 — Refinamento por módulo (Apple-style)
+## Continuação da Fase 4 — Sub-fases pendentes
 
-### Causa raiz / Justificativa
+Vou executar as sub-fases pendentes da Fase 4 na ordem recomendada do roadmap aprovado:
 
-Fases 1–3 cobriram tokens, KPIs do Dashboard, componentes shadcn globais e o interior do Dashboard (charts, painéis de role). Como Fase 2 refinou os componentes base, **muito do sistema já herdou a linguagem Apple automaticamente** (botões, cards, modais, inputs, dropdowns).
+### Ordem de execução
 
-A **Fase 4** trata dos módulos que têm **layouts custom e componentes próprios** que não foram tocados pelos refinamentos globais. Cada módulo grande vira uma sub-fase pra evitar mudanças massivas em uma só etapa.
+1. **Fase 4.5 — Financeiro** (Drawer + Lista de clientes)
+2. **Fase 4.4 — Agenda** (Calendário + Eventos)
+3. **Fase 4.1 — Planejador** (Kanban + Chat)
+4. **Fase 4.3 — CRM** (Inbox + Conversas + Tickets)
+5. **Fase 4.6 — Polimento final** (Bot Workflow, Auth, Settings)
 
-### Sub-fases propostas
+### Estratégia
 
-**Fase 4.1 — Planejador (Kanban + Chat)**
-- Header da página com `apple-h1` / `apple-subtitle`.
-- Colunas do Kanban: `rounded-2xl`, fundo `bg-muted/30`, headers limpos.
-- Cards de tarefa: `rounded-xl`, sombra sutil, hover com leve elevação.
-- Chat lateral: bolhas de mensagem refinadas, input com glass.
-- Filtros e toolbar mais arejados.
+Vou executar **uma sub-fase por vez**, com validação entre elas. Isso evita mudanças massivas e permite ajuste de rota se algo não ficar bom.
 
-**Fase 4.2 — Controladoria (Central + OABs + Push-Doc)**
-- KPIs do topo migrados pra `kpi-card` + `kpi-icon` (já tem 5 cards).
-- Tabs custom (`Central / OABs / Push-Doc`) refinadas — pílulas estilo iOS segmented control.
-- Listas de processos: rows com `apple-list-item`, hover sutil.
-- Empty states com `apple-empty`.
+### Começando agora: **Fase 4.5 — Financeiro**
 
-**Fase 4.3 — CRM (Inbox + Conversas + Tickets)**
-- Sidebar de conversas: items com pílulas `rounded-xl`, ativo com `bg-primary/10`.
-- Bolhas de mensagem: cantos mais arredondados (`rounded-2xl`), refinamento de cores recebida/enviada.
-- Header da conversa com glass.
-- Tabs de tickets (Abertas/Fila/Geral/etc.) com segmented control.
-- Drawer de detalhes do contato com refinamentos.
+**O que vai mudar:**
+- `FinancialDrawer.tsx`: header com `glass-surface` (consistente com sidebar/topbar), tipografia `apple-h1`/`apple-subtitle`.
+- `FinancialContent.tsx`: lista de clientes com `apple-list-item`, badges de status como pílulas refinadas.
+- `ClienteFinanceiroDialog.tsx`: cards de métricas estilo `kpi-card`, seções com `rounded-2xl`.
+- `FinancialMetrics.tsx`: validar que herda visual da Fase 3 (charts já refinados).
+- Empty state da lista com `apple-empty`.
 
-**Fase 4.4 — Agenda (Calendário + Eventos)**
-- Cabeçalho do calendário com tipografia refinada.
-- Células de dia com `rounded-xl`, hover suave.
-- Eventos como pílulas coloridas estilo iOS Calendar.
-- Modal de evento com glass + rounded-2xl (já herda da Fase 2, validar).
+**Exploração necessária:**
+- Ler `FinancialContent.tsx`, `ClienteFinanceiroDialog.tsx`, `FinancialMetrics.tsx` pra mapear estrutura exata antes de aplicar refinamentos.
 
-**Fase 4.5 — Financeiro (Drawer + Lista de clientes)**
-- Já tem charts refinados (Fase 3).
-- Refinar `FinancialDrawer`: header com glass, lista de clientes com `apple-list-item`.
-- Detalhe do cliente: cards de métricas estilo `kpi-card`, badges de status como pílulas.
+### Arquivos afetados (Fase 4.5)
 
-**Fase 4.6 — Polimento final**
-- WhatsApp Bot Workflow Canvas (nodes do React Flow): bordas mais sutis, paleta consistente.
-- Telas de auth (login/signup do Solvenza/CRM): tipografia, espaçamento.
-- Páginas de configurações (Settings, Profile).
+- `src/components/Financial/FinancialDrawer.tsx`
+- `src/components/Financial/FinancialContent.tsx`
+- `src/components/Financial/ClienteFinanceiroDialog.tsx`
+- `src/components/Financial/FinancialMetrics.tsx` (validação/ajustes finos)
 
-### Recomendação de ordem
+### Impacto (Fase 4.5)
 
-Sugiro: **4.2 (Controladoria)** → **4.5 (Financeiro)** → **4.4 (Agenda)** → **4.1 (Planejador)** → **4.3 (CRM)** → **4.6 (Polimento)**.
+- **UX**: Financeiro fica visualmente coeso com Dashboard/Controladoria. Lista de clientes mais arejada, detalhes do cliente com hierarquia clara.
+- **Dados**: zero mudanças.
+- **Riscos**: mudanças isoladas no módulo Financeiro. Restrição de visibilidade admin-only (memory `client-financial-data-visibility`) mantida intacta — só refinamento visual.
+- **Quem é afetado**: admins do sistema jurídico (únicos com acesso ao módulo Financeiro).
 
-Razão: começar pelos módulos com **estrutura mais simples** (Controladoria, Financeiro) pra validar padrões antes de atacar os complexos (CRM, Planejador). CRM tem muito state real-time e merece atenção dedicada por último.
+### Validação (após cada sub-fase)
 
-### Escopo desta etapa
+1. Abrir o módulo refinado → confirmar visual.
+2. Abrir 2-3 outros módulos não-tocados → garantir zero regressão.
+3. Dark mode + viewport 390px.
 
-Aprovação do **roadmap da Fase 4**. Quando aprovar, pergunto qual sub-fase começar (ou seguimos a ordem recomendada).
+### Próximas sub-fases
 
-### Impacto geral da Fase 4
-
-- **UX**: sistema inteiro vira coeso visualmente, sem ilhas com aparência antiga.
-- **Dados/Performance**: zero mudanças.
-- **Riscos**: cada sub-fase tem riscos isolados (vou detalhar no plano específico de cada uma). Como são módulos independentes, falha numa não afeta outras.
-- **Quem é afetado**: usuários do sistema jurídico em todos os tenants. Veridicto/Vouti.co/VoTech: não afetados.
-
-### Validação
-
-A cada sub-fase concluída: validar visualmente o módulo + verificar que outros módulos não regrediram.
-
-### Próximo passo
-
-Confirma se topa o roadmap e por qual sub-fase começamos. Default: **4.2 — Controladoria**.
+Depois de Fase 4.5 validada, sigo automaticamente pra **4.4 (Agenda)**, depois **4.1 (Planejador)**, **4.3 (CRM)** e **4.6 (Polimento)**. Você pode pausar a sequência a qualquer momento.
 
