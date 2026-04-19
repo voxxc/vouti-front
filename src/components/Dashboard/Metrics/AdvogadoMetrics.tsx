@@ -70,34 +70,34 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-semibold mb-2 text-foreground">{getFullGreeting(userName)}</h2>
-        <p className="text-muted-foreground">Seus casos e prazos em um só lugar</p>
+        <h2 className="apple-h1 mb-1">{getFullGreeting(userName)}</h2>
+        <p className="apple-subtitle">Seus casos e prazos em um só lugar</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Meus Projetos</CardTitle>
-            <FolderKanban className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics?.myProjects}</div>
-            <p className="text-xs text-muted-foreground mt-1">Clientes ativos</p>
-          </CardContent>
-        </Card>
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Meus Projetos</span>
+            <span className="kpi-icon bg-primary/10 text-primary">
+              <FolderKanban className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-3xl font-semibold tracking-tight text-foreground">{metrics?.myProjects}</div>
+          <p className="text-xs text-muted-foreground mt-1.5">Clientes ativos</p>
+        </div>
 
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Prazos Esta Semana</CardTitle>
-            <Calendar className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics?.deadlinesThisWeek}</div>
-            <p className="text-xs text-muted-foreground mt-1">Próximos 7 dias</p>
-          </CardContent>
-        </Card>
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Prazos Esta Semana</span>
+            <span className="kpi-icon bg-primary/10 text-primary">
+              <Calendar className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-3xl font-semibold tracking-tight text-foreground">{metrics?.deadlinesThisWeek}</div>
+          <p className="text-xs text-muted-foreground mt-1.5">Próximos 7 dias</p>
+        </div>
 
         <PrazosDistributionChart tenantId={tenantId} userRole={userRole || undefined} />
       </div>

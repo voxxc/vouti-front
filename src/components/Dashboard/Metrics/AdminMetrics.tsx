@@ -107,17 +107,17 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold mb-2 text-foreground">{getFullGreeting(userName)}</h2>
-          <p className="text-muted-foreground">Painel Administrativo</p>
+          <h2 className="apple-h1 mb-1">{getFullGreeting(userName)}</h2>
+          <p className="apple-subtitle">Painel Administrativo</p>
         </div>
         <Button
           variant={dadosVisiveis ? "outline" : "secondary"}
           size="sm"
           onClick={toggleDadosVisiveis}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 rounded-full"
           title={dadosVisiveis ? "Ativar modo privacidade" : "Mostrar todos os dados"}
         >
           {dadosVisiveis ? (
@@ -136,78 +136,78 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 1. Total de Projetos */}
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Projetos</CardTitle>
-            <FolderKanban className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatarNumero(metrics?.totalProjects || 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Clientes ativos</p>
-          </CardContent>
-        </Card>
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Total de Projetos</span>
+            <span className="kpi-icon bg-primary/10 text-primary">
+              <FolderKanban className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-3xl font-semibold tracking-tight text-foreground">{formatarNumero(metrics?.totalProjects || 0)}</div>
+          <p className="text-xs text-muted-foreground mt-1.5">Clientes ativos</p>
+        </div>
 
-        {/* 2. Processos */}
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Casos</CardTitle>
-            <Users className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatarNumero(metrics?.totalProcessos || 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Em controladoria</p>
-          </CardContent>
-        </Card>
+        {/* 2. Casos */}
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Casos</span>
+            <span className="kpi-icon bg-violet-500/10 text-violet-600 dark:text-violet-400">
+              <Users className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-3xl font-semibold tracking-tight text-foreground">{formatarNumero(metrics?.totalProcessos || 0)}</div>
+          <p className="text-xs text-muted-foreground mt-1.5">Em controladoria</p>
+        </div>
 
-        {/* 3. Protocolos com mini-barras visuais */}
-        <Card className="bg-card hover:shadow-elegant transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Processos</CardTitle>
-            <FileText className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-end gap-1.5 h-10 mb-3">
-              <div 
-                className="bg-blue-500 rounded-t w-4 transition-all duration-500" 
-                style={{ height: `${getBarHeight(metrics?.protocolosPendentes || 0)}%` }}
-                title={`Pendentes: ${metrics?.protocolosPendentes || 0}`}
-              />
-              <div 
-                className="bg-yellow-500 rounded-t w-4 transition-all duration-500" 
-                style={{ height: `${getBarHeight(metrics?.protocolosEmAndamento || 0)}%` }}
-                title={`Em Andamento: ${metrics?.protocolosEmAndamento || 0}`}
-              />
-              <div 
-                className="bg-red-500 rounded-t w-4 transition-all duration-500" 
-                style={{ height: `${getBarHeight(metrics?.protocolosAtrasados || 0)}%` }}
-                title={`Atrasados: ${metrics?.protocolosAtrasados || 0}`}
-              />
-              <div 
-                className="bg-green-500 rounded-t w-4 transition-all duration-500" 
-                style={{ height: `${getBarHeight(metrics?.protocolosConcluidos || 0)}%` }}
-                title={`Concluídos: ${metrics?.protocolosConcluidos || 0}`}
-              />
+        {/* 3. Processos com mini-barras visuais */}
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Processos</span>
+            <span className="kpi-icon bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <FileText className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="flex items-end gap-1.5 h-10 mb-3">
+            <div 
+              className="bg-blue-500 rounded-t w-4 transition-all duration-500" 
+              style={{ height: `${getBarHeight(metrics?.protocolosPendentes || 0)}%` }}
+              title={`Pendentes: ${metrics?.protocolosPendentes || 0}`}
+            />
+            <div 
+              className="bg-yellow-500 rounded-t w-4 transition-all duration-500" 
+              style={{ height: `${getBarHeight(metrics?.protocolosEmAndamento || 0)}%` }}
+              title={`Em Andamento: ${metrics?.protocolosEmAndamento || 0}`}
+            />
+            <div 
+              className="bg-red-500 rounded-t w-4 transition-all duration-500" 
+              style={{ height: `${getBarHeight(metrics?.protocolosAtrasados || 0)}%` }}
+              title={`Atrasados: ${metrics?.protocolosAtrasados || 0}`}
+            />
+            <div 
+              className="bg-green-500 rounded-t w-4 transition-all duration-500" 
+              style={{ height: `${getBarHeight(metrics?.protocolosConcluidos || 0)}%` }}
+              title={`Concluídos: ${metrics?.protocolosConcluidos || 0}`}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-sm bg-blue-500" />
+              <span className="text-muted-foreground">{metrics?.protocolosPendentes || 0} pend.</span>
             </div>
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-sm bg-blue-500" />
-                <span className="text-muted-foreground">{metrics?.protocolosPendentes || 0} pend.</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-sm bg-yellow-500" />
-                <span className="text-muted-foreground">{metrics?.protocolosEmAndamento || 0} andam.</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-sm bg-red-500" />
-                <span className="text-muted-foreground">{metrics?.protocolosAtrasados || 0} atras.</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-sm bg-green-500" />
-                <span className="text-muted-foreground">{metrics?.protocolosConcluidos || 0} concl.</span>
-              </div>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-sm bg-yellow-500" />
+              <span className="text-muted-foreground">{metrics?.protocolosEmAndamento || 0} andam.</span>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-sm bg-red-500" />
+              <span className="text-muted-foreground">{metrics?.protocolosAtrasados || 0} atras.</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-sm bg-green-500" />
+              <span className="text-muted-foreground">{metrics?.protocolosConcluidos || 0} concl.</span>
+            </div>
+          </div>
+        </div>
 
         <PrazosDistributionChart tenantId={tenantId} userRole={userRole} />
       </div>
