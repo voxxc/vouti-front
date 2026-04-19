@@ -177,14 +177,14 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
       {/* Sidebar */}
       <aside 
         className={cn(
-          "fixed left-0 top-0 h-screen bg-card border-r border-border z-40 transition-all duration-300 flex flex-col",
+          "fixed left-0 top-0 h-screen glass-surface border-r border-border/60 z-40 transition-all duration-300 flex flex-col",
           isCollapsed ? "w-16" : "w-56",
           isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
         {/* Logo */}
         <div className={cn(
-          "px-4 border-b border-border flex items-center h-[49px]",
+          "px-4 border-b border-border/60 flex items-center h-[52px]",
           isCollapsed ? "justify-center" : "justify-start"
         )}>
         <Link 
@@ -194,8 +194,8 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
           className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none ml-6"
         >
             {isCollapsed ? (
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">V</span>
+              <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center shadow-[var(--shadow-apple-sm)]">
+                <span className="text-primary-foreground font-semibold text-sm">V</span>
               </div>
             ) : (
               <Logo size="sm" />
@@ -219,15 +219,15 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
                     onMouseEnter={() => handleMouseEnter(item.id)}
                     onClick={handleDashboardClick}
                     className={cn(
-                      "flex items-center w-full gap-3 h-11 px-4 rounded-md text-sm font-medium transition-colors",
+                      "flex items-center w-full gap-3 h-10 px-3 rounded-xl text-sm font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
                       isCollapsed && "justify-center px-2",
                       isActive(item.id) 
-                        ? "bg-primary/10 text-primary hover:bg-primary/20" 
-                        : "text-foreground hover:bg-accent hover:text-accent-foreground"
+                        ? "bg-primary/10 text-primary" 
+                        : "text-foreground/80 hover:bg-muted/60 hover:text-foreground"
                     )}
                     title={isCollapsed ? item.label : undefined}
                   >
-                    <Icon size={20} />
+                    <Icon size={18} />
                     {!isCollapsed && <span>{item.label}</span>}
                   </Link>
                 );
@@ -236,63 +236,64 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
              // Itens que abrem drawers
              if (drawerItems.includes(item.id)) {
                return (
-                 <Button
+                 <button
                    key={item.id}
-                   variant={isActive(item.id) ? "secondary" : "ghost"}
                    onMouseEnter={() => handleMouseEnter(item.id)}
                    onClick={() => handleOpenDrawer(item.id as ActiveDrawer)}
                    className={cn(
-                     "w-full justify-start gap-3 h-11",
+                     "flex items-center w-full gap-3 h-10 px-3 rounded-xl text-sm font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
                      isCollapsed && "justify-center px-2",
-                     isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
+                     isActive(item.id)
+                       ? "bg-primary/10 text-primary"
+                       : "text-foreground/80 hover:bg-muted/60 hover:text-foreground"
                    )}
                    title={isCollapsed ? item.label : undefined}
                  >
-                   <Icon size={20} />
+                   <Icon size={18} />
                    {!isCollapsed && <span>{item.label}</span>}
-                 </Button>
+                 </button>
                );
              }
 
              // Extras e outros - navegação normal
              return (
-               <Button
+               <button
                  key={item.id}
-                 variant={isActive(item.id) ? "secondary" : "ghost"}
                  onMouseEnter={() => handleMouseEnter(item.id)}
                  onClick={() => handleNavigation(item.id, item.route)}
                  className={cn(
-                   "w-full justify-start gap-3 h-11",
+                   "flex items-center w-full gap-3 h-10 px-3 rounded-xl text-sm font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
                    isCollapsed && "justify-center px-2",
-                   isActive(item.id) && "bg-primary/10 text-primary hover:bg-primary/20"
+                   isActive(item.id)
+                     ? "bg-primary/10 text-primary"
+                     : "text-foreground/80 hover:bg-muted/60 hover:text-foreground"
                  )}
                  title={isCollapsed ? item.label : undefined}
                >
-                 <Icon size={20} />
+                 <Icon size={18} />
                  {!isCollapsed && <span>{item.label}</span>}
-               </Button>
+               </button>
              );
            })}
         </nav>
 
         {/* Support Button */}
-        <div className="px-2 py-2 border-t border-border">
-          <Button
-            variant="ghost"
+        <div className="px-2 py-2 border-t border-border/60">
+          <button
             onClick={() => setSupportOpen(true)}
             className={cn(
-              "w-full justify-start gap-3 h-11 text-muted-foreground hover:text-foreground",
+              "flex items-center w-full gap-3 h-10 px-3 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
               isCollapsed && "justify-center px-2"
             )}
             title={isCollapsed ? "Suporte" : undefined}
           >
-            <Headphones size={20} />
+            <Headphones size={18} />
             {!isCollapsed && <span>Suporte</span>}
-          </Button>
+          </button>
         </div>
 
         {/* Collapse Toggle */}
-        <div className="p-2 border-t border-border hidden md:block">
+        <div className="p-2 border-t border-border/60 hidden md:block">
           <Button
             variant="ghost"
             size="sm"
