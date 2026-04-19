@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Bell, Scale, FileStack, RefreshCw, ClipboardCheck } from "lucide-react";
 import { OABManager } from "@/components/Controladoria/OABManager";
@@ -16,20 +16,27 @@ const Controladoria = () => {
 
   const showSkeleton = loading && !isCacheLoaded;
 
-  // Sinalizar que a página está pronta quando cache carregar
   useEffect(() => {
     if (isCacheLoaded) {
       stopLoading(navigationId);
     }
   }, [isCacheLoaded, stopLoading, navigationId]);
 
+  const kpis = [
+    { label: "Total de Processos", value: metrics.totalProcessos, icon: FileText, tint: "bg-primary/10 text-primary" },
+    { label: "OABs Cadastradas", value: metrics.totalOABs, icon: Scale, tint: "bg-[hsl(var(--chart-4))]/10 text-[hsl(var(--chart-4))]" },
+    { label: "Processos Monitorados", value: metrics.monitorados, icon: Bell, tint: "bg-[hsl(var(--chart-2))]/10 text-[hsl(var(--chart-2))]" },
+    { label: "Push-Docs (Documentos)", value: metrics.totalPushDocs, icon: FileStack, tint: "bg-[hsl(var(--chart-3))]/10 text-[hsl(var(--chart-3))]" },
+    { label: "Push-Docs Monitorados", value: metrics.pushDocsMonitorados, icon: Bell, tint: "bg-[hsl(var(--chart-2))]/10 text-[hsl(var(--chart-2))]" },
+  ];
+
   return (
     <DashboardLayout currentPage="controladoria">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Controladoria</h1>
-            <p className="text-muted-foreground mt-2">Gestão e Controle de Processos Judiciais</p>
+            <h1 className="apple-h1">Controladoria</h1>
+            <p className="apple-subtitle mt-1">Gestão e Controle de Processos Judiciais</p>
           </div>
           {isRefreshing && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -40,79 +47,25 @@ const Controladoria = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Total de Processos</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
+          {kpis.map(({ label, value, icon: Icon, tint }) => (
+            <div key={label} className="kpi-card">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                <span className={`kpi-icon ${tint}`}>
+                  <Icon className="h-4 w-4" />
+                </span>
+              </div>
               {showSkeleton ? (
-                <Skeleton className="h-8 w-16" />
+                <Skeleton className="h-8 w-16 mt-2" />
               ) : (
-                <div className="text-2xl font-bold">{metrics.totalProcessos}</div>
+                <div className="text-2xl font-semibold tracking-tight mt-2">{value}</div>
               )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">OABs Cadastradas</CardTitle>
-              <Scale className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {showSkeleton ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
-                <div className="text-2xl font-bold">{metrics.totalOABs}</div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Processos Monitorados</CardTitle>
-              <Bell className="h-4 w-4 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              {showSkeleton ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
-                <div className="text-2xl font-bold">{metrics.monitorados}</div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Push-Docs (Documentos)</CardTitle>
-              <FileStack className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {showSkeleton ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
-                <div className="text-2xl font-bold">{metrics.totalPushDocs}</div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-              <CardTitle className="text-xs font-medium">Push-Docs Monitorados</CardTitle>
-              <Bell className="h-4 w-4 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              {showSkeleton ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
-                <div className="text-2xl font-bold">{metrics.pushDocsMonitorados}</div>
-              )}
-            </CardContent>
-          </Card>
+            </div>
+          ))}
         </div>
 
         <Tabs defaultValue="central" className="space-y-4">
-          <TabsList>
+          <TabsList className="apple-segmented">
             <TabsTrigger value="central">
               <ClipboardCheck className="mr-2 h-4 w-4" />
               Central
