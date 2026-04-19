@@ -54,14 +54,14 @@ const AgendaMetrics = ({ userId, userName, isAdminView = false }: AgendaMetricsP
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-8">
         <div>
           <Skeleton className="h-8 w-64 mb-2" />
           <Skeleton className="h-4 w-96" />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-32" />
+            <Skeleton key={i} className="h-32 rounded-2xl" />
           ))}
         </div>
       </div>
@@ -71,14 +71,10 @@ const AgendaMetrics = ({ userId, userName, isAdminView = false }: AgendaMetricsP
   const totalReunioes = Object.values(metrics || {}).reduce((acc, val) => acc + val, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-semibold mb-2">
-          {getFullGreeting(userName)}
-        </h2>
-        <p className="text-muted-foreground">
-          {isAdminView ? 'Métricas de Reuniões' : 'Painel de Reuniões'}
-        </p>
+        <h2 className="apple-h1 mb-1">{getFullGreeting(userName)}</h2>
+        <p className="apple-subtitle">{isAdminView ? 'Métricas de Reuniões' : 'Painel de Reuniões'}</p>
       </div>
 
       {/* Filtro de Status */}
@@ -104,37 +100,40 @@ const AgendaMetrics = ({ userId, userName, isAdminView = false }: AgendaMetricsP
 
       {/* Cards de Métricas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Reuniões</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalReunioes}</div>
-            <p className="text-xs text-muted-foreground">
-              {filtroStatus === 'todos' ? 'Todas as reuniões' : 'Do status selecionado'}
-            </p>
-          </CardContent>
-        </Card>
+        <div className="kpi-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">Total de Reuniões</span>
+            <span className="kpi-icon bg-primary/10 text-primary">
+              <Calendar className="h-[18px] w-[18px]" />
+            </span>
+          </div>
+          <div className="text-3xl font-semibold tracking-tight text-foreground">{totalReunioes}</div>
+          <p className="text-xs text-muted-foreground mt-1.5">
+            {filtroStatus === 'todos' ? 'Todas as reuniões' : 'Do status selecionado'}
+          </p>
+        </div>
 
         {status.filter(s => s.ativo).map(s => {
           const count = metrics?.[s.id] || 0;
           return (
-            <Card key={s.id}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{s.nome}</CardTitle>
-                <div 
-                  className="w-4 h-4 rounded-full" 
-                  style={{ backgroundColor: s.cor }}
-                />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{count}</div>
-                <p className="text-xs text-muted-foreground">
-                  {count === 1 ? 'reunião' : 'reuniões'}
-                </p>
-              </CardContent>
-            </Card>
+            <div key={s.id} className="kpi-card">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-medium text-muted-foreground">{s.nome}</span>
+                <span
+                  className="kpi-icon"
+                  style={{
+                    backgroundColor: `${s.cor}1A`,
+                    color: s.cor,
+                  }}
+                >
+                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: s.cor }} />
+                </span>
+              </div>
+              <div className="text-3xl font-semibold tracking-tight text-foreground">{count}</div>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                {count === 1 ? 'reunião' : 'reuniões'}
+              </p>
+            </div>
           );
         })}
       </div>

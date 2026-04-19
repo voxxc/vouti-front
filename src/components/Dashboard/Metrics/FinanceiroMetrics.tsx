@@ -307,24 +307,28 @@ const FinanceiroMetrics = ({ userId, userName }: FinanceiroMetricsProps) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <FinanceiroProximosVencimentos data={data?.proximosVencimentos || []} />
 
-        <Card className="bg-card">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Prazos Vencidos para Cobrança</CardTitle>
+            <CardTitle className="text-base font-semibold tracking-tight">Prazos Vencidos para Cobrança</CardTitle>
           </CardHeader>
           <CardContent>
             {overdueItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum prazo vencido no momento</p>
+              <div className="apple-empty">
+                <span className="apple-empty-icon"><Calendar className="h-6 w-6" /></span>
+                <p className="apple-empty-title">Nenhum prazo vencido</p>
+                <p className="apple-empty-subtitle">Tudo em dia. 🎉</p>
+              </div>
             ) : (
-              <div className="space-y-3 max-h-[280px] overflow-y-auto">
+              <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
                 {overdueItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border-l-4 border-destructive">
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{item.title}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
+                  <div key={item.id} className="apple-list-item">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-foreground truncate">{item.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         Venceu em {format(new Date(item.date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                       </p>
                     </div>
-                    <Badge variant="destructive" className="ml-2">
+                    <Badge variant="destructive" className="ml-2 rounded-full font-normal">
                       <AlertTriangle className="w-3 h-3 mr-1" />
                       Vencido
                     </Badge>
