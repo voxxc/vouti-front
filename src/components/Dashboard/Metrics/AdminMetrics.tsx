@@ -215,7 +215,6 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
 
         <PrazosDistributionChart tenantId={tenantId} userRole={userRole} />
       </div>
-      <ClienteAnalytics />
 
       <ProcessosMetrics />
 
