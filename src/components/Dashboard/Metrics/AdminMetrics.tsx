@@ -6,7 +6,6 @@ import { getFullGreeting } from "@/utils/greetingHelper";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OverviewSection } from "../OverviewSection";
 import { ClienteAnalytics } from "../ClienteAnalytics";
-import { ProcessosMetrics } from "../ProcessosMetrics";
 import { TasksMetrics } from "../TasksMetrics";
 import { ClienteTasksMetrics } from "../ClienteTasksMetrics";
 import AgendaMetrics from "./AgendaMetrics";
@@ -138,6 +137,13 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
       <PrazosAbertosPanel userId={userId} maxItems={15} onOpenAgendaDrawer={(id) => { setAgendaDeadlineId(id); setAgendaDrawerOpen(true); }} />
       <DeadlineDetailDialog deadlineId={agendaDeadlineId || null} open={agendaDrawerOpen} onOpenChange={(open) => { setAgendaDrawerOpen(open); if (!open) setAgendaDeadlineId(undefined); }} />
 
+      <ClienteAnalytics />
+
+      <div>
+        <h2 className="apple-h1 mb-1">Indicadores</h2>
+        <p className="apple-subtitle">Visão geral do escritório</p>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 1. Total de Clientes */}
         <div className="kpi-card">
@@ -215,8 +221,6 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
 
         <PrazosDistributionChart tenantId={tenantId} userRole={userRole} />
       </div>
-
-      <ProcessosMetrics />
 
       <TasksMetrics />
 
