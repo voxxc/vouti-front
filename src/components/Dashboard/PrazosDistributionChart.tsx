@@ -21,9 +21,9 @@ const PERIOD_OPTIONS = [
 ];
 
 const COLORS = {
-  concluidos: "#22c55e",
-  atrasados: "#ef4444",
-  pendentes: "#3b82f6",
+  concluidos: "hsl(var(--chart-2))",
+  atrasados: "hsl(var(--chart-5))",
+  pendentes: "hsl(var(--chart-1))",
 };
 
 const TOGGLE_ROLES = ["admin", "controller", "perito"];
@@ -186,7 +186,7 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
   const viewTitle = view === "categorias" ? "Por Categoria" : view === "pericial" ? "Periciais" : "Prazos";
 
   return (
-    <Card className="bg-card hover:shadow-elegant transition-shadow">
+    <Card className="bg-card transition-all duration-300 hover:-translate-y-px">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex items-center gap-1 flex-wrap min-w-0 flex-1">
           <ViewIcon className="h-4 w-4 text-primary shrink-0" />
