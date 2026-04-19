@@ -233,18 +233,18 @@ const Auth = () => {
           </div>
 
 
-          <Card className="shadow-card border-0 relative">
+          <Card className="rounded-2xl border-border/60 bg-card/80 backdrop-blur-xl shadow-xl relative">
             {/* Toggle de tema minimalista */}
             <div className="absolute top-3 right-3">
               <AuthThemeToggle />
             </div>
             
-            <CardHeader className="space-y-1 text-center pb-4">
-              <h3 className="text-xl font-semibold text-foreground">
+            <CardHeader className="space-y-1.5 text-center pb-4 pt-7">
+              <h3 className="text-2xl font-semibold text-foreground tracking-tight">
                 {mode === 'login' ? 'Acesso ao Sistema' : 'Recuperar Senha'}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {mode === 'login' ? 'Entre ou crie sua conta para continuar' : 'Informe seu email para receber o link de recuperacao'}
+                {mode === 'login' ? 'Entre ou crie sua conta para continuar' : 'Informe seu email para receber o link de recuperação'}
               </p>
             </CardHeader>
             <CardContent>
