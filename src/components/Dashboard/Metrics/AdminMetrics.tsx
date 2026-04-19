@@ -134,6 +134,10 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
         </Button>
       </div>
 
+      {/* Painel de Tarefas e Prazos do Usuário (topo) */}
+      <PrazosAbertosPanel userId={userId} maxItems={15} onOpenAgendaDrawer={(id) => { setAgendaDeadlineId(id); setAgendaDrawerOpen(true); }} />
+      <DeadlineDetailDialog deadlineId={agendaDeadlineId || null} open={agendaDrawerOpen} onOpenChange={(open) => { setAgendaDrawerOpen(open); if (!open) setAgendaDeadlineId(undefined); }} />
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 1. Total de Clientes */}
         <div className="kpi-card">
@@ -211,11 +215,6 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
 
         <PrazosDistributionChart tenantId={tenantId} userRole={userRole} />
       </div>
-
-      {/* Painel de Tarefas e Prazos do Usuário */}
-      <PrazosAbertosPanel userId={userId} maxItems={15} onOpenAgendaDrawer={(id) => { setAgendaDeadlineId(id); setAgendaDrawerOpen(true); }} />
-      <DeadlineDetailDialog deadlineId={agendaDeadlineId || null} open={agendaDrawerOpen} onOpenChange={(open) => { setAgendaDrawerOpen(open); if (!open) setAgendaDeadlineId(undefined); }} />
-
       <ClienteAnalytics />
 
       <ProcessosMetrics />
