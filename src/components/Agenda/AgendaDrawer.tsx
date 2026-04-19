@@ -15,6 +15,8 @@ export function AgendaDrawer({ open, onOpenChange, initialDeadlineId }: AgendaDr
       <SheetContent
         side="inset"
         className="p-0 flex flex-col [&>button:last-of-type]:hidden"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
       >
         <SheetTitle className="sr-only">Agenda</SheetTitle>
 

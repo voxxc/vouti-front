@@ -53,6 +53,8 @@ export function ExtrasDrawer({ open, onOpenChange }: ExtrasDrawerProps) {
       <SheetContent 
         side="inset"
         className="p-0 flex flex-col"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
       >
         <SheetTitle className="sr-only">Extras</SheetTitle>
         
