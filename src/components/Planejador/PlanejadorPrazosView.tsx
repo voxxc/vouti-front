@@ -7,7 +7,6 @@ import { isToday, isPast, isFuture, startOfDay, endOfWeek, addWeeks, startOfWeek
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Clock, AlertTriangle, CalendarDays, CalendarCheck, CheckCircle2, User } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface PlanejadorPrazosViewProps {
   onDeadlineClick: (deadlineId: string) => void;
@@ -117,18 +116,18 @@ export function PlanejadorPrazosView({ onDeadlineClick, searchQuery = "", select
   return (
     <div className="flex gap-3 h-full overflow-x-auto pb-2">
       {columns.map(col => (
-        <div key={col.id} className={`flex flex-col min-w-[260px] max-w-[300px] flex-1 rounded-xl ${glassBg} border ${borderColor}`}>
+        <div key={col.id} className={`flex flex-col min-w-[240px] flex-1 rounded-xl ${glassBg} border ${borderColor}`}>
           {/* Column header */}
           <div className="flex items-center gap-2 px-3 py-2.5 border-b border-inherit">
-            <span className="flex items-center justify-center w-5 h-5 rounded-md" style={{ backgroundColor: col.color + "30", color: col.color }}>
+            <span className="flex items-center justify-center w-5 h-5 rounded-md flex-shrink-0" style={{ backgroundColor: col.color + "30", color: col.color }}>
               {col.icon}
             </span>
-            <span className={`text-sm font-semibold ${text}`}>{col.label}</span>
-            <span className={`text-xs ml-auto ${textMuted}`}>{col.items.length}</span>
+            <span className={`text-sm font-semibold ${text} truncate`}>{col.label}</span>
+            <span className={`text-xs ml-auto flex-shrink-0 ${textMuted}`}>{col.items.length}</span>
           </div>
 
           {/* Cards */}
-          <ScrollArea className="flex-1 px-2 py-2">
+          <div className="flex-1 overflow-y-auto px-2 py-2 planejador-scroll">
             <div className="flex flex-col gap-2">
               {col.items.length === 0 && (
                 <div className={`text-xs text-center py-6 ${textMuted}`}>Nenhum prazo</div>
@@ -137,32 +136,32 @@ export function PlanejadorPrazosView({ onDeadlineClick, searchQuery = "", select
                 <button
                   key={deadline.id}
                   onClick={() => onDeadlineClick(deadline.id)}
-                  className={`w-full text-left p-3 rounded-lg ${cardBg} border ${borderColor} transition-colors cursor-pointer`}
+                  className={`w-full text-left p-2.5 rounded-lg ${cardBg} border ${borderColor} transition-colors cursor-pointer`}
                 >
-                  <p className={`text-sm font-medium ${text} line-clamp-2`}>{deadline.title}</p>
+                  <p className={`text-sm font-medium ${text} line-clamp-2 break-words`}>{deadline.title}</p>
                   {deadline.projectName && (
                     <p className={`text-xs mt-1 ${textMuted} truncate`}>{deadline.projectName}</p>
                   )}
-                  <div className="flex items-center justify-between mt-2">
+                  <div className="flex flex-col gap-1 mt-2">
                     <span className={`text-xs ${textMuted}`}>
                       {format(deadline.date, "dd MMM", { locale: ptBR })}
                     </span>
                     {deadline.advogadoResponsavel && (
-                      <span className={`flex items-center gap-1 text-xs ${textMuted}`}>
-                        <User className="h-3 w-3" />
-                        <span className="max-w-[80px] truncate">{deadline.advogadoResponsavel.name?.split(" ")[0]}</span>
+                      <span className={`flex items-center gap-1 text-xs ${textMuted} min-w-0`}>
+                        <User className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{deadline.advogadoResponsavel.name}</span>
                       </span>
                     )}
                   </div>
                   {deadline.deadlineCategory && (
-                    <span className="inline-block mt-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/20 text-amber-400">
+                    <span className="inline-block mt-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/20 text-amber-400 max-w-full truncate">
                       {deadline.deadlineCategory}
                     </span>
                   )}
                 </button>
               ))}
             </div>
-          </ScrollArea>
+          </div>
         </div>
       ))}
     </div>
