@@ -161,17 +161,17 @@ const AgendaCalendar = ({ selectedDate, onSelectDate, deadlines, compact = false
               key={currentDay.toISOString()}
               onClick={() => onSelectDate(currentDay)}
               className={cn(
-                "min-h-[44px] border border-border/40 p-1 cursor-pointer transition-all hover:bg-accent/50 flex flex-col items-center justify-start gap-0.5",
-                !isCurrentMonth && "bg-muted/30 text-muted-foreground",
-                isSelected && "ring-2 ring-primary bg-primary/5",
-                isTodayDate && !isSelected && "bg-accent/30"
+                "min-h-[44px] rounded-xl p-1 cursor-pointer transition-colors hover:bg-muted/60 flex flex-col items-center justify-start gap-0.5",
+                !isCurrentMonth && "text-muted-foreground/60",
+                isSelected && "bg-primary/10 ring-1 ring-primary/30",
+                isTodayDate && !isSelected && "bg-primary/5"
               )}
             >
               <span
                 className={cn(
                   "text-[11px] font-medium w-5 h-5 flex items-center justify-center rounded-full leading-none",
                   isTodayDate && "bg-primary text-primary-foreground",
-                  hasDeadlines && !isTodayDate && "text-primary font-bold"
+                  hasDeadlines && !isTodayDate && "text-primary font-semibold"
                 )}
               >
                 {format(currentDay, "d")}
@@ -193,10 +193,10 @@ const AgendaCalendar = ({ selectedDate, onSelectDate, deadlines, compact = false
               key={currentDay.toISOString()}
               onClick={() => onSelectDate(currentDay)}
               className={cn(
-                "min-h-[100px] border border-border/50 p-1.5 cursor-pointer transition-all hover:bg-accent/50",
-                !isCurrentMonth && "bg-muted/30 text-muted-foreground",
-                isSelected && "ring-2 ring-primary bg-primary/5",
-                isTodayDate && !isSelected && "bg-accent/30"
+                "min-h-[100px] rounded-xl p-1.5 cursor-pointer transition-colors hover:bg-muted/60",
+                !isCurrentMonth && "text-muted-foreground/60",
+                isSelected && "bg-primary/10 ring-1 ring-primary/30",
+                isTodayDate && !isSelected && "bg-primary/5"
               )}
             >
               <div className="flex items-center justify-between mb-1">
@@ -204,13 +204,13 @@ const AgendaCalendar = ({ selectedDate, onSelectDate, deadlines, compact = false
                   className={cn(
                     "text-sm font-medium w-6 h-6 flex items-center justify-center rounded-full",
                     isTodayDate && "bg-primary text-primary-foreground",
-                    hasDeadlines && !isTodayDate && "bg-primary/20 text-primary font-bold"
+                    hasDeadlines && !isTodayDate && "bg-primary/15 text-primary font-semibold"
                   )}
                 >
                   {format(currentDay, "d")}
                 </span>
                 {hasDeadlines && (
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 rounded-full">
                     {dayDeadlines.length}
                   </Badge>
                 )}

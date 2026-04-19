@@ -1082,7 +1082,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
 
     return (
       <div
-        className="border rounded-lg p-2.5 md:p-3 hover:bg-muted/30 transition-colors cursor-pointer flex items-center gap-2 md:gap-3"
+        className="rounded-xl border border-border/60 bg-card p-2.5 md:p-3 hover:bg-muted/40 hover:border-border transition-colors cursor-pointer flex items-center gap-2 md:gap-3"
         onClick={() => openDeadlineDetails(deadline)}
       >
         {/* Status dot */}
@@ -1091,7 +1091,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
         {/* Title + project + date on mobile */}
         <div className="flex-1 min-w-0">
           <p className={cn(
-            "text-sm font-medium truncate",
+            "text-sm font-medium truncate tracking-tight",
             deadline.completed && "line-through text-muted-foreground"
           )}>
             {deadline.title}
@@ -1123,7 +1123,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
         {/* Status badge - hidden on mobile */}
         <Badge 
           variant={deadline.completed ? "default" : isOverdue ? "destructive" : "secondary"}
-          className="text-xs shrink-0 hidden md:inline-flex"
+          className="text-[10px] shrink-0 hidden md:inline-flex rounded-full px-2 py-0.5 font-medium"
         >
           {deadline.completed ? "Concluído" : isOverdue ? "Vencido" : "Pendente"}
         </Badge>
@@ -1134,7 +1134,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+              className="h-7 w-7 p-0 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
               onClick={() => setConfirmCompleteDeadlineId(deadline.id)}
             >
               <CheckCircle2 className="h-4 w-4" />
@@ -1142,7 +1142,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-lg">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
