@@ -207,15 +207,15 @@ const CanvasInner = ({ workflowId, triggerType, triggerValue, steps, onSave }: W
         nodeTypes={nodeTypes}
         fitView
         deleteKeyCode={["Backspace", "Delete"]}
-        className="bg-[#1a1a2e]"
+        className="bg-muted/30"
         defaultEdgeOptions={{ animated: true, style: { stroke: "hsl(var(--primary))", strokeWidth: 2 } }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#333355" />
-        <Controls className="!bg-background/80 !border !rounded-lg !shadow-lg [&>button]:!bg-background [&>button]:!border-border [&>button]:!text-foreground" />
+        <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} className="!opacity-40" color="hsl(var(--muted-foreground))" />
+        <Controls className="!bg-card/80 !backdrop-blur-xl !border !border-border/60 !rounded-2xl !shadow-lg !overflow-hidden [&>button]:!bg-transparent [&>button]:!border-border/40 [&>button]:!text-foreground [&>button:hover]:!bg-muted/50" />
         <MiniMap
-          className="!bg-background/80 !border !rounded-lg !shadow-lg"
-          nodeColor="#6366f1"
-          maskColor="rgba(0,0,0,0.4)"
+          className="!bg-card/80 !backdrop-blur-xl !border !border-border/60 !rounded-2xl !shadow-lg !overflow-hidden"
+          nodeColor="hsl(var(--primary))"
+          maskColor="hsl(var(--background) / 0.6)"
         />
       </ReactFlow>
       <WorkflowNodePalette />
