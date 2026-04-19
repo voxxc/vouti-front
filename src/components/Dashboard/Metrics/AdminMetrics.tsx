@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, FolderKanban, Eye, ShieldAlert, FileText } from "lucide-react";
+import { Users, Briefcase, Eye, ShieldAlert, FileText } from "lucide-react";
 import { getFullGreeting } from "@/utils/greetingHelper";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OverviewSection } from "../OverviewSection";
@@ -37,8 +37,8 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const [projectsRes, processosCountRes, protocolosRes] = await Promise.all([
-        supabase.from('projects').select('id', { count: 'exact', head: true }).eq('module', 'legal'),
+      const [clientesRes, processosCountRes, protocolosRes] = await Promise.all([
+        supabase.from('clientes').select('id', { count: 'exact', head: true }),
         supabase.rpc('get_dashboard_processos_count'),
         supabase.from('project_protocolos').select(`
           id, 
@@ -74,7 +74,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
       const protocolosConcluidos = protocolos.filter(isProtocoloConcluido).length;
 
       return {
-        totalProjects: projectsRes.count || 0,
+        totalClientes: clientesRes.count || 0,
         totalProcessos: (processosCountRes.data as number | null) || 0,
         totalProtocolos,
         protocolosPendentes,
@@ -134,17 +134,21 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
         </Button>
       </div>
 
+      {/* Painel de Tarefas e Prazos do Usuário (topo) */}
+      <PrazosAbertosPanel userId={userId} maxItems={15} onOpenAgendaDrawer={(id) => { setAgendaDeadlineId(id); setAgendaDrawerOpen(true); }} />
+      <DeadlineDetailDialog deadlineId={agendaDeadlineId || null} open={agendaDrawerOpen} onOpenChange={(open) => { setAgendaDrawerOpen(open); if (!open) setAgendaDeadlineId(undefined); }} />
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 1. Total de Projetos */}
+        {/* 1. Total de Clientes */}
         <div className="kpi-card">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-medium text-muted-foreground">Total de Projetos</span>
+            <span className="text-sm font-medium text-muted-foreground">Total de Clientes</span>
             <span className="kpi-icon bg-primary/10 text-primary">
-              <FolderKanban className="h-[18px] w-[18px]" />
+              <Users className="h-[18px] w-[18px]" />
             </span>
           </div>
-          <div className="text-3xl font-semibold tracking-tight text-foreground">{formatarNumero(metrics?.totalProjects || 0)}</div>
-          <p className="text-xs text-muted-foreground mt-1.5">Clientes ativos</p>
+          <div className="text-3xl font-semibold tracking-tight text-foreground">{formatarNumero(metrics?.totalClientes || 0)}</div>
+          <p className="text-xs text-muted-foreground mt-1.5">Cadastrados</p>
         </div>
 
         {/* 2. Casos */}
@@ -152,7 +156,7 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium text-muted-foreground">Casos</span>
             <span className="kpi-icon bg-violet-500/10 text-violet-600 dark:text-violet-400">
-              <Users className="h-[18px] w-[18px]" />
+              <Briefcase className="h-[18px] w-[18px]" />
             </span>
           </div>
           <div className="text-3xl font-semibold tracking-tight text-foreground">{formatarNumero(metrics?.totalProcessos || 0)}</div>
@@ -211,11 +215,6 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
 
         <PrazosDistributionChart tenantId={tenantId} userRole={userRole} />
       </div>
-
-      {/* Painel de Tarefas e Prazos do Usuário */}
-      <PrazosAbertosPanel userId={userId} maxItems={15} onOpenAgendaDrawer={(id) => { setAgendaDeadlineId(id); setAgendaDrawerOpen(true); }} />
-      <DeadlineDetailDialog deadlineId={agendaDeadlineId || null} open={agendaDrawerOpen} onOpenChange={(open) => { setAgendaDrawerOpen(open); if (!open) setAgendaDeadlineId(undefined); }} />
-
       <ClienteAnalytics />
 
       <ProcessosMetrics />
