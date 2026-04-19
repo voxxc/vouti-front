@@ -162,7 +162,7 @@ export const PushDocsManager = () => {
       <div className="space-y-4">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TipoDocumento)}>
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <TabsList>
+            <TabsList className="apple-segmented">
               <TabsTrigger value="cpf" className="gap-2">
                 {getTabIcon('cpf')}
                 CPF ({docsCount.cpf})

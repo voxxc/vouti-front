@@ -276,19 +276,14 @@ export const OABManager = () => {
         </div>
       ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <div className="flex items-center gap-6 border-b overflow-x-auto flex-shrink-0">
+          <div className="apple-tab-bar overflow-x-auto">
             {/* Aba Geral */}
             <button
               onClick={() => setActiveTab('geral')}
-              className={cn(
-                "relative flex items-center gap-2 pb-2 text-sm font-medium transition-colors hover:text-foreground cursor-pointer whitespace-nowrap",
-                activeTab === 'geral' ? "text-foreground" : "text-muted-foreground"
-              )}
+              data-active={activeTab === 'geral'}
+              className="apple-tab whitespace-nowrap"
             >
               <span>Geral</span>
-              {activeTab === 'geral' && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-              )}
             </button>
             {oabs.map((oab) => {
               const isActive = activeTab === oab.id;
@@ -296,19 +291,14 @@ export const OABManager = () => {
                 <button
                   key={oab.id}
                   onClick={() => setActiveTab(oab.id)}
-                  className={cn(
-                    "relative flex items-center gap-2 pb-2 text-sm font-medium transition-colors hover:text-foreground cursor-pointer whitespace-nowrap",
-                    isActive ? "text-foreground" : "text-muted-foreground"
-                  )}
+                  data-active={isActive}
+                  className="apple-tab whitespace-nowrap"
                 >
                   <span>{oab.oab_numero}/{oab.oab_uf}</span>
                   {oab.total_processos > 0 && (
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge variant="secondary" className="text-xs rounded-full">
                       {oab.total_processos}
                     </Badge>
-                  )}
-                  {isActive && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
                   )}
                 </button>
               );
