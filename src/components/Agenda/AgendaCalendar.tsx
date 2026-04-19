@@ -118,12 +118,13 @@ const AgendaCalendar = ({ selectedDate, onSelectDate, deadlines, compact = false
       ? ["D", "S", "T", "Q", "Q", "S", "S"]
       : ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     return (
-      <div className="grid grid-cols-7 mb-1">
+      <div className="grid grid-cols-7 rounded-t-xl border border-b-0 border-border/60 overflow-hidden bg-muted/20">
         {days.map((day, index) => (
           <div
             key={index}
             className={cn(
               "text-center font-medium text-muted-foreground py-1",
+              index < 6 && "border-r border-border/60",
               compact ? "text-[10px]" : "text-sm py-2"
             )}
           >
@@ -152,6 +153,7 @@ const AgendaCalendar = ({ selectedDate, onSelectDate, deadlines, compact = false
         const isSelected = isSameDay(currentDay, selectedDate);
         const isTodayDate = isToday(currentDay);
         const hasDeadlines = dayDeadlines.length > 0;
+        const isLastCol = i === 6;
 
         if (compact) {
           // Compact mode: smaller cells with just dots
@@ -161,9 +163,10 @@ const AgendaCalendar = ({ selectedDate, onSelectDate, deadlines, compact = false
               key={currentDay.toISOString()}
               onClick={() => onSelectDate(currentDay)}
               className={cn(
-                "min-h-[44px] rounded-xl p-1 cursor-pointer transition-colors hover:bg-muted/60 flex flex-col items-center justify-start gap-0.5",
+                "min-h-[44px] p-1 cursor-pointer transition-colors hover:bg-muted/60 flex flex-col items-center justify-start gap-0.5",
+                !isLastCol && "border-r border-border/60",
                 !isCurrentMonth && "text-muted-foreground/60",
-                isSelected && "bg-primary/10 ring-1 ring-primary/30",
+                isSelected && "bg-primary/10 ring-1 ring-inset ring-primary/30",
                 isTodayDate && !isSelected && "bg-primary/5"
               )}
             >
@@ -193,9 +196,10 @@ const AgendaCalendar = ({ selectedDate, onSelectDate, deadlines, compact = false
               key={currentDay.toISOString()}
               onClick={() => onSelectDate(currentDay)}
               className={cn(
-                "min-h-[100px] rounded-xl p-1.5 cursor-pointer transition-colors hover:bg-muted/60",
+                "min-h-[100px] p-1.5 cursor-pointer transition-colors hover:bg-muted/60",
+                !isLastCol && "border-r border-border/60",
                 !isCurrentMonth && "text-muted-foreground/60",
-                isSelected && "bg-primary/10 ring-1 ring-primary/30",
+                isSelected && "bg-primary/10 ring-1 ring-inset ring-primary/30",
                 isTodayDate && !isSelected && "bg-primary/5"
               )}
             >
@@ -237,15 +241,19 @@ const AgendaCalendar = ({ selectedDate, onSelectDate, deadlines, compact = false
         day = addDays(day, 1);
       }
 
+      const isLastRow = day > endDate;
       rows.push(
-        <div key={day.toISOString()} className="grid grid-cols-7">
+        <div
+          key={day.toISOString()}
+          className={cn("grid grid-cols-7", !isLastRow && "border-b border-border/60")}
+        >
           {days}
         </div>
       );
       days = [];
     }
 
-    return <div>{rows}</div>;
+    return <div className="rounded-b-xl border border-border/60 overflow-hidden">{rows}</div>;
   };
 
   return (
