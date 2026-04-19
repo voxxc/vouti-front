@@ -1,44 +1,30 @@
 
 
-## Adicionar linhas de grade no calendário da Agenda
+## Alinhar calendário começando na segunda-feira (domingo no fim)
 
 ### Causa raiz
-O componente `AgendaCalendar.tsx` renderiza as células dos dias usando `<div>` com `grid grid-cols-7` mas **sem nenhuma borda** entre células ou linhas. Isso faz o calendário parecer "flutuante" / sem divisões visuais — diferente de um calendário tradicional com grid.
+O `AgendaCalendar.tsx` usa `startOfWeek`/`endOfWeek` do `date-fns` sem `weekStartsOn`, que defaulta a 0 (domingo). Resultado: a grade começa no domingo e termina no sábado. O usuário quer ordem **Seg, Ter, Qua, Qui, Sex, Sáb, Dom**.
 
 ### Correção (`src/components/Agenda/AgendaCalendar.tsx`)
 
-**1. Wrapper do grid de células** — envolver `renderCells` em um container com borda externa e divisões internas:
-```tsx
-<div className="rounded-xl border border-border/60 overflow-hidden">
-  {rows}
-</div>
-```
+1. Adicionar `{ weekStartsOn: 1 }` em todas as chamadas:
+   - `startOfWeek(monthStart, { weekStartsOn: 1 })`
+   - `endOfWeek(monthEnd, { weekStartsOn: 1 })`
+   - `startOfWeek(currentDate, { weekStartsOn: 1 })` (se houver no header)
 
-**2. Cada linha (`row`)** — adicionar `border-b border-border/60` (exceto última):
-```tsx
-<div className="grid grid-cols-7 border-b border-border/60 last:border-b-0">
-```
-
-**3. Cada célula (`day`)** — adicionar `border-r border-border/60` (exceto última coluna). Como cada linha tem 7 colunas, usar `[&>*:not(:last-child)]:border-r` no row OU adicionar via index `i < 6`.
-
-**4. Ajustar `rounded-xl` das células** para `rounded-none` (modo full e compact) já que agora a borda externa cuida do arredondamento. Manter `hover:bg-muted/60` e o highlight de seleção/hoje.
-
-**5. Cabeçalho dos dias da semana** (`renderDaysOfWeek`) — adicionar `border-b border-border/60` para separar do grid, e opcionalmente `border-r` entre dias para alinhar com as colunas abaixo.
+2. Ajustar `renderDaysOfWeek` para gerar labels começando na segunda — usar o mesmo `startOfWeek(date, { weekStartsOn: 1 })` como base do loop ao invés do array hardcoded (ou reordenar o array hardcoded para `['Seg','Ter','Qua','Qui','Sex','Sáb','Dom']`).
 
 ### Arquivos afetados
-- `src/components/Agenda/AgendaCalendar.tsx` (apenas classes Tailwind)
+- `src/components/Agenda/AgendaCalendar.tsx`
 
 ### Impacto
-- **UX**: calendário ganha aparência tradicional de grade, com linhas separando dias e semanas — mais legível e familiar. Funciona tanto no modo full (Agenda) quanto no compact (sidebar/mobile).
-- **Dados**: zero. Apenas estilização.
-- **Performance**: nenhuma.
-- **Riscos colaterais**: nenhum. Lógica de seleção, dots de status e click handlers permanecem intactos.
-- **Quem é afetado**: todos os usuários que abrem `/:tenant/agenda` (e qualquer lugar que use `AgendaCalendar`, incluindo a versão mobile compact).
+- **UX**: calendário agora exibe semana Seg→Dom, com domingo na última coluna (padrão BR/EU). Funciona nos modos full e compact.
+- **Dados**: zero. Apenas renderização.
+- **Riscos colaterais**: nenhum. Lógica de seleção/eventos por dia é por data exata, não por índice de coluna.
+- **Quem é afetado**: todos os usuários da Agenda (`/:tenant/agenda`) e qualquer lugar que use `AgendaCalendar`.
 
 ### Validação
-1. `/solvenza/agenda` → calendário exibe grade com linhas verticais (entre colunas) e horizontais (entre semanas).
-2. Borda externa arredondada visível.
-3. Hover e seleção de dia continuam funcionando.
-4. Modo compact (mobile) também com grade.
-5. Dark mode → linhas usam `border-border/60` (visíveis sem ofuscar).
+1. `/solvenza/agenda` → cabeçalho mostra: Seg Ter Qua Qui Sex Sáb Dom.
+2. Dias do mês alinhados corretamente abaixo dos respectivos rótulos.
+3. Modo compact (mobile) idem.
 
