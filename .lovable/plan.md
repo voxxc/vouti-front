@@ -1,54 +1,77 @@
 
 
-## Continuação da Fase 4 — Sub-fases pendentes
+## Fase 4.4 — Agenda (Calendário + Eventos)
 
-Vou executar as sub-fases pendentes da Fase 4 na ordem recomendada do roadmap aprovado:
+### Causa raiz / Justificativa
 
-### Ordem de execução
+Próxima sub-fase pendente. A Agenda usa o `react-day-picker` (via `Calendar` do shadcn) e tem componentes próprios (lista de eventos, modais de prazo, filtros) que ainda têm visual da fase pré-Apple.
 
-1. **Fase 4.5 — Financeiro** (Drawer + Lista de clientes)
-2. **Fase 4.4 — Agenda** (Calendário + Eventos)
-3. **Fase 4.1 — Planejador** (Kanban + Chat)
-4. **Fase 4.3 — CRM** (Inbox + Conversas + Tickets)
-5. **Fase 4.6 — Polimento final** (Bot Workflow, Auth, Settings)
+### Exploração necessária antes de implementar
 
-### Estratégia
+Vou ler para mapear a estrutura real:
+- `src/components/Agenda/AgendaContent.tsx` (componente raiz compartilhado)
+- `src/components/Agenda/` (lista de arquivos: cards de evento, modais, filtros)
+- `src/components/ui/calendar.tsx` (já visto — base do react-day-picker)
+- Verificar se há `AgendaCalendar`, `EventList`, `DeadlineDialog` ou similares
 
-Vou executar **uma sub-fase por vez**, com validação entre elas. Isso evita mudanças massivas e permite ajuste de rota se algo não ficar bom.
+### O que vai mudar
 
-### Começando agora: **Fase 4.5 — Financeiro**
+**1. Header da Agenda (`Agenda.tsx` + `AgendaContent.tsx`)**
+- Tipografia `apple-h1` / `apple-subtitle`.
+- Botão "Voltar" e ações com estilo refinado (já herda da Fase 2).
+- Drawer (`AgendaDrawer.tsx`) com `glass-surface` no header (igual fizemos no Financeiro).
 
-**O que vai mudar:**
-- `FinancialDrawer.tsx`: header com `glass-surface` (consistente com sidebar/topbar), tipografia `apple-h1`/`apple-subtitle`.
-- `FinancialContent.tsx`: lista de clientes com `apple-list-item`, badges de status como pílulas refinadas.
-- `ClienteFinanceiroDialog.tsx`: cards de métricas estilo `kpi-card`, seções com `rounded-2xl`.
-- `FinancialMetrics.tsx`: validar que herda visual da Fase 3 (charts já refinados).
-- Empty state da lista com `apple-empty`.
+**2. Calendário (`calendar.tsx`)**
+- Células de dia com `rounded-xl` (atualmente `rounded-md` implícito).
+- `day_today`: pílula `bg-primary/10 text-primary` em vez de `bg-accent`.
+- `day_selected`: manter `bg-primary` mas com `rounded-xl`.
+- Hover suave nas células (`hover:bg-muted/60`).
+- Caption com tipografia mais elegante (font-medium → font-semibold, tracking-tight).
+- Nav buttons (chevrons) com `rounded-xl` e hover refinado.
 
-**Exploração necessária:**
-- Ler `FinancialContent.tsx`, `ClienteFinanceiroDialog.tsx`, `FinancialMetrics.tsx` pra mapear estrutura exata antes de aplicar refinamentos.
+**3. Lista de eventos / prazos**
+- Items com `apple-list-item` (rounded-xl, hover suave, divisores leves).
+- Badges de status/categoria como pílulas (`rounded-full`, `bg-{cor}/15`).
+- Indicadores de prioridade refinados.
+- Empty state com `apple-empty`.
 
-### Arquivos afetados (Fase 4.5)
+**4. Filtros e toolbar**
+- Tabs (se houver) com `apple-segmented`.
+- Inputs e selects já refinados na Fase 2 — validar.
 
-- `src/components/Financial/FinancialDrawer.tsx`
-- `src/components/Financial/FinancialContent.tsx`
-- `src/components/Financial/ClienteFinanceiroDialog.tsx`
-- `src/components/Financial/FinancialMetrics.tsx` (validação/ajustes finos)
+**5. Modais de criação/edição de prazo**
+- Já herdam da Fase 2 (Dialog refinado), validar visual.
+- Se tiver header custom, aplicar `glass-surface` + tipografia.
 
-### Impacto (Fase 4.5)
+### Arquivos afetados (estimativa, vou confirmar lendo o diretório)
 
-- **UX**: Financeiro fica visualmente coeso com Dashboard/Controladoria. Lista de clientes mais arejada, detalhes do cliente com hierarquia clara.
+- `src/pages/Agenda.tsx` — header da página standalone.
+- `src/components/Agenda/AgendaDrawer.tsx` — header do drawer com glass.
+- `src/components/Agenda/AgendaContent.tsx` — layout interno.
+- `src/components/ui/calendar.tsx` — refinamento das células e tipografia.
+- Possíveis: `EventList`, `DeadlineCard`, `DeadlineDialog` (vou listar antes).
+
+### Impacto
+
+- **UX**: Agenda fica visualmente alinhada com Dashboard/Controladoria/Financeiro. Calendário com aparência iOS Calendar (células arredondadas, "hoje" como pílula sutil). Lista de eventos mais legível.
 - **Dados**: zero mudanças.
-- **Riscos**: mudanças isoladas no módulo Financeiro. Restrição de visibilidade admin-only (memory `client-financial-data-visibility`) mantida intacta — só refinamento visual.
-- **Quem é afetado**: admins do sistema jurídico (únicos com acesso ao módulo Financeiro).
+- **Performance**: imperceptível.
+- **Riscos colaterais**:
+  - `calendar.tsx` é usado **em todo lugar** (DatePickers em formulários do CRM, Financeiro, Planejador). Mudança visual afeta todos esses pickers — é o objetivo (consistência), mas vou validar que não quebra nenhum layout.
+  - Lógica de visibilidade da Agenda (memory `agenda-visibility-logic-non-admin`) e timezone (`parseLocalDate`) **não serão tocadas** — só refinamento visual.
+- **Quem é afetado**: todos os usuários do sistema jurídico (Agenda é multi-role) + qualquer formulário com DatePicker.
 
-### Validação (após cada sub-fase)
+### Validação
 
-1. Abrir o módulo refinado → confirmar visual.
-2. Abrir 2-3 outros módulos não-tocados → garantir zero regressão.
-3. Dark mode + viewport 390px.
+1. `/solvenza/agenda` (página standalone) → header + calendário + lista refinados.
+2. Drawer da Agenda (abrir via ícone na sidebar/topbar) → glass header.
+3. Abrir DatePicker em outro contexto (ex: criar prazo, criar tarefa no Planejador) → calendário refinado herda corretamente.
+4. Dark mode + viewport 390px → contraste e responsividade ok.
+5. Outros módulos (Dashboard, Financeiro) → zero regressão visual.
 
-### Próximas sub-fases
+### Próximo passo após aprovação
 
-Depois de Fase 4.5 validada, sigo automaticamente pra **4.4 (Agenda)**, depois **4.1 (Planejador)**, **4.3 (CRM)** e **4.6 (Polimento)**. Você pode pausar a sequência a qualquer momento.
+1. Listar `src/components/Agenda/` pra mapear arquivos exatos.
+2. Aplicar refinamentos: `calendar.tsx` → `AgendaDrawer.tsx` → `AgendaContent.tsx` → cards/listas internas.
+3. Validar visualmente. Depois sigo pra **Fase 4.1 — Planejador**.
 
