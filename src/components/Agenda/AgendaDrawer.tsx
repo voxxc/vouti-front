@@ -19,13 +19,18 @@ export function AgendaDrawer({ open, onOpenChange, initialDeadlineId }: AgendaDr
         <SheetTitle className="sr-only">Agenda</SheetTitle>
 
         {/* Header */}
-        <div className="flex items-center justify-between gap-2 px-4 md:px-6 py-3 border-b bg-background sticky top-0 z-10">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />
-            <span className="font-semibold text-lg">Agenda</span>
+        <div className="glass-surface sticky top-0 z-10 flex items-center justify-between gap-2 px-4 md:px-6 py-4 border-b border-border/60">
+          <div className="flex items-center gap-3">
+            <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-primary/10 text-primary">
+              <Calendar className="h-4 w-4" />
+            </div>
+            <div className="flex flex-col">
+              <span className="apple-h1 text-lg md:text-xl leading-tight">Agenda</span>
+              <span className="apple-subtitle text-xs">Prazos e compromissos</span>
+            </div>
           </div>
           <SheetClose asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-xl">
               <X className="h-4 w-4" />
               <span className="sr-only">Fechar</span>
             </Button>
