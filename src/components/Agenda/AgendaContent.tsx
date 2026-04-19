@@ -1082,7 +1082,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
 
     return (
       <div
-        className="border rounded-lg p-2.5 md:p-3 hover:bg-muted/30 transition-colors cursor-pointer flex items-center gap-2 md:gap-3"
+        className="rounded-xl border border-border/60 bg-card p-2.5 md:p-3 hover:bg-muted/40 hover:border-border transition-colors cursor-pointer flex items-center gap-2 md:gap-3"
         onClick={() => openDeadlineDetails(deadline)}
       >
         {/* Status dot */}
@@ -1091,7 +1091,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
         {/* Title + project + date on mobile */}
         <div className="flex-1 min-w-0">
           <p className={cn(
-            "text-sm font-medium truncate",
+            "text-sm font-medium truncate tracking-tight",
             deadline.completed && "line-through text-muted-foreground"
           )}>
             {deadline.title}
@@ -1123,7 +1123,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
         {/* Status badge - hidden on mobile */}
         <Badge 
           variant={deadline.completed ? "default" : isOverdue ? "destructive" : "secondary"}
-          className="text-xs shrink-0 hidden md:inline-flex"
+          className="text-[10px] shrink-0 hidden md:inline-flex rounded-full px-2 py-0.5 font-medium"
         >
           {deadline.completed ? "Concluído" : isOverdue ? "Vencido" : "Pendente"}
         </Badge>
@@ -1134,7 +1134,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+              className="h-7 w-7 p-0 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
               onClick={() => setConfirmCompleteDeadlineId(deadline.id)}
             >
               <CheckCircle2 className="h-4 w-4" />
@@ -1142,7 +1142,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-lg">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -1431,7 +1431,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
       <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
         {/* Calendar - Left: hidden on mobile (toggle), visible md+ */}
         <div className="hidden md:block lg:w-[670px] xl:w-[750px] shrink-0">
-          <div className="border rounded-lg p-4 bg-card">
+          <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
             <AgendaCalendar
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
@@ -1446,7 +1446,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
           {/* Mobile calendar toggle */}
           <div className="md:hidden">
             <button
-              className="flex items-center gap-2 text-sm font-medium text-primary py-1 w-full"
+              className="flex items-center gap-2 text-sm font-medium text-primary py-2 px-3 rounded-xl bg-primary/5 hover:bg-primary/10 transition-colors w-full"
               onClick={() => setShowMobileCalendar(v => !v)}
             >
               <CalendarIcon className="h-4 w-4" />
@@ -1454,7 +1454,7 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
               <ChevronDown className={cn("h-4 w-4 transition-transform ml-auto", showMobileCalendar && "rotate-180")} />
             </button>
             {showMobileCalendar && (
-              <div className="border rounded-lg p-3 bg-card mt-2 mb-1">
+              <div className="rounded-2xl border border-border/60 bg-card p-3 mt-2 mb-1 shadow-sm">
                 <AgendaCalendar
                   selectedDate={selectedDate}
                   onSelectDate={(date) => {
@@ -1473,10 +1473,10 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
             const forDate = getDeadlinesForDate(selectedDate).filter(d => !d.completed);
             return (
               <div>
-                <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-                  <CalendarIcon className="h-4 w-4" />
+                <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2 tracking-tight">
+                  <CalendarIcon className="h-4 w-4 text-primary" />
                   {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
-                  {forDate.length > 0 && ` (${forDate.length})`}
+                  {forDate.length > 0 && <span className="text-muted-foreground font-normal">({forDate.length})</span>}
                 </h4>
                 {forDate.length > 0 ? (
                   <div className="max-h-[312px] overflow-y-auto space-y-2 pr-2">
@@ -1485,9 +1485,12 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-6 text-muted-foreground border rounded-lg">
-                    <Clock className="h-6 w-6 mx-auto mb-1 opacity-50" />
-                    <p className="text-xs">Nenhum prazo para esta data</p>
+                  <div className="apple-empty rounded-2xl border border-border/60 bg-card py-8">
+                    <span className="apple-empty-icon">
+                      <Clock className="h-6 w-6" />
+                    </span>
+                    <p className="apple-empty-title">Sem prazos para esta data</p>
+                    <p className="apple-empty-subtitle">Aproveite o dia tranquilo.</p>
                   </div>
                 )}
               </div>

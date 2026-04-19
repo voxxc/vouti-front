@@ -30,14 +30,14 @@ const Agenda = () => {
     <DashboardLayout currentPage="agenda">
       <div className="space-y-4">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={handleBack} className="gap-2">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={handleBack} className="gap-2 rounded-xl">
             <ArrowLeft size={16} />
             Voltar
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Agenda</h1>
-            <p className="text-muted-foreground">Gerencie prazos e compromissos</p>
+            <h1 className="apple-h1">Agenda</h1>
+            <p className="apple-subtitle mt-0.5">Gerencie prazos e compromissos</p>
           </div>
         </div>
 
