@@ -166,6 +166,42 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  /* Apple-style glass surface (translucent + blur) */
+  .glass-surface {
+    background-color: hsl(var(--glass-bg));
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-color: hsl(var(--glass-border));
+  }
+
+  /* Apple-style KPI card */
+  .kpi-card {
+    @apply bg-card text-card-foreground rounded-2xl border border-border/60 p-5 transition-all duration-300;
+    box-shadow: var(--shadow-apple-sm);
+  }
+  .kpi-card:hover {
+    box-shadow: var(--shadow-apple-md);
+    transform: translateY(-1px);
+  }
+
+  /* Apple-style icon container (tinted) */
+  .kpi-icon {
+    @apply inline-flex items-center justify-center rounded-xl w-9 h-9 shrink-0;
+  }
+
+  /* Apple-style page headings */
+  .apple-h1 {
+    @apply text-2xl md:text-3xl font-semibold tracking-tight text-foreground;
+  }
+  .apple-subtitle {
+    @apply text-sm text-muted-foreground font-normal;
   }
 }
 
