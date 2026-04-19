@@ -10,10 +10,12 @@ import { FileCheck } from "lucide-react";
  export function ControladoriaDrawer({ open, onOpenChange }: ControladoriaDrawerProps) {
    return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
-       <SheetContent 
+      <SheetContent 
         side="inset"
         className="p-0 flex flex-col"
-       >
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
          <SheetTitle className="sr-only">Controladoria</SheetTitle>
          
         {/* Header - X automático do SheetContent */}

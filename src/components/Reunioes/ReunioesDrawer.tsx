@@ -11,10 +11,12 @@
  export function ReunioesDrawer({ open, onOpenChange }: ReunioesDrawerProps) {
    return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
-       <SheetContent 
-         side="inset"
-         className="p-0 flex flex-col"
-       >
+      <SheetContent 
+        side="inset"
+        className="p-0 flex flex-col"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
          <SheetTitle className="sr-only">Reuniões</SheetTitle>
          
          {/* Header */}

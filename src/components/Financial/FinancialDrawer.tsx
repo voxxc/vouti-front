@@ -56,6 +56,8 @@ export function FinancialDrawer({ open, onOpenChange }: FinancialDrawerProps) {
       <SheetContent 
         side="inset"
         className="p-0 flex flex-col"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
       >
         <SheetTitle className="sr-only">Financeiro</SheetTitle>
         

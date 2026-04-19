@@ -164,6 +164,8 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
       <SheetContent 
         side="inset"
         className="p-0 flex flex-col"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
       >
         <SheetTitle className="sr-only">CRM - {getHeaderTitle()}</SheetTitle>
         

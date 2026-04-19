@@ -134,7 +134,12 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
   if (selectedPub) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
-        <SheetContent side="inset" className="p-0 flex flex-col">
+        <SheetContent
+          side="inset"
+          className="p-0 flex flex-col"
+          onInteractOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
           <SheetTitle className="sr-only">Detalhe da Publicação</SheetTitle>
           <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedPub(null)}>
@@ -161,7 +166,12 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
-      <SheetContent side="inset" className="p-0 flex flex-col">
+      <SheetContent
+        side="inset"
+        className="p-0 flex flex-col"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
         <SheetTitle className="sr-only">Publicações</SheetTitle>
 
         {/* Header */}
