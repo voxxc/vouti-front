@@ -145,19 +145,21 @@ export function PlanejadorKanban({
           const tasks = filterTasks(tasksByColumn[col.id] || []);
           return (
             <div key={col.id} className="flex-shrink-0 w-72 flex flex-col min-h-0">
-              <div className="flex items-center gap-2 mb-3 px-1">
-                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: col.color }} />
-                <span className={`text-sm font-semibold truncate ${text}`}>{col.label}</span>
-                <span className={`text-xs font-medium ${textMuted}`}>({tasks.length})</span>
+              <div className="flex items-center gap-2 mb-3 px-2">
+                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-2 ring-white/40 dark:ring-white/10" style={{ backgroundColor: col.color }} />
+                <span className={`text-sm font-semibold tracking-tight truncate ${text}`}>{col.label}</span>
+                <span className={`ml-auto text-[11px] font-medium px-2 py-0.5 rounded-full ${
+                  isDark ? 'bg-white/10 text-white/70' : 'bg-black/[0.06] text-foreground/60'
+                }`}>{tasks.length}</span>
               </div>
               <Droppable droppableId={col.id} isDropDisabled={locked}>
                 {(provided, snapshot) => (
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className={`flex-1 min-h-[200px] rounded-xl p-2 transition-colors ${
-                      snapshot.isDraggingOver ? colDragOver : colBg
-                    }`}
+                    className={`flex-1 min-h-[200px] rounded-2xl p-2.5 transition-colors border ${
+                      isDark ? 'border-white/[0.04]' : 'border-black/[0.04]'
+                    } ${snapshot.isDraggingOver ? colDragOver : colBg}`}
                   >
                     <div className="space-y-2 overflow-y-auto h-full">
                       {tasks.map((task, index) => (
@@ -185,8 +187,8 @@ export function PlanejadorKanban({
                       ))}
                       {provided.placeholder}
                       {tasks.length === 0 && !snapshot.isDraggingOver && (
-                        <div className={`flex items-center justify-center h-20 text-xs ${textEmpty}`}>
-                          Nenhuma tarefa
+                        <div className={`flex flex-col items-center justify-center h-24 text-xs tracking-tight ${textEmpty}`}>
+                          <span>Nenhuma tarefa</span>
                         </div>
                       )}
                     </div>

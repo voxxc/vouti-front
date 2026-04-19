@@ -498,22 +498,21 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+      <div className="px-4 py-3 border-b border-border/60 flex items-center gap-2 bg-background/60 backdrop-blur-sm">
         <MessageSquare className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-semibold">Bate-papo da tarefa</span>
-        <span className="text-xs text-muted-foreground ml-auto">{messages.length} mensagens</span>
+        <span className="text-sm font-semibold tracking-tight">Bate-papo da tarefa</span>
+        <span className="text-[11px] text-muted-foreground ml-auto px-2 py-0.5 rounded-full bg-muted/60">{messages.length}</span>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-green-50/30 dark:bg-transparent" style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='p' width='40' height='40' patternUnits='userSpaceOnUse'%3E%3Cpath d='M20 5 Q22 2 24 5 L26 10 Q24 13 20 13 Q16 13 14 10 Z' fill='%239ca3af' opacity='0.04'/%3E%3Cpath d='M5 25 L10 20 L15 25 L10 30 Z' fill='%239ca3af' opacity='0.03'/%3E%3Ccircle cx='32' cy='28' r='3' fill='%239ca3af' opacity='0.03'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='200' height='200' fill='url(%23p)'/%3E%3C/svg%3E")`,
-        backgroundRepeat: 'repeat',
-      }}>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/20 dark:bg-transparent">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <MessageSquare className="h-10 w-10 mb-2 opacity-30" />
-            <p className="text-sm">Nenhuma mensagem ainda</p>
-            <p className="text-xs opacity-60">Comece a conversar sobre esta tarefa</p>
+            <div className="h-12 w-12 rounded-2xl bg-muted/60 flex items-center justify-center mb-3">
+              <MessageSquare className="h-6 w-6 opacity-50" />
+            </div>
+            <p className="text-sm font-medium tracking-tight">Nenhuma mensagem ainda</p>
+            <p className="text-xs opacity-60 mt-0.5">Comece a conversar sobre esta tarefa</p>
           </div>
         )}
         {messages.map((msg) => {
@@ -530,10 +529,10 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
                 </span>
 
                 <div className={cn(
-                  "rounded-xl px-3 py-2 text-sm relative",
+                  "rounded-2xl px-3.5 py-2 text-sm relative shadow-sm",
                   isOwn
-                    ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                    : 'bg-muted rounded-tl-sm'
+                    ? 'bg-primary text-primary-foreground rounded-tr-md'
+                    : 'bg-background border border-border/60 rounded-tl-md'
                 )}>
                   {/* Reply quote */}
                   {msg.reply_to_id && (
@@ -696,7 +695,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
       )}
 
       {/* Input area */}
-      <div className="p-3 border-t border-border">
+      <div className="p-3 border-t border-border/60 bg-background/60 backdrop-blur-sm">
         {isRecording ? (
           <div className="flex items-center gap-2">
             <Button size="icon" variant="ghost" onClick={cancelRecording} className="text-destructive">
