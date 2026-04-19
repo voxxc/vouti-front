@@ -1,82 +1,108 @@
 
 
-## Fase 4.1 — Planejador (Kanban + Chat)
+## Fase 4.3 — CRM (Inbox + Conversas + Tickets)
 
 ### Causa raiz / Justificativa
 
-Próxima sub-fase pendente. O Planejador tem layout Kanban custom (colunas + cards de tarefa) e um chat lateral, ambos com visual pré-Apple. É o módulo mais complexo visualmente das sub-fases restantes (depois só sobra CRM).
+Penúltima sub-fase pendente. O CRM (WhatsApp) é o módulo mais complexo visualmente: tem topbar próprio, sidebar de seções, lista de conversas (inbox), thread de mensagens (chat), painel de tickets e drawers de detalhes. Tudo ainda com visual pré-Apple.
 
-### Exploração necessária antes de implementar
+### Exploração necessária
 
-Vou ler para mapear:
-- `src/pages/Planejador.tsx` (ou similar) — header e layout raiz
-- `src/components/Planejador/` — Kanban board, colunas, cards, chat
-- Identificar arquivos: `KanbanBoard`, `KanbanColumn`, `TaskCard`, `TaskDialog`, `ChatPanel` (ou nomes equivalentes)
+Vou ler antes de aplicar:
+- `src/components/WhatsApp/components/CRMTopbar.tsx` (já visto — base do header)
+- `src/components/WhatsApp/WhatsAppDrawer.tsx` e/ou `WhatsAppInbox.tsx`
+- `src/components/WhatsApp/WhatsAppAllConversations.tsx`
+- Componentes de mensagem: `MessageBubble`, `MessageThread`, `MessageInput` (ou nomes equivalentes)
+- Painel de tickets: `TicketsPanel` / `TicketCard`
+- Lista de conversas: `ConversationList` / `ConversationItem`
 
 ### O que vai mudar
 
-**1. Header da página**
-- `apple-h1` / `apple-subtitle`.
-- Toolbar (filtros, busca, botão "Nova tarefa") com espaçamento mais arejado, botões refinados.
+**1. Topbar do CRM**
+- Já tem boa estrutura. Refinar: aplicar `glass-surface` no header (efeito blur sutil), tipografia do logo mantida, busca com `rounded-xl` e ícone refinado.
 
-**2. Colunas do Kanban**
-- Container da coluna: `rounded-2xl`, `bg-muted/30`, `border-border/40`.
-- Header da coluna: tipografia `font-semibold tracking-tight`, contador como pílula sutil (`bg-background/60 rounded-full`).
-- Indicador de cor da coluna (já existe via `KANBAN_COLUMNS`) refinado como dot/bar lateral.
-- Espaçamento interno mais generoso.
+**2. Sidebar de seções (Inbox, Tickets, Projetos, etc.)**
+- Items com `apple-list-item` (rounded-xl, hover suave).
+- Item ativo: `bg-primary/10 text-primary` (não chapado).
+- Ícones em containers tintados sutis.
+- Badge de contador como pílula `rounded-full`.
 
-**3. Cards de tarefa**
-- `rounded-xl`, `border-border/60`, sombra muito sutil (`shadow-sm`).
-- Hover: leve elevação (`hover:shadow-md hover:-translate-y-0.5 transition-all`).
-- Tipografia do título: `font-medium tracking-tight`.
-- Badges de prioridade/prazo como pílulas (`rounded-full`, cores tintadas).
-- Avatar do responsável + ícones de meta (anexos, comentários) mais sutis.
-- Indicador visual quando é subtask (já existe lógica `is_subtask`).
+**3. Lista de conversas (Inbox)**
+- Cards de conversa com `rounded-xl`, hover elevado sutil.
+- Avatar com ring sutil, nome em `font-medium tracking-tight`.
+- Última mensagem com `text-muted-foreground text-sm`.
+- Badge de não-lidas como pílula `bg-primary text-primary-foreground rounded-full`.
+- Timestamp discreto, `text-xs`.
+- Divisores leves entre items (`border-border/40`).
+- Conversa selecionada: `bg-primary/5` com indicador lateral.
 
-**4. Chat lateral (se houver no Planejador)**
-- Bolhas de mensagem `rounded-2xl` (cantos arredondados estilo iOS).
-- Recebida: `bg-muted`, enviada: `bg-primary/10 text-foreground` (sutil, não chapado).
-- Input com `glass-surface` ou borda refinada, `rounded-xl`.
-- Header do chat com `glass-surface` se for drawer.
+**4. Thread de mensagens (chat principal)**
+- Header da conversa com `glass-surface` (consistente com outros drawers).
+- Bolhas de mensagem estilo iMessage:
+  - Recebida: `bg-muted rounded-2xl` (cantos arredondados, ponta inferior-esquerda menor).
+  - Enviada: `bg-primary text-primary-foreground rounded-2xl` (ponta inferior-direita menor).
+  - Mídia (imagens/áudio): `rounded-xl` com sombra sutil.
+- Timestamp e status (entregue/lido) discretos abaixo da bolha.
+- Input de mensagem: `glass-surface` no container, textarea com `rounded-xl`, botão de enviar refinado.
 
-**5. Dialog de criação/edição de tarefa**
-- Já herda da Fase 2 (Dialog refinado), validar visual.
-- Formulário interno com espaçamento e tipografia consistentes.
+**5. Painel de tickets**
+- Tabs (5 abas conforme memory `ticket-management-lifecycle-and-tabs`) com `apple-segmented`.
+- Cards de ticket com `rounded-xl`, badges de prioridade/status como pílulas tintadas.
+- Empty state com `apple-empty`.
 
-**6. Empty states**
-- Coluna vazia: texto sutil + ícone (`apple-empty` simplificado).
+**6. Drawers e modais (transferência, detalhes do contato, AI config)**
+- Headers com `glass-surface` + tipografia `apple-h1`.
+- Já herdam Dialog refinado da Fase 2.
+
+**7. Quick search e notificações**
+- `CRMQuickSearch`: input com `rounded-xl`, dropdown de resultados estilo Apple Spotlight.
+- `CRMNotificationsBell`: dropdown com items refinados.
 
 ### Arquivos afetados (estimativa, vou confirmar lendo o diretório)
 
-- `src/pages/Planejador.tsx` (header)
-- `src/components/Planejador/KanbanBoard.tsx` (ou similar)
-- `src/components/Planejador/KanbanColumn.tsx`
-- `src/components/Planejador/TaskCard.tsx`
-- `src/components/Planejador/TaskDialog.tsx` (validação)
-- `src/components/Planejador/ChatPanel.tsx` ou `ChatDrawer.tsx` (se existir)
+- `src/components/WhatsApp/components/CRMTopbar.tsx`
+- `src/components/WhatsApp/components/CRMSidebar.tsx` (ou nome similar)
+- `src/components/WhatsApp/WhatsAppInbox.tsx`
+- `src/components/WhatsApp/WhatsAppAllConversations.tsx`
+- `src/components/WhatsApp/components/ConversationList.tsx` (ou similar)
+- `src/components/WhatsApp/components/MessageBubble.tsx` / `MessageThread.tsx`
+- `src/components/WhatsApp/components/MessageInput.tsx`
+- `src/components/WhatsApp/components/TicketsPanel.tsx` (ou similar)
+- `src/components/WhatsApp/components/CRMQuickSearch.tsx`
+- `src/components/WhatsApp/components/CRMNotificationsBell.tsx`
 
 ### Impacto
 
-- **UX**: Planejador fica visualmente coeso com Dashboard/Controladoria/Financeiro/Agenda. Kanban com aparência de Linear/Notion (cards arredondados, hover sutil). Chat com bolhas estilo iMessage.
-- **Dados**: zero mudanças. Lógica de categorização Kanban (memory `planejador-kanban-column-logic`), subtasks-as-cards, drag-and-drop, RLS de arquivos (memory `planejador-files-access`) — **tudo intacto**.
-- **Performance**: imperceptível (só CSS).
+- **UX**: CRM fica visualmente coeso com os demais módulos refinados. Thread de mensagens com aparência iMessage/WhatsApp moderno. Inbox mais legível e arejado. Tickets com hierarquia clara.
+- **Dados**: zero mudanças. Toda a lógica crítica fica intacta:
+  - Roteamento e atribuição de mensagens (memory `message-routing-and-attribution-standard`).
+  - Normalização de telefone (memory `crm-phone-normalization-enforcement`).
+  - Real-time via signals (memory `real-time-sync-architecture`).
+  - Acesso a histórico (memory `conversation-history-access-and-routing`).
+  - Tickets lifecycle (memory `ticket-management-lifecycle-and-tabs`).
+  - Multi-provider AI/API (memories `ai-multi-provider-routing-standard`, `api-integration-standards-v2`).
+- **Performance**: imperceptível (só CSS). RPCs de paginação (memory `crm-performance-pagination-rpc`) não afetadas.
 - **Riscos colaterais**:
-  - Kanban tem drag-and-drop — mudanças de padding/border podem afetar cálculo visual do drop zone. Vou preservar dimensões base e mexer só em estética (cores, borders, sombras).
-  - Cards reutilizados em outros lugares? Vou verificar antes.
-- **Quem é afetado**: todos os usuários do sistema jurídico que usam o Planejador (todas as roles têm acesso, conforme memory `agenda-visibility-logic-non-admin`).
+  - Realtime atualiza cards de conversa frequentemente — vou garantir que transições CSS sejam suaves e não causem flicker.
+  - Bolhas de mensagem têm muita variação (texto, imagem, áudio, documento, citação) — vou refinar mantendo todas as variantes funcionais.
+  - Mobile (390px): inbox vira tela cheia ao selecionar conversa — preservar esse comportamento.
+- **Quem é afetado**: usuários do CRM standalone (`crm.vouti.co/:tenant`) e do CRM integrado dentro do sistema jurídico. Veridicto/VoTech: não afetados.
 
 ### Validação
 
-1. `/solvenza/planejador` → header + colunas + cards refinados.
-2. Drag-and-drop entre colunas → funciona normal, sem glitch visual.
-3. Abrir dialog de tarefa → formulário consistente.
-4. Chat lateral (se houver) → bolhas e input refinados.
-5. Dark mode + viewport 390px (mobile o Kanban vira scroll horizontal — validar).
-6. Outros módulos (Dashboard, Agenda, Financeiro) → zero regressão.
+1. `/solvenza/crm` (integrado) e `crm.vouti.co/solvenza` (standalone) → topbar, sidebar, inbox e thread refinados.
+2. Selecionar conversa → bolhas estilo iMessage, header com glass.
+3. Enviar mensagem → input refinado, animação suave.
+4. Abrir painel de tickets → 5 abas com `apple-segmented`, cards refinados.
+5. Quick search e notificações → dropdowns Apple-style.
+6. Realtime: nova mensagem chegando atualiza inbox sem flicker.
+7. Mobile (390px): inbox → conversa funciona normal.
+8. Dark mode → contraste ok em todas as bolhas e estados.
+9. Outros módulos (Dashboard, Agenda, Financeiro, Planejador) → zero regressão.
 
 ### Próximo passo após aprovação
 
-1. Listar `src/components/Planejador/` pra mapear arquivos exatos.
-2. Aplicar refinamentos: header → colunas → cards → chat → dialog.
-3. Validar visualmente. Depois sigo pra **Fase 4.3 — CRM** (a mais complexa, deixei por último entre os módulos grandes).
+1. Listar `src/components/WhatsApp/` pra mapear arquivos exatos.
+2. Aplicar refinamentos em ordem: Topbar → Sidebar → Inbox → Thread/Bolhas → Input → Tickets → Drawers/Search/Notificações.
+3. Validar visualmente. Depois sigo pra **Fase 4.6 — Polimento final** (Bot Workflow, Auth, Settings — última sub-fase).
 
