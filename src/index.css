@@ -217,6 +217,25 @@ All colors MUST be HSL.
   .apple-subtitle {
     @apply text-sm text-muted-foreground font-normal;
   }
+
+  /* Apple-style empty state */
+  .apple-empty {
+    @apply flex flex-col items-center justify-center py-10 text-center;
+  }
+  .apple-empty-icon {
+    @apply inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-muted/60 text-muted-foreground mb-4;
+  }
+  .apple-empty-title {
+    @apply text-base font-medium text-foreground;
+  }
+  .apple-empty-subtitle {
+    @apply text-sm text-muted-foreground mt-1;
+  }
+
+  /* Apple-style list item (rows inside cards) */
+  .apple-list-item {
+    @apply flex items-center justify-between gap-3 p-3 rounded-xl bg-muted/30 hover:bg-muted/60 transition-colors;
+  }
 }
 
 /* Hero floating badges animations */
