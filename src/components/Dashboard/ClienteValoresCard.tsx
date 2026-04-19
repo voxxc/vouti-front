@@ -29,9 +29,9 @@ export const ClienteValoresCard = ({ data, menorContrato, maiorContrato, ticketM
             <p className="text-sm">Dados ocultos no modo privacidade</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {data.map((item) => (
-              <div key={item.faixa} className="space-y-1">
+              <div key={item.faixa} className="space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium text-foreground">{item.faixa}</span>
                   <span className="text-muted-foreground">
@@ -41,9 +41,9 @@ export const ClienteValoresCard = ({ data, menorContrato, maiorContrato, ticketM
                     </span>
                   </span>
                 </div>
-                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                <div className="h-1 w-full bg-muted/40 overflow-hidden rounded-sm">
                   <div
-                    className="h-full rounded-full bg-primary/80 transition-all duration-500"
+                    className="h-full bg-primary/70 transition-all duration-500 rounded-sm"
                     style={{ width: `${(item.count / maxCount) * 100}%` }}
                   />
                 </div>
