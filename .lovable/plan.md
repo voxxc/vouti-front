@@ -2,72 +2,52 @@
 
 ## Causa raiz
 
-O usuário está em `/solvenza/dashboard` e reclama do visual "feio" das barras com fundo branco — provavelmente o componente `ClienteValoresCard.tsx` (Faixas de Valor de Contrato) que tem barras de progresso. Preciso confirmar quais barras estão na tela atual.
+Problemas no card da aba **Prazos** (`PlanejadorPrazosView.tsx`):
 
-Pela rota `/solvenza/dashboard` e pelo screenshot mental do que mostrei (`ClienteValoresCard`), as barras são:
-- `<div className="h-2 w-full rounded-full bg-muted overflow-hidden">` → fundo claro (no light theme aparece quase branco)
-- `<div className="h-full rounded-full bg-primary/80">` → barra preenchida
+1. **Nome do responsável corta** — `max-w-[80px] truncate` + apenas `.split(" ")[0]` (primeiro nome) — em colunas estreitas, mesmo o primeiro nome cortou pra "Da…", "Gilm…".
+2. **Layout horizontal apertado** — data + ícone + nome forçados na **mesma linha**, sem espaço suficiente em colunas de ~260-300px.
+3. **Coluna com largura rígida** (`min-w-[260px] max-w-[300px]`) — não se adapta bem a viewports menores nem maiores.
+4. **Faixa "vazia" à direita do card** (visível na primeira imagem) — é o `ScrollArea` reservando espaço pra scrollbar mesmo quando não rola, criando aquela faixa morta.
 
-O "fundo branco" que incomoda é o `bg-muted` do trilho da barra. Visual pesado, sem necessidade.
+## Correção
 
-Deixa eu confirmar lendo o dashboard pra ver se tem outros cards com barras similares.
+### Card de prazo (responsivo)
+- **Quebrar layout em 2 linhas** quando necessário: data em uma linha, responsável em outra, em vez de forçar tudo lado a lado.
+- **Remover `max-w-[80px]`** do nome — deixar `truncate` natural ocupar o espaço disponível.
+- **Mostrar nome completo** (não só primeiro nome) com `truncate` — se couber, aparece tudo; se não, mostra "…" no fim de forma elegante.
+- **Categoria (amber badge)** já tem espaço próprio — manter.
+- Padding interno: `p-3` → `p-2.5` pra ganhar uns pixels.
 
-## Plano
+### Coluna (responsiva)
+- Trocar `min-w-[260px] max-w-[300px]` por `min-w-[240px]` sem max — assim em telas grandes as colunas crescem e cabe mais conteúdo.
+- Em mobile (`<768px`), colunas com `min-w-[280px]` pra leitura confortável (scroll horizontal já existe).
 
-Vou primeiro inspecionar o dashboard atual pra mapear **todos** os cards com barras visuais (não só o `ClienteValoresCard`), pra propor um padrão minimalista consistente — não adianta arrumar um e deixar outros feios.
+### Scrollbar morta
+- Trocar `ScrollArea` por `div` com `overflow-y-auto` + classe `scrollbar-thin` (custom) ou esconder scrollbar quando não há overflow — elimina a faixa morta à direita.
 
-**Componentes a inspecionar:**
-- `src/pages/Dashboard.tsx` (ou similar) — pra ver quais cards renderizam
-- `ClienteValoresCard.tsx` — barras horizontais com `bg-muted`
-- Outros cards do dashboard que usem `<Progress>` ou divs com barras
+## Arquivos afetados
 
-### Correção proposta (minimalista)
-
-**Antes** (pesado):
-```
-trilho: h-2 bg-muted rounded-full (fundo cinza claro/branco visível)
-barra: bg-primary/80 (preenchimento sólido)
-```
-
-**Depois** (minimalista):
-- Reduzir altura do trilho: `h-2` → `h-1` (linha fina, discreta)
-- Trilho mais sutil: `bg-muted` → `bg-muted/40` (quase invisível, só dica visual)
-- Barra preenchida mais leve: `bg-primary/80` → `bg-primary/70` mantendo cor
-- Remover `rounded-full` no trilho se ficar melhor visualmente com cantos retos finos
-- Espaçamento entre items: `space-y-3` → `space-y-2.5` pra compactar
-
-Resultado: barra parece mais com uma "linha de progresso" do que um "elemento UI volumoso" — segue tendência minimalista (Linear, Notion, Vercel).
-
-### Aplicar o mesmo padrão nos outros cards do dashboard
-
-Se houver outros cards com `<Progress>` do shadcn ou divs similares, padronizar todos pra mesma altura/opacidade.
-
-## Arquivos afetados (preliminar — confirmo no plano final)
-
-- `src/components/Dashboard/ClienteValoresCard.tsx` — barras de faixas de valor
-- Possivelmente outros cards do dashboard Solvenza com barras (a confirmar após inspeção)
+- `src/components/Planejador/PlanejadorPrazosView.tsx` — único arquivo.
 
 ## Impacto
 
 - **Usuário final (UX)**:
-  - Visual do dashboard fica **mais limpo e minimalista**, com barras finas que não competem por atenção com os números/labels.
-  - Informação continua clara (largura proporcional ainda comunica o ranking), só sem peso visual.
-  - Fundo branco/cinza chamativo do trilho some — sensação de "card mais leve".
-- **Dados**: zero mudanças. Puramente CSS/Tailwind.
-- **Performance**: nenhum impacto.
+  - Nome do responsável **não corta mais** abruptamente — ou cabe inteiro, ou trunca elegantemente com "…" usando o espaço real disponível.
+  - Nome **completo** (ex: "Daniela Silva") em vez de só primeiro — mais informação útil.
+  - Faixa morta à direita do card desaparece — visual mais limpo.
+  - **Responsivo de verdade**: em telas grandes, colunas crescem; em mobile, mantém largura mínima legível com scroll horizontal.
+- **Dados**: zero mudanças. Puramente visual/CSS.
+- **Performance**: nenhum impacto (na verdade leve melhora ao remover `ScrollArea` do Radix).
 - **Riscos colaterais**:
-  - **Muito baixo**. Só estilo. Se barra ficar fina demais em telas pequenas, ajusto pra `h-1.5`.
-  - Se outros lugares do app usarem o mesmo padrão de barra (fora do dashboard), eles ficam **inalterados** — só mexo nos cards do dashboard que o usuário tá vendo.
+  - **Muito baixo**. Só estilo. Se em alguma resolução específica ficar estranho, ajusto fino.
+  - Se algum tenant tiver nomes de responsável muito longos (ex: "Maria Aparecida da Conceição Silva"), o `truncate` natural lida.
 - **Quem é afetado**:
-  - **Todos os usuários** do Solvenza no dashboard.
-  - Outros tenants do sistema também (já que o componente é compartilhado), mas pra melhor — visual mais profissional.
+  - **Todos os usuários** que abrem aba "Prazos" do Planejador, em qualquer tenant.
 
 ## Validação
 
-1. Abrir `/solvenza/dashboard` → card "Faixas de Valor de Contrato" → barras devem aparecer finas e discretas, sem fundo branco chamativo.
-2. Verificar em dark mode → barras devem manter contraste adequado.
-3. Testar com dados extremos (1 cliente vs 100 clientes) → proporções continuam visíveis.
-4. Verificar outros cards do dashboard se foram identificados na inspeção.
-
-**Próximo passo após aprovação**: vou ler o `Dashboard.tsx` do Solvenza pra confirmar quais cards têm barras antes de aplicar — assim o padrão fica consistente.
+1. Abrir `/solvenza/dashboard` → Planejador → aba **Prazos** → confirmar que cards mostram nome completo do responsável (ou trunca limpo) e sem faixa morta à direita.
+2. Redimensionar janela (1920px → 1280px → 768px) — colunas devem se adaptar.
+3. Testar em mobile (viewport 390px) — scroll horizontal funcional, cards legíveis.
+4. Testar com prazo sem responsável e sem categoria — layout não quebra.
 
