@@ -236,6 +236,30 @@ All colors MUST be HSL.
   .apple-list-item {
     @apply flex items-center justify-between gap-3 p-3 rounded-xl bg-muted/30 hover:bg-muted/60 transition-colors;
   }
+
+  /* Apple-style underlined tabs (iOS-style horizontal nav) */
+  .apple-tab-bar {
+    @apply flex gap-6 border-b border-border/60 flex-shrink-0;
+  }
+  .apple-tab {
+    @apply pb-2.5 text-sm font-medium transition-colors relative flex items-center gap-2 text-muted-foreground hover:text-foreground;
+  }
+  .apple-tab[data-active="true"] {
+    @apply text-foreground;
+  }
+  .apple-tab[data-active="true"]::after {
+    content: "";
+    @apply absolute -bottom-px left-0 right-0 h-0.5 bg-primary rounded-full;
+  }
+
+  /* Apple-style segmented control (iOS pill segmented) — used inside shadcn TabsList */
+  .apple-segmented {
+    @apply inline-flex items-center gap-1 p-1 rounded-xl bg-muted/60 border border-border/40;
+  }
+  .apple-segmented [role="tab"],
+  .apple-segmented > button {
+    @apply rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm;
+  }
 }
 
 /* Hero floating badges animations */

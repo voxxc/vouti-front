@@ -97,74 +97,46 @@ export const CentralControladoria = () => {
 
   return (
     <div className="flex-1 flex flex-col space-y-4">
-      <div className="flex gap-6 border-b flex-shrink-0">
+      <div className="apple-tab-bar">
         <button
           onClick={() => setActiveTab('andamentos')}
-          className={cn(
-            "pb-2 text-sm font-medium transition-colors relative flex items-center gap-2",
-            activeTab === 'andamentos'
-              ? "text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          )}
+          data-active={activeTab === 'andamentos'}
+          className="apple-tab"
         >
           Andamentos Não Lidos
           {totalNaoLidos > 0 && (
-            <Badge variant="destructive" className="h-5 min-w-5 px-1.5">
+            <Badge variant="destructive" className="h-5 min-w-5 px-1.5 rounded-full">
               {totalNaoLidos > 999 ? '999+' : totalNaoLidos}
             </Badge>
-          )}
-          {activeTab === 'andamentos' && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
           )}
         </button>
         <button
           onClick={() => setActiveTab('prazos')}
-          className={cn(
-            "pb-2 text-sm font-medium transition-colors relative",
-            activeTab === 'prazos'
-              ? "text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          )}
+          data-active={activeTab === 'prazos'}
+          className="apple-tab"
         >
           Prazos Concluídos
-          {activeTab === 'prazos' && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-          )}
         </button>
         {isSolvenza && (
           <button
             onClick={() => setActiveTab('subtarefas')}
-            className={cn(
-              "pb-2 text-sm font-medium transition-colors relative flex items-center gap-2",
-              activeTab === 'subtarefas'
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            )}
+            data-active={activeTab === 'subtarefas'}
+            className="apple-tab"
           >
             Subtarefas
             {totalSubtarefasPendentes > 0 && (
-              <Badge className="h-5 min-w-5 px-1.5 bg-orange-500 hover:bg-orange-500 text-white border-transparent">
+              <Badge className="h-5 min-w-5 px-1.5 rounded-full bg-[hsl(var(--chart-3))] hover:bg-[hsl(var(--chart-3))] text-white border-transparent">
                 {totalSubtarefasPendentes > 999 ? '999+' : totalSubtarefasPendentes}
               </Badge>
-            )}
-            {activeTab === 'subtarefas' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
             )}
           </button>
         )}
         <button
           onClick={() => setActiveTab('indicadores')}
-          className={cn(
-            "pb-2 text-sm font-medium transition-colors relative",
-            activeTab === 'indicadores'
-              ? "text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          )}
+          data-active={activeTab === 'indicadores'}
+          className="apple-tab"
         >
           Indicadores
-          {activeTab === 'indicadores' && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-          )}
         </button>
       </div>
 
