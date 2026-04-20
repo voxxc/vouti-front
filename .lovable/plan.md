@@ -1,63 +1,51 @@
 
 
-## Teste visual: topbar liso e integrado ao sidebar — apenas tenant `demorais`
+## Ajuste: linha horizontal contínua abaixo do logo + topbar (tenant `demorais`)
 
-### Referência (imagem Astrea)
-- Topbar **sem linha divisória inferior** — fundo branco contínuo.
-- Sidebar com fundo idêntico ao topbar — não há borda horizontal separando os dois; visualmente "fundem".
-- Borda vertical sutil só **à direita do sidebar**, separando do conteúdo.
-- Conteúdo principal (área cinza clara) é o único que destaca por contraste de fundo.
+### Reinterpretação correta da referência
+Na imagem Astrea, existe **uma linha horizontal contínua** que atravessa a tela inteira, logo abaixo da altura do logo/topbar. Ela separa visualmente:
+- **Faixa superior** = bloco do logo (esquerda) + topbar (direita), mesmo fundo, mesma altura, **conectados sem divisor vertical entre eles**
+- **Faixa inferior** = itens do sidebar (esquerda) + conteúdo principal (direita)
 
-### Estado atual (Vouti)
-- `header` em `DashboardLayout.tsx`: `sticky top-0 z-30 border-b glass-surface` com altura `h-[52px]`.
-- `aside` do `DashboardSidebar.tsx`: `glass-surface border-r border-border/60`, e o bloco do logo tem `border-b border-border/60` (linha que cria a "quebra" visual entre logo e itens).
-- Resultado: 3 linhas visíveis (header bottom, logo bottom do sidebar, divisor após "Suporte").
+O que fiz antes foi **remover** essa linha. O correto é **manter** a linha embaixo do logo E garantir que o topbar tenha a mesma linha embaixo, alinhadas, formando um divisor único.
 
-### Mudança proposta (escopo: somente quando `tenantSlug === 'demorais'`)
+### Estado atual após última mudança
+- `DashboardSidebar.tsx` (flatTopbar=true): bloco do logo SEM `border-b` ❌ (deveria ter)
+- `DashboardLayout.tsx` (demorais): `<header>` SEM `border-b` ❌ (deveria ter)
+- Resultado visual: nenhuma linha → cabeçalho "flutua" sem separação do conteúdo.
 
-**1. Detectar tenant no Layout e Sidebar**
-- Em `DashboardLayout.tsx` já existe `const { tenant: tenantSlug } = useParams()`. Criar `const isFlatTopbar = tenantSlug === 'demorais'`.
-- Passar essa flag como prop opcional `flatTopbar?: boolean` para `DashboardSidebar` (também já tem `useParams`, mas centralizar via prop garante consistência).
+### Correção
 
-**2. Header (`DashboardLayout.tsx`, linha 411)**
-- Quando `isFlatTopbar`, trocar classes:
-  - Remover `border-b` e `glass-surface`.
-  - Aplicar `bg-background` (mesma cor do sidebar para "fundir").
-  - Manter `sticky top-0 z-30 h-[52px]`.
-- Quando NÃO `isFlatTopbar`: manter classes atuais (nenhuma regressão para outros tenants).
+**1. `DashboardSidebar.tsx` — restaurar `border-b` no bloco do logo mesmo quando `flatTopbar`**
+- Remover a condicional `!flatTopbar &&` da linha do logo.
+- O `border-b border-border/60` volta a ser aplicado SEMPRE (independente do flatTopbar).
+- O fundo continua `bg-background` (não `glass-surface`) quando flatTopbar — para fundir com o topbar.
 
-**3. Sidebar (`DashboardSidebar.tsx`)**
-- Quando `flatTopbar`:
-  - `aside`: trocar `glass-surface` por `bg-background`. Manter `border-r border-border/60` (essa borda vertical é desejada — separa sidebar do conteúdo, igual à referência).
-  - Bloco do logo (linha 186-189): remover `border-b border-border/60` (some a linha horizontal que quebrava a continuidade com o topbar).
-  - Divisores de "Suporte" e "Collapse Toggle" (linhas 281, 296): manter, ou trocar para `border-border/30` mais sutil — opcional, decidir na hora.
-- Quando NÃO `flatTopbar`: nenhuma mudança (atual).
+**2. `DashboardLayout.tsx` — restaurar `border-b` no `<header>` quando `demorais`**
+- A classe condicional do header passa a ser:
+  - `demorais`: `"sticky top-0 z-30 h-[52px] bg-background border-b border-border/60"`
+  - outros: `"sticky top-0 z-30 h-[52px] border-b glass-surface"` (inalterado)
+- Assim a linha do header se alinha perfeitamente com a linha do logo no sidebar (ambas em `top: 52px`), criando o divisor horizontal contínuo da referência.
 
-**4. Conteúdo principal**
-- Para reforçar o contraste estilo Astrea (área central levemente cinza), opcionalmente aplicar `bg-muted/20` na div `flex-1 flex flex-col` (linha 409) **somente** quando `isFlatTopbar`. Sem mudar background do `min-h-screen` global. Decidir após primeira passada se está bom sem isso.
+**3. Garantir alinhamento de altura**
+- Logo block: `h-[52px]` ✅ (já é)
+- Header: `h-[52px]` ✅ (já é)
+- As duas bordas ficam exatamente na mesma linha Y → divisor contínuo.
 
 ### Arquivos afetados
-
-- **`src/components/Dashboard/DashboardLayout.tsx`**: detectar `isFlatTopbar`, ajustar classes do `<header>`, passar prop pro sidebar.
-- **`src/components/Dashboard/DashboardSidebar.tsx`**: aceitar prop `flatTopbar`, ajustar classes do `<aside>` e do bloco do logo.
-- **Nenhuma migration, nenhum hook, nenhum componente novo.**
+- `src/components/Dashboard/DashboardSidebar.tsx` — remover condicional `!flatTopbar`, deixar `border-b` sempre.
+- `src/components/Dashboard/DashboardLayout.tsx` — adicionar `border-b border-border/60` à classe condicional do `demorais`.
 
 ### Impacto
-
-- **Usuário final (UX)**: apenas usuários do tenant `demorais` (rota `/demorais/*`) verão o novo visual: topbar sem borda inferior, fundo contínuo entre topbar e sidebar, aspecto mais "limpo/Astrea-like". Todos os outros tenants (`solvenza`, `vouti`, etc.) continuam com o visual glass atual — zero regressão.
-- **Dados**: nenhuma alteração de DB, RLS, schema. Mudança 100% cosmética e condicional por slug.
-- **Riscos colaterais**:
-  - `glass-surface` aplica blur + alpha; trocá-lo por `bg-background` no demorais pode parecer "menos premium" no tema escuro — vale checar nos dois temas.
-  - Como o teste é por slug, se algum dia o tenant mudar de slug, o visual reverte automaticamente. Quando virar padrão Vouti, basta remover o condicional.
-- **Quem é afetado**: somente usuários autenticados que navegam em rotas `/demorais/*` no Dashboard. CRM standalone (`/crm/:tenant`) não é afetado nesta etapa (escopo só Dashboard, conforme imagem). Se quiser estender depois para CRM, é trivial replicar em `CRMTopbar.tsx`.
+- **UX (`demorais`)**: agora sim igual à referência Astrea — faixa superior contínua (logo+topbar mesmo fundo, sem divisor vertical entre eles), separada do restante por **uma linha horizontal única** que atravessa toda a largura.
+- **Outros tenants**: zero mudança.
+- **Dados/RLS**: nenhuma.
+- **Riscos**: nenhum — apenas reposiciona uma borda já existente.
 
 ### Validação
-
-1. Logar no tenant `demorais` → `/demorais/dashboard`: topbar **sem linha** entre header e sidebar; logo do sidebar continua sem linha embaixo; fundo contínuo.
-2. Abrir em tema claro e tema escuro — conferir contraste e legibilidade.
-3. Logar/navegar em outro tenant (ex: `/solvenza/dashboard`): visual antigo intacto (border-b + glass).
-4. Navegar para drawers (Projetos, Agenda, etc.) dentro do `demorais`: topbar segue sem borda; drawers abrem normalmente.
-5. Mobile (< 768px): topbar continua funcional, sem linha visível.
-6. Recolher sidebar (`isCollapsed`): conexão visual com o topbar permanece consistente.
-7. Confirmar com usuário: se aprovar, próximo passo é remover o condicional e tornar padrão para todo o Vouti (e replicar no CRM standalone).
+1. `/demorais/dashboard`: linha horizontal sutil aparece logo abaixo do logo, alinhada e contínua com a borda inferior do topbar.
+2. Conferir que **não há** linha vertical separando o bloco do logo do início do topbar (fundo contínuo lateral).
+3. Tema claro e escuro: borda sutil mas visível.
+4. Outros tenants (`/solvenza/...`): visual glass anterior intacto.
+5. Sidebar recolhido: linha continua alinhada.
 
