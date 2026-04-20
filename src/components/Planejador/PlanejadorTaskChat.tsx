@@ -103,11 +103,15 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
   // Delete message mutation
   const deleteMessage = useMutation({
     mutationFn: async (messageId: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('planejador_task_messages')
         .delete()
-        .eq('id', messageId);
+        .eq('id', messageId)
+        .select();
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Sem permissão para apagar esta mensagem');
+      }
     },
     onMutate: async (messageId: string) => {
       await queryClient.cancelQueries({ queryKey: ['planejador-messages', taskId] });
@@ -135,11 +139,15 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
   // Update (edit) message mutation
   const updateMessage = useMutation({
     mutationFn: async ({ messageId, content }: { messageId: string; content: string }) => {
-      const { error } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from('planejador_task_messages')
         .update({ content, edited_at: new Date().toISOString() })
-        .eq('id', messageId);
+        .eq('id', messageId)
+        .select();
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Sem permissão para editar esta mensagem');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planejador-messages', taskId] });
