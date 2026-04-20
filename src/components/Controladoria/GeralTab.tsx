@@ -223,13 +223,12 @@ export const GeralTab = () => {
     setBulkDialogOpen(false);
     setSelectedIds(new Set());
 
-    const { toast } = await import('sonner');
     const msg = [
       `${sucessos} excluído(s)`,
       pulados > 0 ? `${pulados} pulado(s) (monitorados)` : null,
       erros > 0 ? `${erros} falharam` : null,
     ].filter(Boolean).join(', ');
-    toast.success(msg || 'Nenhuma alteração');
+    sonnerToast.success(msg || 'Nenhuma alteração');
     fetchProcessos();
   };
 
