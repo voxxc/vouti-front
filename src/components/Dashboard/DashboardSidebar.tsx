@@ -187,7 +187,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange, flatTopba
       >
         {/* Logo */}
         <div className={cn(
-          "px-4 flex items-center h-[52px]",
+          "px-4 flex items-center h-[52px] border-0",
           !flatTopbar && "border-b border-border/60",
           isCollapsed ? "justify-center" : "justify-start"
         )}>
@@ -195,7 +195,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange, flatTopba
           to={dashboardPath}
           onMouseEnter={() => handleMouseEnter('dashboard')}
           onClick={handleDashboardClick}
-          className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none ml-6"
+          className="cursor-pointer hover:opacity-80 transition-opacity focus:outline-none ml-6 border-0"
         >
             {isCollapsed ? (
               <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center shadow-[var(--shadow-apple-sm)]">
