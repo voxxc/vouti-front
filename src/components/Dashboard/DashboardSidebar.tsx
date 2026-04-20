@@ -178,7 +178,8 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange, flatTopba
       {/* Sidebar */}
       <aside 
         className={cn(
-          "fixed left-0 top-0 h-screen border-r border-border/60 z-40 transition-all duration-300 flex flex-col",
+          "fixed left-0 top-0 h-screen z-40 transition-all duration-300 flex flex-col",
+          !flatTopbar && "border-r border-border/60",
           flatTopbar ? "bg-background" : "glass-surface",
           isCollapsed ? "w-16" : "w-56",
           isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
@@ -187,7 +188,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange, flatTopba
         {/* Logo */}
         <div className={cn(
           "px-4 flex items-center h-[52px]",
-          "border-b border-border/60",
+          !flatTopbar && "border-b border-border/60",
           isCollapsed ? "justify-center" : "justify-start"
         )}>
         <Link 
