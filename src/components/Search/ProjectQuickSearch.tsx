@@ -29,7 +29,7 @@ interface ProtocoloItem {
   project_client: string | null;
 }
 
-export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtocolo }: ProjectQuickSearchProps) => {
+export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtocolo, borderless = false }: ProjectQuickSearchProps) => {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState<ProjectItem[]>([]);
