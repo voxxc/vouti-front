@@ -90,6 +90,9 @@ export const GeralTab = () => {
 
   useEffect(() => { setPage(0); }, [filtroUF, setPage]);
 
+  // Reset selection on filter/page/search changes
+  useEffect(() => { setSelectedIds(new Set()); }, [filtroUF, page, searchTerm]);
+
   const naoLidosCount = useMemo(() => processos.filter(p => (p.andamentos_nao_lidos || 0) > 0).length, [processos]);
   const monitoradosCount = useMemo(() => processos.filter(p => p.monitoramento_ativo).length, [processos]);
 
@@ -150,6 +153,83 @@ export const GeralTab = () => {
     await excluirProcesso(processoParaExcluir.id, processoParaExcluir.numero_cnj);
     setExcluindo(false);
     setProcessoParaExcluir(null);
+  };
+
+  const toggleOne = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const allVisibleSelected = processosFiltrados.length > 0 && processosFiltrados.every(p => selectedIds.has(p.id));
+  const someVisibleSelected = processosFiltrados.some(p => selectedIds.has(p.id));
+
+  const toggleAll = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        processosFiltrados.forEach(p => next.delete(p.id));
+      } else {
+        processosFiltrados.forEach(p => next.add(p.id));
+      }
+      return next;
+    });
+  };
+
+  const selectedProcessos = useMemo(
+    () => processosFiltrados.filter(p => selectedIds.has(p.id)),
+    [processosFiltrados, selectedIds]
+  );
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkDeleting(true);
+    setBulkProgress({ done: 0, total: ids.length });
+
+    const idToCnj = new Map(processos.map(p => [p.id, p.numero_cnj]));
+    let sucessos = 0;
+    let pulados = 0;
+    let erros = 0;
+
+    const CHUNK = 5;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK);
+      const results = await Promise.all(
+        chunk.map(async (id) => {
+          const proc = processos.find(p => p.id === id);
+          if (proc?.monitoramento_ativo) return 'pulado';
+          try {
+            const ok = await excluirProcesso(id, idToCnj.get(id) || '');
+            return ok ? 'sucesso' : 'pulado';
+          } catch {
+            return 'erro';
+          }
+        })
+      );
+      results.forEach(r => {
+        if (r === 'sucesso') sucessos++;
+        else if (r === 'pulado') pulados++;
+        else erros++;
+      });
+      setBulkProgress({ done: Math.min(i + CHUNK, ids.length), total: ids.length });
+    }
+
+    setBulkDeleting(false);
+    setBulkProgress(null);
+    setBulkDialogOpen(false);
+    setSelectedIds(new Set());
+
+    const { toast } = await import('sonner');
+    const msg = [
+      `${sucessos} excluído(s)`,
+      pulados > 0 ? `${pulados} pulado(s) (monitorados)` : null,
+      erros > 0 ? `${erros} falharam` : null,
+    ].filter(Boolean).join(', ');
+    toast.success(msg || 'Nenhuma alteração');
+    fetchProcessos();
   };
 
   const handlePrevPage = () => { if (page > 0) setPage(page - 1); };
