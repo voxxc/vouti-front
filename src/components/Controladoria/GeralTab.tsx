@@ -372,6 +372,13 @@ export const GeralTab = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allVisibleSelected ? true : (someVisibleSelected ? 'indeterminate' : false)}
+                      onCheckedChange={() => toggleAll()}
+                      aria-label="Selecionar todos"
+                    />
+                  </TableHead>
                   <TableHead>Processo</TableHead>
                   <TableHead>Partes</TableHead>
                   <TableHead>Advogado (OAB)</TableHead>
