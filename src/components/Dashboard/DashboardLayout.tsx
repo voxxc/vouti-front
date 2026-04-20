@@ -411,7 +411,7 @@ const DashboardLayout = ({
         {/* Header - Fixed */}
         <header className={
           tenantSlug === 'demorais'
-            ? "sticky top-0 z-30 bg-background"
+            ? "sticky top-0 z-30 bg-background border-b border-border/60"
             : "sticky top-0 z-30 border-b glass-surface"
         }>
           <div className="flex items-center justify-between px-3 md:px-6 h-[52px] overflow-hidden min-w-0">
