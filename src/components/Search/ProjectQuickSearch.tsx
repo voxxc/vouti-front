@@ -12,6 +12,7 @@ interface ProjectQuickSearchProps {
   tenantPath: (path: string) => string;
   onSelectProject?: (projectId: string) => void;
   onSelectProtocolo?: (projectId: string, protocoloId: string) => void;
+  borderless?: boolean;
 }
 
 interface ProjectItem {
