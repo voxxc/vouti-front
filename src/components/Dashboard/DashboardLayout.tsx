@@ -403,12 +403,17 @@ const DashboardLayout = ({
         currentPage={currentPage} 
         activeDrawer={activeDrawer}
         onDrawerChange={handleDrawerChange}
+        flatTopbar={tenantSlug === 'demorais'}
       />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-screen min-w-0 overflow-y-auto">
         {/* Header - Fixed */}
-        <header className="sticky top-0 z-30 border-b glass-surface">
+        <header className={
+          tenantSlug === 'demorais'
+            ? "sticky top-0 z-30 bg-background"
+            : "sticky top-0 z-30 border-b glass-surface"
+        }>
           <div className="flex items-center justify-between px-3 md:px-6 h-[52px] overflow-hidden min-w-0">
             {/* Left side - Quick search (desktop only) */}
             <div className="hidden md:flex items-center gap-2">
