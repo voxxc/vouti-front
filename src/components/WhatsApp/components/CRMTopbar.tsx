@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageCircle, LogOut, PanelLeftClose, PanelLeft } from "lucide-react";
+import { MessageCircle, LogOut, PanelLeftClose, PanelLeft, Cloud, Sun, Moon, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, useParams } from "react-router-dom";
@@ -10,6 +10,16 @@ import { CRMQuickSearch } from "./CRMQuickSearch";
 import { useMessages } from "@/hooks/useMessages";
 import { WhatsAppSection } from "../WhatsAppDrawer";
 import { ThemeToggle } from "@/components/Common/ThemeToggle";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { DriveDrawer } from "@/components/Drive/DriveDrawer";
+import { useLocalTheme } from "@/hooks/useLocalTheme";
 
 interface CRMTopbarProps {
   onSectionChange: (section: WhatsAppSection) => void;
@@ -22,6 +32,8 @@ export const CRMTopbar = ({ onSectionChange, sidebarCollapsed, onToggleSidebar }
   const navigate = useNavigate();
   const { tenant } = useParams();
   const [chatOpen, setChatOpen] = useState(false);
+  const [driveOpen, setDriveOpen] = useState(false);
+  const { theme, toggleTheme } = useLocalTheme('theme');
   const { messages } = useMessages(user?.id);
 
   const totalUnread = messages.filter(
@@ -39,6 +51,12 @@ export const CRMTopbar = ({ onSectionChange, sidebarCollapsed, onToggleSidebar }
   };
 
   const displayName = user?.email?.split("@")[0] || "Usuário";
+  const initials = displayName
+    .split(/[\s.]+/)
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   return (
     <>
@@ -91,28 +109,51 @@ export const CRMTopbar = ({ onSectionChange, sidebarCollapsed, onToggleSidebar }
           {/* Notifications */}
           <CRMNotificationsBell />
 
-          {/* Theme Toggle */}
-          <ThemeToggle />
-
-          {/* Profile Name */}
-          <span className="text-sm font-medium text-foreground hidden sm:inline">
-            {displayName}
-          </span>
-
-          {/* Logout */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-            onClick={handleLogout}
-            title="Sair"
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
+          {/* Profile dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex items-center gap-2 pl-2 pr-2.5 h-8 rounded-full bg-primary/15 hover:bg-primary/25 transition-colors text-primary font-semibold text-xs"
+                title="Perfil"
+              >
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/20">
+                  {initials || <UserCircle className="h-4 w-4" />}
+                </span>
+                <span className="hidden sm:inline text-foreground font-medium">
+                  {displayName}
+                </span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="py-2">
+                <span className="font-semibold text-sm truncate block">
+                  {user?.email || displayName}
+                </span>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={toggleTheme} className="gap-2 cursor-pointer">
+                {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                {theme === 'dark' ? 'Tema Claro' : 'Tema Escuro'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setDriveOpen(true)} className="gap-2 cursor-pointer">
+                <Cloud className="h-4 w-4" />
+                Drive
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="gap-2 cursor-pointer text-destructive focus:text-destructive"
+              >
+                <LogOut className="h-4 w-4" />
+                Sair
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
       <CRMInternalChat open={chatOpen} onOpenChange={setChatOpen} />
+      <DriveDrawer open={driveOpen} onOpenChange={setDriveOpen} />
     </>
   );
 };

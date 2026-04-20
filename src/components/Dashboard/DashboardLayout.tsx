@@ -9,7 +9,7 @@ import NotificationCenter from "@/components/Communication/NotificationCenter";
 import InternalMessaging from "@/components/Communication/InternalMessaging";
 import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 import { EtapaModal } from "@/components/Project/EtapaModal";
-import { LogOut, Settings, Loader2, Clock, UserCircle, Sun, Moon } from "lucide-react";
+import { LogOut, Settings, Loader2, Clock, UserCircle, Sun, Moon, Cloud } from "lucide-react";
 import { BillingAlertIndicator } from "./BillingAlertIndicator";
 import { SubscriptionDrawer } from "@/components/Support/SubscriptionDrawer";
 import {
@@ -23,6 +23,7 @@ import {
 import { useTheme } from "@/contexts/ThemeContext";
 
 import { TOTPSheet } from "./TOTPSheet";
+import { DriveDrawer } from "@/components/Drive/DriveDrawer";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProjectProtocoloEtapa } from "@/hooks/useProjectProtocolos";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,6 +64,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 function ProfileDropdown({ userName, userRole, onLogout }: { userName: string; userRole: string; onLogout: () => void }) {
   const { theme, toggleTheme } = useTheme();
+  const [driveOpen, setDriveOpen] = useState(false);
   const initials = userName
     .split(' ')
     .map((n) => n[0])
@@ -71,6 +73,7 @@ function ProfileDropdown({ userName, userRole, onLogout }: { userName: string; u
     .toUpperCase();
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
@@ -90,6 +93,10 @@ function ProfileDropdown({ userName, userRole, onLogout }: { userName: string; u
           {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           {theme === 'dark' ? 'Tema Claro' : 'Tema Escuro'}
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setDriveOpen(true)} className="gap-2 cursor-pointer">
+          <Cloud className="h-4 w-4" />
+          Drive
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onLogout} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
           <LogOut className="h-4 w-4" />
@@ -97,6 +104,8 @@ function ProfileDropdown({ userName, userRole, onLogout }: { userName: string; u
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    <DriveDrawer open={driveOpen} onOpenChange={setDriveOpen} />
+    </>
   );
 }
 
