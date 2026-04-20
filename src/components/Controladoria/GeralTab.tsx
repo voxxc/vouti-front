@@ -336,6 +336,27 @@ export const GeralTab = () => {
 
       {/* Table */}
       <Card className="flex-1 min-h-0 flex flex-col">
+        {selectedIds.size > 0 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2 border-b bg-muted/40">
+            <div className="text-sm">
+              <strong>{selectedIds.size}</strong> processo(s) selecionado(s)
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                Limpar seleção
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setBulkDialogOpen(true)}
+                className="gap-1"
+              >
+                <Trash2 className="h-4 w-4" />
+                Excluir selecionados
+              </Button>
+            </div>
+          </div>
+        )}
         <CardContent className="p-0 flex-1 min-h-0 overflow-auto">
           {processosFiltrados.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
