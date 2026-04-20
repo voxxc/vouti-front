@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -18,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ProcessoOAB, OABCadastrada } from '@/hooks/useOABs';
 import { useAllProcessosOAB, ProcessoOABComOAB } from '@/hooks/useAllProcessosOAB';
 import { ProcessoOABDetalhes } from './ProcessoOABDetalhes';
+import { toast as sonnerToast } from 'sonner';
 
 const TRIBUNAL_UF_MAP: Record<string, string> = {
   '01': 'AC', '02': 'AL', '03': 'AP', '04': 'AM', '05': 'BA',
@@ -66,6 +68,10 @@ export const GeralTab = () => {
   const [processoParaExcluir, setProcessoParaExcluir] = useState<ProcessoOABComOAB | null>(null);
   const [excluindo, setExcluindo] = useState(false);
   const [inputBusca, setInputBusca] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSearchChange = useCallback((value: string) => {
@@ -84,6 +90,9 @@ export const GeralTab = () => {
   const totalPages = Math.ceil(totalCount / pageSize);
 
   useEffect(() => { setPage(0); }, [filtroUF, setPage]);
+
+  // Reset selection on filter/page/search changes
+  useEffect(() => { setSelectedIds(new Set()); }, [filtroUF, page, searchTerm]);
 
   const naoLidosCount = useMemo(() => processos.filter(p => (p.andamentos_nao_lidos || 0) > 0).length, [processos]);
   const monitoradosCount = useMemo(() => processos.filter(p => p.monitoramento_ativo).length, [processos]);
@@ -145,6 +154,82 @@ export const GeralTab = () => {
     await excluirProcesso(processoParaExcluir.id, processoParaExcluir.numero_cnj);
     setExcluindo(false);
     setProcessoParaExcluir(null);
+  };
+
+  const toggleOne = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const allVisibleSelected = processosFiltrados.length > 0 && processosFiltrados.every(p => selectedIds.has(p.id));
+  const someVisibleSelected = processosFiltrados.some(p => selectedIds.has(p.id));
+
+  const toggleAll = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        processosFiltrados.forEach(p => next.delete(p.id));
+      } else {
+        processosFiltrados.forEach(p => next.add(p.id));
+      }
+      return next;
+    });
+  };
+
+  const selectedProcessos = useMemo(
+    () => processosFiltrados.filter(p => selectedIds.has(p.id)),
+    [processosFiltrados, selectedIds]
+  );
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkDeleting(true);
+    setBulkProgress({ done: 0, total: ids.length });
+
+    const idToCnj = new Map(processos.map(p => [p.id, p.numero_cnj]));
+    let sucessos = 0;
+    let pulados = 0;
+    let erros = 0;
+
+    const CHUNK = 5;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK);
+      const results = await Promise.all(
+        chunk.map(async (id) => {
+          const proc = processos.find(p => p.id === id);
+          if (proc?.monitoramento_ativo) return 'pulado';
+          try {
+            const ok = await excluirProcesso(id, idToCnj.get(id) || '');
+            return ok ? 'sucesso' : 'pulado';
+          } catch {
+            return 'erro';
+          }
+        })
+      );
+      results.forEach(r => {
+        if (r === 'sucesso') sucessos++;
+        else if (r === 'pulado') pulados++;
+        else erros++;
+      });
+      setBulkProgress({ done: Math.min(i + CHUNK, ids.length), total: ids.length });
+    }
+
+    setBulkDeleting(false);
+    setBulkProgress(null);
+    setBulkDialogOpen(false);
+    setSelectedIds(new Set());
+
+    const msg = [
+      `${sucessos} excluído(s)`,
+      pulados > 0 ? `${pulados} pulado(s) (monitorados)` : null,
+      erros > 0 ? `${erros} falharam` : null,
+    ].filter(Boolean).join(', ');
+    sonnerToast.success(msg || 'Nenhuma alteração');
+    fetchProcessos();
   };
 
   const handlePrevPage = () => { if (page > 0) setPage(page - 1); };
@@ -251,6 +336,27 @@ export const GeralTab = () => {
 
       {/* Table */}
       <Card className="flex-1 min-h-0 flex flex-col">
+        {selectedIds.size > 0 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2 border-b bg-muted/40">
+            <div className="text-sm">
+              <strong>{selectedIds.size}</strong> processo(s) selecionado(s)
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                Limpar seleção
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setBulkDialogOpen(true)}
+                className="gap-1"
+              >
+                <Trash2 className="h-4 w-4" />
+                Excluir selecionados
+              </Button>
+            </div>
+          </div>
+        )}
         <CardContent className="p-0 flex-1 min-h-0 overflow-auto">
           {processosFiltrados.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
@@ -266,6 +372,13 @@ export const GeralTab = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allVisibleSelected ? true : (someVisibleSelected ? 'indeterminate' : false)}
+                      onCheckedChange={() => toggleAll()}
+                      aria-label="Selecionar todos"
+                    />
+                  </TableHead>
                   <TableHead>Processo</TableHead>
                   <TableHead>Partes</TableHead>
                   <TableHead>Advogado (OAB)</TableHead>
@@ -282,7 +395,15 @@ export const GeralTab = () => {
                       key={processo.id}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleVerDetalhes(processo)}
+                      data-state={selectedIds.has(processo.id) ? 'selected' : undefined}
                     >
+                      <TableCell onClick={(e) => e.stopPropagation()} className="w-10">
+                        <Checkbox
+                          checked={selectedIds.has(processo.id)}
+                          onCheckedChange={() => toggleOne(processo.id)}
+                          aria-label={`Selecionar ${processo.numero_cnj}`}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           <span className="font-mono text-sm">{processo.numero_cnj}</span>
@@ -408,6 +529,46 @@ export const GeralTab = () => {
               {excluindo ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Excluindo...</>
               ) : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk delete dialog */}
+      <AlertDialog open={bulkDialogOpen} onOpenChange={(open) => !bulkDeleting && setBulkDialogOpen(open)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {selectedIds.size} processo(s)</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>Os seguintes processos serão excluídos (e seus andamentos):</p>
+                <ul className="font-mono text-xs bg-muted/50 rounded p-2 max-h-40 overflow-auto">
+                  {selectedProcessos.slice(0, 5).map(p => (
+                    <li key={p.id}>{p.numero_cnj}</li>
+                  ))}
+                  {selectedProcessos.length > 5 && (
+                    <li className="text-muted-foreground">…e mais {selectedProcessos.length - 5}</li>
+                  )}
+                </ul>
+                <p className="text-muted-foreground">
+                  ⚠️ Processos com <strong>monitoramento ativo</strong> serão pulados automaticamente.
+                  Esta ação não pode ser desfeita.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleBulkDelete(); }}
+              disabled={bulkDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDeleting ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Excluindo {bulkProgress?.done ?? 0}/{bulkProgress?.total ?? selectedIds.size}...
+                </>
+              ) : `Excluir ${selectedIds.size}`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
