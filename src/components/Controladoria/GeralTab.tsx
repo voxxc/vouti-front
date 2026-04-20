@@ -19,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ProcessoOAB, OABCadastrada } from '@/hooks/useOABs';
 import { useAllProcessosOAB, ProcessoOABComOAB } from '@/hooks/useAllProcessosOAB';
 import { ProcessoOABDetalhes } from './ProcessoOABDetalhes';
+import { toast as sonnerToast } from 'sonner';
 
 const TRIBUNAL_UF_MAP: Record<string, string> = {
   '01': 'AC', '02': 'AL', '03': 'AP', '04': 'AM', '05': 'BA',
