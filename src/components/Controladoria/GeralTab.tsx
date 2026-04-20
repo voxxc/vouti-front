@@ -533,6 +533,46 @@ export const GeralTab = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Bulk delete dialog */}
+      <AlertDialog open={bulkDialogOpen} onOpenChange={(open) => !bulkDeleting && setBulkDialogOpen(open)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {selectedIds.size} processo(s)</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>Os seguintes processos serão excluídos (e seus andamentos):</p>
+                <ul className="font-mono text-xs bg-muted/50 rounded p-2 max-h-40 overflow-auto">
+                  {selectedProcessos.slice(0, 5).map(p => (
+                    <li key={p.id}>{p.numero_cnj}</li>
+                  ))}
+                  {selectedProcessos.length > 5 && (
+                    <li className="text-muted-foreground">…e mais {selectedProcessos.length - 5}</li>
+                  )}
+                </ul>
+                <p className="text-muted-foreground">
+                  ⚠️ Processos com <strong>monitoramento ativo</strong> serão pulados automaticamente.
+                  Esta ação não pode ser desfeita.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleBulkDelete(); }}
+              disabled={bulkDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDeleting ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Excluindo {bulkProgress?.done ?? 0}/{bulkProgress?.total ?? selectedIds.size}...
+                </>
+              ) : `Excluir ${selectedIds.size}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
