@@ -109,12 +109,26 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
         .eq('id', messageId);
       if (error) throw error;
     },
+    onMutate: async (messageId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['planejador-messages', taskId] });
+      const previous = queryClient.getQueryData<ChatMessage[]>(['planejador-messages', taskId]);
+      queryClient.setQueryData<ChatMessage[]>(
+        ['planejador-messages', taskId],
+        (old) => (old || []).filter((m) => m.id !== messageId)
+      );
+      return { previous };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['planejador-messages', taskId] });
       toast.success("Mensagem apagada");
     },
-    onError: () => {
+    onError: (_err, _id, context: any) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['planejador-messages', taskId], context.previous);
+      }
       toast.error("Erro ao apagar mensagem");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['planejador-messages', taskId] });
     },
   });
 
