@@ -279,7 +279,7 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtoc
             if (searchTerm.length >= 1) setOpen(true);
           }}
           onKeyDown={handleKeyDown}
-          className="w-48 h-8 text-xs pl-8 bg-background/50 border-border/50 focus:bg-background placeholder:text-xs"
+          className={`w-48 h-8 text-xs pl-8 focus:bg-background placeholder:text-xs ${borderless ? 'bg-transparent border-0 shadow-none focus-visible:ring-0' : 'bg-background/50 border-border/50'}`}
         />
       </div>
       
