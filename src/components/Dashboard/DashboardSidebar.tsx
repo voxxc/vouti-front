@@ -187,7 +187,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange, flatTopba
         {/* Logo */}
         <div className={cn(
           "px-4 flex items-center h-[52px]",
-          !flatTopbar && "border-b border-border/60",
+          "border-b border-border/60",
           isCollapsed ? "justify-center" : "justify-start"
         )}>
         <Link 
