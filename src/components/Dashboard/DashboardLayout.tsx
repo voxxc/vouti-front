@@ -425,6 +425,7 @@ const DashboardLayout = ({
                   setPendingProtocoloId(protocoloId);
                   setProjectDrawerOpen(true);
                 }}
+                borderless={tenantSlug === 'demorais'}
               />
             </div>
             <div className="md:hidden" />
