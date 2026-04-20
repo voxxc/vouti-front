@@ -33,9 +33,10 @@ interface DashboardSidebarProps {
   currentPage?: string;
   activeDrawer?: ActiveDrawer;
   onDrawerChange?: (drawer: ActiveDrawer) => void;
+  flatTopbar?: boolean;
 }
 
-const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: DashboardSidebarProps) => {
+const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange, flatTopbar = false }: DashboardSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
@@ -177,14 +178,16 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange }: Dashboa
       {/* Sidebar */}
       <aside 
         className={cn(
-          "fixed left-0 top-0 h-screen glass-surface border-r border-border/60 z-40 transition-all duration-300 flex flex-col",
+          "fixed left-0 top-0 h-screen border-r border-border/60 z-40 transition-all duration-300 flex flex-col",
+          flatTopbar ? "bg-background" : "glass-surface",
           isCollapsed ? "w-16" : "w-56",
           isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
         {/* Logo */}
         <div className={cn(
-          "px-4 border-b border-border/60 flex items-center h-[52px]",
+          "px-4 flex items-center h-[52px]",
+          !flatTopbar && "border-b border-border/60",
           isCollapsed ? "justify-center" : "justify-start"
         )}>
         <Link 
