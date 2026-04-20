@@ -395,7 +395,15 @@ export const GeralTab = () => {
                       key={processo.id}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleVerDetalhes(processo)}
+                      data-state={selectedIds.has(processo.id) ? 'selected' : undefined}
                     >
+                      <TableCell onClick={(e) => e.stopPropagation()} className="w-10">
+                        <Checkbox
+                          checked={selectedIds.has(processo.id)}
+                          onCheckedChange={() => toggleOne(processo.id)}
+                          aria-label={`Selecionar ${processo.numero_cnj}`}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           <span className="font-mono text-sm">{processo.numero_cnj}</span>
