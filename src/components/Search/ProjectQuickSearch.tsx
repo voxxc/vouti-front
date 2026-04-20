@@ -12,6 +12,7 @@ interface ProjectQuickSearchProps {
   tenantPath: (path: string) => string;
   onSelectProject?: (projectId: string) => void;
   onSelectProtocolo?: (projectId: string, protocoloId: string) => void;
+  borderless?: boolean;
 }
 
 interface ProjectItem {
@@ -28,7 +29,7 @@ interface ProtocoloItem {
   project_client: string | null;
 }
 
-export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtocolo }: ProjectQuickSearchProps) => {
+export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtocolo, borderless = false }: ProjectQuickSearchProps) => {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState<ProjectItem[]>([]);
@@ -278,7 +279,7 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtoc
             if (searchTerm.length >= 1) setOpen(true);
           }}
           onKeyDown={handleKeyDown}
-          className="w-48 h-8 text-xs pl-8 bg-background/50 border-border/50 focus:bg-background placeholder:text-xs"
+          className={`w-48 h-8 text-xs pl-8 focus:bg-background placeholder:text-xs ${borderless ? 'bg-transparent border-0 shadow-none focus-visible:ring-0' : 'bg-background/50 border-border/50'}`}
         />
       </div>
       
