@@ -140,7 +140,7 @@ export function PlanejadorKanban({
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <div className="flex gap-4 pb-4 h-full min-h-0" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
+      <div className="flex gap-4 pb-4 h-full min-h-0 planejador-scroll" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
         {columns.map((col) => {
           const tasks = filterTasks(tasksByColumn[col.id] || []);
           return (
@@ -161,7 +161,7 @@ export function PlanejadorKanban({
                       isDark ? 'border-white/[0.04]' : 'border-black/[0.04]'
                     } ${snapshot.isDraggingOver ? colDragOver : colBg}`}
                   >
-                    <div className="space-y-2 overflow-y-auto h-full">
+                    <div className="space-y-2 overflow-y-auto h-full planejador-scroll">
                       {tasks.map((task, index) => (
                         <Draggable key={task.id} draggableId={task.id} index={index} isDragDisabled={locked}>
                           {(provided, snapshot) => (
