@@ -458,8 +458,9 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
           {!isPreview && activeZone !== "body" && (
             <div className="px-4 py-1.5 text-xs bg-primary/5 text-primary border-t flex items-center justify-between">
               <span>
-                Editando {activeZone === "header" ? "cabeçalho" : "rodapé"} — clique no
-                corpo ou pressione Esc para voltar.
+                Editando {activeZone === "header" ? "cabeçalho" : "rodapé"} ·{" "}
+                {activeZone === "header" ? Math.round(headerH) : Math.round(footerH)}px
+                {" "}— clique no corpo ou pressione Esc para voltar.
               </span>
               <button
                 onClick={() => activateZone("body")}
