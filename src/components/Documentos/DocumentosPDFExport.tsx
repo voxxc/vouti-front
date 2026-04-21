@@ -3,9 +3,11 @@ import jsPDF from 'jspdf';
 interface ExportOptions {
   titulo: string;
   conteudoHtml: string;
+  cabecalhoHtml?: string;
+  rodapeHtml?: string;
 }
 
-export function exportDocumentoToPDF({ titulo, conteudoHtml }: ExportOptions) {
+export function exportDocumentoToPDF({ titulo, conteudoHtml, cabecalhoHtml, rodapeHtml }: ExportOptions) {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -16,22 +18,13 @@ export function exportDocumentoToPDF({ titulo, conteudoHtml }: ExportOptions) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
+  const headerHeight = (cabecalhoHtml && cabecalhoHtml.trim()) ? 12 : 0;
+  const footerHeight = (rodapeHtml && rodapeHtml.trim()) ? 12 : 0;
   const maxWidth = pageWidth - margin * 2;
-  let yPosition = margin;
-
-  // Título do documento
-  doc.setFont('times', 'bold');
-  doc.setFontSize(16);
-  
-  const tituloLines = doc.splitTextToSize(titulo, maxWidth);
-  doc.text(tituloLines, pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += tituloLines.length * 8 + 10;
+  const contentTop = margin + headerHeight;
+  const contentBottom = pageHeight - margin - footerHeight;
 
   // Converter HTML para texto
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = conteudoHtml;
-  
-  // Processar elementos do HTML
   const processNode = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
       return node.textContent || '';
@@ -57,8 +50,42 @@ export function exportDocumentoToPDF({ titulo, conteudoHtml }: ExportOptions) {
     return '';
   };
 
-  const plainText = processNode(tempDiv).trim();
-  
+  const htmlToText = (html: string): string => {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    return processNode(div).trim();
+  };
+
+  const cabecalhoText = cabecalhoHtml ? htmlToText(cabecalhoHtml) : '';
+  const rodapeText = rodapeHtml ? htmlToText(rodapeHtml) : '';
+
+  const drawHeaderFooter = () => {
+    if (cabecalhoText) {
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      const lines = doc.splitTextToSize(cabecalhoText, maxWidth);
+      doc.text(lines.slice(0, 2), pageWidth / 2, margin + 4, { align: 'center' });
+    }
+    if (rodapeText) {
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      const lines = doc.splitTextToSize(rodapeText, maxWidth);
+      doc.text(lines.slice(0, 2), pageWidth / 2, pageHeight - margin + 2, { align: 'center' });
+    }
+  };
+
+  let yPosition = contentTop;
+  drawHeaderFooter();
+
+  // Título do documento
+  doc.setFont('times', 'bold');
+  doc.setFontSize(16);
+  const tituloLines = doc.splitTextToSize(titulo, maxWidth);
+  doc.text(tituloLines, pageWidth / 2, yPosition + 4, { align: 'center' });
+  yPosition += tituloLines.length * 8 + 10;
+
+  const plainText = htmlToText(conteudoHtml);
+
   // Renderizar texto
   doc.setFont('times', 'normal');
   doc.setFontSize(12);
@@ -67,9 +94,10 @@ export function exportDocumentoToPDF({ titulo, conteudoHtml }: ExportOptions) {
   
   lines.forEach((line: string) => {
     // Verificar se precisa nova página
-    if (yPosition > pageHeight - margin) {
+    if (yPosition > contentBottom) {
       doc.addPage();
-      yPosition = margin;
+      yPosition = contentTop;
+      drawHeaderFooter();
     }
     
     doc.text(line, margin, yPosition);

@@ -55,6 +55,8 @@ export function useDocumentos(filtro?: 'modelo' | 'documento' | 'todos') {
           titulo: data.titulo,
           descricao: data.descricao || null,
           conteudo_html: data.conteudo_html || null,
+          cabecalho_html: data.cabecalho_html || null,
+          rodape_html: data.rodape_html || null,
           cliente_id: data.cliente_id || null,
           projeto_id: data.projeto_id || null,
           responsavel_id: data.responsavel_id || user.id,
@@ -129,7 +131,7 @@ export function useDocumentos(filtro?: 'modelo' | 'documento' | 'todos') {
 
       const { data: modelo, error: errModelo } = await supabase
         .from('documentos')
-        .select('titulo, descricao, conteudo_html')
+        .select('titulo, descricao, conteudo_html, cabecalho_html, rodape_html')
         .eq('id', modeloId)
         .single();
       if (errModelo) throw errModelo;
@@ -140,6 +142,8 @@ export function useDocumentos(filtro?: 'modelo' | 'documento' | 'todos') {
           titulo: modelo.titulo,
           descricao: modelo.descricao,
           conteudo_html: modelo.conteudo_html,
+          cabecalho_html: (modelo as any).cabecalho_html ?? null,
+          rodape_html: (modelo as any).rodape_html ?? null,
           cliente_id: clienteId || null,
           responsavel_id: user.id,
           tipo: 'documento',

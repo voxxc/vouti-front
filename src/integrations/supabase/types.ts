@@ -2015,6 +2015,7 @@ export type Database = {
       }
       documentos: {
         Row: {
+          cabecalho_html: string | null
           cliente_id: string | null
           conteudo_html: string | null
           created_at: string | null
@@ -2023,12 +2024,14 @@ export type Database = {
           modelo_origem_id: string | null
           projeto_id: string | null
           responsavel_id: string | null
+          rodape_html: string | null
           tenant_id: string
           tipo: string
           titulo: string
           updated_at: string | null
         }
         Insert: {
+          cabecalho_html?: string | null
           cliente_id?: string | null
           conteudo_html?: string | null
           created_at?: string | null
@@ -2037,12 +2040,14 @@ export type Database = {
           modelo_origem_id?: string | null
           projeto_id?: string | null
           responsavel_id?: string | null
+          rodape_html?: string | null
           tenant_id: string
           tipo?: string
           titulo: string
           updated_at?: string | null
         }
         Update: {
+          cabecalho_html?: string | null
           cliente_id?: string | null
           conteudo_html?: string | null
           created_at?: string | null
@@ -2051,6 +2056,7 @@ export type Database = {
           modelo_origem_id?: string | null
           projeto_id?: string | null
           responsavel_id?: string | null
+          rodape_html?: string | null
           tenant_id?: string
           tipo?: string
           titulo?: string
