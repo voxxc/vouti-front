@@ -72,6 +72,7 @@ const DocumentoEditar = lazy(() => import("@/pages/DocumentoEditar"));
 const CrmLogin = lazy(() => import("@/pages/CrmLogin"));
 const CrmApp = lazy(() => import("@/pages/CrmApp"));
 const CrmLanding = lazy(() => import("@/pages/CrmLanding"));
+const CrmSalesLanding = lazy(() => import("@/pages/CrmSalesLanding"));
 
 import Logo from "@/components/Logo";
 import { BatinkAuthProvider, useBatinkAuth } from "@/contexts/BatinkAuthContext";
@@ -577,7 +578,8 @@ function App() {
             <Route path="/project/:id/sector/:sectorId" element={<LegacyProjectSectorRedirect />} />
             <Route path="/agenda" element={<Navigate to="/solvenza/agenda" replace />} />
             {/* Vouti.CRM - Standalone por tenant */}
-            <Route path="/crm" element={<Navigate to="/" replace />} />
+            <Route path="/crm" element={<CrmSalesLanding />} />
+            <Route path="/crm-app" element={<CrmLanding />} />
             <Route path="/crm/:tenant/auth" element={<CrmLogin />} />
             <Route path="/crm/:tenant" element={<CrmApp />} />
             <Route path="/bot" element={<Navigate to="/solvenza/crm" replace />} />
