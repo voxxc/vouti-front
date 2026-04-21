@@ -1,63 +1,92 @@
 
 
-## Ajustes na landing `/crm` — copy, badges e responsividade mobile
+## Diferenciais "Por que Vouti.CRM" — carrossel vertical estilo roleta no mobile
 
 ### Correção
 
-Edições pontuais em `src/pages/CrmSalesLanding.tsx`:
+Na seção **"Por que Vouti.CRM"** de `src/pages/CrmSalesLanding.tsx` (linhas 363–396), trocar o grid mobile (`grid-cols-1`) por um **carrossel vertical interativo** que funciona como uma roleta — só 1 card visível por vez, deslizando para cima/baixo aparece o próximo/anterior; os demais somem (entram por baixo ou por cima conforme a direção).
 
-1. **Remover badge "Gestão integrada para times comerciais"** do hero (badge acima do título).
+**Comportamento mobile (`< md`):**
+- Container com altura fixa (~180px) e `overflow-hidden`.
+- Apenas 1 card visível ao centro, ocupando toda a largura.
+- Cards "fantasma" anterior/próximo ficam parcialmente visíveis nas bordas superior/inferior (~20% de opacidade) para dar pista visual de que dá para deslizar.
+- Indicadores laterais (bolinhas verticais à direita) mostram a posição atual (1 de 8).
+- Botões discretos ↑ ↓ no canto direito para quem prefere clicar.
 
-2. **Atualizar subheadline (slogan)** para:
-   > "O Vouti.CRM unifica gestão de equipes, projetos kanban e atendimento WhatsApp em uma única plataforma, para que seu time pare de pular entre 5 ferramentas."
+**Interação:**
+- **Swipe vertical** (touch): arrastar para cima → próximo card; arrastar para baixo → anterior. Threshold de ~40px.
+- **Scroll wheel** (quando o cursor está sobre o carrossel, opcional — só mobile não tem mouse, então focar em touch).
+- **Botões ↑/↓**: navegação manual.
+- **Auto-loop**: ao chegar no último, volta ao primeiro (e vice-versa).
 
-3. **Substituir item "Multi-tenant isolado"** (na seção de diferenciais) por:
-   - Título: **"Fluxo de Atendimento & IA"**
-   - Descrição: **"Atendimento 24/7"**
-   - Manter o mesmo ícone ou trocar por `Bot`/`Sparkles` (lucide-react), o que ficar mais coerente.
+**Animação:**
+- Card atual: `translateY(0) opacity-100 scale-100`.
+- Card que sai (para cima): `translateY(-100%) opacity-0`.
+- Card que entra (vindo de baixo): `translateY(100%) opacity-0` → `translateY(0) opacity-100`.
+- Transição: `transition-all duration-400 ease-out`.
+- Direção dinâmica: se o usuário deslizou para cima, o próximo entra de baixo; se deslizou para baixo, o anterior entra de cima.
 
-4. **Remover todas as referências a "Z-API"**:
-   - No passo "Conexão WhatsApp" da seção "Como funciona" — trocar "Z-API ou Meta" por apenas "API oficial Meta" (ou "WhatsApp Business API").
-   - Em qualquer outra menção ao longo do texto (FAQ, diferenciais, mockup) — sanitizar para falar apenas em "WhatsApp Business" / "API oficial".
+**Desktop (`md+`)**: mantém o grid `sm:grid-cols-2 lg:grid-cols-4` atual sem mudança alguma.
 
-5. **Mobile: substituir cards grandes por layout vertical compacto**:
-   - **Seção dos 3 pilares (Equipes / Projetos / WhatsApp)**: no mobile (`< md`) virar uma lista vertical com cards compactos — ícone à esquerda (40px), título + descrição curta à direita, padding reduzido (`p-4` em vez de `p-8`), sem altura mínima forçada. No desktop mantém grid 3 colunas atual.
-   - **Seção "Diferenciais"**: no mobile usar 1 coluna vertical com cards horizontais compactos (ícone + texto inline) em vez do grid atual de cards grandes empilhados. No desktop mantém o grid multicolunas.
-   - **Seção "Como funciona"**: no mobile, cards de passo ficam mais finos (`py-4 px-4`), sem ilustração grande, apenas número + título + 1 linha de descrição.
-   - **Mockup visual (inbox + kanban)**: no mobile reduzir altura, esconder colunas extras do kanban (mostrar só 1) — ou substituir por uma versão simplificada empilhada.
-   - Reduzir espaçamentos verticais entre seções no mobile (`py-12` em vez de `py-20`) para diminuir o scroll total.
+### Implementação técnica
+
+1. Estados locais no componente:
+   - `const [activeIdx, setActiveIdx] = useState(0)`
+   - `const [direction, setDirection] = useState<'up' | 'down'>('up')`
+   - Refs para `touchStartY` e `touchEndY`.
+
+2. Handlers:
+   - `onTouchStart` → grava `touchStartY`.
+   - `onTouchEnd` → calcula delta; se `> 40px` chama `next()`/`prev()` ajustando `direction`.
+   - `next()`: `setDirection('up'); setActiveIdx(i => (i + 1) % items.length)`.
+   - `prev()`: `setDirection('down'); setActiveIdx(i => (i - 1 + items.length) % items.length)`.
+
+3. Render mobile (dentro de `md:hidden`):
+   ```text
+   <div className="relative h-[180px] overflow-hidden touch-pan-x">
+     {items.map((d, i) => {
+       const offset = i - activeIdx;
+       // offset 0 = ativo, -1 = acima, 1 = abaixo, outros = fora
+       ...
+     })}
+     <verticalDots />
+     <upDownButtons />
+   </div>
+   ```
+
+4. Render desktop (mantém `hidden md:grid ...`).
 
 ### Arquivos afetados
 
 **Modificados:**
-- `src/pages/CrmSalesLanding.tsx` — ajustes de copy, remoção do badge, troca do diferencial, sanitização de Z-API, classes responsivas dos cards.
+- `src/pages/CrmSalesLanding.tsx` — refatorar a seção "Diferenciais" (linhas 363–396): extrair lista de itens para const reutilizável; adicionar bloco mobile com carrossel vertical e bloco desktop com grid existente.
 
-**Sem mudanças:** rotas, banco, Edge Functions, hooks, outros componentes.
+**Sem mudanças:** nenhum outro componente, hook, rota, banco, edge function.
 
 ### Impacto
 
 **Usuário final (UX):**
-- Hero mais limpo (sem badge redundante) e com slogan mais direto que comunica a dor.
-- Mensagem alinhada à oferta atual: API oficial Meta + IA 24/7, sem promessa de Z-API.
-- Mobile: scroll significativamente mais curto, leitura mais rápida, cards compactos cabem melhor em telas pequenas (390px) sem desperdiçar altura.
+- Mobile: seção "Por que Vouti.CRM" deixa de ocupar 8 cards empilhados (~700px de altura) e passa a ser uma única "janela" de ~200px com navegação tátil — drasticamente menos scroll.
+- Interação tipo "roleta" (swipe vertical) cria momento de engajamento e destaca cada diferencial individualmente em vez de virar uma lista monótona.
+- Indicadores e botões garantem descobribilidade — usuário entende imediatamente que dá para navegar.
 
-**Dados:** nenhum impacto — apenas mudança de UI/copy.
+**Dados:** nenhum impacto — apenas UI.
 
 **Riscos colaterais:**
-- Visitantes que já tinham visto a página antes notarão a mudança de mensagem — desejado.
-- Nenhum link ou rota é alterado.
+- Usuário pode não notar imediatamente que há mais cards → mitigado por: bolinhas indicadoras (8 dots), botões ↑↓ visíveis, e sombras/fade dos cards adjacentes.
+- Touch handlers não interferem com scroll vertical da página: o carrossel só captura swipe quando o delta vertical é claro (>40px) e dentro do container; abaixo desse threshold deixa o scroll passar.
+- Desktop continua exatamente igual — sem regressão.
 
-**Quem é afetado:** público externo da landing `/crm` (visitantes em `vouti.co/crm`). Sem efeito em tenants ou clientes existentes.
+**Quem é afetado:** visitantes mobile da landing `/crm`.
 
 ### Validação
 
-1. Acessar `/crm` no desktop (1440px) → hero sem o badge "Gestão integrada para times comerciais"; slogan novo presente; layout 3 colunas dos pilares preservado.
-2. Buscar "Z-API" e "Multi-tenant isolado" no DOM → zero ocorrências.
-3. Conferir card "Fluxo de Atendimento & IA" / "Atendimento 24/7" no lugar do antigo "Multi-tenant".
-4. Redimensionar para mobile (390px) → cards dos 3 pilares ficam em coluna única, compactos (ícone + texto), sem padding excessivo.
-5. Seção de diferenciais em mobile → 1 coluna, cards horizontais finos.
-6. Como funciona em mobile → cards de passo compactos.
-7. Scroll total da página em mobile reduzido (~30% menos altura) comparado ao layout anterior.
-8. Formulário e CTAs continuam funcionando (envio do lead com `origem='vouti_crm_landing'`).
-9. Tema claro/escuro mantém contraste em ambos.
+1. Mobile (390x844): seção "Por que Vouti.CRM" mostra 1 card centralizado de cada vez, com bolinhas à direita indicando 1 de 8.
+2. Swipe para cima → card atual sobe e some, próximo entra de baixo. Bolinha avança.
+3. Swipe para baixo → inverte. Bolinha retrocede.
+4. Clicar nos botões ↑/↓ → mesma navegação.
+5. Após o card 8, swipe para cima volta ao card 1 (loop).
+6. Scroll vertical normal da página continua funcionando fora do carrossel.
+7. Desktop (1440px) → grid 4 colunas idêntico ao atual, sem carrossel.
+8. Tema claro/escuro mantidos.
 
