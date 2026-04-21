@@ -445,6 +445,20 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
         insertPageBreakAtSelection();
         return;
       }
+      if ((e.key === "End" || e.key === "Home") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const sel = window.getSelection() as (Selection & { modify?: (alter: string, direction: string, granularity: string) => void }) | null;
+        if (sel && typeof sel.modify === "function") {
+          e.preventDefault();
+          const alter = e.shiftKey ? "extend" : "move";
+          const direction = e.key === "End" ? "forward" : "backward";
+          try {
+            sel.modify(alter, direction, "lineboundary");
+          } catch {
+            /* fallback: let browser handle */
+          }
+          return;
+        }
+      }
       if (e.key === "Tab") {
         e.preventDefault();
         const sel = window.getSelection();
