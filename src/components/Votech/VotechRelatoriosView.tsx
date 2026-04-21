@@ -2,8 +2,6 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useVotechAuth } from '@/contexts/VotechAuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 export function VotechRelatoriosView() {
@@ -56,86 +54,80 @@ export function VotechRelatoriosView() {
   const totalDespesas = chartData.reduce((s, d) => s + d.despesas, 0);
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <BarChart3 className="w-6 h-6 text-indigo-400" />
-          <h2 className="text-2xl font-bold text-white">Relatórios</h2>
+    <div className="max-w-5xl mx-auto pb-24 md:pb-0">
+      <div className="flex items-center justify-between mb-5 md:mb-6">
+        <div>
+          <p className="text-[12px] text-black/50 md:hidden">Visão anual</p>
+          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-black">Relatórios</h2>
         </div>
-        <select value={ano} onChange={e => setAno(Number(e.target.value))} className="h-9 rounded-md border border-slate-700 bg-slate-800 px-3 text-sm text-white">
+        <select
+          value={ano}
+          onChange={e => setAno(Number(e.target.value))}
+          className="h-10 rounded-full bg-white border border-black/10 px-4 text-[13px] text-black font-medium"
+        >
           {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card className="bg-slate-900 border-slate-800">
-          <CardContent className="pt-4">
-            <p className="text-xs text-slate-400">Total Receitas ({ano})</p>
-            <p className="text-xl font-bold text-emerald-400">{fmt(totalReceitas)}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-slate-900 border-slate-800">
-          <CardContent className="pt-4">
-            <p className="text-xs text-slate-400">Total Despesas ({ano})</p>
-            <p className="text-xl font-bold text-rose-400">{fmt(totalDespesas)}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-slate-900 border-slate-800">
-          <CardContent className="pt-4">
-            <p className="text-xs text-slate-400">Resultado</p>
-            <p className={`text-xl font-bold ${totalReceitas - totalDespesas >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{fmt(totalReceitas - totalDespesas)}</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+          <p className="text-[11px] text-black/50">Receitas</p>
+          <p className="text-[16px] sm:text-[18px] font-semibold tabular-nums mt-1 text-[#30D158]">{fmt(totalReceitas)}</p>
+        </div>
+        <div className="rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+          <p className="text-[11px] text-black/50">Despesas</p>
+          <p className="text-[16px] sm:text-[18px] font-semibold tabular-nums mt-1 text-[#FF453A]">{fmt(totalDespesas)}</p>
+        </div>
+        <div className="rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+          <p className="text-[11px] text-black/50">Saldo</p>
+          <p className={`text-[16px] sm:text-[18px] font-semibold tabular-nums mt-1 ${totalReceitas - totalDespesas >= 0 ? 'text-[#30D158]' : 'text-[#FF453A]'}`}>
+            {fmt(totalReceitas - totalDespesas)}
+          </p>
+        </div>
       </div>
 
-      <Card className="bg-slate-900 border-slate-800 mb-6">
-        <CardHeader>
-          <CardTitle className="text-white text-lg">Receitas vs Despesas — {ano}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="mes" stroke="#94a3b8" fontSize={12} />
-              <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
-                labelStyle={{ color: '#e2e8f0' }}
-                formatter={(value: number) => fmt(value)}
-              />
-              <Legend />
-              <Bar dataKey="receitas" name="Receitas" fill="#22c55e" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="despesas" name="Despesas" fill="#ef4444" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      <div className="rounded-2xl bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.04)] mb-5">
+        <h3 className="text-[15px] font-semibold tracking-tight text-black mb-4">Receitas vs Despesas — {ano}</h3>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#00000010" />
+            <XAxis dataKey="mes" stroke="#00000060" fontSize={11} />
+            <YAxis stroke="#00000060" fontSize={11} tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} />
+            <Tooltip
+              contentStyle={{ backgroundColor: '#fff', border: '1px solid #00000010', borderRadius: 12, fontSize: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}
+              labelStyle={{ color: '#000' }}
+              formatter={(value: number) => fmt(value)}
+            />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Bar dataKey="receitas" name="Receitas" fill="#30D158" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="despesas" name="Despesas" fill="#FF453A" radius={[6, 6, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
 
-      <Card className="bg-slate-900 border-slate-800">
-        <CardHeader>
-          <CardTitle className="text-white text-lg">Resumo por Categoria</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {categoriaResumo.length === 0 ? (
-            <p className="text-slate-500 text-center py-8">Nenhum dado para exibir</p>
-          ) : (
-            <div className="space-y-3">
-              {categoriaResumo.map(c => (
-                <div key={c.nome} className="flex items-center justify-between py-2 border-b border-slate-800 last:border-0">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.cor }} />
-                    <span className="text-sm text-white">{c.nome}</span>
-                  </div>
-                  <div className="flex gap-6 text-sm">
-                    {c.receitas > 0 && <span className="text-emerald-400">+{fmt(c.receitas)}</span>}
-                    {c.despesas > 0 && <span className="text-rose-400">-{fmt(c.despesas)}</span>}
-                  </div>
+      <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] overflow-hidden">
+        <div className="px-5 pt-5 pb-3">
+          <h3 className="text-[15px] font-semibold tracking-tight text-black">Resumo por categoria</h3>
+        </div>
+        {categoriaResumo.length === 0 ? (
+          <p className="text-black/40 text-center py-12 text-[13px]">Nenhum dado para exibir</p>
+        ) : (
+          <div className="px-2 pb-2">
+            {categoriaResumo.map((c, i) => (
+              <div key={c.nome} className={`flex items-center justify-between px-3 py-3 ${i !== 0 ? 'border-t border-black/[0.06]' : ''}`}>
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.cor }} />
+                  <span className="text-[14px] text-black">{c.nome}</span>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                <div className="flex gap-4 text-[13px] tabular-nums">
+                  {c.receitas > 0 && <span className="text-[#30D158] font-medium">+{fmt(c.receitas)}</span>}
+                  {c.despesas > 0 && <span className="text-[#FF453A] font-medium">-{fmt(c.despesas)}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
