@@ -1,76 +1,60 @@
 
 
-## Texto vazando sobre rodapé/cabeçalho entre páginas — corrigir paginação real
+## Tab dentro do editor: indentar texto em vez de mover foco
 
 ### Causa raiz
-O corpo do editor é **um único `contentEditable` longo** com apenas `paddingTop` (espaço do cabeçalho da página 1) e `paddingBottom` (espaço do rodapé da última página). Entre as páginas, **não existe nenhum espaço reservado** — o texto continua fluindo livremente e passa por baixo das faixas opacas de rodapé/cabeçalho/logo das páginas intermediárias.
-
-Visualmente: a "folha A4" é só uma moldura desenhada por cima; o editor não respeita essa moldura. Por isso na imagem aparecem palavras (`aSD`, `AS`, `dAS`, `dA`, `sDa`...) escondidas dentro do retângulo vermelho — elas estão lá no DOM, mas **atrás** da faixa branca do rodapé/cabeçalho com a logo do escritório.
-
-O `recalcPages` calcula corretamente quantas páginas precisam, mas só serve para desenhar mais molduras — não cria espaço real no fluxo do texto.
+O `contentEditable` do `Vouti.docs` não intercepta a tecla **Tab**. O comportamento padrão do navegador toma conta e move o foco para o próximo elemento focável da página (botões da toolbar, painel lateral, etc.) — em vez de indentar o parágrafo, como o Word faz.
 
 ### Correção
 
-**Estratégia: espaçadores não-editáveis injetados automaticamente no corpo entre as "páginas virtuais".**
+Em `src/components/Documentos/DocumentoEditor.tsx`, adicionar tratamento de `Tab` no `onKeyDown` do corpo (`bodyRef`), e também das zonas `header` e `footer`:
 
-Em `src/components/Documentos/DocumentoEditor.tsx`:
+1. **Tab** → `e.preventDefault()` + inserir indentação:
+   - Se o cursor estiver dentro de um item de lista (`<li>`): chamar `document.execCommand("indent")` — aumenta o nível da lista (comportamento Word).
+   - Caso contrário: inserir um espaçamento horizontal de ~4 espaços usando `document.execCommand("insertHTML", false, '<span style="display:inline-block;width:2.5em"></span>')`. Isso emula o "tab stop" do Word sem depender de `\t` (que o HTML colapsa).
 
-1. **Após cada mudança no corpo** (e quando `headerH`/`footerH` mudam), executar uma função `injectPageSpacers()` que:
-   - Mede o `bodyRef.scrollHeight` real, descontando os espaçadores existentes.
-   - Calcula quantas quebras visuais são necessárias: `Math.ceil(usefulHeight / BODY_H) - 1`.
-   - Remove todos os espaçadores antigos (`[data-page-spacer="true"]`).
-   - Para cada quebra `i`, encontra a posição vertical `i * BODY_H` dentro do corpo, identifica qual nó/elemento está atravessando essa linha, e **insere um `<div data-page-spacer="true" contenteditable="false" style="height: ${INTER_PAGE_BAND}px; ...">`** logo antes desse nó.
-   - O espaçador empurra o conteúdo seguinte para baixo da faixa rodapé+gap+cabeçalho da próxima folha — exatamente onde a área útil da página seguinte começa.
+2. **Shift+Tab** → `e.preventDefault()` + remover indentação:
+   - Em listas: `document.execCommand("outdent")`.
+   - Fora de listas: tentar remover o último `<span>` de indentação imediatamente antes do cursor (se existir); senão, no-op.
 
-2. **Posicionamento preciso do espaçador**: usar `document.elementFromPoint()` ou iterar pelos filhos do `bodyRef` e medir `getBoundingClientRect()` de cada um para achar o primeiro elemento cujo `offsetTop` ultrapasse o limite da página atual. Inserir o espaçador antes desse elemento.
+3. Disparar `onChange` do corpo após a operação para que o estado e a paginação sejam recalculados.
 
-3. **Quebras manuais (`data-page-break`) já no HTML**: respeitar a posição delas — se uma quebra manual cai antes do limite calculado, ela conta como início da próxima página e o cálculo continua a partir dela.
-
-4. **Preservar a posição do cursor**: salvar `Selection`/`Range` antes de mexer no DOM, e restaurar depois (offsets em relação ao texto, não ao DOM, porque inserir/remover espaçadores invalida nós).
-
-5. **Marcar espaçadores como invisíveis ao usuário**: `user-select: none`, sem borda, fundo transparente, mas ocupando `INTER_PAGE_BAND` px de altura. Isso faz o texto da próxima "página" começar na posição certa.
-
-6. **`onChange` ignora os espaçadores**: ao serializar `bodyRef.innerHTML` para o estado/banco, **remover** todos os `[data-page-spacer="true"]` antes de enviar. Eles são puramente visuais — recalculados em cada montagem. Isso garante que ao reabrir o documento ou exportar PDF, o HTML salvo continue limpo.
-
-7. **`recalcPages` agora reflete o número real de páginas geradas pelos espaçadores** (não mais um cálculo paralelo).
+4. Garantir que o handler **só intercepta** quando o foco está dentro de uma das zonas editáveis — fora delas (toolbar, painel), Tab continua navegando normalmente.
 
 ### Arquivos afetados
 
 **Modificados:**
-- `src/components/Documentos/DocumentoEditor.tsx` — função `injectPageSpacers()` chamada após `onInput`, mudança de `headerH`/`footerH`, e injeção inicial de HTML; sanitização do `onChange` para remover espaçadores antes de propagar; preservação de cursor durante reflow.
+- `src/components/Documentos/DocumentoEditor.tsx` — handler `onKeyDown` para Tab/Shift+Tab nas três zonas editáveis (corpo, cabeçalho, rodapé).
 
-**Sem mudanças:** banco, RLS, tipos, hooks, exportação PDF (já lê `data-page-break`; espaçadores não são salvos no banco).
+**Sem mudanças:** banco, RLS, exportação PDF, toolbar, hooks.
 
 ### Impacto
 
 **Usuário final (UX):**
-- Ao digitar muito texto, ele agora **respeita** a área útil de cada página: ao chegar perto do rodapé da página 1, automaticamente "salta" para depois da faixa do cabeçalho da página 2. Nada mais fica escondido atrás da logo.
-- A ilusão de páginas A4 distintas fica completa, idêntica ao Word.
-- Cursor não "pula" inesperadamente: posição preservada durante o reflow.
-- Quebras manuais (`Ctrl+Enter`) continuam funcionando.
+- Apertar **Tab** dentro da página branca agora indenta o parágrafo em ~2,5em (≈4 caracteres), igual ao Word — não rouba mais o foco para a toolbar.
+- Em listas, Tab aumenta o nível (sub-item) e Shift+Tab volta um nível, comportamento idêntico ao Word/Google Docs.
+- **Shift+Tab** desfaz a indentação.
+- Acessibilidade: para sair do editor com teclado, o usuário usa **Esc** seguido de Tab (padrão de editores ricos), ou clica fora.
 
 **Dados:**
-- HTML salvo no banco continua **sem** os espaçadores (sanitizado no `onChange`). Documentos antigos não mudam.
-- PDF export continua igual: jsPDF já gera páginas reais conforme texto cabe.
+- Indentação é salva como `<span style="display:inline-block;width:2.5em"></span>` dentro do HTML — renderiza idêntico no editor, no preview, no PDF e em qualquer documento copiado/colado.
+- Sem migração, sem mudança de schema.
 
 **Riscos colaterais:**
-- Inserção/remoção repetida de DOM nodes pode piscar visualmente — mitigado com `requestAnimationFrame` + `ResizeObserver` debounce de 50ms.
-- Cursor pode pular 1-2 caracteres em casos extremos (texto muito longo na borda da página); aceitável e raro.
-- Imagens muito altas no corpo (>BODY_H) ainda podem ficar cortadas — caso de borda, fora do escopo.
+- Usuários acostumados a usar Tab para navegar entre campos podem estranhar inicialmente — mitigado por ser o padrão universal de editores de texto rico.
+- Span vazio é inerte e não afeta seleção de texto.
 
 **Quem é afetado:**
-- Apenas usuários do editor `/documentos/:id`. Sem impacto em listagens, modelos antigos ou outros tenants.
+- Apenas usuários do editor `/documentos/:id` (qualquer tenant). Sem impacto em outras telas.
 
 ### Validação
 
-1. Abrir `/demorais/documentos/novo`, adicionar logo no cabeçalho.
-2. Digitar várias linhas até gerar página 2 — texto da página 1 termina **antes** da faixa do rodapé; texto da página 2 começa **depois** da faixa do cabeçalho com a logo. Nada escondido.
-3. Continuar digitando até gerar página 3 e 4 — mesmo comportamento em todas.
-4. Cursor permanece visível durante a digitação, sem saltos bruscos.
-5. Salvar, recarregar — espaçadores são recalculados; HTML salvo no banco está limpo (sem `data-page-spacer`).
-6. Exportar PDF — paginação real do jsPDF, idêntica à visualização.
-7. `Ctrl+Enter` no meio do texto → quebra manual continua funcionando.
-8. Aumentar a altura do cabeçalho (colar logo maior) → espaçadores se ajustam, texto se reorganiza.
-9. Apagar texto até voltar a 1 página → espaçadores desaparecem, fica só o corpo limpo.
-10. Modo Preview com cliente vinculado → variáveis substituídas, paginação preservada.
+1. Abrir `/solvenza/documentos/novo`, clicar no corpo da folha.
+2. Apertar **Tab** → o cursor recua ~2,5em na linha atual; foco permanece no editor.
+3. Apertar **Tab** novamente → recua mais 2,5em (acumula).
+4. Apertar **Shift+Tab** → remove a última indentação.
+5. Criar uma lista com bullets, apertar **Tab** dentro de um item → vira sub-item; **Shift+Tab** → volta ao nível anterior.
+6. Apertar Tab dentro do cabeçalho/rodapé → mesma indentação.
+7. Salvar, recarregar, exportar PDF → indentação preservada.
+8. Fora do editor (botões da toolbar, painel lateral) → Tab continua navegando entre elementos normalmente.
 
