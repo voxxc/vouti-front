@@ -27,6 +27,7 @@ import {
   Type,
   Highlighter,
   SeparatorHorizontal,
+  ImagePlus,
 } from "lucide-react";
 
 interface RichTextToolbarProps {
@@ -318,6 +319,23 @@ export function RichTextToolbar({ onFormat }: RichTextToolbarProps) {
           </Button>
         </TooltipTrigger>
         <TooltipContent>Quebra de página (Ctrl+Enter)</TooltipContent>
+      </Tooltip>
+
+      <div className="w-px h-6 bg-border mx-1" />
+
+      {/* Insert image */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => onFormat("insertImage")}
+          >
+            <ImagePlus className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Inserir imagem</TooltipContent>
       </Tooltip>
     </div>
   );

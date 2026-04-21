@@ -35,14 +35,57 @@ interface DocumentoEditorProps {
 // ---- Constantes A4 @ 96dpi ----
 const PAGE_WIDTH = 794;
 const PAGE_HEIGHT = 1123;
-const HEADER_H = 60;
-const FOOTER_H = 60;
+const MIN_HEADER_H = 48;
+const MIN_FOOTER_H = 48;
+const MAX_HEADER_H = 240;
+const MAX_FOOTER_H = 240;
 const SIDE_PAD = 96;
-const BODY_H = PAGE_HEIGHT - HEADER_H - FOOTER_H; // 1003
 const PAGE_GAP = 24;
-// Bloco "não-imprimível" entre o fim do corpo de uma página e o início da próxima:
-// rodapé atual + gap + cabeçalho próxima
-const INTER_PAGE_BAND = FOOTER_H + PAGE_GAP + HEADER_H;
+
+// Reescala uma imagem (dataURL ou URL) para no máximo `maxWidth` px de largura
+// mantendo a proporção. Retorna um novo dataURL JPEG/PNG.
+async function resizeImageDataUrl(src: string, maxWidth = 600): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        if (w <= maxWidth) {
+          resolve(src);
+          return;
+        }
+        const newW = maxWidth;
+        const newH = Math.round((h * maxWidth) / w);
+        const canvas = document.createElement("canvas");
+        canvas.width = newW;
+        canvas.height = newH;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(src);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, newW, newH);
+        // PNG preserva transparência (importante para logos)
+        resolve(canvas.toDataURL("image/png"));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditorProps>(
   function DocumentoEditor(
@@ -67,7 +110,13 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
     const isInternalChange = useRef(false);
     const [activeZone, setActiveZone] = useState<Zone>("body");
     const [pageCount, setPageCount] = useState(1);
+    const [headerH, setHeaderH] = useState<number>(MIN_HEADER_H);
+    const [footerH, setFooterH] = useState<number>(MIN_FOOTER_H);
     const isPreview = previewHtml != null;
+
+    // Derivados das alturas dinâmicas
+    const BODY_H = PAGE_HEIGHT - headerH - footerH;
+    const INTER_PAGE_BAND = footerH + PAGE_GAP + headerH;
 
     const refFor = (z: Zone) =>
       z === "header" ? headerRef : z === "footer" ? footerRef : bodyRef;
@@ -93,7 +142,7 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
         remaining -= BODY_H;
       }
       setPageCount((prev) => (prev !== pages ? pages : prev));
-    }, []);
+    }, [BODY_H, INTER_PAGE_BAND]);
 
     // Sincronizar HTML do corpo
     useEffect(() => {
@@ -114,8 +163,9 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
         isInternalChange.current = true;
         headerRef.current.innerHTML = next;
         isInternalChange.current = false;
+        requestAnimationFrame(() => recalcPages());
       }
-    }, [cabecalhoHtml, previewCabecalho]);
+    }, [cabecalhoHtml, previewCabecalho, recalcPages]);
 
     useEffect(() => {
       if (!footerRef.current) return;
@@ -124,8 +174,9 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
         isInternalChange.current = true;
         footerRef.current.innerHTML = next;
         isInternalChange.current = false;
+        requestAnimationFrame(() => recalcPages());
       }
-    }, [rodapeHtml, previewRodape]);
+    }, [rodapeHtml, previewRodape, recalcPages]);
 
     useLayoutEffect(() => {
       const el = bodyRef.current;
@@ -135,6 +186,34 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
       ro.observe(el);
       return () => ro.disconnect();
     }, [recalcPages]);
+
+    // ResizeObserver para medir altura dinâmica do cabeçalho
+    useLayoutEffect(() => {
+      const el = headerRef.current;
+      if (!el) return;
+      const measure = () => {
+        const h = Math.max(MIN_HEADER_H, Math.min(MAX_HEADER_H, el.scrollHeight + 24));
+        setHeaderH((prev) => (Math.abs(prev - h) > 1 ? h : prev));
+      };
+      measure();
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }, []);
+
+    // ResizeObserver para medir altura dinâmica do rodapé
+    useLayoutEffect(() => {
+      const el = footerRef.current;
+      if (!el) return;
+      const measure = () => {
+        const h = Math.max(MIN_FOOTER_H, Math.min(MAX_FOOTER_H, el.scrollHeight + 24));
+        setFooterH((prev) => (Math.abs(prev - h) > 1 ? h : prev));
+      };
+      measure();
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }, []);
 
     const detectActiveZone = useCallback((): Zone => {
       const el = document.activeElement;
@@ -155,17 +234,67 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
       requestAnimationFrame(() => recalcPages());
     }, [readOnly, isPreview, onChange, recalcPages]);
 
+    // Insere uma imagem (dataURL já reescalada) na zona ativa
+    const insertImageInZone = useCallback(
+      async (dataUrl: string, zone: Zone) => {
+        if (readOnly || isPreview) return;
+        const el = refFor(zone).current;
+        if (!el) return;
+        try {
+          const resized = await resizeImageDataUrl(dataUrl, 600);
+          el.focus();
+          // Inserir <img> com style inline para garantir contenção mesmo sem CSS
+          const html = `<img src="${resized}" style="max-width:100%;height:auto;display:inline-block;" alt="" />`;
+          document.execCommand("insertHTML", false, html);
+          const cb = onChangeFor(zone);
+          cb?.(el.innerHTML);
+          if (zone === "body") requestAnimationFrame(() => recalcPages());
+        } catch (e) {
+          console.error("Erro ao inserir imagem", e);
+        }
+      },
+      [readOnly, isPreview, onChange, onCabecalhoChange, onRodapeChange, recalcPages]
+    );
+
+    // Abre file picker para inserir imagem
+    const openImagePicker = useCallback(
+      (zone: Zone) => {
+        if (readOnly || isPreview) return;
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.onchange = async () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          try {
+            const dataUrl = await fileToDataUrl(file);
+            await insertImageInZone(dataUrl, zone);
+          } catch (e) {
+            console.error("Erro lendo imagem", e);
+          }
+        };
+        input.click();
+      },
+      [readOnly, isPreview, insertImageInZone]
+    );
+
     const handleFormat = useCallback(
       (command: string, val?: string) => {
         if (command === "insertPageBreak") {
           insertPageBreakAtSelection();
           return;
         }
+        if (command === "insertImage") {
+          // Usa zona ativa atual (não a do document.activeElement, que pode estar
+          // num botão da toolbar)
+          openImagePicker(activeZone);
+          return;
+        }
         const zone = detectActiveZone();
         document.execCommand(command, false, val);
         refFor(zone).current?.focus();
       },
-      [detectActiveZone, insertPageBreakAtSelection]
+      [detectActiveZone, insertPageBreakAtSelection, openImagePicker, activeZone]
     );
 
     const makeInputHandler = (zone: Zone) => () => {
@@ -248,6 +377,50 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
       requestAnimationFrame(() => refFor(z).current?.focus());
     };
 
+    // Paste: intercepta imagens (do clipboard) e reescala
+    const makePasteHandler = (zone: Zone) => async (e: React.ClipboardEvent) => {
+      if (readOnly || isPreview) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        if (it.type.startsWith("image/")) {
+          e.preventDefault();
+          const file = it.getAsFile();
+          if (!file) continue;
+          try {
+            const dataUrl = await fileToDataUrl(file);
+            await insertImageInZone(dataUrl, zone);
+          } catch (err) {
+            console.error("Erro ao colar imagem", err);
+          }
+          return;
+        }
+      }
+    };
+
+    // Drop: intercepta arquivos de imagem arrastados
+    const makeDropHandler = (zone: Zone) => async (e: React.DragEvent) => {
+      if (readOnly || isPreview) return;
+      const files = e.dataTransfer?.files;
+      if (!files || files.length === 0) return;
+      const imgFile = Array.from(files).find((f) => f.type.startsWith("image/"));
+      if (!imgFile) return;
+      e.preventDefault();
+      try {
+        const dataUrl = await fileToDataUrl(imgFile);
+        await insertImageInZone(dataUrl, zone);
+      } catch (err) {
+        console.error("Erro ao soltar imagem", err);
+      }
+    };
+
+    const preventDragOver = (e: React.DragEvent) => {
+      if (readOnly || isPreview) return;
+      const hasFiles = e.dataTransfer?.types?.includes("Files");
+      if (hasFiles) e.preventDefault();
+    };
+
     const zoneIsActive = (z: Zone) => activeZone === z;
     const editableNow = (z: Zone) => !readOnly && !isPreview && zoneIsActive(z);
 
@@ -258,6 +431,22 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
 
     return (
       <div className={cn("flex flex-col bg-muted/40 dark:bg-muted/10", className)}>
+        {/* CSS escopado para conter imagens dentro das zonas */}
+        <style>{`
+          [data-zone="header"] img,
+          [data-zone="footer"] img {
+            max-width: 100% !important;
+            max-height: 200px !important;
+            height: auto !important;
+            object-fit: contain;
+            display: inline-block;
+            vertical-align: middle;
+          }
+          [data-zone="body"] img {
+            max-width: 100% !important;
+            height: auto !important;
+          }
+        `}</style>
         {/* Toolbar sticky */}
         <div className="sticky top-0 z-30 bg-background border-b shadow-sm">
           <RichTextToolbar onFormat={handleFormat} />
@@ -269,8 +458,9 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
           {!isPreview && activeZone !== "body" && (
             <div className="px-4 py-1.5 text-xs bg-primary/5 text-primary border-t flex items-center justify-between">
               <span>
-                Editando {activeZone === "header" ? "cabeçalho" : "rodapé"} — clique no
-                corpo ou pressione Esc para voltar.
+                Editando {activeZone === "header" ? "cabeçalho" : "rodapé"} ·{" "}
+                {activeZone === "header" ? Math.round(headerH) : Math.round(footerH)}px
+                {" "}— clique no corpo ou pressione Esc para voltar.
               </span>
               <button
                 onClick={() => activateZone("body")}
@@ -298,9 +488,13 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
             >
               <div
                 ref={bodyRef}
+                data-zone="body"
                 contentEditable={!readOnly && !isPreview && activeZone === "body"}
                 onInput={makeInputHandler("body")}
                 onKeyDown={handleKeyDown("body")}
+                onPaste={makePasteHandler("body")}
+                onDrop={makeDropHandler("body")}
+                onDragOver={preventDragOver}
                 onFocus={() => setActiveZone("body")}
                 onClick={() => {
                   if (activeZone !== "body") setActiveZone("body");
@@ -310,8 +504,8 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
                   fontFamily: "Times New Roman, serif",
                   fontSize: "12pt",
                   lineHeight: "1.5",
-                  paddingTop: `${HEADER_H + 12}px`,
-                  paddingBottom: `${FOOTER_H + 12}px`,
+                  paddingTop: `${headerH + 12}px`,
+                  paddingBottom: `${footerH + 12}px`,
                   paddingLeft: `${SIDE_PAD}px`,
                   paddingRight: `${SIDE_PAD}px`,
                   minHeight: `${PAGE_HEIGHT}px`,
@@ -354,14 +548,14 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
                   {/* CABEÇALHO */}
                   <div
                     className={cn(
-                      "absolute left-0 right-0 top-0 bg-background group/header transition-colors",
+                      "absolute left-0 right-0 top-0 bg-background group/header transition-colors overflow-hidden",
                       isFirst && editableNow("header")
                         ? "border-b border-dashed border-primary/50"
                         : "border-b border-dashed border-transparent",
                       isFirst && !editableNow("header") && "hover:border-border"
                     )}
                     style={{
-                      height: `${HEADER_H}px`,
+                      height: `${headerH}px`,
                       padding: `12px ${SIDE_PAD}px`,
                       pointerEvents: isFirst ? "auto" : "none",
                       zIndex: 10,
@@ -390,10 +584,14 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
                     {isFirst ? (
                       <div
                         ref={headerRef}
+                        data-zone="header"
                         contentEditable={editableNow("header")}
                         suppressContentEditableWarning
                         onInput={makeInputHandler("header")}
                         onKeyDown={handleKeyDown("header")}
+                        onPaste={makePasteHandler("header")}
+                        onDrop={makeDropHandler("header")}
+                        onDragOver={preventDragOver}
                         className={cn(
                           "outline-none min-h-[36px]",
                           !editableNow("header") && "text-muted-foreground/70 cursor-default"
@@ -406,6 +604,7 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
                       />
                     ) : (
                       <div
+                        data-zone="header"
                         className="text-muted-foreground/70"
                         style={{
                           fontFamily: "Times New Roman, serif",
@@ -420,14 +619,14 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
                   {/* RODAPÉ */}
                   <div
                     className={cn(
-                      "absolute left-0 right-0 bottom-0 bg-background group/footer transition-colors",
+                      "absolute left-0 right-0 bottom-0 bg-background group/footer transition-colors overflow-hidden",
                       isFirst && editableNow("footer")
                         ? "border-t border-dashed border-primary/50"
                         : "border-t border-dashed border-transparent",
                       isFirst && !editableNow("footer") && "hover:border-border"
                     )}
                     style={{
-                      height: `${FOOTER_H}px`,
+                      height: `${footerH}px`,
                       padding: `12px ${SIDE_PAD}px`,
                       pointerEvents: isFirst ? "auto" : "none",
                       zIndex: 10,
@@ -456,10 +655,14 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
                     {isFirst ? (
                       <div
                         ref={footerRef}
+                        data-zone="footer"
                         contentEditable={editableNow("footer")}
                         suppressContentEditableWarning
                         onInput={makeInputHandler("footer")}
                         onKeyDown={handleKeyDown("footer")}
+                        onPaste={makePasteHandler("footer")}
+                        onDrop={makeDropHandler("footer")}
+                        onDragOver={preventDragOver}
                         className={cn(
                           "outline-none min-h-[36px]",
                           !editableNow("footer") && "text-muted-foreground/70 cursor-default"
@@ -472,6 +675,7 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
                       />
                     ) : (
                       <div
+                        data-zone="footer"
                         className="text-muted-foreground/70"
                         style={{
                           fontFamily: "Times New Roman, serif",
