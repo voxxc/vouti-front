@@ -163,8 +163,9 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
         isInternalChange.current = true;
         headerRef.current.innerHTML = next;
         isInternalChange.current = false;
+        requestAnimationFrame(() => recalcPages());
       }
-    }, [cabecalhoHtml, previewCabecalho]);
+    }, [cabecalhoHtml, previewCabecalho, recalcPages]);
 
     useEffect(() => {
       if (!footerRef.current) return;
@@ -173,8 +174,9 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
         isInternalChange.current = true;
         footerRef.current.innerHTML = next;
         isInternalChange.current = false;
+        requestAnimationFrame(() => recalcPages());
       }
-    }, [rodapeHtml, previewRodape]);
+    }, [rodapeHtml, previewRodape, recalcPages]);
 
     useLayoutEffect(() => {
       const el = bodyRef.current;
@@ -184,6 +186,34 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
       ro.observe(el);
       return () => ro.disconnect();
     }, [recalcPages]);
+
+    // ResizeObserver para medir altura dinâmica do cabeçalho
+    useLayoutEffect(() => {
+      const el = headerRef.current;
+      if (!el) return;
+      const measure = () => {
+        const h = Math.max(MIN_HEADER_H, Math.min(MAX_HEADER_H, el.scrollHeight + 24));
+        setHeaderH((prev) => (Math.abs(prev - h) > 1 ? h : prev));
+      };
+      measure();
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }, []);
+
+    // ResizeObserver para medir altura dinâmica do rodapé
+    useLayoutEffect(() => {
+      const el = footerRef.current;
+      if (!el) return;
+      const measure = () => {
+        const h = Math.max(MIN_FOOTER_H, Math.min(MAX_FOOTER_H, el.scrollHeight + 24));
+        setFooterH((prev) => (Math.abs(prev - h) > 1 ? h : prev));
+      };
+      measure();
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }, []);
 
     const detectActiveZone = useCallback((): Zone => {
       const el = document.activeElement;
