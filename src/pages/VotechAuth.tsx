@@ -4,10 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, TrendingUp, DollarSign, PiggyBank, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+const FONT_STACK = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, system-ui, sans-serif';
+const inputCls = "h-12 rounded-xl bg-[#E5E5EA] dark:bg-white/10 border-0 text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 focus-visible:ring-2 focus-visible:ring-[#30D158]/40 focus-visible:ring-offset-0";
 
 const VotechAuth = () => {
   const { signIn, signUp, user } = useVotechAuth();
