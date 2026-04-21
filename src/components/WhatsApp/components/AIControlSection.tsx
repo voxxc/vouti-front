@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useWhatsAppAIControl } from "@/hooks/useWhatsAppAIControl";
 
+
 interface AIControlSectionProps {
   phoneNumber: string;
   tenantId: string | null;
