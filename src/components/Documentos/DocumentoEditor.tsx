@@ -110,7 +110,13 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
     const isInternalChange = useRef(false);
     const [activeZone, setActiveZone] = useState<Zone>("body");
     const [pageCount, setPageCount] = useState(1);
+    const [headerH, setHeaderH] = useState<number>(MIN_HEADER_H);
+    const [footerH, setFooterH] = useState<number>(MIN_FOOTER_H);
     const isPreview = previewHtml != null;
+
+    // Derivados das alturas dinâmicas
+    const BODY_H = PAGE_HEIGHT - headerH - footerH;
+    const INTER_PAGE_BAND = footerH + PAGE_GAP + headerH;
 
     const refFor = (z: Zone) =>
       z === "header" ? headerRef : z === "footer" ? footerRef : bodyRef;
@@ -136,7 +142,7 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
         remaining -= BODY_H;
       }
       setPageCount((prev) => (prev !== pages ? pages : prev));
-    }, []);
+    }, [BODY_H, INTER_PAGE_BAND]);
 
     // Sincronizar HTML do corpo
     useEffect(() => {
