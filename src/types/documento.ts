@@ -3,6 +3,8 @@ export interface Documento {
   titulo: string;
   descricao: string | null;
   conteudo_html: string | null;
+  cabecalho_html: string | null;
+  rodape_html: string | null;
   cliente_id: string | null;
   projeto_id: string | null;
   responsavel_id: string | null;
@@ -37,6 +39,8 @@ export interface CreateDocumentoData {
   titulo: string;
   descricao?: string;
   conteudo_html?: string;
+  cabecalho_html?: string;
+  rodape_html?: string;
   cliente_id?: string;
   projeto_id?: string;
   responsavel_id?: string;
@@ -48,6 +52,8 @@ export interface UpdateDocumentoData {
   titulo?: string;
   descricao?: string;
   conteudo_html?: string;
+  cabecalho_html?: string | null;
+  rodape_html?: string | null;
   cliente_id?: string | null;
   projeto_id?: string | null;
   responsavel_id?: string | null;
