@@ -72,6 +72,7 @@ const DocumentoEditar = lazy(() => import("@/pages/DocumentoEditar"));
 const CrmLogin = lazy(() => import("@/pages/CrmLogin"));
 const CrmApp = lazy(() => import("@/pages/CrmApp"));
 const CrmLanding = lazy(() => import("@/pages/CrmLanding"));
+const CrmSalesLanding = lazy(() => import("@/pages/CrmSalesLanding"));
 
 import Logo from "@/components/Logo";
 import { BatinkAuthProvider, useBatinkAuth } from "@/contexts/BatinkAuthContext";
