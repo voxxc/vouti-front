@@ -39,6 +39,8 @@ import {
   Building2,
   Megaphone,
   Layers,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 
 const CrmSalesLanding = () => {
@@ -56,6 +58,33 @@ const CrmSalesLanding = () => {
   });
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Carrossel vertical (mobile) — seção "Por que Vouti.CRM"
+  const diferenciais = [
+    { icon: Sparkles, t: "Fluxo de Atendimento & IA", d: "Atendimento 24/7." },
+    { icon: Shield, t: "Dados isolados", d: "Row-Level Security em todas as tabelas." },
+    { icon: Bot, t: "IA multi-provedor", d: "DeepSeek, Lovable AI ou Grok à sua escolha." },
+    { icon: Megaphone, t: "Campanhas em massa", d: "Envio escalonado com variáveis dinâmicas." },
+    { icon: Repeat, t: "Transferência fluida", d: "Passe conversas entre atendentes em 1 clique." },
+    { icon: Zap, t: "Automação de leads", d: "Mensagem de boas-vindas automática." },
+    { icon: Smartphone, t: "Mobile responsivo", d: "Atenda do celular sem perder recursos." },
+    { icon: Layers, t: "Tudo integrado", d: "Equipes, projetos e WhatsApp num só DB." },
+  ];
+  const [activeIdx, setActiveIdx] = useState(0);
+  const touchStartY = useRef<number | null>(null);
+  const nextDif = () => setActiveIdx((i) => (i + 1) % diferenciais.length);
+  const prevDif = () =>
+    setActiveIdx((i) => (i - 1 + diferenciais.length) % diferenciais.length);
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartY.current == null) return;
+    const delta = e.changedTouches[0].clientY - touchStartY.current;
+    if (delta < -40) nextDif();
+    else if (delta > 40) prevDif();
+    touchStartY.current = null;
+  };
 
   const scrollToForm = () => {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -369,28 +398,101 @@ const CrmSalesLanding = () => {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-            {[
-              { icon: Sparkles, t: "Fluxo de Atendimento & IA", d: "Atendimento 24/7." },
-              { icon: Shield, t: "Dados isolados", d: "Row-Level Security em todas as tabelas." },
-              { icon: Bot, t: "IA multi-provedor", d: "DeepSeek, Lovable AI ou Grok à sua escolha." },
-              { icon: Megaphone, t: "Campanhas em massa", d: "Envio escalonado com variáveis dinâmicas." },
-              { icon: Repeat, t: "Transferência fluida", d: "Passe conversas entre atendentes em 1 clique." },
-              { icon: Zap, t: "Automação de leads", d: "Mensagem de boas-vindas automática." },
-              { icon: Smartphone, t: "Mobile responsivo", d: "Atenda do celular sem perder recursos." },
-              { icon: Layers, t: "Tudo integrado", d: "Equipes, projetos e WhatsApp num só DB." },
-            ].map((d) => (
+          {/* Desktop: grid */}
+          <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+            {diferenciais.map((d) => (
               <div
                 key={d.t}
-                className="p-4 md:p-6 rounded-2xl border border-border/60 bg-card hover:border-[#E11D48]/40 transition-colors flex md:block items-start gap-3"
+                className="p-4 md:p-6 rounded-2xl border border-border/60 bg-card hover:border-[#E11D48]/40 transition-colors"
               >
-                <d.icon className="w-5 h-5 md:w-6 md:h-6 text-[#E11D48] md:mb-3 flex-shrink-0 mt-0.5 md:mt-0" />
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-sm md:text-base mb-0.5 md:mb-1">{d.t}</h3>
-                  <p className="text-xs md:text-sm text-muted-foreground">{d.d}</p>
-                </div>
+                <d.icon className="w-5 h-5 md:w-6 md:h-6 text-[#E11D48] mb-3" />
+                <h3 className="font-bold text-sm md:text-base mb-1">{d.t}</h3>
+                <p className="text-xs md:text-sm text-muted-foreground">{d.d}</p>
               </div>
             ))}
+          </div>
+
+          {/* Mobile: carrossel vertical estilo roleta */}
+          <div className="md:hidden">
+            <div
+              className="relative h-[180px] overflow-hidden select-none"
+              onTouchStart={onTouchStart}
+              onTouchEnd={onTouchEnd}
+            >
+              {diferenciais.map((d, i) => {
+                const offset = i - activeIdx;
+                let cls =
+                  "absolute inset-x-10 top-1/2 -translate-y-1/2 transition-all duration-400 ease-out";
+                if (offset === 0) {
+                  cls += " translate-y-[-50%] opacity-100 scale-100 z-20";
+                } else if (
+                  offset === -1 ||
+                  (activeIdx === 0 && i === diferenciais.length - 1)
+                ) {
+                  cls += " -translate-y-[140%] opacity-20 scale-90 z-10";
+                } else if (
+                  offset === 1 ||
+                  (activeIdx === diferenciais.length - 1 && i === 0)
+                ) {
+                  cls += " translate-y-[40%] opacity-20 scale-90 z-10";
+                } else {
+                  cls += " opacity-0 scale-75 pointer-events-none";
+                }
+                return (
+                  <div
+                    key={d.t}
+                    className={cls}
+                    aria-hidden={offset !== 0}
+                  >
+                    <div className="p-5 rounded-2xl border border-border/60 bg-card shadow-[var(--shadow-apple-sm)] flex items-start gap-3">
+                      <d.icon className="w-6 h-6 text-[#E11D48] flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-base mb-1">{d.t}</h3>
+                        <p className="text-sm text-muted-foreground">{d.d}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Indicadores verticais */}
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-30">
+                {diferenciais.map((_, i) => (
+                  <button
+                    key={i}
+                    aria-label={`Ir para diferencial ${i + 1}`}
+                    onClick={() => setActiveIdx(i)}
+                    className={`w-1.5 rounded-full transition-all ${
+                      i === activeIdx
+                        ? "h-4 bg-[#E11D48]"
+                        : "h-1.5 bg-muted-foreground/30"
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {/* Botões ↑ / ↓ */}
+              <div className="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col gap-1 z-30">
+                <button
+                  aria-label="Anterior"
+                  onClick={prevDif}
+                  className="w-7 h-7 rounded-full bg-card border border-border/60 flex items-center justify-center text-muted-foreground hover:text-[#E11D48] hover:border-[#E11D48]/40 transition-colors"
+                >
+                  <ChevronUp className="w-4 h-4" />
+                </button>
+                <button
+                  aria-label="Próximo"
+                  onClick={nextDif}
+                  className="w-7 h-7 rounded-full bg-card border border-border/60 flex items-center justify-center text-muted-foreground hover:text-[#E11D48] hover:border-[#E11D48]/40 transition-colors"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <p className="text-center text-xs text-muted-foreground mt-3">
+              {activeIdx + 1} de {diferenciais.length} • deslize para navegar
+            </p>
           </div>
         </div>
       </section>
