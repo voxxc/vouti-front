@@ -1,174 +1,112 @@
 
 
-## Cabeçalho e rodapé no editor de documentos (estilo Word)
+## Paginação real estilo Word — folhas A4 distintas com cabeçalho/rodapé repetidos
 
-### Objetivo
-Adicionar **cabeçalho** e **rodapé** editáveis na folha A4 do `DocumentoEditor`, com o mesmo padrão do Word: por padrão ficam "travados" (cinza, não-editáveis); ao dar **duplo-clique** na zona superior ou inferior da página, a área destrava e fica editável; clicar no corpo trava de volta.
+### Causa raiz
+Hoje o `DocumentoEditor` renderiza **uma única "folha" infinita** (`minHeight: 1123px`) — quando o usuário digita muito, o corpo cresce verticalmente e o rodapé é empurrado para baixo, ao invés de iniciar uma nova página A4. Não existe paginação real.
 
----
+### Conceito (como o Word funciona)
+O Word mantém um único fluxo de texto editável e, em tempo de renderização, calcula onde quebrar e desenha **uma nova página visual** (folha branca + cabeçalho + rodapé) cada vez que o conteúdo passa do limite vertical. O cabeçalho/rodapé são **um conteúdo só**, replicados em todas as páginas.
 
-### 1. Modelo de dados
+Vamos reproduzir o mesmo modelo:
+- `cabecalhoHtml`, `conteudoHtml`, `rodapeHtml` continuam sendo **um único fluxo cada** (sem mudança no banco).
+- O corpo é editado em **um único `contentEditable`** real, mas visualmente partido em "páginas" sobrepostas/empilhadas.
+- Cabeçalho e rodapé são renderizados **uma vez por página visual**, lendo o mesmo `cabecalhoHtml` / `rodapeHtml`.
 
-Adicionar dois novos campos persistidos por documento:
-- `cabecalho_html` (text, nullable)
-- `rodape_html` (text, nullable)
+### Correção — abordagem técnica
 
-**Migração SQL:**
-```sql
-ALTER TABLE documentos
-  ADD COLUMN cabecalho_html TEXT,
-  ADD COLUMN rodape_html TEXT;
+**Arquivo principal:** `src/components/Documentos/DocumentoEditor.tsx`
+
+#### A) Constantes de página
+```text
+PAGE_WIDTH  = 794px   (A4 @ 96dpi)
+PAGE_HEIGHT = 1123px
+HEADER_H    = 60px
+FOOTER_H    = 60px
+SIDE_PAD    = 96px
+BODY_H_PER_PAGE = 1123 - 60 - 60 = 1003px   (área útil do corpo por página)
 ```
 
-**Atualizações de tipos:**
-- `src/types/documento.ts`: adicionar `cabecalho_html?: string | null` e `rodape_html?: string | null` em `Documento`, `CreateDocumentoData`, `UpdateDocumentoData`.
-- `src/integrations/supabase/types.ts`: refletir novos campos na tabela `documentos`.
-- `src/hooks/useDocumentos.ts`: incluir os campos no `insert` (create), no `update`, e no `gerarDeModelo` (copia cabeçalho/rodapé do modelo para a instância).
-
----
-
-### 2. Mudanças visuais na "folha A4"
-
-`src/components/Documentos/DocumentoEditor.tsx`:
-
-A folha continua `794px × 1123px`, mas o `padding: 96px` deixa de ser usado em bloco único. A folha passa a ser dividida verticalmente em três zonas:
+#### B) Estrutura DOM por página
+A "mesa de trabalho" passa a renderizar **N folhas A4 empilhadas** com gap entre elas:
 
 ```text
-+------------------------------------------------+   <- topo da folha (0px)
-|  [ZONA CABEÇALHO]  altura ~60px, padding lateral 96px  |
-+------------------------------------------------+   <- 60px
-|                                                |
-|  [ZONA CORPO]  padding lateral 96px            |
-|                                                |
-+------------------------------------------------+   <- 1123 - 60 = 1063px
-|  [ZONA RODAPÉ]   altura ~60px, padding lateral 96px   |
-+------------------------------------------------+   <- 1123px
+[Folha 1]
+  ├ Cabeçalho (60px) — render do mesmo cabecalhoHtml
+  ├ Corpo (1003px)   — janela visual sobre o fluxo único
+  └ Rodapé (60px)
+[gap 16px]
+[Folha 2]
+  ├ Cabeçalho (60px) — mesmo HTML, repetido
+  ├ Corpo (1003px)
+  └ Rodapé (60px)
+...
 ```
 
-Cada zona é um `div` independente com seu próprio `contentEditable` controlado por estado local `activeZone: 'header' | 'body' | 'footer' | null`.
+#### C) Como manter UM editor mas N páginas visuais
+Implementação escolhida: **"editor flutuante + máscaras de página"**.
 
-**Estados visuais por zona (como no Word):**
-- **Inativa**: texto em `text-muted-foreground/60`, sem cursor de edição, sem outline; ao passar o mouse mostra um marcador discreto (linha tracejada `border-dashed` cinza claro) e tooltip "Duplo-clique para editar cabeçalho".
-- **Ativa**: borda tracejada azul (`border-dashed border-primary/40`), label flutuante no canto ("Cabeçalho" / "Rodapé") em badge pequeno, cursor de texto, `contentEditable=true`.
-- **Corpo ativo**: zonas de cabeçalho/rodapé voltam ao estado inativo automaticamente.
+1. Existe **um único** `<div contentEditable>` com `cabecalhoHtml`/`bodyHtml`/`rodapeHtml` (apenas o body é o editor longo). Esse editor fica em `position: absolute; top:0; left:0; width:602px` (largura útil = 794 − 96×2) **dentro** de um wrapper `position: relative`.
+2. Por cima/abaixo, renderizamos as "folhas visuais" como uma camada de **molduras**: cada folha é um `div` posicionado em `top: i*(PAGE_HEIGHT+GAP)`, com cabeçalho desenhado no topo, rodapé no fundo, e uma "janela transparente" no meio. As folhas têm `pointer-events: none` exceto cabeçalho/rodapé.
+3. O número de páginas é calculado por `Math.ceil(bodyScrollHeight / BODY_H_PER_PAGE)` via `ResizeObserver` no `<div contentEditable>` do corpo.
+4. O corpo recebe `padding-top` extra para que o texto "pule" os cabeçalhos das páginas seguintes:  
+   `padding inserido antes do byte que cruza cada limite`. Na prática, mais simples: deixamos o body como um fluxo contínuo SEM gaps, e desenhamos as folhas com **cabeçalhos/rodapés flutuando "sobre" o texto** apenas como decoração visual (não-interativos), com `background: white` cobrindo a faixa onde cairia texto cortado. Para o texto não ficar coberto, aplicamos `padding-block` no body que reserva o espaço de cabeçalho+rodapé+gap a cada `BODY_H_PER_PAGE` percorridos — feito injetando `<div class="page-break-spacer" style="height:120px">` automaticamente via `useEffect` após cada mudança (não-editáveis, `contenteditable=false`).
 
-**Interações:**
-- `onDoubleClick` na zona de cabeçalho → `setActiveZone('header')` e `focus()` no editor da zona.
-- `onDoubleClick` na zona de rodapé → `setActiveZone('footer')`.
-- `onClick` ou `onFocus` no corpo → `setActiveZone('body')` (trava header/footer).
-- Tecla `Escape` em qualquer zona ativa de header/footer → volta para `'body'`.
+> Em resumo: o body é um único editor; o efeito visual de "passar para a página 2" vem de **espaçadores invisíveis** inseridos automaticamente quando o corpo ultrapassa o limite, e de molduras (folha + cabeçalho + rodapé) renderizadas atrás.
 
----
+#### D) Cabeçalho e rodapé — edição
+Mantemos o comportamento atual (duplo-clique destrava). A diferença: o **mesmo** `cabecalhoHtml` é renderizado em todas as folhas (somente leitura nas folhas 2+). A edição acontece sempre na **folha 1**; alterações são propagadas automaticamente porque o HTML é único — as outras folhas apenas espelham via `dangerouslySetInnerHTML`.
 
-### 3. API do componente
+#### E) Quebra de página manual (opcional)
+Adicionar atalho `Ctrl+Enter` que insere um `<div class="page-break" data-page-break="true" style="break-before: page;"></div>` no corpo. O cálculo de páginas trata esse marker como "forçar próxima página" (avança o cursor de medição até o próximo múltiplo de `BODY_H_PER_PAGE`).
 
-`DocumentoEditor` ganha props novas:
-```typescript
-interface DocumentoEditorProps {
-  value: string;
-  onChange: (value: string) => void;
-  cabecalhoHtml: string;
-  onCabecalhoChange: (value: string) => void;
-  rodapeHtml: string;
-  onRodapeChange: (value: string) => void;
-  className?: string;
-  readOnly?: boolean;
-  previewHtml?: string | null;
-  previewCabecalho?: string | null;
-  previewRodape?: string | null;
-}
-```
+### Exportação PDF — sincronizar com a paginação visual
+**Arquivo:** `src/components/Documentos/DocumentosPDFExport.tsx`
 
-`DocumentoEditorHandle` (imperativo) continua com `insertAtCursor`/`focus`, mas **insere na zona ativa** (corpo, cabeçalho ou rodapé). Útil para o painel de variáveis funcionar dentro do cabeçalho também (ex: número de processo no topo).
-
-A toolbar (`RichTextToolbar`) passa a operar sobre a zona ativa — `document.execCommand` já age sobre o `contentEditable` focado, então funciona naturalmente; só precisamos garantir que o foco volte para a zona ativa após clicar num botão da toolbar.
-
----
-
-### 4. Integração com a página
-
-`src/pages/DocumentoEditar.tsx`:
-- Novos estados: `cabecalhoHtml`, `rodapeHtml`.
-- Carregar do `documento` no `useEffect` existente.
-- Passar para `<DocumentoEditor />` os 4 valores e callbacks.
-- No `handleSave`, enviar `cabecalho_html` e `rodape_html` no `createDocumento` / `updateDocumento`.
-- No `handleExportPDF`, gerar HTML final concatenando cabeçalho + corpo + rodapé já com variáveis aplicadas.
-- No modo **Preview** (cliente vinculado), aplicar `applyClienteVariables` também no cabeçalho e rodapé, gerando `previewCabecalho` e `previewRodape`.
-- Botão "Aplicar definitivamente" também substitui variáveis em cabeçalho e rodapé.
-
----
-
-### 5. Exportação PDF
-
-`src/components/Documentos/DocumentosPDFExport.tsx`:
-- Aceitar `cabecalhoHtml` e `rodapeHtml` opcionais.
-- No HTML montado para o PDF, renderizar cabeçalho no topo de cada página e rodapé no fim de cada página usando `@page` CSS:
-  ```css
-  @page {
-    margin: 60px 0;
-    @top-center { content: element(header); }
-    @bottom-center { content: element(footer); }
-  }
-  ```
-- Fallback: se a engine de PDF usada (jsPDF/html2canvas) não suportar `@page`, renderizar cabeçalho/rodapé fixos em cada página via cálculo manual ao paginar.
-
----
-
-### 6. Painel de variáveis funciona em qualquer zona
-
-`VariaveisPanel` continua chamando `editorRef.current?.insertAtCursor(v)`. A implementação do `insertAtCursor` no editor passa a:
-1. Detectar qual `contentEditable` tem o foco atual (`document.activeElement`).
-2. Inserir na seleção dessa zona.
-3. Disparar o `onChange` correto (`onChange`, `onCabecalhoChange` ou `onRodapeChange`).
-
----
+Já existe `doc.addPage()` e `drawHeaderFooter()` por página — está OK. Acrescentar:
+- Respeitar marcadores `<div data-page-break="true">` forçando `doc.addPage()` ao encontrá-los.
+- Manter altura útil idêntica (`contentBottom = pageHeight - margin - footerHeight`) para o PDF refletir o que se vê na tela.
 
 ### Arquivos afetados
 
-**Migração nova:**
-- SQL adicionando `cabecalho_html` e `rodape_html` em `documentos`.
-
 **Modificados:**
-- `src/types/documento.ts` — campos novos.
-- `src/integrations/supabase/types.ts` — campos novos.
-- `src/hooks/useDocumentos.ts` — persistir cabeçalho/rodapé no create/update/gerarDeModelo.
-- `src/components/Documentos/DocumentoEditor.tsx` — 3 zonas editáveis, lógica de duplo-clique, estado `activeZone`, roteamento de `insertAtCursor` para a zona ativa.
-- `src/pages/DocumentoEditar.tsx` — estados, carregamento, salvamento, integração com preview/aplicação de variáveis.
-- `src/components/Documentos/DocumentosPDFExport.tsx` — aceitar e renderizar cabeçalho/rodapé na exportação.
+- `src/components/Documentos/DocumentoEditor.tsx` — paginação visual, `ResizeObserver`, espaçadores automáticos, atalho `Ctrl+Enter`, render de folhas múltiplas com cabeçalho/rodapé repetidos.
+- `src/components/Documentos/DocumentosPDFExport.tsx` — respeitar `data-page-break` para forçar nova página no PDF.
+- `src/components/Documentos/RichTextToolbar.tsx` — botão "Quebra de página" (ícone `FileText` ou `SeparatorHorizontal`) chamando comando customizado.
+- `src/pages/DocumentoEditar.tsx` — passar handler para inserir quebra de página via toolbar (extensão de `onFormat`).
 
----
+**Sem mudanças:** banco de dados, RLS, tipos, hooks (`useDocumentos`).
 
 ### Impacto
 
 **Usuário final (UX):**
-- Comportamento idêntico ao Word: por padrão a folha mostra só o corpo "ativo"; cabeçalho e rodapé ficam suaves, em cinza claro, com aviso de duplo-clique no hover. Ao dar duplo-clique, a zona destrava, ganha borda pontilhada azul, label "Cabeçalho"/"Rodapé" e cursor de texto. Clicar no corpo trava de volta.
-- Variáveis (`${_X_cliente_}`) podem ser inseridas também no cabeçalho/rodapé — útil para "Processo nº", "Cliente: ..." no topo de toda página.
-- Modelos novos podem definir cabeçalho/rodapé padrão que serão herdados pelas instâncias geradas.
+- Ao digitar muito, o corpo automaticamente "transborda" para uma segunda folha A4 visualmente separada, com o mesmo cabeçalho e rodapé repetidos no topo/fundo. Idêntico ao Word.
+- Botão novo na toolbar para quebra de página manual (`Ctrl+Enter`).
+- Cabeçalho editado uma vez aparece em todas as páginas automaticamente.
+- Preview e Aplicar definitivamente continuam funcionando (operam sobre o HTML único).
 
 **Dados:**
-- Migração simples, dois campos `TEXT` nullable. Nenhum dado existente é alterado; documentos antigos ficam com cabeçalho/rodapé vazios. Sem mudança em RLS, índices ou performance relevante.
+- Zero mudança no banco. Continua salvando 3 campos HTML (`cabecalho_html`, `conteudo_html`, `rodape_html`).
+- Marcadores `<div data-page-break>` ficam embutidos no HTML do corpo — preservados em backups, copy/paste e exportações.
 
 **Riscos colaterais:**
-- `document.execCommand` aplicado em múltiplos `contentEditable` precisa garantir foco correto; mitigado por `activeElement` check antes da inserção.
-- Exportação PDF com `@page` pode variar entre engines; fallback manual previsto.
-- Em telas estreitas (<900px) a folha A4 já rola horizontalmente — o comportamento de zonas continua igual, sem regressão.
+- `ResizeObserver` rodando no corpo a cada digitação tem custo baixo, mas é debounce-ado (60ms) para não disparar a cada tecla.
+- Inserção automática de espaçadores pode interferir com a posição do cursor — mitigado salvando `Selection` antes/depois da reinjeção.
+- HTML antigo (sem markers) continua funcionando: a paginação calcula tudo por altura medida.
+- Telas pequenas (<900px CSS): folha A4 já scrolla horizontal; a paginação vertical não muda nada.
 
 **Quem é afetado:**
-- Apenas usuários do módulo `/documentos` (criação/edição). Listagens e CRM (aba "Documentos" do cliente) não mudam.
-
----
+- Apenas usuários do editor `/documentos/:id`. Listagens, CRM, demais tenants — sem mudança.
 
 ### Validação
-
-1. Abrir `/demorais/documentos/novo` — folha A4 mostra zona de cabeçalho cinza no topo e rodapé cinza embaixo, com texto placeholder.
-2. Hover na zona de cabeçalho → borda tracejada cinza + tooltip "Duplo-clique para editar".
-3. Duplo-clique no cabeçalho → borda azul tracejada, label "Cabeçalho", cursor pisca, posso digitar.
-4. Clicar no corpo → cabeçalho volta ao cinza, corpo recebe o foco.
-5. Mesma sequência funciona no rodapé.
-6. Inserir variável `${_Nome_cliente_}` com cabeçalho ativo → variável vai para o cabeçalho, não para o corpo.
-7. Salvar documento, recarregar página, cabeçalho e rodapé persistem.
-8. Vincular cliente, alternar Preview → variáveis no cabeçalho/rodapé também são substituídas.
-9. Aplicar definitivamente → substituição também ocorre em cabeçalho/rodapé.
-10. Exportar PDF → cabeçalho aparece no topo e rodapé no fim de cada página.
-11. Gerar instância a partir de modelo → cabeçalho/rodapé do modelo são copiados para a nova instância.
+1. Abrir `/demorais/documentos/novo` — vejo 1 folha A4.
+2. Digitar parágrafos até ultrapassar ~1000px de corpo → automaticamente surge uma 2ª folha A4 abaixo, com o cabeçalho/rodapé repetidos.
+3. Editar o cabeçalho na folha 1 → texto novo aparece também no cabeçalho da folha 2 instantaneamente.
+4. Pressionar `Ctrl+Enter` no meio do texto → cursor pula para o início de uma nova folha; o conteúdo abaixo passa para a próxima página.
+5. Botão "Quebra de página" na toolbar tem o mesmo efeito.
+6. Apagar conteúdo até voltar a caber em 1 folha → folha 2 desaparece automaticamente.
+7. Exportar PDF → cada folha visual vira uma página real do PDF, com cabeçalho e rodapé repetidos.
+8. Modo Preview com cliente vinculado → variáveis substituídas em todas as folhas.
+9. Documento salvo, recarregado → paginação reconstruída pelo cálculo de altura, idêntica.
+10. Tema claro e escuro: folhas continuam brancas (papel), com sombra; gap visível entre páginas.
 
