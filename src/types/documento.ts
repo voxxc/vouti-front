@@ -7,6 +7,8 @@ export interface Documento {
   projeto_id: string | null;
   responsavel_id: string | null;
   tenant_id: string;
+  tipo: 'modelo' | 'documento';
+  modelo_origem_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -25,6 +27,10 @@ export interface DocumentoWithRelations extends Documento {
     user_id: string;
     full_name: string | null;
   } | null;
+  modelo_origem?: {
+    id: string;
+    titulo: string;
+  } | null;
 }
 
 export interface CreateDocumentoData {
@@ -34,6 +40,8 @@ export interface CreateDocumentoData {
   cliente_id?: string;
   projeto_id?: string;
   responsavel_id?: string;
+  tipo?: 'modelo' | 'documento';
+  modelo_origem_id?: string;
 }
 
 export interface UpdateDocumentoData {
@@ -43,6 +51,8 @@ export interface UpdateDocumentoData {
   cliente_id?: string | null;
   projeto_id?: string | null;
   responsavel_id?: string | null;
+  tipo?: 'modelo' | 'documento';
+  modelo_origem_id?: string | null;
 }
 
 // Variáveis dinâmicas disponíveis para documentos
