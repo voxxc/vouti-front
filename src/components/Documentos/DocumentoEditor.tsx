@@ -416,8 +416,8 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
           el.focus();
           document.execCommand("insertText", false, text);
           const cb = onChangeFor(zone);
-          cb?.(el.innerHTML);
-          if (zone === "body") recalcPages();
+          cb?.(zone === "body" ? stripSpacers(el.innerHTML) : el.innerHTML);
+          if (zone === "body") requestAnimationFrame(() => recalcPages());
         },
         insertPageBreak: insertPageBreakAtSelection,
         focus: () => refFor(activeZone).current?.focus(),
