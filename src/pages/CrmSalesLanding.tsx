@@ -59,6 +59,33 @@ const CrmSalesLanding = () => {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Carrossel vertical (mobile) — seção "Por que Vouti.CRM"
+  const diferenciais = [
+    { icon: Sparkles, t: "Fluxo de Atendimento & IA", d: "Atendimento 24/7." },
+    { icon: Shield, t: "Dados isolados", d: "Row-Level Security em todas as tabelas." },
+    { icon: Bot, t: "IA multi-provedor", d: "DeepSeek, Lovable AI ou Grok à sua escolha." },
+    { icon: Megaphone, t: "Campanhas em massa", d: "Envio escalonado com variáveis dinâmicas." },
+    { icon: Repeat, t: "Transferência fluida", d: "Passe conversas entre atendentes em 1 clique." },
+    { icon: Zap, t: "Automação de leads", d: "Mensagem de boas-vindas automática." },
+    { icon: Smartphone, t: "Mobile responsivo", d: "Atenda do celular sem perder recursos." },
+    { icon: Layers, t: "Tudo integrado", d: "Equipes, projetos e WhatsApp num só DB." },
+  ];
+  const [activeIdx, setActiveIdx] = useState(0);
+  const touchStartY = useRef<number | null>(null);
+  const nextDif = () => setActiveIdx((i) => (i + 1) % diferenciais.length);
+  const prevDif = () =>
+    setActiveIdx((i) => (i - 1 + diferenciais.length) % diferenciais.length);
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartY.current == null) return;
+    const delta = e.changedTouches[0].clientY - touchStartY.current;
+    if (delta < -40) nextDif();
+    else if (delta > 40) prevDif();
+    touchStartY.current = null;
+  };
+
   const scrollToForm = () => {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
