@@ -2020,9 +2020,11 @@ export type Database = {
           created_at: string | null
           descricao: string | null
           id: string
+          modelo_origem_id: string | null
           projeto_id: string | null
           responsavel_id: string | null
           tenant_id: string
+          tipo: string
           titulo: string
           updated_at: string | null
         }
@@ -2032,9 +2034,11 @@ export type Database = {
           created_at?: string | null
           descricao?: string | null
           id?: string
+          modelo_origem_id?: string | null
           projeto_id?: string | null
           responsavel_id?: string | null
           tenant_id: string
+          tipo?: string
           titulo: string
           updated_at?: string | null
         }
@@ -2044,9 +2048,11 @@ export type Database = {
           created_at?: string | null
           descricao?: string | null
           id?: string
+          modelo_origem_id?: string | null
           projeto_id?: string | null
           responsavel_id?: string | null
           tenant_id?: string
+          tipo?: string
           titulo?: string
           updated_at?: string | null
         }
@@ -2056,6 +2062,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_modelo_origem_id_fkey"
+            columns: ["modelo_origem_id"]
+            isOneToOne: false
+            referencedRelation: "documentos"
             referencedColumns: ["id"]
           },
           {
