@@ -56,6 +56,19 @@ export function exportDocumentoToPDF({ titulo, conteudoHtml, cabecalhoHtml, roda
     return processNode(div).trim();
   };
 
+  // Marcador interno usado para forçar quebra de página
+  const PAGE_BREAK_MARK = '\u0000PAGE_BREAK\u0000';
+
+  const htmlToTextWithBreaks = (html: string): string => {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    // Substituir marcadores de quebra de página por sentinela
+    div.querySelectorAll('[data-page-break="true"]').forEach((el) => {
+      el.replaceWith(document.createTextNode(`\n${PAGE_BREAK_MARK}\n`));
+    });
+    return processNode(div).trim();
+  };
+
   const cabecalhoText = cabecalhoHtml ? htmlToText(cabecalhoHtml) : '';
   const rodapeText = rodapeHtml ? htmlToText(rodapeHtml) : '';
 
@@ -84,24 +97,33 @@ export function exportDocumentoToPDF({ titulo, conteudoHtml, cabecalhoHtml, roda
   doc.text(tituloLines, pageWidth / 2, yPosition + 4, { align: 'center' });
   yPosition += tituloLines.length * 8 + 10;
 
-  const plainText = htmlToText(conteudoHtml);
+  const plainText = htmlToTextWithBreaks(conteudoHtml);
 
   // Renderizar texto
   doc.setFont('times', 'normal');
   doc.setFontSize(12);
   
-  const lines = doc.splitTextToSize(plainText, maxWidth);
-  
-  lines.forEach((line: string) => {
-    // Verificar se precisa nova página
-    if (yPosition > contentBottom) {
+  // Quebrar texto em segmentos por marcadores manuais de page-break
+  const segments = plainText.split(PAGE_BREAK_MARK);
+
+  segments.forEach((segment, segIdx) => {
+    if (segIdx > 0) {
+      // Quebra de página manual
       doc.addPage();
       yPosition = contentTop;
       drawHeaderFooter();
     }
-    
-    doc.text(line, margin, yPosition);
-    yPosition += 6;
+
+    const segLines = doc.splitTextToSize(segment, maxWidth);
+    segLines.forEach((line: string) => {
+      if (yPosition > contentBottom) {
+        doc.addPage();
+        yPosition = contentTop;
+        drawHeaderFooter();
+      }
+      doc.text(line, margin, yPosition);
+      yPosition += 6;
+    });
   });
 
   // Baixar PDF
