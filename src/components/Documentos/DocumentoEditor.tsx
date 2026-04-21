@@ -359,8 +359,8 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
                   fontFamily: "Times New Roman, serif",
                   fontSize: "12pt",
                   lineHeight: "1.5",
-                  paddingTop: `${HEADER_H + 12}px`,
-                  paddingBottom: `${FOOTER_H + 12}px`,
+                  paddingTop: `${headerH + 12}px`,
+                  paddingBottom: `${footerH + 12}px`,
                   paddingLeft: `${SIDE_PAD}px`,
                   paddingRight: `${SIDE_PAD}px`,
                   minHeight: `${PAGE_HEIGHT}px`,
@@ -403,14 +403,14 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
                   {/* CABEÇALHO */}
                   <div
                     className={cn(
-                      "absolute left-0 right-0 top-0 bg-background group/header transition-colors",
+                      "absolute left-0 right-0 top-0 bg-background group/header transition-colors overflow-hidden",
                       isFirst && editableNow("header")
                         ? "border-b border-dashed border-primary/50"
                         : "border-b border-dashed border-transparent",
                       isFirst && !editableNow("header") && "hover:border-border"
                     )}
                     style={{
-                      height: `${HEADER_H}px`,
+                      height: `${headerH}px`,
                       padding: `12px ${SIDE_PAD}px`,
                       pointerEvents: isFirst ? "auto" : "none",
                       zIndex: 10,
@@ -469,14 +469,14 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
                   {/* RODAPÉ */}
                   <div
                     className={cn(
-                      "absolute left-0 right-0 bottom-0 bg-background group/footer transition-colors",
+                      "absolute left-0 right-0 bottom-0 bg-background group/footer transition-colors overflow-hidden",
                       isFirst && editableNow("footer")
                         ? "border-t border-dashed border-primary/50"
                         : "border-t border-dashed border-transparent",
                       isFirst && !editableNow("footer") && "hover:border-border"
                     )}
                     style={{
-                      height: `${FOOTER_H}px`,
+                      height: `${footerH}px`,
                       padding: `12px ${SIDE_PAD}px`,
                       pointerEvents: isFirst ? "auto" : "none",
                       zIndex: 10,
