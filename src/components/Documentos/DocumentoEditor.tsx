@@ -317,7 +317,7 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
       const html =
         '<div data-page-break="true" contenteditable="false" style="break-before: page; page-break-before: always; height: 1px; margin: 0; padding: 0; border: 0;"></div><p><br></p>';
       document.execCommand("insertHTML", false, html);
-      onChange(body.innerHTML);
+      onChange(stripSpacers(body.innerHTML));
       requestAnimationFrame(() => recalcPages());
     }, [readOnly, isPreview, onChange, recalcPages]);
 
@@ -334,7 +334,7 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
           const html = `<img src="${resized}" style="max-width:100%;height:auto;display:inline-block;" alt="" />`;
           document.execCommand("insertHTML", false, html);
           const cb = onChangeFor(zone);
-          cb?.(el.innerHTML);
+          cb?.(zone === "body" ? stripSpacers(el.innerHTML) : el.innerHTML);
           if (zone === "body") requestAnimationFrame(() => recalcPages());
         } catch (e) {
           console.error("Erro ao inserir imagem", e);
