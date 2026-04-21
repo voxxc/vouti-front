@@ -1,106 +1,76 @@
 
 
-## Cabeçalho/rodapé robustos com suporte real a imagens
+## Texto vazando sobre rodapé/cabeçalho entre páginas — corrigir paginação real
 
 ### Causa raiz
-1. A faixa do cabeçalho tem **altura fixa de 60px** e **sem `overflow`/sem limite no `<img>`** — qualquer imagem colada/arrastada renderiza no tamanho original e escapa visualmente da área tracejada.
-2. **Não existe botão "Inserir imagem"** na toolbar; o usuário está colando uma imagem grande sem qualquer normalização (sem `max-width`, sem reescala).
-3. O **padding-top do corpo é fixo** em `HEADER_H + 12 = 72px` — mesmo que aumentássemos a faixa, o texto do corpo entraria por baixo da logo.
-4. O cálculo de paginação (`recalcPages`) também assume `HEADER_H = 60px`. Se o cabeçalho variar, o número de páginas fica errado.
+O corpo do editor é **um único `contentEditable` longo** com apenas `paddingTop` (espaço do cabeçalho da página 1) e `paddingBottom` (espaço do rodapé da última página). Entre as páginas, **não existe nenhum espaço reservado** — o texto continua fluindo livremente e passa por baixo das faixas opacas de rodapé/cabeçalho/logo das páginas intermediárias.
 
-### Correção — abordagem
+Visualmente: a "folha A4" é só uma moldura desenhada por cima; o editor não respeita essa moldura. Por isso na imagem aparecem palavras (`aSD`, `AS`, `dAS`, `dA`, `sDa`...) escondidas dentro do retângulo vermelho — elas estão lá no DOM, mas **atrás** da faixa branca do rodapé/cabeçalho com a logo do escritório.
 
-**A) Tornar a altura do cabeçalho/rodapé dinâmica (medida do conteúdo real).**
+O `recalcPages` calcula corretamente quantas páginas precisam, mas só serve para desenhar mais molduras — não cria espaço real no fluxo do texto.
 
-Em `DocumentoEditor.tsx`:
-- Trocar as constantes `HEADER_H` e `FOOTER_H` por **estado** `headerH` / `footerH`, com mínimos `MIN_HEADER = 48` e máximos `MAX_HEADER = 240` (idem rodapé).
-- Medir a altura real do conteúdo do cabeçalho/rodapé via `ResizeObserver` no `headerRef`/`footerRef` e atualizar o estado (clampado entre min/max).
-- A faixa do cabeçalho na folha visual passa a usar `height: ${headerH}px`. O `paddingTop` do corpo passa a ser `headerH + 12`. Idem rodapé.
-- `BODY_H` vira derivado: `PAGE_HEIGHT - headerH - footerH`. `INTER_PAGE_BAND` também.
-- `recalcPages` recalcula sempre que `headerH`/`footerH` mudarem.
-- As folhas 2+ continuam mostrando `dangerouslySetInnerHTML` do cabeçalho — mesma altura medida (espelhamento).
+### Correção
 
-**B) Conter visualmente qualquer overflow da zona.**
+**Estratégia: espaçadores não-editáveis injetados automaticamente no corpo entre as "páginas virtuais".**
 
-- Adicionar `overflow: hidden` na faixa visual de cabeçalho/rodapé como **rede de segurança** (caso a medição falhe, o conteúdo nunca escapa para fora da área tracejada).
-- Adicionar CSS escopado no editor para **limitar imagens automaticamente**:
-  ```css
-  [data-zone="header"] img,
-  [data-zone="footer"] img {
-    max-width: 100%;
-    max-height: 200px;
-    height: auto;
-    object-fit: contain;
-    display: inline-block;
-    vertical-align: middle;
-  }
-  [data-zone="body"] img {
-    max-width: 100%;
-    height: auto;
-  }
-  ```
-- Marcar cada zona com `data-zone="header|body|footer"` no `div` editável.
+Em `src/components/Documentos/DocumentoEditor.tsx`:
 
-**C) Botão "Inserir imagem" oficial na toolbar.**
+1. **Após cada mudança no corpo** (e quando `headerH`/`footerH` mudam), executar uma função `injectPageSpacers()` que:
+   - Mede o `bodyRef.scrollHeight` real, descontando os espaçadores existentes.
+   - Calcula quantas quebras visuais são necessárias: `Math.ceil(usefulHeight / BODY_H) - 1`.
+   - Remove todos os espaçadores antigos (`[data-page-spacer="true"]`).
+   - Para cada quebra `i`, encontra a posição vertical `i * BODY_H` dentro do corpo, identifica qual nó/elemento está atravessando essa linha, e **insere um `<div data-page-spacer="true" contenteditable="false" style="height: ${INTER_PAGE_BAND}px; ...">`** logo antes desse nó.
+   - O espaçador empurra o conteúdo seguinte para baixo da faixa rodapé+gap+cabeçalho da próxima folha — exatamente onde a área útil da página seguinte começa.
 
-Em `RichTextToolbar.tsx`:
-- Novo botão com ícone `ImagePlus` que dispara `onFormat("insertImage")`.
-- Em `DocumentoEditor.handleFormat`, ao receber `"insertImage"`:
-  - Abre um `<input type="file" accept="image/*">` programático.
-  - Lê o arquivo como `dataURL` (base64) — armazenado dentro do HTML do cabeçalho/rodapé/corpo.
-  - **Pré-redimensiona via `<canvas>`**: se a largura > 600px, reescala para 600px mantendo proporção. Isso evita salvar HTML gigante no banco.
-  - Insere via `document.execCommand("insertImage", false, dataUrl)` na zona ativa.
-  - Dispara `onChange` da zona correta.
-- Aceitar também **paste** (`onPaste`) e **drop** (`onDrop`) de imagens nas três zonas: intercepta, reescala via canvas, insere como `<img>` com `max-width:100%`. Evita o bug de "colei e ficou gigante".
+2. **Posicionamento preciso do espaçador**: usar `document.elementFromPoint()` ou iterar pelos filhos do `bodyRef` e medir `getBoundingClientRect()` de cada um para achar o primeiro elemento cujo `offsetTop` ultrapasse o limite da página atual. Inserir o espaçador antes desse elemento.
 
-**D) Ajustar `useEffect` de sincronização de HTML.**
+3. **Quebras manuais (`data-page-break`) já no HTML**: respeitar a posição delas — se uma quebra manual cai antes do limite calculado, ela conta como início da próxima página e o cálculo continua a partir dela.
 
-Hoje o `useEffect` que injeta `cabecalhoHtml` no `headerRef` não dispara `recalcPages`. Como agora a altura do header afeta o cálculo, adicionar `requestAnimationFrame(() => recalcPages())` após injetar o HTML do cabeçalho e do rodapé.
+4. **Preservar a posição do cursor**: salvar `Selection`/`Range` antes de mexer no DOM, e restaurar depois (offsets em relação ao texto, não ao DOM, porque inserir/remover espaçadores invalida nós).
 
-**E) Indicador visual de altura.**
+5. **Marcar espaçadores como invisíveis ao usuário**: `user-select: none`, sem borda, fundo transparente, mas ocupando `INTER_PAGE_BAND` px de altura. Isso faz o texto da próxima "página" começar na posição certa.
 
-Quando o cabeçalho/rodapé estiver ativo (em edição), mostrar pequeno badge no canto com a altura atual (ex: "Cabeçalho · 120px"). Apenas decorativo, ajuda o usuário entender por que o corpo "desceu".
+6. **`onChange` ignora os espaçadores**: ao serializar `bodyRef.innerHTML` para o estado/banco, **remover** todos os `[data-page-spacer="true"]` antes de enviar. Eles são puramente visuais — recalculados em cada montagem. Isso garante que ao reabrir o documento ou exportar PDF, o HTML salvo continue limpo.
+
+7. **`recalcPages` agora reflete o número real de páginas geradas pelos espaçadores** (não mais um cálculo paralelo).
 
 ### Arquivos afetados
 
 **Modificados:**
-- `src/components/Documentos/DocumentoEditor.tsx` — alturas dinâmicas (`headerH`/`footerH`), `ResizeObserver` adicional para header/footer, `data-zone` nas zonas, CSS injetado para `img`, recálculo de paginação dependendo das alturas, handlers de `paste`/`drop` para imagens, handler `insertImage` que abre file picker e reescala via canvas, `overflow:hidden` na faixa visual.
-- `src/components/Documentos/RichTextToolbar.tsx` — novo botão "Inserir imagem" (ícone `ImagePlus`).
-- `src/components/Documentos/DocumentosPDFExport.tsx` — usar a altura **real** do cabeçalho/rodapé (medida do HTML em uma sandbox oculta) ao reservar margem no jsPDF, em vez do `60px` fixo, para o PDF refletir o que aparece na tela.
+- `src/components/Documentos/DocumentoEditor.tsx` — função `injectPageSpacers()` chamada após `onInput`, mudança de `headerH`/`footerH`, e injeção inicial de HTML; sanitização do `onChange` para remover espaçadores antes de propagar; preservação de cursor durante reflow.
 
-**Sem mudanças:** banco, RLS, tipos, hooks. O HTML salvo continua sendo `cabecalho_html` / `rodape_html` / `conteudo_html`.
+**Sem mudanças:** banco, RLS, tipos, hooks, exportação PDF (já lê `data-page-break`; espaçadores não são salvos no banco).
 
 ### Impacto
 
 **Usuário final (UX):**
-- Posso colar (Ctrl+V), arrastar ou usar o botão "Inserir imagem" pra pôr uma logo no cabeçalho. A imagem é redimensionada automaticamente para caber na largura útil da página (≈602px) e nunca passa de 200px de altura no cabeçalho/rodapé — fica sempre dentro da área tracejada.
-- A faixa do cabeçalho **cresce** automaticamente conforme o conteúdo (logo, texto em várias linhas etc.), e o corpo do texto se reposiciona pra começar logo abaixo. Nada mais "vaza".
-- O mesmo cabeçalho continua sendo replicado em todas as páginas, com a altura nova.
-- Botão claro na toolbar pra inserir imagem; placeholder "Duplo-clique para adicionar cabeçalho" continua aparecendo.
+- Ao digitar muito texto, ele agora **respeita** a área útil de cada página: ao chegar perto do rodapé da página 1, automaticamente "salta" para depois da faixa do cabeçalho da página 2. Nada mais fica escondido atrás da logo.
+- A ilusão de páginas A4 distintas fica completa, idêntica ao Word.
+- Cursor não "pula" inesperadamente: posição preservada durante o reflow.
+- Quebras manuais (`Ctrl+Enter`) continuam funcionando.
 
 **Dados:**
-- Imagens entram como base64 (`data:image/...`) dentro do HTML — comportamento atual do `execCommand("insertImage")`. A reescala para 600px reduz o tamanho médio do payload de MBs para ~50-150KB.
-- Sem migrações, sem mudança de RLS.
+- HTML salvo no banco continua **sem** os espaçadores (sanitizado no `onChange`). Documentos antigos não mudam.
+- PDF export continua igual: jsPDF já gera páginas reais conforme texto cabe.
 
 **Riscos colaterais:**
-- HTML antigo de cabeçalho/rodapé continua funcionando — se já tinha `<img>` gigante salvo, agora o CSS `max-width:100%; max-height:200px` o exibirá contido (mas o base64 cru continua no banco; isso é estético, não destrutivo).
-- `ResizeObserver` em três zonas tem custo desprezível.
-- Reescala via canvas pode perder qualidade em logos pequenas ampliadas; mitigado fazendo reescala somente quando `width > 600`.
-- A medição da altura real do header pelo PDF requer renderização DOM oculta de uma cópia — fallback: se medição falhar, usa o `headerH` atual passado como prop pelo editor.
+- Inserção/remoção repetida de DOM nodes pode piscar visualmente — mitigado com `requestAnimationFrame` + `ResizeObserver` debounce de 50ms.
+- Cursor pode pular 1-2 caracteres em casos extremos (texto muito longo na borda da página); aceitável e raro.
+- Imagens muito altas no corpo (>BODY_H) ainda podem ficar cortadas — caso de borda, fora do escopo.
 
 **Quem é afetado:**
-- Apenas o editor `/documentos/:id`. Listagens, modelos antigos e outras páginas — sem mudança.
+- Apenas usuários do editor `/documentos/:id`. Sem impacto em listagens, modelos antigos ou outros tenants.
 
 ### Validação
 
-1. Abrir `/demorais/documentos/novo`, dar duplo-clique no cabeçalho.
-2. Clicar em "Inserir imagem" na toolbar, escolher uma logo PNG grande (ex: 1500×400). A imagem aparece dentro do cabeçalho, **redimensionada** para no máximo 600px de largura e 200px de altura, sem vazar para fora do tracejado.
-3. A faixa do cabeçalho cresce automaticamente para acomodar a logo (ex: 140px). O texto do corpo começa logo abaixo, sem sobrepor.
-4. Colar (Ctrl+V) outra imagem direto no cabeçalho — mesmo comportamento.
-5. Arrastar uma imagem do desktop pra dentro do cabeçalho — mesmo comportamento.
-6. Digitar bastante texto no corpo até gerar página 2 — a página 2 mostra a mesma logo no cabeçalho, mesma altura.
-7. Salvar, recarregar — cabeçalho persiste com a imagem, altura recalculada automaticamente na montagem.
-8. Exportar PDF — cabeçalho com a logo aparece em todas as páginas, sem corte.
-9. Cabeçalho com texto puro continua funcionando (altura mínima 48px).
-10. Modo Preview com cliente vinculado — variáveis no cabeçalho substituídas, imagem permanece.
+1. Abrir `/demorais/documentos/novo`, adicionar logo no cabeçalho.
+2. Digitar várias linhas até gerar página 2 — texto da página 1 termina **antes** da faixa do rodapé; texto da página 2 começa **depois** da faixa do cabeçalho com a logo. Nada escondido.
+3. Continuar digitando até gerar página 3 e 4 — mesmo comportamento em todas.
+4. Cursor permanece visível durante a digitação, sem saltos bruscos.
+5. Salvar, recarregar — espaçadores são recalculados; HTML salvo no banco está limpo (sem `data-page-spacer`).
+6. Exportar PDF — paginação real do jsPDF, idêntica à visualização.
+7. `Ctrl+Enter` no meio do texto → quebra manual continua funcionando.
+8. Aumentar a altura do cabeçalho (colar logo maior) → espaçadores se ajustam, texto se reorganiza.
+9. Apagar texto até voltar a 1 página → espaçadores desaparecem, fica só o corpo limpo.
+10. Modo Preview com cliente vinculado → variáveis substituídas, paginação preservada.
 
