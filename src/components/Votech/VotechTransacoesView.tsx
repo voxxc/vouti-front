@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Pencil, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
@@ -28,126 +27,179 @@ export function VotechTransacoesView({ tipo }: Props) {
 
   const isReceita = tipo === 'receita';
   const Icon = isReceita ? TrendingUp : TrendingDown;
+  const accent = isReceita ? '#30D158' : '#FF453A';
   const title = isReceita ? 'Receitas' : 'Despesas';
 
   const handleSave = async (data: any) => {
     try {
-      if (editing) {
-        await update.mutateAsync({ id: editing.id, ...data });
-        toast.success('Atualizado com sucesso!');
-      } else {
-        await create.mutateAsync(data);
-        toast.success('Criado com sucesso!');
-      }
-      setFormOpen(false);
-      setEditing(null);
-    } catch {
-      toast.error('Erro ao salvar');
-    }
+      if (editing) { await update.mutateAsync({ id: editing.id, ...data }); toast.success('Atualizado!'); }
+      else { await create.mutateAsync(data); toast.success('Criado!'); }
+      setFormOpen(false); setEditing(null);
+    } catch { toast.error('Erro ao salvar'); }
   };
 
   const handleDelete = async (id: string) => {
-    try {
-      await remove.mutateAsync(id);
-      toast.success('Removido!');
-    } catch {
-      toast.error('Erro ao remover');
-    }
+    try { await remove.mutateAsync(id); toast.success('Removido!'); }
+    catch { toast.error('Erro ao remover'); }
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Icon className={`w-6 h-6 ${isReceita ? 'text-emerald-400' : 'text-rose-400'}`} />
-          <h2 className="text-2xl font-bold text-white">{title}</h2>
+    <div className="max-w-5xl mx-auto pb-24 md:pb-0">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5 md:mb-6">
+        <div>
+          <p className="text-[12px] text-black/50 md:hidden">{isReceita ? 'Entradas' : 'Saídas'}</p>
+          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-black">{title}</h2>
         </div>
-        <Button onClick={() => { setEditing(null); setFormOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700">
-          <Plus className="w-4 h-4 mr-2" /> Nova {isReceita ? 'Receita' : 'Despesa'}
+        <Button
+          onClick={() => { setEditing(null); setFormOpen(true); }}
+          className="hidden md:inline-flex h-10 px-5 rounded-full bg-black hover:bg-black/85 text-white text-[13px] font-medium border-0"
+        >
+          <Plus className="w-4 h-4 mr-1.5" /> Nova {isReceita ? 'Receita' : 'Despesa'}
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card className="bg-slate-900 border-slate-800">
-          <CardContent className="pt-4">
-            <p className="text-xs text-slate-400">Total Pago</p>
-            <p className={`text-xl font-bold ${isReceita ? 'text-emerald-400' : 'text-rose-400'}`}>{fmt(totalPago)}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-slate-900 border-slate-800">
-          <CardContent className="pt-4">
-            <p className="text-xs text-slate-400">Total Pendente</p>
-            <p className="text-xl font-bold text-amber-400">{fmt(totalPendente)}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-slate-900 border-slate-800">
-          <CardContent className="pt-4">
-            <p className="text-xs text-slate-400">Filtro</p>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="mt-1 w-full h-8 rounded border border-slate-700 bg-slate-800 px-2 text-sm text-white">
-              <option value="">Todos</option>
-              <option value="pago">Pagos</option>
-              <option value="pendente">Pendentes</option>
-            </select>
-          </CardContent>
-        </Card>
+      {/* Summary chips */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+        <div className="rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+          <p className="text-[11px] text-black/50">Total Pago</p>
+          <p className="text-[18px] font-semibold tabular-nums mt-1" style={{ color: accent }}>{fmt(totalPago)}</p>
+        </div>
+        <div className="rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+          <p className="text-[11px] text-black/50">Pendente</p>
+          <p className="text-[18px] font-semibold tabular-nums mt-1 text-[#FF9F0A]">{fmt(totalPendente)}</p>
+        </div>
+        <div className="rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)] col-span-2 md:col-span-1">
+          <p className="text-[11px] text-black/50">Filtro</p>
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="mt-1 w-full h-8 rounded-lg bg-[#F5F5F7] border-0 px-2 text-[13px] text-black"
+          >
+            <option value="">Todos</option>
+            <option value="pago">Pagos</option>
+            <option value="pendente">Pendentes</option>
+          </select>
+        </div>
       </div>
 
-      <Card className="bg-slate-900 border-slate-800">
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="p-8 text-center text-slate-500">Carregando...</div>
-          ) : !transacoes?.length ? (
-            <div className="p-12 text-center text-slate-500">
-              <Icon className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p>Nenhuma {tipo} registrada</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-slate-800 hover:bg-transparent">
-                  <TableHead className="text-slate-400">Data</TableHead>
-                  <TableHead className="text-slate-400">Descrição</TableHead>
-                  <TableHead className="text-slate-400">Categoria</TableHead>
-                  <TableHead className="text-slate-400">Valor</TableHead>
-                  <TableHead className="text-slate-400">Status</TableHead>
-                  <TableHead className="text-slate-400 w-20"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transacoes.map(t => (
-                  <TableRow key={t.id} className="border-slate-800">
-                    <TableCell className="text-slate-300 text-sm">{format(parseLocalDate(t.data), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
-                    <TableCell className="text-white text-sm">{t.descricao}</TableCell>
-                    <TableCell>
-                      {t.categoria ? (
-                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: (t.categoria.cor || '#6366f1') + '20', color: t.categoria.cor || '#6366f1' }}>
-                          {t.categoria.nome}
-                        </span>
-                      ) : <span className="text-xs text-slate-500">—</span>}
-                    </TableCell>
-                    <TableCell className={`font-semibold text-sm ${isReceita ? 'text-emerald-400' : 'text-rose-400'}`}>{fmt(Number(t.valor))}</TableCell>
-                    <TableCell>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${t.status === 'pago' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
-                        {t.status === 'pago' ? 'Pago' : 'Pendente'}
+      {/* MOBILE list (iOS Settings style) */}
+      <div className="md:hidden">
+        {isLoading ? (
+          <div className="p-12 text-center text-black/40 text-[13px]">Carregando…</div>
+        ) : !transacoes?.length ? (
+          <div className="rounded-2xl bg-white p-12 text-center text-black/30 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+            <Icon className="w-10 h-10 mx-auto mb-2" strokeWidth={1.5} />
+            <p className="text-[13px]">Nenhuma {tipo} ainda</p>
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-white overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+            {transacoes.map((t, i) => (
+              <div
+                key={t.id}
+                className={`flex items-center gap-3 px-4 py-3 ${i !== 0 ? 'border-t border-black/[0.06]' : ''}`}
+              >
+                <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: accent + '20' }}>
+                  <Icon className="w-4 h-4" style={{ color: accent }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] text-black truncate">{t.descricao}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-[11px] text-black/40">{format(parseLocalDate(t.data), "dd MMM", { locale: ptBR })}</p>
+                    {t.status === 'pendente' && (
+                      <span className="text-[10px] px-1.5 py-px rounded-full bg-[#FF9F0A]/15 text-[#FF9F0A] font-medium">Pendente</span>
+                    )}
+                    {t.categoria && (
+                      <span className="text-[10px] px-1.5 py-px rounded-full" style={{ backgroundColor: (t.categoria.cor || '#999') + '20', color: t.categoria.cor || '#999' }}>
+                        {t.categoria.nome}
                       </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <button onClick={() => { setEditing(t); setFormOpen(true); }} className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-white">
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => handleDelete(t.id)} className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-rose-400">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="text-[14px] font-semibold tabular-nums" style={{ color: accent }}>
+                    {isReceita ? '+' : '-'} {fmt(Number(t.valor))}
+                  </span>
+                  <div className="flex gap-1">
+                    <button onClick={() => { setEditing(t); setFormOpen(true); }} className="p-1 rounded text-black/40 hover:text-black">
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                    <button onClick={() => handleDelete(t.id)} className="p-1 rounded text-black/40 hover:text-[#FF453A]">
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* DESKTOP table */}
+      <div className="hidden md:block rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] overflow-hidden">
+        {isLoading ? (
+          <div className="p-8 text-center text-black/40">Carregando…</div>
+        ) : !transacoes?.length ? (
+          <div className="p-12 text-center text-black/30">
+            <Icon className="w-12 h-12 mx-auto mb-3" strokeWidth={1.5} />
+            <p>Nenhuma {tipo} registrada</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="border-black/[0.06] hover:bg-transparent">
+                <TableHead className="text-black/50 font-medium text-[12px]">Data</TableHead>
+                <TableHead className="text-black/50 font-medium text-[12px]">Descrição</TableHead>
+                <TableHead className="text-black/50 font-medium text-[12px]">Categoria</TableHead>
+                <TableHead className="text-black/50 font-medium text-[12px]">Valor</TableHead>
+                <TableHead className="text-black/50 font-medium text-[12px]">Status</TableHead>
+                <TableHead className="text-black/50 w-20"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {transacoes.map(t => (
+                <TableRow key={t.id} className="border-black/[0.06]">
+                  <TableCell className="text-black/70 text-[13px]">{format(parseLocalDate(t.data), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                  <TableCell className="text-black text-[13px]">{t.descricao}</TableCell>
+                  <TableCell>
+                    {t.categoria ? (
+                      <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: (t.categoria.cor || '#999') + '20', color: t.categoria.cor || '#999' }}>
+                        {t.categoria.nome}
+                      </span>
+                    ) : <span className="text-[11px] text-black/30">—</span>}
+                  </TableCell>
+                  <TableCell className="font-semibold text-[13px] tabular-nums" style={{ color: accent }}>{fmt(Number(t.valor))}</TableCell>
+                  <TableCell>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${t.status === 'pago' ? 'bg-[#30D158]/15 text-[#30D158]' : 'bg-[#FF9F0A]/15 text-[#FF9F0A]'}`}>
+                      {t.status === 'pago' ? 'Pago' : 'Pendente'}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <button onClick={() => { setEditing(t); setFormOpen(true); }} className="p-1.5 rounded-lg hover:bg-black/5 text-black/50 hover:text-black">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => handleDelete(t.id)} className="p-1.5 rounded-lg hover:bg-[#FF453A]/10 text-black/50 hover:text-[#FF453A]">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+
+      {/* FAB mobile */}
+      <button
+        onClick={() => { setEditing(null); setFormOpen(true); }}
+        className="md:hidden fixed right-5 bottom-20 z-40 w-14 h-14 rounded-full bg-black text-white shadow-[0_10px_30px_-5px_rgba(0,0,0,0.4)] flex items-center justify-center active:scale-95 transition-transform"
+        style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
+        aria-label="Nova transação"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
 
       <VotechTransacaoForm
         open={formOpen}
