@@ -1,87 +1,63 @@
 
 
-## Página `/crm` — Landing de vendas: Vouti.CRM (gestão de equipes, projetos e WhatsApp)
+## Ajustes na landing `/crm` — copy, badges e responsividade mobile
 
-### O que será criado
+### Correção
 
-Uma landing page pública em **`/crm`** posicionando o Vouti.CRM como sistema integrado de **gestão de equipes + projetos + WhatsApp**, com formulário de captação que aproveita a infraestrutura existente (`landing_leads` + Edge Function `submit-landing-lead` + automação de mensagem de boas-vindas via `notify_whatsapp_landing_lead`).
+Edições pontuais em `src/pages/CrmSalesLanding.tsx`:
 
-### Estrutura da página (single-page, scroll vertical)
+1. **Remover badge "Gestão integrada para times comerciais"** do hero (badge acima do título).
 
-1. **Hero** — fundo com gradiente + partículas animadas no estilo Vouti.
-   - Logo `vouti.crm` (preto + acento `#E11D48`).
-   - Headline: "Sua equipe, seus projetos e seu WhatsApp em um só lugar".
-   - Subheadline focada em ganho de produtividade.
-   - CTAs: **"Começar agora"** (rola até o formulário) e **"Já sou cliente"** (vai para `/crm-app`, mantendo o seletor de tenant existente — atualmente em `CrmLanding`).
+2. **Atualizar subheadline (slogan)** para:
+   > "O Vouti.CRM unifica gestão de equipes, projetos kanban e atendimento WhatsApp em uma única plataforma, para que seu time pare de pular entre 5 ferramentas."
 
-2. **Logos / prova social** — faixa com selos de credibilidade (LGPD, multi-tenant, criptografia ponta-a-ponta para WhatsApp Cloud API).
+3. **Substituir item "Multi-tenant isolado"** (na seção de diferenciais) por:
+   - Título: **"Fluxo de Atendimento & IA"**
+   - Descrição: **"Atendimento 24/7"**
+   - Manter o mesmo ícone ou trocar por `Bot`/`Sparkles` (lucide-react), o que ficar mais coerente.
 
-3. **3 pilares (cards)**:
-   - **Equipes** — papéis hierárquicos, permissões por tenant, atribuição de tarefas, chat interno.
-   - **Projetos** — kanban, prazos automáticos, anexos, comentários com @menções, agenda integrada.
-   - **WhatsApp** — inbox unificada, múltiplos atendentes, IA opcional (DeepSeek), funil kanban de leads, campanhas em massa.
+4. **Remover todas as referências a "Z-API"**:
+   - No passo "Conexão WhatsApp" da seção "Como funciona" — trocar "Z-API ou Meta" por apenas "API oficial Meta" (ou "WhatsApp Business API").
+   - Em qualquer outra menção ao longo do texto (FAQ, diferenciais, mockup) — sanitizar para falar apenas em "WhatsApp Business" / "API oficial".
 
-4. **Como funciona** — 4 passos: Cadastro → Conexão WhatsApp (Z-API ou Meta) → Convide a equipe → Comece a vender.
-
-5. **Demonstração visual** — mockup estilizado (composição CSS sem screenshots externos) mostrando inbox + kanban lado a lado.
-
-6. **Diferenciais (grid de ícones)** — multi-tenant, isolamento de dados por tenant, IA multi-provedor, campanhas em massa, transferência de conversas, automação de leads, mobile responsivo.
-
-7. **FAQ** — 5 perguntas (preço, número WhatsApp próprio, integração com sistema atual, número de usuários, segurança).
-
-8. **CTA final + formulário de captação**:
-   - Campos: nome, email, telefone, tamanho do escritório (select), mensagem opcional.
-   - Submissão via `supabase.functions.invoke('submit-landing-lead', { body: { ..., origem: 'vouti_crm_landing' } })`.
-   - Após sucesso: toast de confirmação + mensagem "Em breve entraremos em contato pelo WhatsApp" (a automação `notify_whatsapp_landing_lead` já dispara mensagem se houver trigger configurado).
-
-9. **Footer** — links para outros produtos Vouti (Veridicto, Link-in-Bio, VoTech) e termos/privacidade.
+5. **Mobile: substituir cards grandes por layout vertical compacto**:
+   - **Seção dos 3 pilares (Equipes / Projetos / WhatsApp)**: no mobile (`< md`) virar uma lista vertical com cards compactos — ícone à esquerda (40px), título + descrição curta à direita, padding reduzido (`p-4` em vez de `p-8`), sem altura mínima forçada. No desktop mantém grid 3 colunas atual.
+   - **Seção "Diferenciais"**: no mobile usar 1 coluna vertical com cards horizontais compactos (ícone + texto inline) em vez do grid atual de cards grandes empilhados. No desktop mantém o grid multicolunas.
+   - **Seção "Como funciona"**: no mobile, cards de passo ficam mais finos (`py-4 px-4`), sem ilustração grande, apenas número + título + 1 linha de descrição.
+   - **Mockup visual (inbox + kanban)**: no mobile reduzir altura, esconder colunas extras do kanban (mostrar só 1) — ou substituir por uma versão simplificada empilhada.
+   - Reduzir espaçamentos verticais entre seções no mobile (`py-12` em vez de `py-20`) para diminuir o scroll total.
 
 ### Arquivos afetados
 
-**Criados:**
-- `src/pages/CrmSalesLanding.tsx` — a nova landing de vendas.
-
 **Modificados:**
-- `src/App.tsx` — substituir a linha `<Route path="/crm" element={<Navigate to="/" replace />} />` por `<Route path="/crm" element={<CrmSalesLanding />} />` e adicionar `<Route path="/crm-app" element={<CrmLanding />} />` (preserva o seletor de tenant atual para clientes que já têm conta).
-- `src/pages/CrmLanding.tsx` — sem alterações funcionais; apenas continua acessível em `/crm-app`.
+- `src/pages/CrmSalesLanding.tsx` — ajustes de copy, remoção do badge, troca do diferencial, sanitização de Z-API, classes responsivas dos cards.
 
-**Sem mudanças:** banco de dados, RLS, Edge Functions (a `submit-landing-lead` já aceita `origem` arbitrária e cria o lead em `landing_leads`).
-
-### Stack visual
-
-- Tailwind + tokens semânticos do projeto (`bg-background`, `text-foreground`, `text-primary`, `bg-gradient-subtle`).
-- Acento `#E11D48` (vermelho Vouti) reservado para o "." do logo e CTAs primários.
-- Componentes shadcn já existentes: `Button`, `Input`, `Label`, `Card`, `Accordion` (FAQ), `Select`, `Textarea`, `toast`.
-- Ícones `lucide-react` (Users, FolderKanban, MessageCircle, Zap, Shield, etc).
-- Animações: `animate-float`, `animate-slide-in-left`, fade-in on scroll via `IntersectionObserver` simples.
-- 100% responsivo (mobile-first, breakpoints `md:` e `lg:`).
-- Dark/light theme automático via `useLocalTheme('theme')`.
+**Sem mudanças:** rotas, banco, Edge Functions, hooks, outros componentes.
 
 ### Impacto
 
 **Usuário final (UX):**
-- Visitantes em `vouti.co/crm` passam a ver uma página de vendas profissional em vez de serem redirecionados para a home.
-- Clientes existentes acessam o seletor de tenant em `/crm-app` (link "Já sou cliente" no header da landing).
-- Novos leads entram em `landing_leads` com `origem='vouti_crm_landing'` e recebem mensagem de boas-vindas automática se houver trigger configurado para essa origem.
+- Hero mais limpo (sem badge redundante) e com slogan mais direto que comunica a dor.
+- Mensagem alinhada à oferta atual: API oficial Meta + IA 24/7, sem promessa de Z-API.
+- Mobile: scroll significativamente mais curto, leitura mais rápida, cards compactos cabem melhor em telas pequenas (390px) sem desperdiçar altura.
 
-**Dados:**
-- Nenhuma migration. Usa estruturas existentes (`landing_leads`, triggers, Edge Function).
-- Para ativar a mensagem automática de WhatsApp, opcionalmente cadastrar um trigger em `whatsapp_lead_triggers` com `lead_source='landing_leads'` (Super Admin).
+**Dados:** nenhum impacto — apenas mudança de UI/copy.
 
 **Riscos colaterais:**
-- Quem tinha bookmark do antigo `/crm` (que redirecionava para `/`) agora vê a landing de vendas — comportamento desejado, é justamente o objetivo da mudança.
-- Links internos no app que apontam para `/crm` (ex: `tenantPath('/crm')` em `pages/CRM.tsx`) **continuam funcionando** porque usam o prefixo de tenant (`/:tenant/crm`), independente do `/crm` raiz.
+- Visitantes que já tinham visto a página antes notarão a mudança de mensagem — desejado.
+- Nenhum link ou rota é alterado.
 
-**Quem é afetado:** público externo (visitantes de `vouti.co/crm`) e o time de vendas/marketing, que ganha um canal de captação dedicado ao CRM. Sem impacto em tenants existentes.
+**Quem é afetado:** público externo da landing `/crm` (visitantes em `vouti.co/crm`). Sem efeito em tenants ou clientes existentes.
 
 ### Validação
 
-1. Acessar `vouti.co/crm` (ou preview `/crm`) → renderiza a landing de vendas, não redireciona mais.
-2. Scroll completo: hero, pilares, como funciona, mockup, diferenciais, FAQ, formulário, footer — todos visíveis.
-3. Clicar em "Começar agora" → rola suavemente até o formulário.
-4. Clicar em "Já sou cliente" → vai para `/crm-app` (seletor de tenant funcional).
-5. Preencher e enviar formulário → toast de sucesso; conferir registro em `landing_leads` com `origem='vouti_crm_landing'`.
-6. Testar mobile (375px), tablet (768px), desktop (1440px) — layout responsivo sem overflow.
-7. Alternar tema claro/escuro → cores e contraste mantidos.
-8. Verificar links do footer apontando para `/`, `/votech`, `/vouti.co/username` (link-in-bio) etc.
+1. Acessar `/crm` no desktop (1440px) → hero sem o badge "Gestão integrada para times comerciais"; slogan novo presente; layout 3 colunas dos pilares preservado.
+2. Buscar "Z-API" e "Multi-tenant isolado" no DOM → zero ocorrências.
+3. Conferir card "Fluxo de Atendimento & IA" / "Atendimento 24/7" no lugar do antigo "Multi-tenant".
+4. Redimensionar para mobile (390px) → cards dos 3 pilares ficam em coluna única, compactos (ícone + texto), sem padding excessivo.
+5. Seção de diferenciais em mobile → 1 coluna, cards horizontais finos.
+6. Como funciona em mobile → cards de passo compactos.
+7. Scroll total da página em mobile reduzido (~30% menos altura) comparado ao layout anterior.
+8. Formulário e CTAs continuam funcionando (envio do lead com `origem='vouti_crm_landing'`).
+9. Tema claro/escuro mantém contraste em ambos.
 
