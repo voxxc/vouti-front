@@ -1,179 +1,174 @@
 
 
-## Reformulação do módulo Documentos — modelos, vinculação a clientes e UI estilo Word
+## Cabeçalho e rodapé no editor de documentos (estilo Word)
 
-### Visão geral
-Transformar a seção **Documentos** em um sistema completo de gestão documental jurídica, com:
-1. Renomear a aba `Documentos` (dentro do detalhe do cliente) para `Arquivos` (era apenas upload de arquivos).
-2. Criar uma nova aba `Documentos` no detalhe do cliente, listando documentos vinculados àquele cliente.
-3. Reformular `/documentos` com 2 modos: **Modelos** (templates) e **Documentos do Cliente** (instâncias geradas a partir de modelos).
-4. Editor estilo Word (página A4, margens reais, sombra, régua visual).
-5. Substituição automática de variáveis `${_Variavel_cliente_}` ao vincular um cliente.
-6. Botão para criar **modelo padrão** (sem cliente) e botão **Gerar para cliente** (instancia o modelo já preenchido).
+### Objetivo
+Adicionar **cabeçalho** e **rodapé** editáveis na folha A4 do `DocumentoEditor`, com o mesmo padrão do Word: por padrão ficam "travados" (cinza, não-editáveis); ao dar **duplo-clique** na zona superior ou inferior da página, a área destrava e fica editável; clicar no corpo trava de volta.
 
 ---
 
-### 1. Esclarecimento conceitual: Modelos vs Documentos
+### 1. Modelo de dados
 
-| Conceito | Descrição | Tem cliente vinculado? | Variáveis |
-|----------|-----------|------------------------|-----------|
-| **Modelo** (template) | Documento base reutilizável criado uma vez (ex: "Procuração Trânsito CPF") | ❌ Não | Mantém `${_X_cliente_}` literais |
-| **Documento** (instância) | Cópia do modelo com cliente vinculado | ✅ Sim | Variáveis substituídas pelos dados reais |
+Adicionar dois novos campos persistidos por documento:
+- `cabecalho_html` (text, nullable)
+- `rodape_html` (text, nullable)
 
-Adicionar coluna `tipo` na tabela `documentos`: `'modelo' | 'documento'`. Modelos não aparecem na listagem de documentos do cliente, e vice-versa.
-
----
-
-### 2. CRM — aba Arquivos vs Documentos do cliente
-
-**Arquivo:** `src/components/CRM/ClienteDetails.tsx`
-
-- Trocar o estado de 2 abas (`'info' | 'documentos'`) para 3 abas: `'info' | 'arquivos' | 'documentos'`.
-- Renomear o label "Documentos" atual → **"Arquivos"** (continua usando `<ClienteDocumentosTab>` que é upload de arquivos brutos).
-- Nova aba **"Documentos"** renderiza um novo componente `<ClienteDocumentosGerados clienteId={cliente.id} />`, listando documentos do tipo `'documento'` vinculados ao cliente, com:
-  - Lista (título, data, ícone Word).
-  - Botão **"+ Novo documento"** abre modal para escolher modelo existente ou começar em branco.
-  - Ao clicar, abre o editor já com o cliente vinculado.
-
----
-
-### 3. Página `/documentos` reformulada
-
-**Arquivo:** `src/pages/Documentos.tsx`
-
-Layout em 2 abas no topo:
-
-**Aba "Modelos"** (default):
-- Grid de cards com preview pequeno do modelo (thumb estilo Word).
-- Botão grande **"+ Novo modelo"** (cria documento `tipo='modelo'`, sem cliente).
-- Cada card tem ações: Editar, Duplicar, **Gerar para cliente** (abre seletor de cliente → cria instância pré-preenchida), Excluir.
-
-**Aba "Documentos do cliente"**:
-- Tabela atual (mantida), filtra `tipo='documento'`.
-- Coluna cliente, modelo de origem, data.
-- Busca por título/cliente.
-
----
-
-### 4. Editor estilo Word
-
-**Arquivo:** `src/components/Documentos/DocumentoEditor.tsx`
-
-Mudanças visuais:
-- Container externo com fundo cinza claro (`bg-muted/30`) simulando mesa.
-- "Folha" interna A4 (`794px × 1123px` em zoom 100%, margens de 96px = 1 polegada), `bg-white`, `shadow-lg`, `mx-auto`, `my-8`.
-- Toolbar fica **sticky no topo** (não rola junto com a folha).
-- Régua superior opcional (linha sutil com marcações de cm).
-- Quebra de página visual: a cada 1123px de altura, linha tracejada cinza atravessa indicando nova página.
-- Fonte padrão Times New Roman 12pt, line-height 1.5.
-
-Painel lateral direito (collapsible) **"Variáveis"**:
-- Lista as `DOCUMENT_VARIABLES`.
-- Clicar insere a variável na posição do cursor.
-- Se cliente vinculado: mostra preview do valor real ao lado (ex: `${_Nome_cliente_}` → "João Silva").
-- Botão **"Aplicar variáveis"** substitui todas as ocorrências pelo dado real do cliente vinculado (ação destrutiva confirmada).
-
----
-
-### 5. Vinculação de cliente e substituição de variáveis
-
-**Novo arquivo:** `src/lib/documentVariables.ts`
-
-Função `applyClienteVariables(html: string, cliente: Cliente): string` que:
-- Mapeia cada `${_X_cliente_}` para o campo correspondente do cliente.
-- Faz `replace` global preservando o HTML.
-- Trata campos compostos: `${_Endereco_cliente_}` = endereço completo formatado.
-- Campos vazios viram `_____________` (linha para preencher à mão).
-
-**No editor (`DocumentoEditar.tsx`):**
-- Adicionar campo "Cliente vinculado" (combobox buscando em `useClientes`).
-- Ao selecionar cliente: salva `cliente_id` no documento, mas **não** substitui automaticamente — usuário escolhe entre:
-  - **Modo edição**: variáveis ficam como `${_X_cliente_}` (texto literal destacado em amarelo claro).
-  - **Modo preview**: renderiza com valores do cliente substituídos (somente leitura, para conferir).
-  - Botão **"Aplicar definitivamente"**: salva HTML com valores reais (operação irreversível, com confirmação).
-
----
-
-### 6. Schema do banco — migração
-
-Adicionar à tabela `documentos`:
+**Migração SQL:**
 ```sql
-ALTER TABLE documentos ADD COLUMN tipo TEXT NOT NULL DEFAULT 'documento'
-  CHECK (tipo IN ('modelo', 'documento'));
-ALTER TABLE documentos ADD COLUMN modelo_origem_id UUID REFERENCES documentos(id);
-CREATE INDEX idx_documentos_tipo_tenant ON documentos(tenant_id, tipo);
-CREATE INDEX idx_documentos_cliente ON documentos(cliente_id) WHERE cliente_id IS NOT NULL;
+ALTER TABLE documentos
+  ADD COLUMN cabecalho_html TEXT,
+  ADD COLUMN rodape_html TEXT;
 ```
 
-RLS já existe (assumido pelo padrão multi-tenant). Modelos: `cliente_id` sempre NULL. Instâncias: `modelo_origem_id` aponta para o modelo de origem (rastreabilidade).
+**Atualizações de tipos:**
+- `src/types/documento.ts`: adicionar `cabecalho_html?: string | null` e `rodape_html?: string | null` em `Documento`, `CreateDocumentoData`, `UpdateDocumentoData`.
+- `src/integrations/supabase/types.ts`: refletir novos campos na tabela `documentos`.
+- `src/hooks/useDocumentos.ts`: incluir os campos no `insert` (create), no `update`, e no `gerarDeModelo` (copia cabeçalho/rodapé do modelo para a instância).
 
 ---
 
-### 7. Exportação Word real (opcional, segunda fase)
+### 2. Mudanças visuais na "folha A4"
 
-`DocumentosPDFExport.tsx` continua para PDF.
-Adicionar `DocumentosWordExport.tsx` usando `docx` npm package — gera `.docx` real (não só PDF), preservando formatação. Botão "Exportar" passa a mostrar dropdown: PDF / Word.
+`src/components/Documentos/DocumentoEditor.tsx`:
+
+A folha continua `794px × 1123px`, mas o `padding: 96px` deixa de ser usado em bloco único. A folha passa a ser dividida verticalmente em três zonas:
+
+```text
++------------------------------------------------+   <- topo da folha (0px)
+|  [ZONA CABEÇALHO]  altura ~60px, padding lateral 96px  |
++------------------------------------------------+   <- 60px
+|                                                |
+|  [ZONA CORPO]  padding lateral 96px            |
+|                                                |
++------------------------------------------------+   <- 1123 - 60 = 1063px
+|  [ZONA RODAPÉ]   altura ~60px, padding lateral 96px   |
++------------------------------------------------+   <- 1123px
+```
+
+Cada zona é um `div` independente com seu próprio `contentEditable` controlado por estado local `activeZone: 'header' | 'body' | 'footer' | null`.
+
+**Estados visuais por zona (como no Word):**
+- **Inativa**: texto em `text-muted-foreground/60`, sem cursor de edição, sem outline; ao passar o mouse mostra um marcador discreto (linha tracejada `border-dashed` cinza claro) e tooltip "Duplo-clique para editar cabeçalho".
+- **Ativa**: borda tracejada azul (`border-dashed border-primary/40`), label flutuante no canto ("Cabeçalho" / "Rodapé") em badge pequeno, cursor de texto, `contentEditable=true`.
+- **Corpo ativo**: zonas de cabeçalho/rodapé voltam ao estado inativo automaticamente.
+
+**Interações:**
+- `onDoubleClick` na zona de cabeçalho → `setActiveZone('header')` e `focus()` no editor da zona.
+- `onDoubleClick` na zona de rodapé → `setActiveZone('footer')`.
+- `onClick` ou `onFocus` no corpo → `setActiveZone('body')` (trava header/footer).
+- Tecla `Escape` em qualquer zona ativa de header/footer → volta para `'body'`.
+
+---
+
+### 3. API do componente
+
+`DocumentoEditor` ganha props novas:
+```typescript
+interface DocumentoEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+  cabecalhoHtml: string;
+  onCabecalhoChange: (value: string) => void;
+  rodapeHtml: string;
+  onRodapeChange: (value: string) => void;
+  className?: string;
+  readOnly?: boolean;
+  previewHtml?: string | null;
+  previewCabecalho?: string | null;
+  previewRodape?: string | null;
+}
+```
+
+`DocumentoEditorHandle` (imperativo) continua com `insertAtCursor`/`focus`, mas **insere na zona ativa** (corpo, cabeçalho ou rodapé). Útil para o painel de variáveis funcionar dentro do cabeçalho também (ex: número de processo no topo).
+
+A toolbar (`RichTextToolbar`) passa a operar sobre a zona ativa — `document.execCommand` já age sobre o `contentEditable` focado, então funciona naturalmente; só precisamos garantir que o foco volte para a zona ativa após clicar num botão da toolbar.
+
+---
+
+### 4. Integração com a página
+
+`src/pages/DocumentoEditar.tsx`:
+- Novos estados: `cabecalhoHtml`, `rodapeHtml`.
+- Carregar do `documento` no `useEffect` existente.
+- Passar para `<DocumentoEditor />` os 4 valores e callbacks.
+- No `handleSave`, enviar `cabecalho_html` e `rodape_html` no `createDocumento` / `updateDocumento`.
+- No `handleExportPDF`, gerar HTML final concatenando cabeçalho + corpo + rodapé já com variáveis aplicadas.
+- No modo **Preview** (cliente vinculado), aplicar `applyClienteVariables` também no cabeçalho e rodapé, gerando `previewCabecalho` e `previewRodape`.
+- Botão "Aplicar definitivamente" também substitui variáveis em cabeçalho e rodapé.
+
+---
+
+### 5. Exportação PDF
+
+`src/components/Documentos/DocumentosPDFExport.tsx`:
+- Aceitar `cabecalhoHtml` e `rodapeHtml` opcionais.
+- No HTML montado para o PDF, renderizar cabeçalho no topo de cada página e rodapé no fim de cada página usando `@page` CSS:
+  ```css
+  @page {
+    margin: 60px 0;
+    @top-center { content: element(header); }
+    @bottom-center { content: element(footer); }
+  }
+  ```
+- Fallback: se a engine de PDF usada (jsPDF/html2canvas) não suportar `@page`, renderizar cabeçalho/rodapé fixos em cada página via cálculo manual ao paginar.
+
+---
+
+### 6. Painel de variáveis funciona em qualquer zona
+
+`VariaveisPanel` continua chamando `editorRef.current?.insertAtCursor(v)`. A implementação do `insertAtCursor` no editor passa a:
+1. Detectar qual `contentEditable` tem o foco atual (`document.activeElement`).
+2. Inserir na seleção dessa zona.
+3. Disparar o `onChange` correto (`onChange`, `onCabecalhoChange` ou `onRodapeChange`).
 
 ---
 
 ### Arquivos afetados
 
-**Novos:**
-- `src/components/CRM/ClienteDocumentosGerados.tsx` — nova aba do cliente.
-- `src/components/Documentos/SeletorModelo.tsx` — modal de escolha de modelo.
-- `src/components/Documentos/SeletorCliente.tsx` — combobox de vinculação.
-- `src/components/Documentos/VariaveisPanel.tsx` — painel lateral de variáveis.
-- `src/components/Documentos/ModeloCard.tsx` — card de modelo com preview.
-- `src/lib/documentVariables.ts` — lógica de substituição.
-- Migração SQL adicionando `tipo` e `modelo_origem_id`.
+**Migração nova:**
+- SQL adicionando `cabecalho_html` e `rodape_html` em `documentos`.
 
 **Modificados:**
-- `src/components/CRM/ClienteDetails.tsx` — 3 abas em vez de 2.
-- `src/pages/Documentos.tsx` — duas abas (Modelos / Documentos).
-- `src/pages/DocumentoEditar.tsx` — vinculação de cliente, modo preview, "Aplicar variáveis".
-- `src/components/Documentos/DocumentoEditor.tsx` — visual estilo Word A4.
-- `src/hooks/useDocumentos.ts` — filtros por `tipo`, função `gerarDeModelo(modeloId, clienteId)`.
-- `src/types/documento.ts` — campo `tipo`, `modelo_origem_id`.
+- `src/types/documento.ts` — campos novos.
+- `src/integrations/supabase/types.ts` — campos novos.
+- `src/hooks/useDocumentos.ts` — persistir cabeçalho/rodapé no create/update/gerarDeModelo.
+- `src/components/Documentos/DocumentoEditor.tsx` — 3 zonas editáveis, lógica de duplo-clique, estado `activeZone`, roteamento de `insertAtCursor` para a zona ativa.
+- `src/pages/DocumentoEditar.tsx` — estados, carregamento, salvamento, integração com preview/aplicação de variáveis.
+- `src/components/Documentos/DocumentosPDFExport.tsx` — aceitar e renderizar cabeçalho/rodapé na exportação.
 
 ---
 
 ### Impacto
 
 **Usuário final (UX):**
-- Cliente passa a ter 3 abas: Informações, Arquivos (uploads), Documentos (gerados).
-- Página Documentos vira hub real: cria modelos uma vez, gera N instâncias depois.
-- Editor parece o Word de verdade (folha A4, margens, sombra), reduzindo curva de aprendizado.
-- Variáveis funcionam: vincula cliente → 1 clique → documento pronto.
-- Fluxo típico: Admin cria "Procuração Trânsito CPF" como modelo → para cada cliente novo, gera instância em segundos.
+- Comportamento idêntico ao Word: por padrão a folha mostra só o corpo "ativo"; cabeçalho e rodapé ficam suaves, em cinza claro, com aviso de duplo-clique no hover. Ao dar duplo-clique, a zona destrava, ganha borda pontilhada azul, label "Cabeçalho"/"Rodapé" e cursor de texto. Clicar no corpo trava de volta.
+- Variáveis (`${_X_cliente_}`) podem ser inseridas também no cabeçalho/rodapé — útil para "Processo nº", "Cliente: ..." no topo de toda página.
+- Modelos novos podem definir cabeçalho/rodapé padrão que serão herdados pelas instâncias geradas.
 
 **Dados:**
-- Migração simples adicionando 2 colunas + 2 índices. Documentos existentes ficam como `tipo='documento'` (default).
-- Sem perda de dados, sem mudança de RLS.
-- Performance neutra (índice por tipo acelera filtros).
+- Migração simples, dois campos `TEXT` nullable. Nenhum dado existente é alterado; documentos antigos ficam com cabeçalho/rodapé vazios. Sem mudança em RLS, índices ou performance relevante.
 
 **Riscos colaterais:**
-- Painel lateral de variáveis pode ficar apertado em telas pequenas — colapsar por padrão em <1280px.
-- "Aplicar definitivamente" é irreversível: exigir confirmação com modal explicando.
-- `document.execCommand` (usado no editor atual) é deprecated — manter por enquanto, marcar para migração futura para TipTap/Lexical em fase 2.
+- `document.execCommand` aplicado em múltiplos `contentEditable` precisa garantir foco correto; mitigado por `activeElement` check antes da inserção.
+- Exportação PDF com `@page` pode variar entre engines; fallback manual previsto.
+- Em telas estreitas (<900px) a folha A4 já rola horizontalmente — o comportamento de zonas continua igual, sem regressão.
 
 **Quem é afetado:**
-- Todos os tenants que usam `/documentos` e o CRM de clientes.
-- Não muda nada para tenants que não usam o módulo.
+- Apenas usuários do módulo `/documentos` (criação/edição). Listagens e CRM (aba "Documentos" do cliente) não mudam.
 
 ---
 
 ### Validação
 
-1. Abrir cliente no CRM → ver 3 abas: Informações, Arquivos, Documentos.
-2. Aba Arquivos = lista de uploads antiga (renomeada).
-3. Aba Documentos = vazia inicialmente, com botão "Novo documento".
-4. Em `/documentos`, aba Modelos: criar "Procuração Teste" como modelo, com texto contendo `${_Nome_cliente_}` e `${_CPF/CNPJ_cliente_}`.
-5. Card do modelo aparece com preview. Clicar **Gerar para cliente** → escolher cliente → editor abre com cliente vinculado e variáveis ainda visíveis.
-6. Alternar **Preview**: variáveis viram nome real e CPF do cliente.
-7. Voltar a **Edição**, clicar **Aplicar definitivamente** → confirmar → HTML salvo já com valores reais.
-8. Documento aparece na aba Documentos do cliente E na aba "Documentos do cliente" da página `/documentos`.
-9. Editor visual: folha A4 centralizada com sombra, toolbar sticky, fonte Times New Roman.
-10. Exportar PDF: layout preservado.
-11. Modelos não aparecem em "Documentos do cliente" e vice-versa.
-12. Outros tenants: módulo continua funcionando, documentos antigos preservados como `tipo='documento'`.
+1. Abrir `/demorais/documentos/novo` — folha A4 mostra zona de cabeçalho cinza no topo e rodapé cinza embaixo, com texto placeholder.
+2. Hover na zona de cabeçalho → borda tracejada cinza + tooltip "Duplo-clique para editar".
+3. Duplo-clique no cabeçalho → borda azul tracejada, label "Cabeçalho", cursor pisca, posso digitar.
+4. Clicar no corpo → cabeçalho volta ao cinza, corpo recebe o foco.
+5. Mesma sequência funciona no rodapé.
+6. Inserir variável `${_Nome_cliente_}` com cabeçalho ativo → variável vai para o cabeçalho, não para o corpo.
+7. Salvar documento, recarregar página, cabeçalho e rodapé persistem.
+8. Vincular cliente, alternar Preview → variáveis no cabeçalho/rodapé também são substituídas.
+9. Aplicar definitivamente → substituição também ocorre em cabeçalho/rodapé.
+10. Exportar PDF → cabeçalho aparece no topo e rodapé no fim de cada página.
+11. Gerar instância a partir de modelo → cabeçalho/rodapé do modelo são copiados para a nova instância.
 
