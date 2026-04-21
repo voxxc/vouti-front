@@ -1,112 +1,106 @@
 
 
-## Paginação real estilo Word — folhas A4 distintas com cabeçalho/rodapé repetidos
+## Cabeçalho/rodapé robustos com suporte real a imagens
 
 ### Causa raiz
-Hoje o `DocumentoEditor` renderiza **uma única "folha" infinita** (`minHeight: 1123px`) — quando o usuário digita muito, o corpo cresce verticalmente e o rodapé é empurrado para baixo, ao invés de iniciar uma nova página A4. Não existe paginação real.
+1. A faixa do cabeçalho tem **altura fixa de 60px** e **sem `overflow`/sem limite no `<img>`** — qualquer imagem colada/arrastada renderiza no tamanho original e escapa visualmente da área tracejada.
+2. **Não existe botão "Inserir imagem"** na toolbar; o usuário está colando uma imagem grande sem qualquer normalização (sem `max-width`, sem reescala).
+3. O **padding-top do corpo é fixo** em `HEADER_H + 12 = 72px` — mesmo que aumentássemos a faixa, o texto do corpo entraria por baixo da logo.
+4. O cálculo de paginação (`recalcPages`) também assume `HEADER_H = 60px`. Se o cabeçalho variar, o número de páginas fica errado.
 
-### Conceito (como o Word funciona)
-O Word mantém um único fluxo de texto editável e, em tempo de renderização, calcula onde quebrar e desenha **uma nova página visual** (folha branca + cabeçalho + rodapé) cada vez que o conteúdo passa do limite vertical. O cabeçalho/rodapé são **um conteúdo só**, replicados em todas as páginas.
+### Correção — abordagem
 
-Vamos reproduzir o mesmo modelo:
-- `cabecalhoHtml`, `conteudoHtml`, `rodapeHtml` continuam sendo **um único fluxo cada** (sem mudança no banco).
-- O corpo é editado em **um único `contentEditable`** real, mas visualmente partido em "páginas" sobrepostas/empilhadas.
-- Cabeçalho e rodapé são renderizados **uma vez por página visual**, lendo o mesmo `cabecalhoHtml` / `rodapeHtml`.
+**A) Tornar a altura do cabeçalho/rodapé dinâmica (medida do conteúdo real).**
 
-### Correção — abordagem técnica
+Em `DocumentoEditor.tsx`:
+- Trocar as constantes `HEADER_H` e `FOOTER_H` por **estado** `headerH` / `footerH`, com mínimos `MIN_HEADER = 48` e máximos `MAX_HEADER = 240` (idem rodapé).
+- Medir a altura real do conteúdo do cabeçalho/rodapé via `ResizeObserver` no `headerRef`/`footerRef` e atualizar o estado (clampado entre min/max).
+- A faixa do cabeçalho na folha visual passa a usar `height: ${headerH}px`. O `paddingTop` do corpo passa a ser `headerH + 12`. Idem rodapé.
+- `BODY_H` vira derivado: `PAGE_HEIGHT - headerH - footerH`. `INTER_PAGE_BAND` também.
+- `recalcPages` recalcula sempre que `headerH`/`footerH` mudarem.
+- As folhas 2+ continuam mostrando `dangerouslySetInnerHTML` do cabeçalho — mesma altura medida (espelhamento).
 
-**Arquivo principal:** `src/components/Documentos/DocumentoEditor.tsx`
+**B) Conter visualmente qualquer overflow da zona.**
 
-#### A) Constantes de página
-```text
-PAGE_WIDTH  = 794px   (A4 @ 96dpi)
-PAGE_HEIGHT = 1123px
-HEADER_H    = 60px
-FOOTER_H    = 60px
-SIDE_PAD    = 96px
-BODY_H_PER_PAGE = 1123 - 60 - 60 = 1003px   (área útil do corpo por página)
-```
+- Adicionar `overflow: hidden` na faixa visual de cabeçalho/rodapé como **rede de segurança** (caso a medição falhe, o conteúdo nunca escapa para fora da área tracejada).
+- Adicionar CSS escopado no editor para **limitar imagens automaticamente**:
+  ```css
+  [data-zone="header"] img,
+  [data-zone="footer"] img {
+    max-width: 100%;
+    max-height: 200px;
+    height: auto;
+    object-fit: contain;
+    display: inline-block;
+    vertical-align: middle;
+  }
+  [data-zone="body"] img {
+    max-width: 100%;
+    height: auto;
+  }
+  ```
+- Marcar cada zona com `data-zone="header|body|footer"` no `div` editável.
 
-#### B) Estrutura DOM por página
-A "mesa de trabalho" passa a renderizar **N folhas A4 empilhadas** com gap entre elas:
+**C) Botão "Inserir imagem" oficial na toolbar.**
 
-```text
-[Folha 1]
-  ├ Cabeçalho (60px) — render do mesmo cabecalhoHtml
-  ├ Corpo (1003px)   — janela visual sobre o fluxo único
-  └ Rodapé (60px)
-[gap 16px]
-[Folha 2]
-  ├ Cabeçalho (60px) — mesmo HTML, repetido
-  ├ Corpo (1003px)
-  └ Rodapé (60px)
-...
-```
+Em `RichTextToolbar.tsx`:
+- Novo botão com ícone `ImagePlus` que dispara `onFormat("insertImage")`.
+- Em `DocumentoEditor.handleFormat`, ao receber `"insertImage"`:
+  - Abre um `<input type="file" accept="image/*">` programático.
+  - Lê o arquivo como `dataURL` (base64) — armazenado dentro do HTML do cabeçalho/rodapé/corpo.
+  - **Pré-redimensiona via `<canvas>`**: se a largura > 600px, reescala para 600px mantendo proporção. Isso evita salvar HTML gigante no banco.
+  - Insere via `document.execCommand("insertImage", false, dataUrl)` na zona ativa.
+  - Dispara `onChange` da zona correta.
+- Aceitar também **paste** (`onPaste`) e **drop** (`onDrop`) de imagens nas três zonas: intercepta, reescala via canvas, insere como `<img>` com `max-width:100%`. Evita o bug de "colei e ficou gigante".
 
-#### C) Como manter UM editor mas N páginas visuais
-Implementação escolhida: **"editor flutuante + máscaras de página"**.
+**D) Ajustar `useEffect` de sincronização de HTML.**
 
-1. Existe **um único** `<div contentEditable>` com `cabecalhoHtml`/`bodyHtml`/`rodapeHtml` (apenas o body é o editor longo). Esse editor fica em `position: absolute; top:0; left:0; width:602px` (largura útil = 794 − 96×2) **dentro** de um wrapper `position: relative`.
-2. Por cima/abaixo, renderizamos as "folhas visuais" como uma camada de **molduras**: cada folha é um `div` posicionado em `top: i*(PAGE_HEIGHT+GAP)`, com cabeçalho desenhado no topo, rodapé no fundo, e uma "janela transparente" no meio. As folhas têm `pointer-events: none` exceto cabeçalho/rodapé.
-3. O número de páginas é calculado por `Math.ceil(bodyScrollHeight / BODY_H_PER_PAGE)` via `ResizeObserver` no `<div contentEditable>` do corpo.
-4. O corpo recebe `padding-top` extra para que o texto "pule" os cabeçalhos das páginas seguintes:  
-   `padding inserido antes do byte que cruza cada limite`. Na prática, mais simples: deixamos o body como um fluxo contínuo SEM gaps, e desenhamos as folhas com **cabeçalhos/rodapés flutuando "sobre" o texto** apenas como decoração visual (não-interativos), com `background: white` cobrindo a faixa onde cairia texto cortado. Para o texto não ficar coberto, aplicamos `padding-block` no body que reserva o espaço de cabeçalho+rodapé+gap a cada `BODY_H_PER_PAGE` percorridos — feito injetando `<div class="page-break-spacer" style="height:120px">` automaticamente via `useEffect` após cada mudança (não-editáveis, `contenteditable=false`).
+Hoje o `useEffect` que injeta `cabecalhoHtml` no `headerRef` não dispara `recalcPages`. Como agora a altura do header afeta o cálculo, adicionar `requestAnimationFrame(() => recalcPages())` após injetar o HTML do cabeçalho e do rodapé.
 
-> Em resumo: o body é um único editor; o efeito visual de "passar para a página 2" vem de **espaçadores invisíveis** inseridos automaticamente quando o corpo ultrapassa o limite, e de molduras (folha + cabeçalho + rodapé) renderizadas atrás.
+**E) Indicador visual de altura.**
 
-#### D) Cabeçalho e rodapé — edição
-Mantemos o comportamento atual (duplo-clique destrava). A diferença: o **mesmo** `cabecalhoHtml` é renderizado em todas as folhas (somente leitura nas folhas 2+). A edição acontece sempre na **folha 1**; alterações são propagadas automaticamente porque o HTML é único — as outras folhas apenas espelham via `dangerouslySetInnerHTML`.
-
-#### E) Quebra de página manual (opcional)
-Adicionar atalho `Ctrl+Enter` que insere um `<div class="page-break" data-page-break="true" style="break-before: page;"></div>` no corpo. O cálculo de páginas trata esse marker como "forçar próxima página" (avança o cursor de medição até o próximo múltiplo de `BODY_H_PER_PAGE`).
-
-### Exportação PDF — sincronizar com a paginação visual
-**Arquivo:** `src/components/Documentos/DocumentosPDFExport.tsx`
-
-Já existe `doc.addPage()` e `drawHeaderFooter()` por página — está OK. Acrescentar:
-- Respeitar marcadores `<div data-page-break="true">` forçando `doc.addPage()` ao encontrá-los.
-- Manter altura útil idêntica (`contentBottom = pageHeight - margin - footerHeight`) para o PDF refletir o que se vê na tela.
+Quando o cabeçalho/rodapé estiver ativo (em edição), mostrar pequeno badge no canto com a altura atual (ex: "Cabeçalho · 120px"). Apenas decorativo, ajuda o usuário entender por que o corpo "desceu".
 
 ### Arquivos afetados
 
 **Modificados:**
-- `src/components/Documentos/DocumentoEditor.tsx` — paginação visual, `ResizeObserver`, espaçadores automáticos, atalho `Ctrl+Enter`, render de folhas múltiplas com cabeçalho/rodapé repetidos.
-- `src/components/Documentos/DocumentosPDFExport.tsx` — respeitar `data-page-break` para forçar nova página no PDF.
-- `src/components/Documentos/RichTextToolbar.tsx` — botão "Quebra de página" (ícone `FileText` ou `SeparatorHorizontal`) chamando comando customizado.
-- `src/pages/DocumentoEditar.tsx` — passar handler para inserir quebra de página via toolbar (extensão de `onFormat`).
+- `src/components/Documentos/DocumentoEditor.tsx` — alturas dinâmicas (`headerH`/`footerH`), `ResizeObserver` adicional para header/footer, `data-zone` nas zonas, CSS injetado para `img`, recálculo de paginação dependendo das alturas, handlers de `paste`/`drop` para imagens, handler `insertImage` que abre file picker e reescala via canvas, `overflow:hidden` na faixa visual.
+- `src/components/Documentos/RichTextToolbar.tsx` — novo botão "Inserir imagem" (ícone `ImagePlus`).
+- `src/components/Documentos/DocumentosPDFExport.tsx` — usar a altura **real** do cabeçalho/rodapé (medida do HTML em uma sandbox oculta) ao reservar margem no jsPDF, em vez do `60px` fixo, para o PDF refletir o que aparece na tela.
 
-**Sem mudanças:** banco de dados, RLS, tipos, hooks (`useDocumentos`).
+**Sem mudanças:** banco, RLS, tipos, hooks. O HTML salvo continua sendo `cabecalho_html` / `rodape_html` / `conteudo_html`.
 
 ### Impacto
 
 **Usuário final (UX):**
-- Ao digitar muito, o corpo automaticamente "transborda" para uma segunda folha A4 visualmente separada, com o mesmo cabeçalho e rodapé repetidos no topo/fundo. Idêntico ao Word.
-- Botão novo na toolbar para quebra de página manual (`Ctrl+Enter`).
-- Cabeçalho editado uma vez aparece em todas as páginas automaticamente.
-- Preview e Aplicar definitivamente continuam funcionando (operam sobre o HTML único).
+- Posso colar (Ctrl+V), arrastar ou usar o botão "Inserir imagem" pra pôr uma logo no cabeçalho. A imagem é redimensionada automaticamente para caber na largura útil da página (≈602px) e nunca passa de 200px de altura no cabeçalho/rodapé — fica sempre dentro da área tracejada.
+- A faixa do cabeçalho **cresce** automaticamente conforme o conteúdo (logo, texto em várias linhas etc.), e o corpo do texto se reposiciona pra começar logo abaixo. Nada mais "vaza".
+- O mesmo cabeçalho continua sendo replicado em todas as páginas, com a altura nova.
+- Botão claro na toolbar pra inserir imagem; placeholder "Duplo-clique para adicionar cabeçalho" continua aparecendo.
 
 **Dados:**
-- Zero mudança no banco. Continua salvando 3 campos HTML (`cabecalho_html`, `conteudo_html`, `rodape_html`).
-- Marcadores `<div data-page-break>` ficam embutidos no HTML do corpo — preservados em backups, copy/paste e exportações.
+- Imagens entram como base64 (`data:image/...`) dentro do HTML — comportamento atual do `execCommand("insertImage")`. A reescala para 600px reduz o tamanho médio do payload de MBs para ~50-150KB.
+- Sem migrações, sem mudança de RLS.
 
 **Riscos colaterais:**
-- `ResizeObserver` rodando no corpo a cada digitação tem custo baixo, mas é debounce-ado (60ms) para não disparar a cada tecla.
-- Inserção automática de espaçadores pode interferir com a posição do cursor — mitigado salvando `Selection` antes/depois da reinjeção.
-- HTML antigo (sem markers) continua funcionando: a paginação calcula tudo por altura medida.
-- Telas pequenas (<900px CSS): folha A4 já scrolla horizontal; a paginação vertical não muda nada.
+- HTML antigo de cabeçalho/rodapé continua funcionando — se já tinha `<img>` gigante salvo, agora o CSS `max-width:100%; max-height:200px` o exibirá contido (mas o base64 cru continua no banco; isso é estético, não destrutivo).
+- `ResizeObserver` em três zonas tem custo desprezível.
+- Reescala via canvas pode perder qualidade em logos pequenas ampliadas; mitigado fazendo reescala somente quando `width > 600`.
+- A medição da altura real do header pelo PDF requer renderização DOM oculta de uma cópia — fallback: se medição falhar, usa o `headerH` atual passado como prop pelo editor.
 
 **Quem é afetado:**
-- Apenas usuários do editor `/documentos/:id`. Listagens, CRM, demais tenants — sem mudança.
+- Apenas o editor `/documentos/:id`. Listagens, modelos antigos e outras páginas — sem mudança.
 
 ### Validação
-1. Abrir `/demorais/documentos/novo` — vejo 1 folha A4.
-2. Digitar parágrafos até ultrapassar ~1000px de corpo → automaticamente surge uma 2ª folha A4 abaixo, com o cabeçalho/rodapé repetidos.
-3. Editar o cabeçalho na folha 1 → texto novo aparece também no cabeçalho da folha 2 instantaneamente.
-4. Pressionar `Ctrl+Enter` no meio do texto → cursor pula para o início de uma nova folha; o conteúdo abaixo passa para a próxima página.
-5. Botão "Quebra de página" na toolbar tem o mesmo efeito.
-6. Apagar conteúdo até voltar a caber em 1 folha → folha 2 desaparece automaticamente.
-7. Exportar PDF → cada folha visual vira uma página real do PDF, com cabeçalho e rodapé repetidos.
-8. Modo Preview com cliente vinculado → variáveis substituídas em todas as folhas.
-9. Documento salvo, recarregado → paginação reconstruída pelo cálculo de altura, idêntica.
-10. Tema claro e escuro: folhas continuam brancas (papel), com sombra; gap visível entre páginas.
+
+1. Abrir `/demorais/documentos/novo`, dar duplo-clique no cabeçalho.
+2. Clicar em "Inserir imagem" na toolbar, escolher uma logo PNG grande (ex: 1500×400). A imagem aparece dentro do cabeçalho, **redimensionada** para no máximo 600px de largura e 200px de altura, sem vazar para fora do tracejado.
+3. A faixa do cabeçalho cresce automaticamente para acomodar a logo (ex: 140px). O texto do corpo começa logo abaixo, sem sobrepor.
+4. Colar (Ctrl+V) outra imagem direto no cabeçalho — mesmo comportamento.
+5. Arrastar uma imagem do desktop pra dentro do cabeçalho — mesmo comportamento.
+6. Digitar bastante texto no corpo até gerar página 2 — a página 2 mostra a mesma logo no cabeçalho, mesma altura.
+7. Salvar, recarregar — cabeçalho persiste com a imagem, altura recalculada automaticamente na montagem.
+8. Exportar PDF — cabeçalho com a logo aparece em todas as páginas, sem corte.
+9. Cabeçalho com texto puro continua funcionando (altura mínima 48px).
+10. Modo Preview com cliente vinculado — variáveis no cabeçalho substituídas, imagem permanece.
 
