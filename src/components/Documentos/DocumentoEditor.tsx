@@ -431,6 +431,22 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
 
     return (
       <div className={cn("flex flex-col bg-muted/40 dark:bg-muted/10", className)}>
+        {/* CSS escopado para conter imagens dentro das zonas */}
+        <style>{`
+          [data-zone="header"] img,
+          [data-zone="footer"] img {
+            max-width: 100% !important;
+            max-height: 200px !important;
+            height: auto !important;
+            object-fit: contain;
+            display: inline-block;
+            vertical-align: middle;
+          }
+          [data-zone="body"] img {
+            max-width: 100% !important;
+            height: auto !important;
+          }
+        `}</style>
         {/* Toolbar sticky */}
         <div className="sticky top-0 z-30 bg-background border-b shadow-sm">
           <RichTextToolbar onFormat={handleFormat} />
