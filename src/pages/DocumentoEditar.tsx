@@ -43,6 +43,8 @@ export default function DocumentoEditar() {
   const editorRef = useRef<DocumentoEditorHandle>(null);
   const [titulo, setTitulo] = useState("");
   const [conteudoHtml, setConteudoHtml] = useState("");
+  const [cabecalhoHtml, setCabecalhoHtml] = useState("");
+  const [rodapeHtml, setRodapeHtml] = useState("");
   const [tipo, setTipo] = useState<"modelo" | "documento">(tipoParam);
   const [clienteId, setClienteId] = useState<string | null>(clienteParam);
   const [cliente, setCliente] = useState<Cliente | null>(null);
@@ -54,6 +56,8 @@ export default function DocumentoEditar() {
     if (documento) {
       setTitulo(documento.titulo);
       setConteudoHtml(documento.conteudo_html || "");
+      setCabecalhoHtml((documento as any).cabecalho_html || "");
+      setRodapeHtml((documento as any).rodape_html || "");
       setTipo(documento.tipo);
       setClienteId(documento.cliente_id);
     }
@@ -73,6 +77,16 @@ export default function DocumentoEditar() {
     return applyClienteVariables(conteudoHtml, cliente);
   }, [previewMode, cliente, conteudoHtml]);
 
+  const previewCabecalho = useMemo(() => {
+    if (!previewMode || !cliente) return null;
+    return applyClienteVariables(cabecalhoHtml, cliente);
+  }, [previewMode, cliente, cabecalhoHtml]);
+
+  const previewRodape = useMemo(() => {
+    if (!previewMode || !cliente) return null;
+    return applyClienteVariables(rodapeHtml, cliente);
+  }, [previewMode, cliente, rodapeHtml]);
+
   const handleClienteChange = (id: string | null, c: Cliente | null) => {
     setClienteId(id);
     setCliente(c);
@@ -81,8 +95,9 @@ export default function DocumentoEditar() {
 
   const handleApplyVariables = () => {
     if (!cliente) return;
-    const novoHtml = applyClienteVariables(conteudoHtml, cliente);
-    setConteudoHtml(novoHtml);
+    setConteudoHtml(applyClienteVariables(conteudoHtml, cliente));
+    setCabecalhoHtml(applyClienteVariables(cabecalhoHtml, cliente));
+    setRodapeHtml(applyClienteVariables(rodapeHtml, cliente));
     setPreviewMode(false);
     setConfirmApplyOpen(false);
     toast.success("Variáveis aplicadas. Salve para persistir.");
@@ -99,6 +114,8 @@ export default function DocumentoEditar() {
         const result = await createDocumento({
           titulo: titulo.trim(),
           conteudo_html: conteudoHtml,
+          cabecalho_html: cabecalhoHtml,
+          rodape_html: rodapeHtml,
           tipo,
           cliente_id: tipo === "documento" ? clienteId || undefined : undefined,
         });
@@ -111,6 +128,8 @@ export default function DocumentoEditar() {
           data: {
             titulo: titulo.trim(),
             conteudo_html: conteudoHtml,
+            cabecalho_html: cabecalhoHtml,
+            rodape_html: rodapeHtml,
             cliente_id: tipo === "documento" ? clienteId : null,
           }
         });
@@ -127,14 +146,16 @@ export default function DocumentoEditar() {
     }
 
     // Se tem cliente vinculado, exporta com variáveis substituídas
-    const htmlExport =
-      cliente && tipo === "documento"
-        ? applyClienteVariables(conteudoHtml, cliente)
-        : conteudoHtml;
+    const shouldApply = cliente && tipo === "documento";
+    const htmlExport = shouldApply ? applyClienteVariables(conteudoHtml, cliente!) : conteudoHtml;
+    const headerExport = shouldApply ? applyClienteVariables(cabecalhoHtml, cliente!) : cabecalhoHtml;
+    const footerExport = shouldApply ? applyClienteVariables(rodapeHtml, cliente!) : rodapeHtml;
 
     exportDocumentoToPDF({
       titulo: titulo.trim(),
       conteudoHtml: htmlExport,
+      cabecalhoHtml: headerExport,
+      rodapeHtml: footerExport,
     });
 
     toast.success("PDF gerado com sucesso!");
@@ -227,7 +248,13 @@ export default function DocumentoEditar() {
             ref={editorRef}
             value={conteudoHtml}
             onChange={setConteudoHtml}
+            cabecalhoHtml={cabecalhoHtml}
+            onCabecalhoChange={setCabecalhoHtml}
+            rodapeHtml={rodapeHtml}
+            onRodapeChange={setRodapeHtml}
             previewHtml={previewHtml}
+            previewCabecalho={previewCabecalho}
+            previewRodape={previewRodape}
             className="flex-1 min-w-0"
           />
           <VariaveisPanel
