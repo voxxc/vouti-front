@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ClienteDocumentosTab } from './ClienteDocumentosTab';
+import { ClienteDocumentosGerados } from './ClienteDocumentosGerados';
 import { parseLocalDate } from '@/lib/dateUtils';
 
 interface ClienteDetailsProps {
@@ -32,7 +33,7 @@ const InfoRow = ({ label, value }: { label: string; value?: string | React.React
 };
 
 export const ClienteDetails = ({ cliente, onEdit, readOnly = false, hideFinancialData = false }: ClienteDetailsProps) => {
-  const [activeTab, setActiveTab] = useState<'info' | 'documentos'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'arquivos' | 'documentos'>('info');
 
   const formatCurrency = (value?: number) => {
     if (!value) return null;
@@ -96,6 +97,20 @@ export const ClienteDetails = ({ cliente, onEdit, readOnly = false, hideFinancia
         >
           Informações
           {activeTab === 'info' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('arquivos')}
+          className={cn(
+            "pb-2 text-sm font-medium transition-colors relative",
+            activeTab === 'arquivos'
+              ? "text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Arquivos
+          {activeTab === 'arquivos' && (
             <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
           )}
         </button>
@@ -259,9 +274,13 @@ export const ClienteDetails = ({ cliente, onEdit, readOnly = false, hideFinancia
             </>
           )}
         </div>
-      ) : (
+      ) : activeTab === 'arquivos' ? (
         <div className="mt-4">
           <ClienteDocumentosTab clienteId={cliente.id} readOnly={readOnly} />
+        </div>
+      ) : (
+        <div className="mt-4">
+          <ClienteDocumentosGerados clienteId={cliente.id} readOnly={readOnly} />
         </div>
       )}
     </div>
