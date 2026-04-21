@@ -124,25 +124,112 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
     const onChangeFor = (z: Zone) =>
       z === "header" ? onCabecalhoChange : z === "footer" ? onRodapeChange : onChange;
 
-    // Cálculo de quantas páginas caberão considerando que cada página seguinte
-    // adiciona uma "faixa não-imprimível" (rodapé+gap+cabeçalho) ao corpo via padding
-    // dos espaçadores. A altura útil sempre é BODY_H por página.
-    const recalcPages = useCallback(() => {
-      const el = bodyRef.current;
-      if (!el) return;
-      const h = el.scrollHeight;
-      // h inclui paddings reservados para faixas inter-páginas; calculamos o nº de páginas
-      // de forma iterativa: cada página acomoda BODY_H, somando INTER_PAGE_BAND entre páginas
-      let remaining = h;
-      let pages = 1;
-      remaining -= BODY_H;
-      while (remaining > 0) {
-        pages += 1;
-        remaining -= INTER_PAGE_BAND; // espaço de faixa inter-página já contado no padding
-        remaining -= BODY_H;
+    // Remove todos os espaçadores virtuais antes de serializar/medir.
+    const stripSpacers = (html: string) =>
+      html.replace(
+        /<div[^>]*data-page-spacer="true"[^>]*><\/div>/gi,
+        ""
+      );
+
+    // Salva posição do cursor (offset de texto) na zona body para restaurar
+    // após reflow do DOM (inserção/remoção de espaçadores).
+    const saveBodySelection = (): { node: Node; offset: number } | null => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return null;
+      const range = sel.getRangeAt(0);
+      const body = bodyRef.current;
+      if (!body || !body.contains(range.startContainer)) return null;
+      return { node: range.startContainer, offset: range.startOffset };
+    };
+
+    const restoreBodySelection = (saved: { node: Node; offset: number } | null) => {
+      if (!saved) return;
+      const body = bodyRef.current;
+      if (!body || !body.contains(saved.node)) return;
+      try {
+        const sel = window.getSelection();
+        if (!sel) return;
+        const range = document.createRange();
+        const maxOffset =
+          saved.node.nodeType === Node.TEXT_NODE
+            ? (saved.node as Text).length
+            : saved.node.childNodes.length;
+        range.setStart(saved.node, Math.min(saved.offset, maxOffset));
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch {
+        /* noop */
       }
+    };
+
+    // Insere espaçadores não-editáveis no corpo para empurrar o texto que
+    // cruzaria as faixas de rodapé/cabeçalho entre páginas para o início da
+    // próxima página visual. Atualiza pageCount com base no número de páginas
+    // efetivamente geradas.
+    const injectPageSpacers = useCallback(() => {
+      const body = bodyRef.current;
+      if (!body) return;
+
+      const saved = saveBodySelection();
+
+      // 1) Remove espaçadores antigos
+      body.querySelectorAll('[data-page-spacer="true"]').forEach((n) => n.remove());
+
+      // 2) Itera pelos filhos diretos e insere espaçador antes do primeiro
+      //    elemento que ultrapassar o limite da página atual.
+      const bodyTop = body.getBoundingClientRect().top;
+      const paddingTop = headerH + 12;
+      // Limite da primeira página (em coordenadas relativas ao body)
+      let pageLimit = paddingTop + BODY_H;
+      let pages = 1;
+      // Loop com proteção: no máximo 100 páginas para não travar
+      for (let safety = 0; safety < 100; safety++) {
+        const children = Array.from(body.children) as HTMLElement[];
+        let inserted = false;
+        for (const child of children) {
+          if (child.getAttribute("data-page-spacer") === "true") continue;
+          const rect = child.getBoundingClientRect();
+          const top = rect.top - bodyTop;
+          const bottom = rect.bottom - bodyTop;
+          // Se o elemento cruza ou ultrapassa o limite atual, inserir spacer antes
+          if (bottom > pageLimit && top < pageLimit) {
+            // Cruza a borda: empurra para a próxima página inserindo spacer antes
+            const spacer = document.createElement("div");
+            spacer.setAttribute("data-page-spacer", "true");
+            spacer.setAttribute("contenteditable", "false");
+            spacer.style.cssText = `height:${INTER_PAGE_BAND}px;margin:0;padding:0;border:0;background:transparent;user-select:none;pointer-events:none;`;
+            child.parentNode?.insertBefore(spacer, child);
+            pages += 1;
+            // Próximo limite começa depois do spacer + BODY_H
+            pageLimit = top + INTER_PAGE_BAND + BODY_H;
+            inserted = true;
+            break;
+          }
+          if (top >= pageLimit) {
+            // Elemento já está depois do limite: empurrar com spacer antes
+            const spacer = document.createElement("div");
+            spacer.setAttribute("data-page-spacer", "true");
+            spacer.setAttribute("contenteditable", "false");
+            spacer.style.cssText = `height:${INTER_PAGE_BAND}px;margin:0;padding:0;border:0;background:transparent;user-select:none;pointer-events:none;`;
+            child.parentNode?.insertBefore(spacer, child);
+            pages += 1;
+            pageLimit = top + INTER_PAGE_BAND + BODY_H;
+            inserted = true;
+            break;
+          }
+        }
+        if (!inserted) break;
+      }
+
+      restoreBodySelection(saved);
       setPageCount((prev) => (prev !== pages ? pages : prev));
-    }, [BODY_H, INTER_PAGE_BAND]);
+    }, [BODY_H, INTER_PAGE_BAND, headerH]);
+
+    // Wrapper: mantém o nome antigo, agora delega ao injetor que também conta páginas.
+    const recalcPages = useCallback(() => {
+      injectPageSpacers();
+    }, [injectPageSpacers]);
 
     // Sincronizar HTML do corpo
     useEffect(() => {
