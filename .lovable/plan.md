@@ -1,79 +1,58 @@
 
 
-## Procuração não salva — FK inexistente derruba o carregamento do documento
+## Teclas Home/End: navegar até início/fim da linha visual
 
 ### Causa raiz
-
-A query do hook `useDocumento(id)` em `src/hooks/useDocumentos.ts` faz embed PostgREST com a hint:
-
-```
-responsavel:profiles!documentos_responsavel_id_fkey(user_id, full_name)
-```
-
-Mas **essa foreign key não existe** no banco. Restrições reais em `documentos`:
-- `documentos_cliente_id_fkey` → clientes
-- `documentos_modelo_origem_id_fkey` → documentos
-- `documentos_projeto_id_fkey` → projects
-- `documentos_tenant_id_fkey` → tenants
-
-**Não há FK de `responsavel_id` → `profiles`.** O Supabase responde **HTTP 400 (PGRST200)**:
-> Could not find a relationship between 'documentos' and 'profiles' in the schema cache
-
-Consequência prática:
-1. `useDocumento('95802d53...')` falha → `data: undefined`, `isLoading` resolve com error.
-2. Em `DocumentoEditar.tsx`, o `useEffect` que popula `setTitulo/setConteudoHtml/...` **nunca dispara** (depende de `documento`).
-3. O usuário abre a tela, vê o editor em branco (ou com o esqueleto), digita e salva — mas o que está sendo salvo está sendo aplicado sobre estado vazio do React, **não** sobre o conteúdo real do documento `1ffb8761` (PROCURAÇÃO).
-4. O documento `95802d53` (id da rota atual) é um **modelo "Novo modelo"** vazio — diferente do documento PROCURAÇÃO (`1ffb8761`) que ele de fato redigiu às 14:38.
-
-A confusão: o usuário acabou abrindo/criando um modelo novo após salvar a procuração, e a tentativa de salvar agora não funciona porque o hook quebra. A procuração de fato está salva no banco em `1ffb8761-e9da-4ebe-be2d-fffea236f3fa`.
+O `contentEditable` do editor `Vouti.docs` deixa as teclas **Home** e **End** com o comportamento padrão do navegador, que dentro de um bloco grande pode pular para o início/fim do **bloco inteiro** (parágrafo) em vez do **início/fim da linha visual** onde o cursor está — comportamento diferente do Word.
 
 ### Correção
 
-**1. Adicionar a foreign key faltante** (migration):
-```sql
-ALTER TABLE public.documentos
-  ADD CONSTRAINT documentos_responsavel_id_fkey
-  FOREIGN KEY (responsavel_id)
-  REFERENCES public.profiles(user_id)
-  ON DELETE SET NULL;
-```
-Isso reabilita o embed `responsavel:profiles!documentos_responsavel_id_fkey(...)` usado nas queries de `useDocumentos` e `useDocumento`.
+Em `src/components/Documentos/DocumentoEditor.tsx`, estender o handler `onKeyDown` já existente (que cobre Tab/Shift+Tab) para tratar `Home` e `End` nas três zonas editáveis (corpo, cabeçalho, rodapé):
 
-**2. Validar no editor que o documento atual seja o esperado**: nenhuma alteração de código adicional necessária — uma vez que o hook volta a funcionar, o `useEffect` popula os campos e o save funciona normalmente.
+1. **End** (sem modificadores) → `e.preventDefault()` + mover cursor para o fim da linha visual:
+   - Usar `selection.modify("move", "forward", "lineboundary")` (API nativa `Selection.modify`, suportada em Chrome/Edge/Safari).
 
-**3. Recuperar o documento perdido**: a PROCURAÇÃO está intacta no banco (`1ffb8761...`). Após a correção, navegue para `/solvenza/documentos/1ffb8761-e9da-4ebe-be2d-fffea236f3fa` para continuar editando. O modelo vazio `95802d53` ("Novo modelo") pode ser excluído.
+2. **Home** (sem modificadores) → `e.preventDefault()` + mover para o início da linha visual:
+   - Usar `selection.modify("move", "backward", "lineboundary")`.
+
+3. **Shift+End / Shift+Home** → idem, mas com `"extend"` em vez de `"move"`, para permitir seleção até o fim/início da linha (comportamento Word).
+
+4. **Ctrl+Home / Ctrl+End** → não interceptar, deixa o navegador levar ao topo/fim do documento (padrão Word também).
+
+5. Fallback: se `selection.modify` não existir (browsers antigos), não chamar `preventDefault` — deixa o navegador fazer o padrão.
 
 ### Arquivos afetados
 
 **Modificados:**
-- Migration SQL nova: adiciona FK `documentos_responsavel_id_fkey`.
+- `src/components/Documentos/DocumentoEditor.tsx` — adicionar branches `Home` e `End` no `handleKeyDown` existente das três zonas editáveis.
 
-**Sem mudanças em código:** os hooks (`useDocumentos.ts`, `useDocumento`) já fazem o embed correto — só falta a FK no banco para o PostgREST descobrir o relacionamento.
+**Sem mudanças:** banco, RLS, exportação PDF, toolbar, hooks, paginação.
 
 ### Impacto
 
 **Usuário final (UX):**
-- Volta a abrir documentos pela rota `/documentos/:id` sem erro.
-- O conteúdo redigido carrega no editor; o botão Salvar passa a persistir as alterações.
-- A listagem `/documentos` deixa de mostrar erros silenciosos no console.
-- A procuração do Rodrigo já está salva — basta navegar até ela após a correção.
+- **End** → cursor pula para o fim da linha visual atual (não do parágrafo inteiro).
+- **Home** → cursor pula para o início da linha visual atual.
+- **Shift+End / Shift+Home** → seleciona texto da posição atual até o fim/início da linha.
+- **Ctrl+End / Ctrl+Home** → continua indo ao fim/topo do documento (padrão preservado).
+- Comportamento idêntico ao Word/Google Docs.
 
-**Dados:**
-- Migration cria FK; nenhuma linha existente é alterada.
-- Como `responsavel_id` aceita `NULL` e `ON DELETE SET NULL`, valores órfãos (responsáveis cujo profile foi excluído) seriam apenas zerados — checar antes da migration se há `responsavel_id` apontando para `user_id` inexistente em `profiles`.
+**Dados:** nenhum — apenas movimento de cursor, sem alterar o HTML.
 
 **Riscos colaterais:**
-- Se houver `documentos.responsavel_id` apontando para `user_id` que não existe em `profiles`, a criação da FK falha. Mitigação: a migration primeiro faz `UPDATE documentos SET responsavel_id = NULL WHERE responsavel_id NOT IN (SELECT user_id FROM profiles)` antes de adicionar a constraint.
+- `Selection.modify` não está em todos os browsers exóticos, mas tem suporte amplo em Chrome/Edge/Safari/Firefox modernos. O fallback (não interceptar) garante que nada quebra em browsers sem suporte.
+- Nenhum impacto em copy/paste, undo/redo ou paginação.
 
-**Quem é afetado:**
-- Todos os tenants que usam o módulo Documentos. Sem isolamento por tenant — é correção estrutural global da tabela.
+**Quem é afetado:** apenas usuários do editor `/documentos/:id` (todos os tenants). Sem efeito em outras telas.
 
 ### Validação
 
-1. Após a migration, recarregar `/solvenza/documentos`.
-2. Console limpo (sem erro PGRST200).
-3. Abrir `/solvenza/documentos/1ffb8761-e9da-4ebe-be2d-fffea236f3fa` → procuração do Rodrigo Destri Cordeiro carrega completa.
-4. Editar uma linha, clicar em Salvar → toast "Documento salvo"; recarregar → alteração persiste.
-5. Criar um documento novo, vincular cliente, salvar → funciona.
-6. `SELECT updated_at FROM documentos WHERE id='1ffb8761...'` muda após cada save.
+1. Abrir `/solvenza/documentos/1a5ef4e5...`, posicionar cursor no meio de um parágrafo longo que ocupa várias linhas visuais.
+2. Apertar **End** → cursor vai ao fim da linha visual atual (não do parágrafo).
+3. Apertar **Home** → cursor volta ao início dessa mesma linha visual.
+4. **Shift+End** → seleciona da posição atual até o fim da linha; **Shift+Home** seleciona até o início.
+5. **Ctrl+End** → vai para o fim do documento; **Ctrl+Home** → vai para o topo.
+6. Repetir os testes no cabeçalho e no rodapé — mesmo comportamento.
+7. Tab/Shift+Tab continuam funcionando normalmente (sem regressão).
+8. Fora do editor (toolbar, painel lateral) → Home/End mantêm comportamento padrão dos inputs.
 
