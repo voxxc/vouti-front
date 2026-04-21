@@ -93,7 +93,7 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
       <div className="sticky top-0 z-10 bg-background border-b shadow-sm">
         <RichTextToolbar onFormat={handleFormat} />
         {previewHtml != null && (
-          <div className="px-4 py-1.5 text-xs bg-amber-50 text-amber-900 border-t border-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-900">
+          <div className="px-4 py-1.5 text-xs bg-muted text-muted-foreground border-t">
             Modo Preview — variáveis substituídas pelos dados do cliente. Edição desabilitada.
           </div>
         )}
