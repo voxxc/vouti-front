@@ -235,7 +235,9 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
     useEffect(() => {
       if (!bodyRef.current) return;
       const next = previewHtml != null ? previewHtml : value;
-      if (next !== bodyRef.current.innerHTML) {
+      // Comparamos contra a versão SEM espaçadores (eles são ornamentos visuais)
+      const currentClean = stripSpacers(bodyRef.current.innerHTML);
+      if (next !== currentClean) {
         isInternalChange.current = true;
         bodyRef.current.innerHTML = next;
         isInternalChange.current = false;
