@@ -487,9 +487,13 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
             >
               <div
                 ref={bodyRef}
+                data-zone="body"
                 contentEditable={!readOnly && !isPreview && activeZone === "body"}
                 onInput={makeInputHandler("body")}
                 onKeyDown={handleKeyDown("body")}
+                onPaste={makePasteHandler("body")}
+                onDrop={makeDropHandler("body")}
+                onDragOver={preventDragOver}
                 onFocus={() => setActiveZone("body")}
                 onClick={() => {
                   if (activeZone !== "body") setActiveZone("body");
