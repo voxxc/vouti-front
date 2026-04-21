@@ -35,14 +35,57 @@ interface DocumentoEditorProps {
 // ---- Constantes A4 @ 96dpi ----
 const PAGE_WIDTH = 794;
 const PAGE_HEIGHT = 1123;
-const HEADER_H = 60;
-const FOOTER_H = 60;
+const MIN_HEADER_H = 48;
+const MIN_FOOTER_H = 48;
+const MAX_HEADER_H = 240;
+const MAX_FOOTER_H = 240;
 const SIDE_PAD = 96;
-const BODY_H = PAGE_HEIGHT - HEADER_H - FOOTER_H; // 1003
 const PAGE_GAP = 24;
-// Bloco "não-imprimível" entre o fim do corpo de uma página e o início da próxima:
-// rodapé atual + gap + cabeçalho próxima
-const INTER_PAGE_BAND = FOOTER_H + PAGE_GAP + HEADER_H;
+
+// Reescala uma imagem (dataURL ou URL) para no máximo `maxWidth` px de largura
+// mantendo a proporção. Retorna um novo dataURL JPEG/PNG.
+async function resizeImageDataUrl(src: string, maxWidth = 600): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        if (w <= maxWidth) {
+          resolve(src);
+          return;
+        }
+        const newW = maxWidth;
+        const newH = Math.round((h * maxWidth) / w);
+        const canvas = document.createElement("canvas");
+        canvas.width = newW;
+        canvas.height = newH;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(src);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, newW, newH);
+        // PNG preserva transparência (importante para logos)
+        resolve(canvas.toDataURL("image/png"));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditorProps>(
   function DocumentoEditor(
