@@ -377,6 +377,50 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
       requestAnimationFrame(() => refFor(z).current?.focus());
     };
 
+    // Paste: intercepta imagens (do clipboard) e reescala
+    const makePasteHandler = (zone: Zone) => async (e: React.ClipboardEvent) => {
+      if (readOnly || isPreview) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        if (it.type.startsWith("image/")) {
+          e.preventDefault();
+          const file = it.getAsFile();
+          if (!file) continue;
+          try {
+            const dataUrl = await fileToDataUrl(file);
+            await insertImageInZone(dataUrl, zone);
+          } catch (err) {
+            console.error("Erro ao colar imagem", err);
+          }
+          return;
+        }
+      }
+    };
+
+    // Drop: intercepta arquivos de imagem arrastados
+    const makeDropHandler = (zone: Zone) => async (e: React.DragEvent) => {
+      if (readOnly || isPreview) return;
+      const files = e.dataTransfer?.files;
+      if (!files || files.length === 0) return;
+      const imgFile = Array.from(files).find((f) => f.type.startsWith("image/"));
+      if (!imgFile) return;
+      e.preventDefault();
+      try {
+        const dataUrl = await fileToDataUrl(imgFile);
+        await insertImageInZone(dataUrl, zone);
+      } catch (err) {
+        console.error("Erro ao soltar imagem", err);
+      }
+    };
+
+    const preventDragOver = (e: React.DragEvent) => {
+      if (readOnly || isPreview) return;
+      const hasFiles = e.dataTransfer?.types?.includes("Files");
+      if (hasFiles) e.preventDefault();
+    };
+
     const zoneIsActive = (z: Zone) => activeZone === z;
     const editableNow = (z: Zone) => !readOnly && !isPreview && zoneIsActive(z);
 
