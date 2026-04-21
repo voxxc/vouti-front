@@ -1,58 +1,87 @@
 
 
-## Teclas Home/End: navegar até início/fim da linha visual
+## Página `/crm` — Landing de vendas: Vouti.CRM (gestão de equipes, projetos e WhatsApp)
 
-### Causa raiz
-O `contentEditable` do editor `Vouti.docs` deixa as teclas **Home** e **End** com o comportamento padrão do navegador, que dentro de um bloco grande pode pular para o início/fim do **bloco inteiro** (parágrafo) em vez do **início/fim da linha visual** onde o cursor está — comportamento diferente do Word.
+### O que será criado
 
-### Correção
+Uma landing page pública em **`/crm`** posicionando o Vouti.CRM como sistema integrado de **gestão de equipes + projetos + WhatsApp**, com formulário de captação que aproveita a infraestrutura existente (`landing_leads` + Edge Function `submit-landing-lead` + automação de mensagem de boas-vindas via `notify_whatsapp_landing_lead`).
 
-Em `src/components/Documentos/DocumentoEditor.tsx`, estender o handler `onKeyDown` já existente (que cobre Tab/Shift+Tab) para tratar `Home` e `End` nas três zonas editáveis (corpo, cabeçalho, rodapé):
+### Estrutura da página (single-page, scroll vertical)
 
-1. **End** (sem modificadores) → `e.preventDefault()` + mover cursor para o fim da linha visual:
-   - Usar `selection.modify("move", "forward", "lineboundary")` (API nativa `Selection.modify`, suportada em Chrome/Edge/Safari).
+1. **Hero** — fundo com gradiente + partículas animadas no estilo Vouti.
+   - Logo `vouti.crm` (preto + acento `#E11D48`).
+   - Headline: "Sua equipe, seus projetos e seu WhatsApp em um só lugar".
+   - Subheadline focada em ganho de produtividade.
+   - CTAs: **"Começar agora"** (rola até o formulário) e **"Já sou cliente"** (vai para `/crm-app`, mantendo o seletor de tenant existente — atualmente em `CrmLanding`).
 
-2. **Home** (sem modificadores) → `e.preventDefault()` + mover para o início da linha visual:
-   - Usar `selection.modify("move", "backward", "lineboundary")`.
+2. **Logos / prova social** — faixa com selos de credibilidade (LGPD, multi-tenant, criptografia ponta-a-ponta para WhatsApp Cloud API).
 
-3. **Shift+End / Shift+Home** → idem, mas com `"extend"` em vez de `"move"`, para permitir seleção até o fim/início da linha (comportamento Word).
+3. **3 pilares (cards)**:
+   - **Equipes** — papéis hierárquicos, permissões por tenant, atribuição de tarefas, chat interno.
+   - **Projetos** — kanban, prazos automáticos, anexos, comentários com @menções, agenda integrada.
+   - **WhatsApp** — inbox unificada, múltiplos atendentes, IA opcional (DeepSeek), funil kanban de leads, campanhas em massa.
 
-4. **Ctrl+Home / Ctrl+End** → não interceptar, deixa o navegador levar ao topo/fim do documento (padrão Word também).
+4. **Como funciona** — 4 passos: Cadastro → Conexão WhatsApp (Z-API ou Meta) → Convide a equipe → Comece a vender.
 
-5. Fallback: se `selection.modify` não existir (browsers antigos), não chamar `preventDefault` — deixa o navegador fazer o padrão.
+5. **Demonstração visual** — mockup estilizado (composição CSS sem screenshots externos) mostrando inbox + kanban lado a lado.
+
+6. **Diferenciais (grid de ícones)** — multi-tenant, isolamento de dados por tenant, IA multi-provedor, campanhas em massa, transferência de conversas, automação de leads, mobile responsivo.
+
+7. **FAQ** — 5 perguntas (preço, número WhatsApp próprio, integração com sistema atual, número de usuários, segurança).
+
+8. **CTA final + formulário de captação**:
+   - Campos: nome, email, telefone, tamanho do escritório (select), mensagem opcional.
+   - Submissão via `supabase.functions.invoke('submit-landing-lead', { body: { ..., origem: 'vouti_crm_landing' } })`.
+   - Após sucesso: toast de confirmação + mensagem "Em breve entraremos em contato pelo WhatsApp" (a automação `notify_whatsapp_landing_lead` já dispara mensagem se houver trigger configurado).
+
+9. **Footer** — links para outros produtos Vouti (Veridicto, Link-in-Bio, VoTech) e termos/privacidade.
 
 ### Arquivos afetados
 
-**Modificados:**
-- `src/components/Documentos/DocumentoEditor.tsx` — adicionar branches `Home` e `End` no `handleKeyDown` existente das três zonas editáveis.
+**Criados:**
+- `src/pages/CrmSalesLanding.tsx` — a nova landing de vendas.
 
-**Sem mudanças:** banco, RLS, exportação PDF, toolbar, hooks, paginação.
+**Modificados:**
+- `src/App.tsx` — substituir a linha `<Route path="/crm" element={<Navigate to="/" replace />} />` por `<Route path="/crm" element={<CrmSalesLanding />} />` e adicionar `<Route path="/crm-app" element={<CrmLanding />} />` (preserva o seletor de tenant atual para clientes que já têm conta).
+- `src/pages/CrmLanding.tsx` — sem alterações funcionais; apenas continua acessível em `/crm-app`.
+
+**Sem mudanças:** banco de dados, RLS, Edge Functions (a `submit-landing-lead` já aceita `origem` arbitrária e cria o lead em `landing_leads`).
+
+### Stack visual
+
+- Tailwind + tokens semânticos do projeto (`bg-background`, `text-foreground`, `text-primary`, `bg-gradient-subtle`).
+- Acento `#E11D48` (vermelho Vouti) reservado para o "." do logo e CTAs primários.
+- Componentes shadcn já existentes: `Button`, `Input`, `Label`, `Card`, `Accordion` (FAQ), `Select`, `Textarea`, `toast`.
+- Ícones `lucide-react` (Users, FolderKanban, MessageCircle, Zap, Shield, etc).
+- Animações: `animate-float`, `animate-slide-in-left`, fade-in on scroll via `IntersectionObserver` simples.
+- 100% responsivo (mobile-first, breakpoints `md:` e `lg:`).
+- Dark/light theme automático via `useLocalTheme('theme')`.
 
 ### Impacto
 
 **Usuário final (UX):**
-- **End** → cursor pula para o fim da linha visual atual (não do parágrafo inteiro).
-- **Home** → cursor pula para o início da linha visual atual.
-- **Shift+End / Shift+Home** → seleciona texto da posição atual até o fim/início da linha.
-- **Ctrl+End / Ctrl+Home** → continua indo ao fim/topo do documento (padrão preservado).
-- Comportamento idêntico ao Word/Google Docs.
+- Visitantes em `vouti.co/crm` passam a ver uma página de vendas profissional em vez de serem redirecionados para a home.
+- Clientes existentes acessam o seletor de tenant em `/crm-app` (link "Já sou cliente" no header da landing).
+- Novos leads entram em `landing_leads` com `origem='vouti_crm_landing'` e recebem mensagem de boas-vindas automática se houver trigger configurado para essa origem.
 
-**Dados:** nenhum — apenas movimento de cursor, sem alterar o HTML.
+**Dados:**
+- Nenhuma migration. Usa estruturas existentes (`landing_leads`, triggers, Edge Function).
+- Para ativar a mensagem automática de WhatsApp, opcionalmente cadastrar um trigger em `whatsapp_lead_triggers` com `lead_source='landing_leads'` (Super Admin).
 
 **Riscos colaterais:**
-- `Selection.modify` não está em todos os browsers exóticos, mas tem suporte amplo em Chrome/Edge/Safari/Firefox modernos. O fallback (não interceptar) garante que nada quebra em browsers sem suporte.
-- Nenhum impacto em copy/paste, undo/redo ou paginação.
+- Quem tinha bookmark do antigo `/crm` (que redirecionava para `/`) agora vê a landing de vendas — comportamento desejado, é justamente o objetivo da mudança.
+- Links internos no app que apontam para `/crm` (ex: `tenantPath('/crm')` em `pages/CRM.tsx`) **continuam funcionando** porque usam o prefixo de tenant (`/:tenant/crm`), independente do `/crm` raiz.
 
-**Quem é afetado:** apenas usuários do editor `/documentos/:id` (todos os tenants). Sem efeito em outras telas.
+**Quem é afetado:** público externo (visitantes de `vouti.co/crm`) e o time de vendas/marketing, que ganha um canal de captação dedicado ao CRM. Sem impacto em tenants existentes.
 
 ### Validação
 
-1. Abrir `/solvenza/documentos/1a5ef4e5...`, posicionar cursor no meio de um parágrafo longo que ocupa várias linhas visuais.
-2. Apertar **End** → cursor vai ao fim da linha visual atual (não do parágrafo).
-3. Apertar **Home** → cursor volta ao início dessa mesma linha visual.
-4. **Shift+End** → seleciona da posição atual até o fim da linha; **Shift+Home** seleciona até o início.
-5. **Ctrl+End** → vai para o fim do documento; **Ctrl+Home** → vai para o topo.
-6. Repetir os testes no cabeçalho e no rodapé — mesmo comportamento.
-7. Tab/Shift+Tab continuam funcionando normalmente (sem regressão).
-8. Fora do editor (toolbar, painel lateral) → Home/End mantêm comportamento padrão dos inputs.
+1. Acessar `vouti.co/crm` (ou preview `/crm`) → renderiza a landing de vendas, não redireciona mais.
+2. Scroll completo: hero, pilares, como funciona, mockup, diferenciais, FAQ, formulário, footer — todos visíveis.
+3. Clicar em "Começar agora" → rola suavemente até o formulário.
+4. Clicar em "Já sou cliente" → vai para `/crm-app` (seletor de tenant funcional).
+5. Preencher e enviar formulário → toast de sucesso; conferir registro em `landing_leads` com `origem='vouti_crm_landing'`.
+6. Testar mobile (375px), tablet (768px), desktop (1440px) — layout responsivo sem overflow.
+7. Alternar tema claro/escuro → cores e contraste mantidos.
+8. Verificar links do footer apontando para `/`, `/votech`, `/vouti.co/username` (link-in-bio) etc.
 
