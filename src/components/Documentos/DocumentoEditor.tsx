@@ -583,10 +583,14 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
                     {isFirst ? (
                       <div
                         ref={headerRef}
+                        data-zone="header"
                         contentEditable={editableNow("header")}
                         suppressContentEditableWarning
                         onInput={makeInputHandler("header")}
                         onKeyDown={handleKeyDown("header")}
+                        onPaste={makePasteHandler("header")}
+                        onDrop={makeDropHandler("header")}
+                        onDragOver={preventDragOver}
                         className={cn(
                           "outline-none min-h-[36px]",
                           !editableNow("header") && "text-muted-foreground/70 cursor-default"
@@ -599,6 +603,7 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
                       />
                     ) : (
                       <div
+                        data-zone="header"
                         className="text-muted-foreground/70"
                         style={{
                           fontFamily: "Times New Roman, serif",
