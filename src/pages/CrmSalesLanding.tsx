@@ -145,18 +145,14 @@ const CrmSalesLanding = () => {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[#E11D48]/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative max-w-7xl mx-auto px-4 md:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-muted/60 border border-border/60 text-xs font-medium text-muted-foreground mb-8">
-            <Sparkles className="w-3.5 h-3.5 text-[#E11D48]" />
-            Gestão integrada para times comerciais
-          </div>
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight mb-6 leading-[1.05]">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight mb-6 leading-[1.05] mt-4">
             Sua equipe, seus projetos
             <br />
             e seu <span className="text-[#E11D48]">WhatsApp</span> em um só lugar.
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
             O Vouti.CRM unifica gestão de equipes, projetos kanban e atendimento WhatsApp
-            em uma única plataforma — para que seu time pare de pular entre 5 ferramentas.
+            em uma única plataforma, para que seu time pare de pular entre 5 ferramentas.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button
