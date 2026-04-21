@@ -276,6 +276,11 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
       return () => ro.disconnect();
     }, [recalcPages]);
 
+    // Reflow quando alturas dinâmicas de cabeçalho/rodapé mudarem
+    useEffect(() => {
+      requestAnimationFrame(() => injectPageSpacers());
+    }, [headerH, footerH, injectPageSpacers]);
+
     // ResizeObserver para medir altura dinâmica do cabeçalho
     useLayoutEffect(() => {
       const el = headerRef.current;
