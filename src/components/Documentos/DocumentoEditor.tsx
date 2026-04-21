@@ -389,8 +389,14 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
       const el = refFor(zone).current;
       if (!el) return;
       const cb = onChangeFor(zone);
-      cb?.(el.innerHTML);
-      if (zone === "body") recalcPages();
+      if (zone === "body") {
+        // Propaga HTML SEM os espaçadores virtuais (eles são reinjetados a cada reflow)
+        cb?.(stripSpacers(el.innerHTML));
+        // Reflow após o input para reposicionar os espaçadores
+        requestAnimationFrame(() => injectPageSpacers());
+      } else {
+        cb?.(el.innerHTML);
+      }
     };
 
     useImperativeHandle(
