@@ -61,6 +61,7 @@ const SpnAuth = lazy(() => import("@/pages/SpnAuth"));
 const SpnDashboard = lazy(() => import("@/pages/SpnDashboard"));
 const VotechAuth = lazy(() => import("@/pages/VotechAuth"));
 const VotechDashboard = lazy(() => import("@/pages/VotechDashboard"));
+const VotechLanding = lazy(() => import("@/pages/VotechLanding"));
 const VeridictoLanding = lazy(() => import("@/pages/VeridictoLanding"));
 const SuperAdmin = lazy(() => import("@/pages/SuperAdmin"));
 const SuperAdminWhatsApp = lazy(() => import("@/pages/SuperAdminWhatsApp"));
@@ -706,7 +707,7 @@ function App() {
                 </VotechProtectedRoute>
               </VotechAuthProvider>
             } />
-            <Route path="/votech" element={<Navigate to="/votech/auth" replace />} />
+            <Route path="/votech" element={<VotechLanding />} />
             
             {/* Veridicto Landing Page */}
             <Route path="/veridicto" element={<VeridictoLanding />} />
