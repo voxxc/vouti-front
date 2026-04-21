@@ -234,17 +234,67 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
       requestAnimationFrame(() => recalcPages());
     }, [readOnly, isPreview, onChange, recalcPages]);
 
+    // Insere uma imagem (dataURL já reescalada) na zona ativa
+    const insertImageInZone = useCallback(
+      async (dataUrl: string, zone: Zone) => {
+        if (readOnly || isPreview) return;
+        const el = refFor(zone).current;
+        if (!el) return;
+        try {
+          const resized = await resizeImageDataUrl(dataUrl, 600);
+          el.focus();
+          // Inserir <img> com style inline para garantir contenção mesmo sem CSS
+          const html = `<img src="${resized}" style="max-width:100%;height:auto;display:inline-block;" alt="" />`;
+          document.execCommand("insertHTML", false, html);
+          const cb = onChangeFor(zone);
+          cb?.(el.innerHTML);
+          if (zone === "body") requestAnimationFrame(() => recalcPages());
+        } catch (e) {
+          console.error("Erro ao inserir imagem", e);
+        }
+      },
+      [readOnly, isPreview, onChange, onCabecalhoChange, onRodapeChange, recalcPages]
+    );
+
+    // Abre file picker para inserir imagem
+    const openImagePicker = useCallback(
+      (zone: Zone) => {
+        if (readOnly || isPreview) return;
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.onchange = async () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          try {
+            const dataUrl = await fileToDataUrl(file);
+            await insertImageInZone(dataUrl, zone);
+          } catch (e) {
+            console.error("Erro lendo imagem", e);
+          }
+        };
+        input.click();
+      },
+      [readOnly, isPreview, insertImageInZone]
+    );
+
     const handleFormat = useCallback(
       (command: string, val?: string) => {
         if (command === "insertPageBreak") {
           insertPageBreakAtSelection();
           return;
         }
+        if (command === "insertImage") {
+          // Usa zona ativa atual (não a do document.activeElement, que pode estar
+          // num botão da toolbar)
+          openImagePicker(activeZone);
+          return;
+        }
         const zone = detectActiveZone();
         document.execCommand(command, false, val);
         refFor(zone).current?.focus();
       },
-      [detectActiveZone, insertPageBreakAtSelection]
+      [detectActiveZone, insertPageBreakAtSelection, openImagePicker, activeZone]
     );
 
     const makeInputHandler = (zone: Zone) => () => {
