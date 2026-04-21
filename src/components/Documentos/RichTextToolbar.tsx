@@ -26,6 +26,7 @@ import {
   ListOrdered,
   Type,
   Highlighter,
+  SeparatorHorizontal,
 } from "lucide-react";
 
 interface RichTextToolbarProps {
