@@ -39,6 +39,8 @@ import {
   Building2,
   Megaphone,
   Layers,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 
 const CrmSalesLanding = () => {
