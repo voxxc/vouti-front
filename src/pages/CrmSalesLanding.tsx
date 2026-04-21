@@ -696,7 +696,6 @@ const CrmSalesLanding = () => {
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
               <a href="/" className="hover:text-foreground transition-colors">Vouti.Jurídico</a>
               <a href="/votech" className="hover:text-foreground transition-colors">VoTech</a>
-              <a href="/veridicto" className="hover:text-foreground transition-colors">Veridicto</a>
               <a href="/crm-app" className="hover:text-foreground transition-colors">Login</a>
             </div>
           </div>

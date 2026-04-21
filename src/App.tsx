@@ -62,7 +62,6 @@ const SpnDashboard = lazy(() => import("@/pages/SpnDashboard"));
 const VotechAuth = lazy(() => import("@/pages/VotechAuth"));
 const VotechDashboard = lazy(() => import("@/pages/VotechDashboard"));
 const VotechLanding = lazy(() => import("@/pages/VotechLanding"));
-const VeridictoLanding = lazy(() => import("@/pages/VeridictoLanding"));
 const SuperAdmin = lazy(() => import("@/pages/SuperAdmin"));
 const SuperAdminWhatsApp = lazy(() => import("@/pages/SuperAdminWhatsApp"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
@@ -708,9 +707,6 @@ function App() {
               </VotechAuthProvider>
             } />
             <Route path="/votech" element={<VotechLanding />} />
-            
-            {/* Veridicto Landing Page */}
-            <Route path="/veridicto" element={<VeridictoLanding />} />
             
             {/* Landing Pages - Tenant Dynamic */}
             <Route path="/:tenant/landing-1" element={
