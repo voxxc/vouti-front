@@ -277,8 +277,6 @@ const HomePage = () => {
         navigate('/super-admin');
       } else if (code === 'batink') {
         navigate('/batink');
-      } else if (code === 'veridicto') {
-        navigate('/veridicto');
       } else if (code === 'spn') {
         await supabase.auth.signOut();
         navigate('/spn/auth');

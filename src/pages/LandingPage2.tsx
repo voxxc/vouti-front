@@ -115,8 +115,6 @@ const LandingPage2 = () => {
       absoluteNavigate('/super-admin');
     } else if (code === 'batink') {
       absoluteNavigate('/batink');
-    } else if (code === 'veridicto') {
-      absoluteNavigate('/veridicto');
     } else if (code === 'spn') {
       await supabase.auth.signOut();
       absoluteNavigate('/spn/auth');

@@ -357,7 +357,6 @@ export default function VotechLanding() {
           <div className="flex flex-wrap items-center gap-5">
             <Link to="/" className="hover:text-black transition-colors">Vouti</Link>
             <Link to="/crm" className="hover:text-black transition-colors">Vouti.CRM</Link>
-            <Link to="/veridicto" className="hover:text-black transition-colors">Veridicto</Link>
             <Link to="/linkbio" className="hover:text-black transition-colors">vouti.co/bio</Link>
           </div>
         </div>
