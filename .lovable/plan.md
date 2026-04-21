@@ -1,60 +1,79 @@
 
 
-## Tab dentro do editor: indentar texto em vez de mover foco
+## Procuração não salva — FK inexistente derruba o carregamento do documento
 
 ### Causa raiz
-O `contentEditable` do `Vouti.docs` não intercepta a tecla **Tab**. O comportamento padrão do navegador toma conta e move o foco para o próximo elemento focável da página (botões da toolbar, painel lateral, etc.) — em vez de indentar o parágrafo, como o Word faz.
+
+A query do hook `useDocumento(id)` em `src/hooks/useDocumentos.ts` faz embed PostgREST com a hint:
+
+```
+responsavel:profiles!documentos_responsavel_id_fkey(user_id, full_name)
+```
+
+Mas **essa foreign key não existe** no banco. Restrições reais em `documentos`:
+- `documentos_cliente_id_fkey` → clientes
+- `documentos_modelo_origem_id_fkey` → documentos
+- `documentos_projeto_id_fkey` → projects
+- `documentos_tenant_id_fkey` → tenants
+
+**Não há FK de `responsavel_id` → `profiles`.** O Supabase responde **HTTP 400 (PGRST200)**:
+> Could not find a relationship between 'documentos' and 'profiles' in the schema cache
+
+Consequência prática:
+1. `useDocumento('95802d53...')` falha → `data: undefined`, `isLoading` resolve com error.
+2. Em `DocumentoEditar.tsx`, o `useEffect` que popula `setTitulo/setConteudoHtml/...` **nunca dispara** (depende de `documento`).
+3. O usuário abre a tela, vê o editor em branco (ou com o esqueleto), digita e salva — mas o que está sendo salvo está sendo aplicado sobre estado vazio do React, **não** sobre o conteúdo real do documento `1ffb8761` (PROCURAÇÃO).
+4. O documento `95802d53` (id da rota atual) é um **modelo "Novo modelo"** vazio — diferente do documento PROCURAÇÃO (`1ffb8761`) que ele de fato redigiu às 14:38.
+
+A confusão: o usuário acabou abrindo/criando um modelo novo após salvar a procuração, e a tentativa de salvar agora não funciona porque o hook quebra. A procuração de fato está salva no banco em `1ffb8761-e9da-4ebe-be2d-fffea236f3fa`.
 
 ### Correção
 
-Em `src/components/Documentos/DocumentoEditor.tsx`, adicionar tratamento de `Tab` no `onKeyDown` do corpo (`bodyRef`), e também das zonas `header` e `footer`:
+**1. Adicionar a foreign key faltante** (migration):
+```sql
+ALTER TABLE public.documentos
+  ADD CONSTRAINT documentos_responsavel_id_fkey
+  FOREIGN KEY (responsavel_id)
+  REFERENCES public.profiles(user_id)
+  ON DELETE SET NULL;
+```
+Isso reabilita o embed `responsavel:profiles!documentos_responsavel_id_fkey(...)` usado nas queries de `useDocumentos` e `useDocumento`.
 
-1. **Tab** → `e.preventDefault()` + inserir indentação:
-   - Se o cursor estiver dentro de um item de lista (`<li>`): chamar `document.execCommand("indent")` — aumenta o nível da lista (comportamento Word).
-   - Caso contrário: inserir um espaçamento horizontal de ~4 espaços usando `document.execCommand("insertHTML", false, '<span style="display:inline-block;width:2.5em"></span>')`. Isso emula o "tab stop" do Word sem depender de `\t` (que o HTML colapsa).
+**2. Validar no editor que o documento atual seja o esperado**: nenhuma alteração de código adicional necessária — uma vez que o hook volta a funcionar, o `useEffect` popula os campos e o save funciona normalmente.
 
-2. **Shift+Tab** → `e.preventDefault()` + remover indentação:
-   - Em listas: `document.execCommand("outdent")`.
-   - Fora de listas: tentar remover o último `<span>` de indentação imediatamente antes do cursor (se existir); senão, no-op.
-
-3. Disparar `onChange` do corpo após a operação para que o estado e a paginação sejam recalculados.
-
-4. Garantir que o handler **só intercepta** quando o foco está dentro de uma das zonas editáveis — fora delas (toolbar, painel), Tab continua navegando normalmente.
+**3. Recuperar o documento perdido**: a PROCURAÇÃO está intacta no banco (`1ffb8761...`). Após a correção, navegue para `/solvenza/documentos/1ffb8761-e9da-4ebe-be2d-fffea236f3fa` para continuar editando. O modelo vazio `95802d53` ("Novo modelo") pode ser excluído.
 
 ### Arquivos afetados
 
 **Modificados:**
-- `src/components/Documentos/DocumentoEditor.tsx` — handler `onKeyDown` para Tab/Shift+Tab nas três zonas editáveis (corpo, cabeçalho, rodapé).
+- Migration SQL nova: adiciona FK `documentos_responsavel_id_fkey`.
 
-**Sem mudanças:** banco, RLS, exportação PDF, toolbar, hooks.
+**Sem mudanças em código:** os hooks (`useDocumentos.ts`, `useDocumento`) já fazem o embed correto — só falta a FK no banco para o PostgREST descobrir o relacionamento.
 
 ### Impacto
 
 **Usuário final (UX):**
-- Apertar **Tab** dentro da página branca agora indenta o parágrafo em ~2,5em (≈4 caracteres), igual ao Word — não rouba mais o foco para a toolbar.
-- Em listas, Tab aumenta o nível (sub-item) e Shift+Tab volta um nível, comportamento idêntico ao Word/Google Docs.
-- **Shift+Tab** desfaz a indentação.
-- Acessibilidade: para sair do editor com teclado, o usuário usa **Esc** seguido de Tab (padrão de editores ricos), ou clica fora.
+- Volta a abrir documentos pela rota `/documentos/:id` sem erro.
+- O conteúdo redigido carrega no editor; o botão Salvar passa a persistir as alterações.
+- A listagem `/documentos` deixa de mostrar erros silenciosos no console.
+- A procuração do Rodrigo já está salva — basta navegar até ela após a correção.
 
 **Dados:**
-- Indentação é salva como `<span style="display:inline-block;width:2.5em"></span>` dentro do HTML — renderiza idêntico no editor, no preview, no PDF e em qualquer documento copiado/colado.
-- Sem migração, sem mudança de schema.
+- Migration cria FK; nenhuma linha existente é alterada.
+- Como `responsavel_id` aceita `NULL` e `ON DELETE SET NULL`, valores órfãos (responsáveis cujo profile foi excluído) seriam apenas zerados — checar antes da migration se há `responsavel_id` apontando para `user_id` inexistente em `profiles`.
 
 **Riscos colaterais:**
-- Usuários acostumados a usar Tab para navegar entre campos podem estranhar inicialmente — mitigado por ser o padrão universal de editores de texto rico.
-- Span vazio é inerte e não afeta seleção de texto.
+- Se houver `documentos.responsavel_id` apontando para `user_id` que não existe em `profiles`, a criação da FK falha. Mitigação: a migration primeiro faz `UPDATE documentos SET responsavel_id = NULL WHERE responsavel_id NOT IN (SELECT user_id FROM profiles)` antes de adicionar a constraint.
 
 **Quem é afetado:**
-- Apenas usuários do editor `/documentos/:id` (qualquer tenant). Sem impacto em outras telas.
+- Todos os tenants que usam o módulo Documentos. Sem isolamento por tenant — é correção estrutural global da tabela.
 
 ### Validação
 
-1. Abrir `/solvenza/documentos/novo`, clicar no corpo da folha.
-2. Apertar **Tab** → o cursor recua ~2,5em na linha atual; foco permanece no editor.
-3. Apertar **Tab** novamente → recua mais 2,5em (acumula).
-4. Apertar **Shift+Tab** → remove a última indentação.
-5. Criar uma lista com bullets, apertar **Tab** dentro de um item → vira sub-item; **Shift+Tab** → volta ao nível anterior.
-6. Apertar Tab dentro do cabeçalho/rodapé → mesma indentação.
-7. Salvar, recarregar, exportar PDF → indentação preservada.
-8. Fora do editor (botões da toolbar, painel lateral) → Tab continua navegando entre elementos normalmente.
+1. Após a migration, recarregar `/solvenza/documentos`.
+2. Console limpo (sem erro PGRST200).
+3. Abrir `/solvenza/documentos/1ffb8761-e9da-4ebe-be2d-fffea236f3fa` → procuração do Rodrigo Destri Cordeiro carrega completa.
+4. Editar uma linha, clicar em Salvar → toast "Documento salvo"; recarregar → alteração persiste.
+5. Criar um documento novo, vincular cliente, salvar → funciona.
+6. `SELECT updated_at FROM documentos WHERE id='1ffb8761...'` muda após cada save.
 
