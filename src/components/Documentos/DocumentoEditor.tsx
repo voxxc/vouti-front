@@ -445,6 +445,57 @@ export const DocumentoEditor = forwardRef<DocumentoEditorHandle, DocumentoEditor
         insertPageBreakAtSelection();
         return;
       }
+      if (e.key === "Tab") {
+        e.preventDefault();
+        const sel = window.getSelection();
+        const node = sel?.anchorNode as Node | null;
+        const inList = !!(node && (node as any).parentElement?.closest?.("li"));
+        if (e.shiftKey) {
+          if (inList) {
+            document.execCommand("outdent");
+          } else {
+            // Try to remove a trailing tab-spacer span just before the cursor
+            try {
+              const range = sel?.getRangeAt(0);
+              if (range && range.collapsed) {
+                const container = range.startContainer;
+                const offset = range.startOffset;
+                let prev: Node | null = null;
+                if (container.nodeType === Node.ELEMENT_NODE) {
+                  prev = (container as Element).childNodes[offset - 1] || null;
+                } else if (container.parentNode) {
+                  prev = (container as Node).previousSibling;
+                }
+                if (
+                  prev &&
+                  prev.nodeType === Node.ELEMENT_NODE &&
+                  (prev as Element).getAttribute?.("data-tab-spacer") === "true"
+                ) {
+                  prev.parentNode?.removeChild(prev);
+                }
+              }
+            } catch {
+              /* no-op */
+            }
+          }
+        } else {
+          if (inList) {
+            document.execCommand("indent");
+          } else {
+            document.execCommand(
+              "insertHTML",
+              false,
+              '<span data-tab-spacer="true" style="display:inline-block;width:2.5em">\u200B</span>'
+            );
+          }
+        }
+        // Trigger input handler so state/pagination update
+        const target = refFor(zone).current;
+        if (target) {
+          target.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        return;
+      }
       if (e.ctrlKey || e.metaKey) {
         switch (e.key.toLowerCase()) {
           case "b":
