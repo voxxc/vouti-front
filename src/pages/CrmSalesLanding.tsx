@@ -124,7 +124,7 @@ const CrmSalesLanding = () => {
       </header>
 
       {/* HERO */}
-      <section className="relative pt-16 pb-24 md:pt-24 md:pb-32 overflow-hidden">
+      <section className="relative pt-12 pb-16 md:pt-24 md:pb-32 overflow-hidden">
         {/* Floating particles */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/4 left-[10%] w-2 h-2 rounded-full bg-[#E11D48] animate-float opacity-70" />
@@ -145,18 +145,14 @@ const CrmSalesLanding = () => {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[#E11D48]/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative max-w-7xl mx-auto px-4 md:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-muted/60 border border-border/60 text-xs font-medium text-muted-foreground mb-8">
-            <Sparkles className="w-3.5 h-3.5 text-[#E11D48]" />
-            Gestão integrada para times comerciais
-          </div>
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight mb-6 leading-[1.05]">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight mb-6 leading-[1.05] mt-4">
             Sua equipe, seus projetos
             <br />
             e seu <span className="text-[#E11D48]">WhatsApp</span> em um só lugar.
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
             O Vouti.CRM unifica gestão de equipes, projetos kanban e atendimento WhatsApp
-            em uma única plataforma — para que seu time pare de pular entre 5 ferramentas.
+            em uma única plataforma, para que seu time pare de pular entre 5 ferramentas.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button
@@ -188,9 +184,9 @@ const CrmSalesLanding = () => {
       </section>
 
       {/* 3 PILARES */}
-      <section className="py-20 md:py-28 bg-muted/30">
+      <section className="py-12 md:py-28 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 md:mb-16">
             <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-4">
               Três frentes, <span className="text-[#E11D48]">uma plataforma</span>
             </h2>
@@ -199,66 +195,76 @@ const CrmSalesLanding = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            <Card className="p-8 hover:shadow-xl transition-shadow border-border/60">
-              <div className="w-12 h-12 rounded-xl bg-[#E11D48]/10 flex items-center justify-center mb-5">
-                <Users className="w-6 h-6 text-[#E11D48]" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">Equipes</h3>
-              <p className="text-muted-foreground leading-relaxed">
-                Papéis hierárquicos, permissões por tenant, atribuição de tarefas
-                e chat interno. Cada usuário vê só o que precisa.
-              </p>
-            </Card>
-
-            <Card className="p-8 hover:shadow-xl transition-shadow border-border/60">
-              <div className="w-12 h-12 rounded-xl bg-[#E11D48]/10 flex items-center justify-center mb-5">
-                <FolderKanban className="w-6 h-6 text-[#E11D48]" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">Projetos</h3>
-              <p className="text-muted-foreground leading-relaxed">
-                Kanban com prazos automáticos, anexos, comentários com @menções
-                e agenda integrada. Tudo rastreável.
-              </p>
-            </Card>
-
-            <Card className="p-8 hover:shadow-xl transition-shadow border-border/60">
-              <div className="w-12 h-12 rounded-xl bg-[#E11D48]/10 flex items-center justify-center mb-5">
-                <MessageCircle className="w-6 h-6 text-[#E11D48]" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">WhatsApp</h3>
-              <p className="text-muted-foreground leading-relaxed">
-                Inbox unificada, múltiplos atendentes, IA opcional, funil kanban
-                de leads e campanhas em massa.
-              </p>
-            </Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6">
+            {[
+              {
+                icon: Users,
+                t: "Equipes",
+                d: "Papéis hierárquicos, permissões por tenant, atribuição de tarefas e chat interno. Cada usuário vê só o que precisa.",
+                short: "Papéis, permissões, tarefas e chat interno.",
+              },
+              {
+                icon: FolderKanban,
+                t: "Projetos",
+                d: "Kanban com prazos automáticos, anexos, comentários com @menções e agenda integrada. Tudo rastreável.",
+                short: "Kanban com prazos, anexos e @menções.",
+              },
+              {
+                icon: MessageCircle,
+                t: "WhatsApp",
+                d: "Inbox unificada, múltiplos atendentes, IA opcional, funil kanban de leads e campanhas em massa.",
+                short: "Inbox unificada, IA opcional e campanhas.",
+              },
+            ].map((p) => (
+              <Card
+                key={p.t}
+                className="p-4 md:p-8 hover:shadow-xl transition-shadow border-border/60 flex md:block items-start gap-4"
+              >
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-[#E11D48]/10 flex items-center justify-center md:mb-5 flex-shrink-0">
+                  <p.icon className="w-5 h-5 md:w-6 md:h-6 text-[#E11D48]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base md:text-xl font-bold mb-1 md:mb-3">{p.t}</h3>
+                  <p className="text-sm md:text-base text-muted-foreground leading-relaxed md:hidden">
+                    {p.short}
+                  </p>
+                  <p className="hidden md:block text-muted-foreground leading-relaxed">
+                    {p.d}
+                  </p>
+                </div>
+              </Card>
+            ))}
           </div>
         </div>
       </section>
 
       {/* COMO FUNCIONA */}
-      <section className="py-20 md:py-28">
+      <section className="py-12 md:py-28">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 md:mb-16">
             <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-4">
               Em <span className="text-[#E11D48]">4 passos</span> você está vendendo
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-6">
             {[
               { n: "01", t: "Cadastro", d: "Crie sua conta em segundos. Sem cartão." },
-              { n: "02", t: "Conexão WhatsApp", d: "Z-API ou API Oficial Meta. Em 2 cliques." },
+              { n: "02", t: "Conexão WhatsApp", d: "WhatsApp Business API oficial. Em 2 cliques." },
               { n: "03", t: "Convide a equipe", d: "Defina papéis e permissões por usuário." },
               { n: "04", t: "Comece a vender", d: "Receba leads, distribua, feche negócios." },
             ].map((step) => (
               <div
                 key={step.n}
-                className="relative p-6 rounded-2xl border border-border/60 bg-card"
+                className="relative px-4 py-4 md:p-6 rounded-2xl border border-border/60 bg-card flex md:block items-center gap-4"
               >
-                <div className="text-5xl font-black text-[#E11D48]/15 mb-3">{step.n}</div>
-                <h3 className="font-bold text-lg mb-2">{step.t}</h3>
-                <p className="text-sm text-muted-foreground">{step.d}</p>
+                <div className="text-3xl md:text-5xl font-black text-[#E11D48]/30 md:text-[#E11D48]/15 md:mb-3 flex-shrink-0 leading-none">
+                  {step.n}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-base md:text-lg md:mb-2">{step.t}</h3>
+                  <p className="text-xs md:text-sm text-muted-foreground">{step.d}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -266,9 +272,9 @@ const CrmSalesLanding = () => {
       </section>
 
       {/* DEMONSTRAÇÃO VISUAL — mockup CSS */}
-      <section className="py-20 md:py-28 bg-muted/30">
+      <section className="py-12 md:py-28 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="text-center mb-12">
+          <div className="text-center mb-8 md:mb-12">
             <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-4">
               Inbox + Kanban, <span className="text-[#E11D48]">lado a lado</span>
             </h2>
@@ -322,13 +328,16 @@ const CrmSalesLanding = () => {
                   <FolderKanban className="w-4 h-4 text-[#E11D48]" />
                   Funil de leads
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
                     { col: "Novo", color: "bg-blue-500", items: ["Maria Souza", "Pedro Alves"] },
                     { col: "Em contato", color: "bg-yellow-500", items: ["João Pereira"] },
                     { col: "Fechado", color: "bg-green-500", items: ["Ana Lima", "Carlos M."] },
-                  ].map((col) => (
-                    <div key={col.col} className="space-y-2">
+                  ].map((col, idx) => (
+                    <div
+                      key={col.col}
+                      className={`space-y-2 ${idx > 0 ? "hidden sm:block" : ""}`}
+                    >
                       <div className="flex items-center gap-2 text-xs font-semibold">
                         <span className={`w-2 h-2 rounded-full ${col.color}`} />
                         {col.col}
@@ -352,17 +361,17 @@ const CrmSalesLanding = () => {
       </section>
 
       {/* DIFERENCIAIS */}
-      <section className="py-20 md:py-28">
+      <section className="py-12 md:py-28">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 md:mb-16">
             <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-4">
               Por que <span className="text-[#E11D48]">Vouti.CRM</span>
             </h2>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
             {[
-              { icon: Building2, t: "Multi-tenant", d: "Cada empresa em ambiente isolado." },
+              { icon: Sparkles, t: "Fluxo de Atendimento & IA", d: "Atendimento 24/7." },
               { icon: Shield, t: "Dados isolados", d: "Row-Level Security em todas as tabelas." },
               { icon: Bot, t: "IA multi-provedor", d: "DeepSeek, Lovable AI ou Grok à sua escolha." },
               { icon: Megaphone, t: "Campanhas em massa", d: "Envio escalonado com variáveis dinâmicas." },
@@ -373,11 +382,13 @@ const CrmSalesLanding = () => {
             ].map((d) => (
               <div
                 key={d.t}
-                className="p-6 rounded-2xl border border-border/60 bg-card hover:border-[#E11D48]/40 transition-colors"
+                className="p-4 md:p-6 rounded-2xl border border-border/60 bg-card hover:border-[#E11D48]/40 transition-colors flex md:block items-start gap-3"
               >
-                <d.icon className="w-6 h-6 text-[#E11D48] mb-3" />
-                <h3 className="font-bold mb-1">{d.t}</h3>
-                <p className="text-sm text-muted-foreground">{d.d}</p>
+                <d.icon className="w-5 h-5 md:w-6 md:h-6 text-[#E11D48] md:mb-3 flex-shrink-0 mt-0.5 md:mt-0" />
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-sm md:text-base mb-0.5 md:mb-1">{d.t}</h3>
+                  <p className="text-xs md:text-sm text-muted-foreground">{d.d}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -385,9 +396,9 @@ const CrmSalesLanding = () => {
       </section>
 
       {/* FAQ */}
-      <section className="py-20 md:py-28 bg-muted/30">
+      <section className="py-12 md:py-28 bg-muted/30">
         <div className="max-w-3xl mx-auto px-4 md:px-8">
-          <div className="text-center mb-12">
+          <div className="text-center mb-8 md:mb-12">
             <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-4">
               Perguntas <span className="text-[#E11D48]">frequentes</span>
             </h2>
@@ -409,8 +420,8 @@ const CrmSalesLanding = () => {
                 Preciso de um número WhatsApp próprio?
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Sim. Você conecta seu próprio número via Z-API ou via WhatsApp Cloud
-                API oficial da Meta. Damos suporte na configuração.
+                Sim. Você conecta seu próprio número via WhatsApp Business API
+                oficial da Meta. Damos suporte na configuração.
               </AccordionContent>
             </AccordionItem>
 
@@ -450,7 +461,7 @@ const CrmSalesLanding = () => {
       {/* FORMULÁRIO */}
       <section
         ref={formRef}
-        className="py-20 md:py-28 relative overflow-hidden"
+        className="py-12 md:py-28 relative overflow-hidden"
       >
         <div className="absolute inset-0 bg-gradient-to-br from-[#E11D48]/5 via-transparent to-primary/5 pointer-events-none" />
 
