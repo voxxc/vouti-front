@@ -302,6 +302,23 @@ export function RichTextToolbar({ onFormat }: RichTextToolbarProps) {
           <TooltipContent>Lista ordenada</TooltipContent>
         </Tooltip>
       </div>
+
+      <div className="w-px h-6 bg-border mx-1" />
+
+      {/* Page break */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => onFormat("insertPageBreak")}
+          >
+            <SeparatorHorizontal className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Quebra de página (Ctrl+Enter)</TooltipContent>
+      </Tooltip>
     </div>
   );
 }
