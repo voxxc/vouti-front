@@ -1,76 +1,56 @@
 
 
-## Coluna "Sem prazo" como primeira posição no Planejador (para todos)
+## Quiz HTML — Verbos seguidos de TO vs ING (40 questões)
 
-### Causa raiz
+### Entrega
 
-A ordem padrão das colunas do Kanban do Planejador está definida em `src/hooks/usePlanejadorTasks.ts` (`KANBAN_COLUMNS`), com `vencido` em primeiro e `sem_prazo` em penúltimo. Cada usuário/tenant pode reordenar via `PlanejadorSettings` e o resultado é salvo em `localStorage` com a chave `planejador-column-config-{tenantId}`. Para forçar a nova ordem "para todos" precisamos:
-1. Alterar a ordem padrão no array `KANBAN_COLUMNS`.
-2. Migrar configurações já salvas no localStorage (caso contrário, quem já abriu o Planejador continua vendo a ordem antiga).
+Um único arquivo `verbos-to-vs-ing.html` autônomo (sem dependências externas além do Tailwind CDN), pronto para abrir em qualquer navegador, enviar por WhatsApp/Email ou hospedar.
 
-### Correção
+### Conteúdo pedagógico
 
-**1. Reordenar `KANBAN_COLUMNS`** em `src/hooks/usePlanejadorTasks.ts`:
+Baseado nas duas listas que você enviou:
 
-```ts
-export const KANBAN_COLUMNS = [
-  { id: 'sem_prazo',      label: 'Sem prazo', color: '#9ca3af' },
-  { id: 'vencido',        label: 'Vencido', color: '#ef4444' },
-  { id: 'hoje',           label: 'Vencimento hoje', color: '#a3e635' },
-  { id: 'esta_semana',    label: 'Vencimento esta semana', color: '#22d3ee' },
-  { id: 'proxima_semana', label: 'Vencimento na próxima semana', color: '#60a5fa' },
-  { id: 'duas_semanas',   label: 'Vencimento em duas semanas', color: '#3b82f6' },
-  { id: 'concluido',      label: 'Concluído', color: '#4b5563' },
-];
-```
+**Verbos + TO (infinitivo):** afford, agree, choose, decide, fail, intend, learn, offer, plan, pretend, refuse, want.
 
-Isso atualiza automaticamente: novos usuários, função "Restaurar padrão" em `PlanejadorSettings`, fallback quando não há config salvo, e a `PlanejadorListView` (que usa `KANBAN_COLUMNS` para indexação).
+**Verbos + ING (gerúndio):** admit, avoid, can't help, consider, deny, dislike, enjoy, fancy, feel like, give up, imagine, involve, keep (on), mind, miss, practice, put off, risk.
 
-**2. Migração de configs salvos** em `src/components/Planejador/PlanejadorDrawer.tsx`:
+### Formato do quiz
 
-Acrescentar versionamento à chave do localStorage. Trocar:
-```ts
-const STORAGE_KEY_PREFIX = "planejador-column-config-";
-```
-por:
-```ts
-const STORAGE_KEY_PREFIX = "planejador-column-config-v2-";
-```
+- **40 questões** divididas em 2 blocos:
+  - **Q1–Q20 — Múltipla escolha**: frase com lacuna, 2 botões (`to + verbo` ou `verbo + -ing`). Ex: *"She can't afford ___ a new car."* → opções: `to buy` / `buying`.
+  - **Q21–Q40 — Preencher**: frase com lacuna, aluno digita a forma correta. Comparação tolerante (ignora maiúsculas/espaços).
+- Cobertura equilibrada: cada verbo das duas listas aparece pelo menos 1x; verbos mais comuns (want, enjoy, avoid, decide) aparecem 2x.
+- Frases curtas, contexto cotidiano, nível intermediário.
 
-Resultado: configs antigos (v1) ficam órfãos e o sistema cai no `getDefaultColumnConfig()`, que já reflete a nova ordem com "Sem prazo" em primeiro. Quem quiser reordenar de novo continua livre para fazê-lo — apenas o ponto de partida muda.
+### Feedback e pontuação
 
-### Arquivos afetados
+- **Após cada resposta**: bloco verde "✓ Correto!" ou vermelho "✗ Errado. Resposta: X" + **mini-explicação da regra** (ex: *"`want` é sempre seguido de TO + infinitivo"*).
+- **Barra de progresso** no topo (Questão X de 40, pontos atuais).
+- **Tela final**: pontuação total (X/40), porcentagem, mensagem motivacional por faixa (≥36 = 🏆 Excelente, ≥28 = 👍 Bom, <28 = 💪 Continue treinando), botão "Refazer quiz" e botão "Revisar erros" (mostra só as questões erradas com a resposta correta).
 
-**Modificados:**
-- `src/hooks/usePlanejadorTasks.ts` (linhas 37–45) — reordenar o array `KANBAN_COLUMNS` colocando `sem_prazo` em primeiro.
-- `src/components/Planejador/PlanejadorDrawer.tsx` (linha 30) — bumpar `STORAGE_KEY_PREFIX` para `v2` para invalidar configs antigos.
+### Identidade visual Vouti
 
-**Sem mudanças:** lógica de `categorizeTask`, `PlanejadorKanban`, `PlanejadorListView`, `PlanejadorSettings`, banco/RLS, hooks de tarefas.
+- Cabeçalho com logo `vouti.spn` (mesmo padrão de `LogoSpn.tsx`: "vouti" preto + "." vermelho + "spn" verde-esmeralda + tagline "aqui você speak now!").
+- Paleta: branco/cinza-claro de fundo, verde-esmeralda (#10b981) para acertos e botão primário, vermelho (#ef4444) para erros, tipografia sans-serif limpa.
+- Layout responsivo (funciona em mobile e desktop), card central com sombra suave, animações sutis em transições de questão.
+- Footer discreto: "vouti.co — aqui você speak now!"
 
-### Impacto
+### Funcionamento técnico
 
-**Usuário final (UX):**
-- Coluna "Sem prazo" passa a ser a 1ª posição do Kanban do Planejador para todos os usuários, em todos os tenants — independente de já terem mexido nas configurações antes.
-- Tarefas sem data viram a primeira coisa a aparecer ao abrir o Planejador, dando visibilidade imediata ao backlog não datado.
-- Quem havia personalizado a ordem das colunas perde a personalização (fica com o novo padrão). Pode reordenar novamente via Configurações se quiser.
-- A função "Restaurar padrão" no painel de configurações também passa a colocar "Sem prazo" em primeiro.
+- HTML + Tailwind CDN + JavaScript vanilla (zero build, zero dependência local).
+- Estado em memória (sem localStorage, sem backend) — refrescar reinicia o quiz.
+- Embaralhamento opcional das questões a cada início (botão "Embaralhar" no início).
 
-**Dados:**
-- Zero migração de banco. Apenas mudança visual + invalidação de chave do localStorage.
-- Não afeta a lógica de categorização (`categorizeTask`) — tarefas continuam sendo classificadas exatamente da mesma forma.
+### Arquivos gerados
 
-**Riscos colaterais:**
-- Configurações personalizadas anteriores são perdidas (efeito intencional para garantir que "todos" vejam a nova ordem). Se algum usuário reclamar, ele só precisa reabrir o painel "Configurações das colunas" e reordenar.
+- `/mnt/documents/verbos-to-vs-ing.html` — arquivo único de entrega.
 
-**Quem é afetado:**
-- Todos os usuários do Planejador, em todos os tenants (jurídico e CRM).
+### Validação (QA)
 
-### Validação
-
-1. Abrir o Planejador em qualquer tenant → "Sem prazo" deve ser a primeira coluna da esquerda.
-2. Em um tenant que já tinha config personalizado salvo (testar em `/demorais/crm`): o config antigo fica ignorado, ordem padrão nova é aplicada.
-3. Painel "Configurações das colunas" → botão "Restaurar padrão" → ordem volta com "Sem prazo" em 1º.
-4. Reordenar manualmente, fechar e reabrir o drawer → ordem personalizada é mantida (salva em `v2`).
-5. View "Lista" do Planejador → agrupamento por coluna respeita a nova ordem.
-6. Drag & drop entre colunas continua funcionando normalmente.
+1. Abrir o HTML no navegador → tela inicial com logo Vouti, contagem de questões e botão "Começar".
+2. Responder Q1 (múltipla escolha) errado → bloco vermelho + regra explicativa + botão "Próxima".
+3. Q21 (preencher) digitar resposta certa em maiúsculas com espaço extra → aceitar como correta.
+4. Concluir as 40 → tela de placar com nota, faixa motivacional, botão "Refazer" e "Revisar erros".
+5. Testar em viewport mobile (484px) — layout legível, botões clicáveis.
+6. Renderização QA: converter o HTML para imagem em duas viewports (desktop + mobile) e revisar visualmente antes de entregar.
 
