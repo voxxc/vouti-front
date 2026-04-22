@@ -122,7 +122,9 @@
 
         if (existingProfile?.tenant_id && existingProfile.tenant_id !== tenant_id) {
           return new Response(
-            JSON.stringify({ error: 'Este email já está cadastrado em outro cliente. Não é possível adicionar ao cliente ' + tenant.name }),
+            JSON.stringify({
+              error: `O email ${email} ja esta cadastrado em outro cliente. Por uma limitacao do sistema de autenticacao (Supabase), cada email so pode existir em um unico cliente. Use um email diferente (ex: ${email.split('@')[0]}+${tenant.name.toLowerCase().replace(/\s+/g, '')}@${email.split('@')[1] ?? 'dominio.com'}).`,
+            }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }

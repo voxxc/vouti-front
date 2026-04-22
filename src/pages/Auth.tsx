@@ -63,6 +63,51 @@ const Auth = () => {
           variant: "destructive"
         });
       } else {
+        // Validate that the user belongs to the tenant in the URL
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && tenantSlug) {
+          // Super admin can access any tenant
+          const { data: superAdmin } = await supabase
+            .from('super_admins')
+            .select('id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (!superAdmin) {
+            const { data: tenantRows } = await supabase.rpc('get_tenant_by_slug', { p_slug: tenantSlug });
+            const tenantId = tenantRows?.[0]?.id;
+
+            if (!tenantId) {
+              await supabase.auth.signOut();
+              toast({
+                title: "Cliente nao encontrado",
+                description: "O endereco da URL nao corresponde a um cliente valido.",
+                variant: "destructive",
+              });
+              setIsLoading(false);
+              return;
+            }
+
+            const { data: roleData } = await supabase
+              .from('user_roles')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('tenant_id', tenantId)
+              .limit(1);
+
+            if (!roleData || roleData.length === 0) {
+              await supabase.auth.signOut();
+              toast({
+                title: "Acesso negado",
+                description: "Este email nao tem cadastro neste cliente. Verifique o endereco ou faca login no cliente correto.",
+                variant: "destructive",
+              });
+              setIsLoading(false);
+              return;
+            }
+          }
+        }
+
         // Remove transition flag from session to ensure it shows
         sessionStorage.removeItem('transition_completed');
 

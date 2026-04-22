@@ -142,7 +142,9 @@ Deno.serve(async (req) => {
 
     if (existingProfile && !superAdminIds.includes(existingProfile.user_id)) {
       return new Response(
-        JSON.stringify({ error: 'A user with this email already exists' }),
+        JSON.stringify({
+          error: `O email ${admin_email} ja esta cadastrado em outro cliente. Por uma limitacao do sistema de autenticacao (Supabase), cada email so pode existir em um unico cliente. Use um email diferente (ex: ${admin_email.split('@')[0]}+${slug}@${admin_email.split('@')[1] ?? 'dominio.com'}).`,
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

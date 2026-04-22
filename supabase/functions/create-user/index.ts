@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
       .single()
 
     if (existingUser) {
-      throw new Error('Email já cadastrado')
+      throw new Error(`O email ${email} ja esta cadastrado em outro usuario. Por uma limitacao do Supabase Auth, cada email deve ser unico no sistema. Use um email diferente (ex: ${email.split('@')[0]}+novo@${email.split('@')[1] ?? 'dominio.com'}).`)
     }
 
     console.log('=== CREATE USER DEBUG ===')

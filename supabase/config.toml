@@ -143,3 +143,12 @@ verify_jwt = false
 
 [functions.create-linkbio-profile]
 verify_jwt = false
+
+[functions.super-admin-update-user]
+verify_jwt = true
+
+[functions.super-admin-delete-user]
+verify_jwt = true
+
+[functions.super-admin-update-own-password]
+verify_jwt = true
