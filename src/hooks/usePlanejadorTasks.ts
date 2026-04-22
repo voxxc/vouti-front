@@ -35,12 +35,12 @@ export type KanbanColumn =
   | 'concluido';
 
 export const KANBAN_COLUMNS: { id: KanbanColumn; label: string; color: string }[] = [
+  { id: 'sem_prazo', label: 'Sem prazo', color: '#9ca3af' },
   { id: 'vencido', label: 'Vencido', color: '#ef4444' },
   { id: 'hoje', label: 'Vencimento hoje', color: '#a3e635' },
   { id: 'esta_semana', label: 'Vencimento esta semana', color: '#22d3ee' },
   { id: 'proxima_semana', label: 'Vencimento na próxima semana', color: '#60a5fa' },
   { id: 'duas_semanas', label: 'Vencimento em duas semanas', color: '#3b82f6' },
-  { id: 'sem_prazo', label: 'Sem prazo', color: '#9ca3af' },
   { id: 'concluido', label: 'Concluído', color: '#4b5563' },
 ];
 
