@@ -503,18 +503,53 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
     return msg?.content || '';
   };
 
-  // Render @mentions highlighted
-  const renderContent = (content: string) => {
-    const parts = content.split(/(@[^\s@]+(?:\s[^\s@]+)*)/g);
-    return parts.map((part, i) => {
-      const isMention = part.startsWith('@') && profiles.some(p =>
-        part === `@${p.full_name}`
-      );
-      if (isMention) {
-        return <span key={i} className="font-semibold text-primary">{part}</span>;
+  // Render @mentions highlighted as chips with guaranteed contrast.
+  // Iterates over known profile names (longest first) to robustly match
+  // names with multiple spaces (e.g. "@Maria da Silva Santos").
+  const renderContent = (content: string, isOwn: boolean = false) => {
+    if (!content) return null;
+
+    const names = profiles
+      .map(p => p.full_name)
+      .filter((n): n is string => !!n)
+      .sort((a, b) => b.length - a.length);
+
+    const nodes: React.ReactNode[] = [];
+    let i = 0;
+    let buffer = '';
+    let key = 0;
+
+    const flushBuffer = () => {
+      if (buffer) {
+        nodes.push(<span key={`t-${key++}`}>{buffer}</span>);
+        buffer = '';
       }
-      return <span key={i}>{part}</span>;
-    });
+    };
+
+    const mentionClass = isOwn
+      ? "bg-primary-foreground/20 text-primary-foreground font-semibold px-1 rounded"
+      : "bg-primary/10 text-primary font-medium px-1 rounded";
+
+    while (i < content.length) {
+      if (content[i] === '@') {
+        const rest = content.slice(i + 1);
+        const match = names.find(n => rest.startsWith(n));
+        if (match) {
+          flushBuffer();
+          nodes.push(
+            <span key={`m-${key++}`} className={mentionClass}>
+              @{match}
+            </span>
+          );
+          i += 1 + match.length;
+          continue;
+        }
+      }
+      buffer += content[i];
+      i++;
+    }
+    flushBuffer();
+    return nodes;
   };
 
   return (
@@ -568,7 +603,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
                         <Reply className="h-3 w-3" />
                         <span>Respondendo</span>
                       </div>
-                      <p className="truncate italic">{getReplyContent(msg.reply_to_id)}</p>
+                      <p className="truncate italic">{renderContent(getReplyContent(msg.reply_to_id), isOwn)}</p>
                     </div>
                   )}
 
@@ -620,7 +655,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
                         </div>
                       </div>
                     ) : (
-                      <p className="whitespace-pre-wrap break-words">{renderContent(msg.content)}</p>
+                      <p className="whitespace-pre-wrap break-words">{renderContent(msg.content, isOwn)}</p>
                     )
                   )}
                   {msg.message_type !== 'text' && msg.message_type !== 'image' && msg.message_type !== 'audio' && (
@@ -689,7 +724,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
           <Reply className="h-4 w-4 text-muted-foreground shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-xs text-muted-foreground">Respondendo a {getProfileName(replyingTo.user_id)}</p>
-            <p className="text-sm truncate">{replyingTo.content}</p>
+            <p className="text-sm truncate">{renderContent(replyingTo.content, false)}</p>
           </div>
           <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0" onClick={() => setReplyingTo(null)}>
             <X className="h-4 w-4" />
