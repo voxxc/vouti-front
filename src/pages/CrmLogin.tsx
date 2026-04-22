@@ -72,10 +72,51 @@ const CrmLogin = () => {
     }
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         toast({ title: "Erro", description: error.message || "Erro ao fazer login.", variant: "destructive" });
-      } else {
+      } else if (signInData.user && tenant) {
+        // Super admins can access any tenant
+        const { data: superAdmin } = await supabase
+          .from('super_admins')
+          .select('id')
+          .eq('user_id', signInData.user.id)
+          .maybeSingle();
+
+        if (!superAdmin) {
+          const { data: tenantRows } = await supabase.rpc('get_tenant_by_slug', { p_slug: tenant });
+          const tenantId = tenantRows?.[0]?.id;
+
+          if (!tenantId) {
+            await supabase.auth.signOut();
+            toast({
+              title: "Cliente nao encontrado",
+              description: "O endereco da URL nao corresponde a um cliente valido.",
+              variant: "destructive",
+            });
+            setIsLoading(false);
+            return;
+          }
+
+          const { data: roleData } = await supabase
+            .from('user_roles')
+            .select('id')
+            .eq('user_id', signInData.user.id)
+            .eq('tenant_id', tenantId)
+            .limit(1);
+
+          if (!roleData || roleData.length === 0) {
+            await supabase.auth.signOut();
+            toast({
+              title: "Acesso negado",
+              description: "Este email nao tem cadastro neste cliente. Verifique o endereco ou faca login no cliente correto.",
+              variant: "destructive",
+            });
+            setIsLoading(false);
+            return;
+          }
+        }
+
         setIsTransitioning(true);
         setTimeout(() => navigate(`/crm/${tenant}`, { replace: true }), 500);
       }
