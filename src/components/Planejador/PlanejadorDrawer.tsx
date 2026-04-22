@@ -27,7 +27,7 @@ interface PlanejadorDrawerProps {
   onInitialTaskConsumed?: () => void;
 }
 
-const STORAGE_KEY_PREFIX = "planejador-column-config-";
+const STORAGE_KEY_PREFIX = "planejador-column-config-v2-";
 
 function getDefaultColumnConfig(): ColumnConfig[] {
   return KANBAN_COLUMNS.map((col, i) => ({
