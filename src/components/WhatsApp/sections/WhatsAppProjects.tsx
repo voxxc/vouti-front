@@ -114,9 +114,8 @@ export function WhatsAppProjects({ open, onOpenChange, sidebarCollapsed = false 
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) handleClose(); }} modal={false}>
       <SheetContent
-        side="left-offset"
-        className={cn("p-0 flex flex-col !right-0 !w-auto", sidebarCollapsed && "!md:left-[56px]")}
-        style={sidebarCollapsed ? { left: '56px' } : undefined}
+        side="inset"
+        className="p-0 flex flex-col"
       >
         <SheetTitle className="sr-only">Projetos</SheetTitle>
 
