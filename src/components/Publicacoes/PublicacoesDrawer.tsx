@@ -401,13 +401,13 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
                   onValueChange={(v) => setForceSource(v as 'auto' | 'n8n' | 'firecrawl')}
                 >
                   <DropdownMenuRadioItem value="auto" className="text-xs">
-                    Automática (n8n → firecrawl)
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="n8n" className="text-xs">
-                    Forçar n8n
+                    Auto (CNJ API)
                   </DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="firecrawl" className="text-xs">
-                    Forçar Firecrawl
+                    Firecrawl (emergência)
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="n8n" className="text-xs">
+                    n8n (legado)
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
