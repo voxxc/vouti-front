@@ -1026,15 +1026,33 @@ Deno.serve(async (req) => {
         console.log(`pje_scraper_oab: monitoramento ${mon.id} (${nome || oabNumero}) - ${allSiglas.length} tribunais — fonte=${forceSource}`);
 
         // Process each tribunal:
-        //  - 'auto'      → API oficial CNJ (sem fallback automático para evitar custo)
-        //  - 'firecrawl' → força Firecrawl (emergência)
-        //  - 'n8n'       → força n8n legado (deprecated)
+        //  - 'firecrawl' (default) → scraping Firecrawl com paginação (única fonte automática)
+        //  - 'cnj_api'             → API oficial CNJ (opt-in / emergência)
+        //  - 'n8n'                 → webhook n8n legado (deprecated)
         for (const sigla of allSiglas) {
           let pubs: any[] = [];
           let usedSource: 'cnj_api' | 'n8n' | 'firecrawl' | null = null;
 
-          // ===== CNJ API attempt (default 'auto') =====
-          if (forceSource === 'auto') {
+          // ===== Firecrawl attempt (default) =====
+          if (forceSource === 'firecrawl') {
+            try {
+              console.log(`firecrawl: ${sigla}/OAB ${oabNumero}/${oabUf} — iniciando scraping paginado`);
+              const result = await scrapeAndParseDjenFirecrawl(
+                sigla, mon, formatDate(dataInicio), formatDate(dataFim),
+              );
+              console.log(`firecrawl: ${sigla}/OAB ${oabNumero}/${oabUf} — ${result.pages} páginas, ${result.pubs.length} itens`);
+              if (result.pubs.length > 0) {
+                pubs = result.pubs;
+                usedSource = 'firecrawl';
+              }
+            } catch (err: any) {
+              console.error(`firecrawl: failed for ${sigla} OAB ${oabNumero}/${oabUf}: ${err.message}`);
+              totalErrors++;
+            }
+          }
+
+          // ===== CNJ API attempt (opt-in 'cnj_api') =====
+          if (forceSource === 'cnj_api') {
             try {
               const result = await fetchComunicacoesViaApiOficial({
                 sigla,
@@ -1052,13 +1070,12 @@ Deno.serve(async (req) => {
               const msg = err instanceof Error ? err.message : String(err);
               console.error(`cnj_api: failed for ${sigla} OAB ${oabNumero}/${oabUf}: ${msg}`);
               totalErrors++;
-              // Não cai em fallback automático — mantém custo controlado.
             }
           }
 
           // ===== n8n attempt =====
           if (forceSource === 'n8n') {
-            console.warn(`pje_scraper_oab: n8n source is DEPRECATED, prefer 'auto' (CNJ API)`);
+            console.warn(`pje_scraper_oab: n8n source is DEPRECATED, prefer 'firecrawl' (default)`);
           try {
             const webhookPayload = {
               siglaTribunal: sigla,
@@ -1134,25 +1151,6 @@ Deno.serve(async (req) => {
             totalErrors++;
             continue;
           }
-          }
-
-          // ===== Firecrawl attempt (apenas se forçado manualmente) =====
-          if (pubs.length === 0 && forceSource === 'firecrawl') {
-            try {
-              console.log(`pje_scraper_oab: trying Firecrawl for ${sigla} OAB ${oabNumero}/${oabUf}`);
-              pubs = await scrapeAndParseDjenFirecrawl(
-                sigla, mon, formatDate(dataInicio), formatDate(dataFim),
-              );
-              if (pubs.length > 0) {
-                usedSource = 'firecrawl';
-                console.log(`pje_scraper_oab: Firecrawl returned ${pubs.length} items for ${sigla}`);
-              } else {
-                console.log(`pje_scraper_oab: Firecrawl returned 0 items for ${sigla}`);
-              }
-            } catch (err: any) {
-              console.error(`pje_scraper_oab: Firecrawl failed for ${sigla}: ${err.message}`);
-              totalErrors++;
-            }
           }
 
           // ===== Persist results =====
