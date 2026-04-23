@@ -19,6 +19,7 @@ export interface PlanejadorTask {
   updated_at: string;
   cliente_id: string | null;
   processo_oab_id: string | null;
+  pausado_ate?: string | null;
   // Subtask-as-card fields
   is_subtask?: boolean;
   parent_task_id?: string;
@@ -32,6 +33,7 @@ export type KanbanColumn =
   | 'proxima_semana'
   | 'duas_semanas'
   | 'sem_prazo'
+  | 'pausado'
   | 'concluido';
 
 export const KANBAN_COLUMNS: { id: KanbanColumn; label: string; color: string }[] = [
@@ -41,11 +43,16 @@ export const KANBAN_COLUMNS: { id: KanbanColumn; label: string; color: string }[
   { id: 'esta_semana', label: 'Vencimento esta semana', color: '#22d3ee' },
   { id: 'proxima_semana', label: 'Vencimento na próxima semana', color: '#60a5fa' },
   { id: 'duas_semanas', label: 'Vencimento em duas semanas', color: '#3b82f6' },
+  { id: 'pausado', label: 'Pausados', color: '#a855f7' },
   { id: 'concluido', label: 'Concluído', color: '#4b5563' },
 ];
 
 export function categorizeTask(task: PlanejadorTask): KanbanColumn {
   if (task.status === 'completed') return 'concluido';
+  if (task.pausado_ate) {
+    const pausadoAte = new Date(task.pausado_ate);
+    if (pausadoAte > new Date()) return 'pausado';
+  }
   if (!task.prazo) return 'sem_prazo';
 
   const now = new Date();
