@@ -38,6 +38,7 @@ import { useTenantId } from "@/hooks/useTenantId";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { cn } from "@/lib/utils";
 import { notifyDeadlineAssigned, notifyDeadlineTagged } from "@/utils/notificationHelpers";
+import { dispatchDeadlineChange } from "@/utils/deadlineEvents";
 
 interface AgendaContentProps {
   module?: string;

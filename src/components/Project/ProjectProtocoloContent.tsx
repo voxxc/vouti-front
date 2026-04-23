@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { format, isPast, isToday } from 'date-fns';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { ptBR } from 'date-fns/locale';
+import { dispatchDeadlineChange } from '@/utils/deadlineEvents';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';

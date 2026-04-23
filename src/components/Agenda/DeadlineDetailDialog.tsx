@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { cn } from "@/lib/utils";
+import { dispatchDeadlineChange } from "@/utils/deadlineEvents";
 
 interface DeadlineDetailDialogProps {
   deadlineId: string | null;
