@@ -1009,13 +1009,23 @@ Deno.serve(async (req) => {
       };
 
       // @ts-ignore EdgeRuntime is provided by Supabase edge runtime
-      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
-        // @ts-ignore
-        EdgeRuntime.waitUntil(runScraping());
-      } else {
-        // Fallback: fire-and-forget (still returns immediately)
-        runScraping().catch((e) => console.error('pje_scraper_oab background error:', e));
+      const canRunInBackground = typeof EdgeRuntime !== 'undefined' && typeof EdgeRuntime?.waitUntil === 'function';
+
+      if (!canRunInBackground) {
+        console.warn('pje_scraper_oab: EdgeRuntime.waitUntil indisponível; ignorando execução longa para evitar IDLE_TIMEOUT');
+        return new Response(JSON.stringify({
+          success: false,
+          queued: false,
+          retryable: true,
+          source: 'pje_scraper_oab',
+          force_source: forceSource,
+          date_range: { data_inicio: formatDate(dataInicio), data_fim: formatDate(dataFim) },
+          error: 'Processamento assíncrono indisponível no runtime atual. Tente novamente em instantes.',
+        }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
+
+      // @ts-ignore
+      EdgeRuntime.waitUntil(runScraping());
 
       return new Response(JSON.stringify({
         success: true,
@@ -1025,7 +1035,7 @@ Deno.serve(async (req) => {
         force_source: forceSource,
         date_range: { data_inicio: formatDate(dataInicio), data_fim: formatDate(dataFim) },
         message: 'Busca iniciada em segundo plano. Os resultados aparecerão na lista em alguns minutos.',
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }), { status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // === API TEST MODE ===
