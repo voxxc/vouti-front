@@ -136,7 +136,7 @@ export function PlanejadorPrazosView({ onDeadlineClick, searchQuery = "", select
                 <button
                   key={deadline.id}
                   onClick={() => onDeadlineClick(deadline.id)}
-                  className={`w-full text-left p-2.5 rounded-lg ${cardBg} border ${borderColor} transition-all duration-300 cursor-pointer animate-fade-in`}
+                  className={`w-full text-left p-2.5 rounded-lg ${cardBg} border ${borderColor} transition-all duration-300 cursor-pointer`}
                 >
                   <p className={`text-sm font-medium ${text} line-clamp-2 break-words`}>{deadline.title}</p>
                   {deadline.projectName && (
