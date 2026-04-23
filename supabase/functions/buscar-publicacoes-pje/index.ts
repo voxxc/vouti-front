@@ -802,11 +802,38 @@ Deno.serve(async (req) => {
 
       console.log(`pje_scraper_oab: ${monitoramentos.length} monitoramentos ativos`);
 
-      // Date range: last 5 days
-      const dataFim = new Date();
-      const dataInicio = new Date();
-      dataInicio.setDate(dataInicio.getDate() - 5);
+      // Date range: configurable via body { data_inicio, data_fim, dias_retroativos }
+      // Defaults to last 5 days. Hard cap of 90 days to control Firecrawl costs.
       const formatDate = (d: Date) => d.toISOString().split('T')[0];
+      const isValidYmd = (s: any): s is string =>
+        typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s + 'T12:00:00').getTime());
+
+      let dataFim = new Date();
+      let dataInicio = new Date();
+      const diasRetroativosRaw = Number(body.dias_retroativos);
+      const diasRetroativos = Number.isFinite(diasRetroativosRaw) && diasRetroativosRaw > 0
+        ? Math.min(Math.floor(diasRetroativosRaw), 90)
+        : 5;
+
+      if (isValidYmd(body.data_inicio) && isValidYmd(body.data_fim)) {
+        dataInicio = new Date(body.data_inicio + 'T12:00:00');
+        dataFim = new Date(body.data_fim + 'T12:00:00');
+        if (dataFim < dataInicio) {
+          return new Response(JSON.stringify({
+            success: false, error: 'data_fim deve ser >= data_inicio',
+          }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        const diffDays = Math.ceil((dataFim.getTime() - dataInicio.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays > 90) {
+          return new Response(JSON.stringify({
+            success: false, error: 'Intervalo máximo permitido: 90 dias',
+          }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      } else {
+        dataInicio.setDate(dataInicio.getDate() - diasRetroativos);
+      }
+
+      console.log(`pje_scraper_oab: range ${formatDate(dataInicio)} → ${formatDate(dataFim)}`);
 
       let totalInserted = 0;
       let totalFound = 0;
@@ -985,6 +1012,7 @@ Deno.serve(async (req) => {
         source: 'pje_scraper_oab',
         sources_used: { n8n: n8nCount, firecrawl: firecrawlCount },
         force_source: forceSource,
+        date_range: { data_inicio: formatDate(dataInicio), data_fim: formatDate(dataFim) },
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
