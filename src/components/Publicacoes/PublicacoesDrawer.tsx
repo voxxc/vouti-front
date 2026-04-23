@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Newspaper, Search, ExternalLink, Check, X, ArrowLeft, RefreshCw } from "lucide-react";
+import { Newspaper, Search, ExternalLink, Check, X, ArrowLeft, RefreshCw, Settings2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { toast } from "sonner";
@@ -54,6 +55,7 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
   const [statusFilter, setStatusFilter] = useState('todos');
   const [selectedPub, setSelectedPub] = useState<Publicacao | null>(null);
   const [buscandoDjen, setBuscandoDjen] = useState(false);
+  const [forceSource, setForceSource] = useState<'auto' | 'n8n' | 'firecrawl'>('auto');
 
   const buscarViaDjen = async () => {
     if (!tenantId) return;
@@ -63,14 +65,25 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
       if (!session) { toast.error('Sessão expirada'); return; }
 
       const res = await supabase.functions.invoke('buscar-publicacoes-pje', {
-        body: { mode: 'pje_scraper_oab', tenant_id: tenantId },
+        body: { mode: 'pje_scraper_oab', tenant_id: tenantId, force_source: forceSource },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
       if (res.error) throw res.error;
       const d = res.data;
       if (d?.success) {
-        toast.success(`DJEN (OAB): ${d.inserted} nova(s) publicação(ões) de ${d.monitoramentos_processed} monitoramento(s)`);
+        const sources = d.sources_used || {};
+        const sourceDetail =
+          sources.n8n && sources.firecrawl
+            ? ` (n8n: ${sources.n8n}, firecrawl: ${sources.firecrawl})`
+            : sources.firecrawl
+              ? ` (firecrawl)`
+              : sources.n8n
+                ? ``
+                : '';
+        toast.success(
+          `DJEN: ${d.inserted} nova(s) publicação(ões) de ${d.monitoramentos_processed} monitoramento(s)${sourceDetail}`,
+        );
         fetchPublicacoes();
       } else {
         toast.error(d?.error || 'Erro na busca DJEN');
@@ -178,16 +191,43 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
         <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
           <Newspaper className="h-5 w-5 text-primary" />
           <span className="font-semibold text-lg">Publicações</span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto h-8 text-xs"
-            onClick={buscarViaDjen}
-            disabled={buscandoDjen}
-          >
-            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${buscandoDjen ? 'animate-spin' : ''}`} />
-            {buscandoDjen ? 'Buscando...' : 'Buscar DJEN'}
-          </Button>
+          <div className="ml-auto flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={buscarViaDjen}
+              disabled={buscandoDjen}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${buscandoDjen ? 'animate-spin' : ''}`} />
+              {buscandoDjen ? 'Buscando...' : 'Buscar DJEN'}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" title="Forçar fonte (debug)">
+                  <Settings2 className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="text-xs">Fonte do scraping</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup
+                  value={forceSource}
+                  onValueChange={(v) => setForceSource(v as 'auto' | 'n8n' | 'firecrawl')}
+                >
+                  <DropdownMenuRadioItem value="auto" className="text-xs">
+                    Automática (n8n → firecrawl)
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="n8n" className="text-xs">
+                    Forçar n8n
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="firecrawl" className="text-xs">
+                    Forçar Firecrawl
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         <ScrollArea className="flex-1">

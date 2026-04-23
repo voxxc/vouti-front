@@ -10,6 +10,160 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const DATAJUD_API_KEY = 'cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw==';
 
 const BATCH_SIZE = 5;
+const N8N_WEBHOOK_URL = 'https://voutibot.app.n8n.cloud/webhook/tjpr-scraper';
+const FIRECRAWL_API_URL = 'https://api.firecrawl.dev/v2/scrape';
+const FIRECRAWL_TIMEOUT_MS = 45000;
+
+// ===== Firecrawl scraper for DJEN (PJe Comunicações) =====
+// Returns { html, markdown } or throws on failure.
+async function scrapeDjenViaFirecrawl(params: {
+  sigla: string;
+  oabNumero: string;
+  oabUf: string;
+  dataInicio: string;
+  dataFim: string;
+}): Promise<{ html: string; markdown: string }> {
+  const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+  if (!apiKey) {
+    throw new Error('FIRECRAWL_API_KEY is not configured. Connect Firecrawl in project settings.');
+  }
+
+  const url =
+    `https://comunica.pje.jus.br/consulta?siglaTribunal=${encodeURIComponent(params.sigla)}` +
+    `&dataDisponibilizacaoInicio=${params.dataInicio}` +
+    `&dataDisponibilizacaoFim=${params.dataFim}` +
+    `&numeroOab=${encodeURIComponent(params.oabNumero)}` +
+    `&ufOab=${encodeURIComponent(params.oabUf.toLowerCase())}`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FIRECRAWL_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(FIRECRAWL_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url,
+        formats: ['markdown', 'html'],
+        onlyMainContent: true,
+        waitFor: 3500,
+        location: { country: 'BR', languages: ['pt-BR'] },
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const errMsg = data?.error || data?.message || `HTTP ${res.status}`;
+      throw new Error(`Firecrawl ${res.status}: ${errMsg}`);
+    }
+
+    // Firecrawl v2 returns either { data: { html, markdown } } or direct fields
+    const payload = data?.data || data;
+    const html = payload?.html || payload?.rawHtml || '';
+    const markdown = payload?.markdown || '';
+
+    if (!html && !markdown) {
+      throw new Error('Firecrawl returned empty content');
+    }
+
+    return { html, markdown };
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') throw new Error('Firecrawl timeout');
+    throw err;
+  }
+}
+
+// ===== Markdown fallback parser for DJEN content from Firecrawl =====
+// Used when HTML parsing yields 0 (Firecrawl markdown is cleaner).
+function parseDjenFromMarkdown(markdown: string, sigla: string, mon: any): any[] {
+  const publicacoes: any[] = [];
+  const nomePesquisado = mon.nome || `OAB ${mon.oab_numero || ''}/${mon.oab_uf || ''}`;
+
+  // Split markdown into intimação blocks. The DJEN page typically renders each
+  // intimação starting with "N - Intimação" / "N - Citação" / "N - Comunicação".
+  const blocks = markdown.split(/(?=^\s*\d+\s*-\s*(?:Intimação|Citação|Comunicação)\b)/im);
+
+  for (const block of blocks) {
+    if (!/Intimação|Citação|Comunicação/i.test(block)) continue;
+
+    const dataMatch = block.match(/(?:Data(?: de disponibilização)?|disponibilização)[:\s]*\**\s*(\d{2}\/\d{2}\/\d{4})/i);
+    if (!dataMatch) continue;
+    const [dia, mes, ano] = dataMatch[1].split('/');
+    const dataDisp = `${ano}-${mes}-${dia}`;
+
+    const procMatch = block.match(/Processo[:\s]*\**\s*([\d.\-]+)/i)
+      || block.match(/(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})/);
+    const numeroProcesso = procMatch ? procMatch[1].trim() : 'sem_numero';
+
+    const orgaoMatch = block.match(/Órgão[:\s]*\**\s*([^\n]+)/i);
+    const orgao = orgaoMatch ? orgaoMatch[1].replace(/\*+/g, '').trim() : null;
+
+    const tipoMatch = block.match(/Tipo de comunicação[:\s]*\**\s*([^\n]+)/i);
+    const tipoCom = tipoMatch ? tipoMatch[1].replace(/\*+/g, '').trim() : 'Intimação';
+    const tipo = /citação|citacao/i.test(tipoCom) ? 'Citação' : 'Intimação';
+
+    const partesMatch = block.match(/Parte\(s\)[:\s]*\**([\s\S]*?)(?=Advogado\(s\)|Texto da intimação|$)/i);
+    const partes = partesMatch
+      ? partesMatch[1].replace(/\*+/g, '').replace(/\s+/g, ' ').trim().substring(0, 2000)
+      : null;
+
+    const textoMatch = block.match(/Texto da intimação[:\s]*\**([\s\S]*?)(?=^\s*\d+\s*-\s*(?:Intimação|Citação|Comunicação)|$)/im);
+    let conteudo = textoMatch
+      ? textoMatch[1].replace(/\*+/g, '').trim()
+      : block.replace(/\*+/g, '').trim();
+    conteudo = conteudo.substring(0, 5000);
+
+    publicacoes.push({
+      tenant_id: mon.tenant_id,
+      monitoramento_id: mon.id,
+      data_disponibilizacao: dataDisp,
+      data_publicacao: dataDisp,
+      tipo,
+      numero_processo: numeroProcesso,
+      diario_sigla: sigla,
+      diario_nome: `PJe Comunicações - ${sigla}`,
+      comarca: null,
+      nome_pesquisado: nomePesquisado,
+      conteudo_completo: conteudo,
+      link_acesso: 'https://comunica.pje.jus.br',
+      status: 'nao_tratada',
+      orgao,
+      responsavel: null,
+      partes,
+    });
+  }
+
+  return publicacoes;
+}
+
+// ===== Unified DJEN scrape via Firecrawl: returns parsed publicações for a (sigla, mon) =====
+async function scrapeAndParseDjenFirecrawl(
+  sigla: string,
+  mon: any,
+  dataInicio: string,
+  dataFim: string,
+): Promise<any[]> {
+  const oabNumero = mon.oab_numero || '';
+  const oabUf = mon.oab_uf || '';
+  if (!oabNumero || !oabUf) return [];
+
+  const { html, markdown } = await scrapeDjenViaFirecrawl({
+    sigla, oabNumero, oabUf, dataInicio, dataFim,
+  });
+
+  // Try HTML parser first (matches existing format), fall back to markdown parser.
+  let pubs = html ? parsePublicacoesPjeOab(html, sigla, mon) : [];
+  if (pubs.length === 0 && markdown) {
+    pubs = parseDjenFromMarkdown(markdown, sigla, mon);
+  }
+  return pubs;
+}
 
 const TRIBUNAL_MAP: Record<string, string> = {
   'TJPR': 'tjpr', 'TJSP': 'tjsp', 'TJRJ': 'tjrj', 'TJMG': 'tjmg',
@@ -614,6 +768,9 @@ Deno.serve(async (req) => {
     // ============================================================
     if (mode === 'pje_scraper_oab') {
       const tenantId = body.tenant_id;
+      // forceSource: 'auto' (default, n8n with firecrawl fallback), 'n8n', or 'firecrawl'
+      const forceSource: 'auto' | 'n8n' | 'firecrawl' =
+        body.force_source === 'n8n' || body.force_source === 'firecrawl' ? body.force_source : 'auto';
 
       // Auth: either Bearer token or service_role_key (for cron)
       const authHeader = req.headers.get('Authorization');
@@ -654,6 +811,8 @@ Deno.serve(async (req) => {
       let totalInserted = 0;
       let totalFound = 0;
       let totalErrors = 0;
+      let n8nCount = 0;
+      let firecrawlCount = 0;
 
       for (const mon of monitoramentos) {
         const nome = mon.nome || '';
@@ -679,8 +838,13 @@ Deno.serve(async (req) => {
 
         console.log(`pje_scraper_oab: monitoramento ${mon.id} (${nome || oabNumero}) - ${allSiglas.length} tribunais via n8n`);
 
-        // Process each tribunal via n8n webhook (headless browser in Brazil, bypasses geo-block)
+        // Process each tribunal: try n8n first, fallback to Firecrawl on failure (or force a source)
         for (const sigla of allSiglas) {
+          let pubs: any[] = [];
+          let usedSource: 'n8n' | 'firecrawl' | null = null;
+
+          // ===== n8n attempt =====
+          if (forceSource === 'n8n' || forceSource === 'auto') {
           try {
             const webhookPayload = {
               siglaTribunal: sigla,
@@ -695,7 +859,7 @@ Deno.serve(async (req) => {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-            const webhookRes = await fetch('https://voutibot.app.n8n.cloud/webhook/tjpr-scraper', {
+            const webhookRes = await fetch(N8N_WEBHOOK_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(webhookPayload),
@@ -706,8 +870,7 @@ Deno.serve(async (req) => {
             if (!webhookRes.ok) {
               const errText = await webhookRes.text().catch(() => '');
               console.error(`pje_scraper_oab: n8n error ${webhookRes.status} for ${sigla}: ${errText.substring(0, 200)}`);
-              totalErrors++;
-              continue;
+              throw new Error(`n8n HTTP ${webhookRes.status}`);
             }
 
             const webhookData = await webhookRes.json();
@@ -715,7 +878,11 @@ Deno.serve(async (req) => {
 
             if (items.length === 0) {
               console.log(`pje_scraper_oab: n8n returned 0 items for ${sigla}`);
-              continue;
+              // Treat as soft-empty: in 'auto' we still try Firecrawl, in 'n8n' we accept.
+              if (forceSource === 'n8n') {
+                continue;
+              }
+              throw new Error('n8n empty');
             }
 
             console.log(`pje_scraper_oab: n8n returned ${items.length} items for ${sigla}`);
@@ -723,7 +890,7 @@ Deno.serve(async (req) => {
             const nomePesquisado = nome || `OAB ${oabNumero}/${oabUf}`;
             const today = new Date().toISOString().split('T')[0];
 
-            const pubs = items.map((item: any) => {
+            pubs = items.map((item: any) => {
               const descricao = item.descricao || '';
               const tipo = descricao.toLowerCase().includes('intimação') || descricao.toLowerCase().includes('intimacao') ? 'Intimação'
                 : descricao.toLowerCase().includes('citação') || descricao.toLowerCase().includes('citacao') ? 'Citação'
@@ -751,9 +918,39 @@ Deno.serve(async (req) => {
                 partes: item.partes || null,
               };
             });
+            usedSource = 'n8n';
+          } catch (err: any) {
+            console.error(`pje_scraper_oab: n8n failed for ${sigla}: ${err.message}`);
+            // In 'auto' mode, fall through to Firecrawl. In 'n8n', count error and skip.
+            if (forceSource === 'n8n') {
+              totalErrors++;
+              continue;
+            }
+          }
+          }
 
+          // ===== Firecrawl attempt (fallback or forced) =====
+          if (pubs.length === 0 && (forceSource === 'firecrawl' || forceSource === 'auto')) {
+            try {
+              console.log(`pje_scraper_oab: trying Firecrawl for ${sigla} OAB ${oabNumero}/${oabUf}`);
+              pubs = await scrapeAndParseDjenFirecrawl(
+                sigla, mon, formatDate(dataInicio), formatDate(dataFim),
+              );
+              if (pubs.length > 0) {
+                usedSource = 'firecrawl';
+                console.log(`pje_scraper_oab: Firecrawl returned ${pubs.length} items for ${sigla}`);
+              } else {
+                console.log(`pje_scraper_oab: Firecrawl returned 0 items for ${sigla}`);
+              }
+            } catch (err: any) {
+              console.error(`pje_scraper_oab: Firecrawl failed for ${sigla}: ${err.message}`);
+              totalErrors++;
+            }
+          }
+
+          // ===== Persist results =====
+          if (pubs.length > 0 && usedSource) {
             totalFound += pubs.length;
-
             const { data: inserted, error: insertErr } = await supabaseAdmin
               .from('publicacoes')
               .upsert(pubs, {
@@ -763,17 +960,17 @@ Deno.serve(async (req) => {
               .select('id');
 
             if (insertErr) {
-              console.error(`pje_scraper_oab: insert error for ${sigla}:`, insertErr.message);
+              console.error(`pje_scraper_oab: insert error for ${sigla}: ${insertErr.message}`);
             } else {
-              totalInserted += inserted?.length || 0;
+              const insCount = inserted?.length || 0;
+              totalInserted += insCount;
+              if (usedSource === 'n8n') n8nCount += insCount;
+              else firecrawlCount += insCount;
             }
-
-            // Delay between tribunais to not overwhelm n8n
-            await new Promise(r => setTimeout(r, 2000));
-          } catch (err: any) {
-            console.error(`pje_scraper_oab: error for ${sigla}:`, err.message);
-            totalErrors++;
           }
+
+          // Delay between tribunais to avoid overwhelming sources
+          await new Promise(r => setTimeout(r, 2000));
         }
       }
 
@@ -786,6 +983,8 @@ Deno.serve(async (req) => {
         inserted: totalInserted,
         errors: totalErrors,
         source: 'pje_scraper_oab',
+        sources_used: { n8n: n8nCount, firecrawl: firecrawlCount },
+        force_source: forceSource,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
