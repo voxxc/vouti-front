@@ -74,7 +74,7 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
   const [periodoFilter, setPeriodoFilter] = useState<'hoje' | '7' | '15' | '30' | 'tudo'>('7');
   const [selectedPub, setSelectedPub] = useState<Publicacao | null>(null);
   const [buscandoDjen, setBuscandoDjen] = useState(false);
-  const [forceSource, setForceSource] = useState<'auto' | 'n8n' | 'firecrawl'>('auto');
+  const [forceSource, setForceSource] = useState<'firecrawl' | 'cnj_api' | 'n8n'>('firecrawl');
   const [periodoPopoverOpen, setPeriodoPopoverOpen] = useState(false);
   const [rangeSelection, setRangeSelection] = useState<DateRange | undefined>();
   const [ultimaBusca, setUltimaBusca] = useState<string | null>(null);
@@ -130,13 +130,13 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
         // Background mode: function returns immediately with `queued: true`
         if (d.queued) {
           toast.success(
-            `${prefix}busca via API oficial do CNJ iniciada em segundo plano (${d.monitoramentos_processed} monitoramento(s)). Atualize em alguns segundos.`,
-            { duration: 6000 },
+            `${prefix}busca via Firecrawl iniciada em segundo plano (${d.monitoramentos_processed} monitoramento(s)). Pode levar 1-3 minutos. Atualize em breve.`,
+            { duration: 8000 },
           );
           persistUltimaBusca();
-          // API CNJ é rápida (~1-2s/tribunal), polling mais agressivo
-          setTimeout(() => fetchPublicacoes(), 10000);
+          // Firecrawl é mais lento (~30-90s/tribunal), polling espaçado.
           setTimeout(() => fetchPublicacoes(), 30000);
+          setTimeout(() => fetchPublicacoes(), 90000);
           return;
         }
 
