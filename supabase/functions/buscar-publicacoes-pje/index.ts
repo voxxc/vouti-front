@@ -823,7 +823,7 @@ Deno.serve(async (req) => {
             success: false, error: 'data_fim deve ser >= data_inicio',
           }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
-        const diffDays = Math.ceil((dataFim.getTime() - dataInicio.getTime()) / (1000 * 60 * 60 * 24));
+        const diffDays = Math.floor((dataFim.getTime() - dataInicio.getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays > 90) {
           return new Response(JSON.stringify({
             success: false, error: 'Intervalo máximo permitido: 90 dias',
