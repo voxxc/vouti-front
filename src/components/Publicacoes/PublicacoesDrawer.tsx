@@ -288,18 +288,74 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
         {/* Header */}
         <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
           <Newspaper className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-lg">Publicações</span>
+          <div className="flex flex-col">
+            <span className="font-semibold text-lg leading-tight">Publicações</span>
+            {ultimaBusca && (
+              <span className="text-[10px] text-muted-foreground leading-tight">
+                Última atualização {formatRelativeTime(ultimaBusca)}
+              </span>
+            )}
+          </div>
           <div className="ml-auto flex items-center gap-1">
             <Button
-              variant="outline"
+              variant="default"
               size="sm"
               className="h-8 text-xs"
-              onClick={buscarViaDjen}
+              onClick={buscarNovidades}
               disabled={buscandoDjen}
+              title="Buscar publicações desde a última checagem"
             >
-              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${buscandoDjen ? 'animate-spin' : ''}`} />
-              {buscandoDjen ? 'Buscando...' : 'Buscar DJEN'}
+              <Sparkles className={`h-3.5 w-3.5 mr-1.5 ${buscandoDjen ? 'animate-pulse' : ''}`} />
+              {buscandoDjen ? 'Buscando...' : 'Novidades'}
             </Button>
+            <Popover open={periodoPopoverOpen} onOpenChange={setPeriodoPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  disabled={buscandoDjen}
+                  title="Buscar período personalizado"
+                >
+                  <CalendarRange className="h-3.5 w-3.5 mr-1.5" />
+                  Buscar período
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-auto p-3 space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground px-1">
+                  Presets rápidos
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => buscarPreset(1)}>Hoje</Button>
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => buscarPreset(7)}>Últimos 7 dias</Button>
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => buscarPreset(15)}>Últimos 15 dias</Button>
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => buscarPreset(30)}>Últimos 30 dias</Button>
+                </div>
+                <DropdownMenuSeparator />
+                <div className="text-xs font-semibold text-muted-foreground px-1">
+                  Período personalizado
+                </div>
+                <Calendar
+                  mode="range"
+                  selected={rangeSelection}
+                  onSelect={setRangeSelection}
+                  numberOfMonths={1}
+                  disabled={(date) => date > new Date()}
+                  className="pointer-events-auto"
+                />
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <span className="text-[10px] text-muted-foreground">Máx. 90 dias</span>
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={buscarRangePersonalizado}
+                    disabled={!rangeSelection?.from || !rangeSelection?.to || buscandoDjen}
+                  >
+                    Buscar
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8" title="Forçar fonte (debug)">
