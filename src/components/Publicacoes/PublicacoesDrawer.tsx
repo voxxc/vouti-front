@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Newspaper, Search, ExternalLink, Check, X, ArrowLeft, RefreshCw, Settings2 } from "lucide-react";
+import { Newspaper, Search, ExternalLink, Check, X, ArrowLeft, RefreshCw, Settings2, Sparkles, CalendarRange } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import type { DateRange } from "react-day-picker";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { toast } from "sonner";
@@ -53,19 +56,54 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
+  const [periodoFilter, setPeriodoFilter] = useState<'hoje' | '7' | '15' | '30' | 'tudo'>('7');
   const [selectedPub, setSelectedPub] = useState<Publicacao | null>(null);
   const [buscandoDjen, setBuscandoDjen] = useState(false);
   const [forceSource, setForceSource] = useState<'auto' | 'n8n' | 'firecrawl'>('auto');
+  const [periodoPopoverOpen, setPeriodoPopoverOpen] = useState(false);
+  const [rangeSelection, setRangeSelection] = useState<DateRange | undefined>();
+  const [ultimaBusca, setUltimaBusca] = useState<string | null>(null);
 
-  const buscarViaDjen = async () => {
+  const ultimaBuscaKey = tenantId ? `publicacoes_ultima_busca_${tenantId}` : null;
+
+  useEffect(() => {
+    if (!ultimaBuscaKey) return;
+    setUltimaBusca(localStorage.getItem(ultimaBuscaKey));
+  }, [ultimaBuscaKey, open]);
+
+  const persistUltimaBusca = () => {
+    if (!ultimaBuscaKey) return;
+    const now = new Date().toISOString();
+    localStorage.setItem(ultimaBuscaKey, now);
+    setUltimaBusca(now);
+  };
+
+  const buscarViaDjen = async (opts?: {
+    dias_retroativos?: number;
+    data_inicio?: string;
+    data_fim?: string;
+    label?: string;
+  }) => {
     if (!tenantId) return;
     setBuscandoDjen(true);
     try {
       const { data: { session } } = await supabase.auth.refreshSession();
       if (!session) { toast.error('Sessão expirada'); return; }
 
+      const body: Record<string, any> = {
+        mode: 'pje_scraper_oab',
+        tenant_id: tenantId,
+        force_source: forceSource,
+      };
+      if (opts?.data_inicio && opts?.data_fim) {
+        body.data_inicio = opts.data_inicio;
+        body.data_fim = opts.data_fim;
+      } else if (opts?.dias_retroativos) {
+        body.dias_retroativos = opts.dias_retroativos;
+      }
+
       const res = await supabase.functions.invoke('buscar-publicacoes-pje', {
-        body: { mode: 'pje_scraper_oab', tenant_id: tenantId, force_source: forceSource },
+        body,
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
@@ -81,9 +119,11 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
               : sources.n8n
                 ? ``
                 : '';
+        const prefix = opts?.label ? `${opts.label}: ` : 'DJEN: ';
         toast.success(
-          `DJEN: ${d.inserted} nova(s) publicação(ões) de ${d.monitoramentos_processed} monitoramento(s)${sourceDetail}`,
+          `${prefix}${d.inserted} nova(s) publicação(ões) de ${d.monitoramentos_processed} monitoramento(s)${sourceDetail}`,
         );
+        persistUltimaBusca();
         fetchPublicacoes();
       } else {
         toast.error(d?.error || 'Erro na busca DJEN');
@@ -93,6 +133,39 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
     } finally {
       setBuscandoDjen(false);
     }
+  };
+
+  const buscarNovidades = () => {
+    // Calculate days since last search; default 2 days; cap at 7 to keep it fast.
+    let dias = 2;
+    if (ultimaBusca) {
+      const diffMs = Date.now() - new Date(ultimaBusca).getTime();
+      const diffDias = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      if (diffDias > 0) dias = Math.min(Math.max(diffDias + 1, 2), 7);
+    }
+    buscarViaDjen({ dias_retroativos: dias, label: 'Novidades' });
+  };
+
+  const buscarPreset = (dias: number) => {
+    setPeriodoPopoverOpen(false);
+    buscarViaDjen({ dias_retroativos: dias, label: `Últimos ${dias} dias` });
+  };
+
+  const buscarRangePersonalizado = () => {
+    if (!rangeSelection?.from || !rangeSelection?.to) {
+      toast.error('Selecione data inicial e final');
+      return;
+    }
+    const fmt = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+    const data_inicio = fmt(rangeSelection.from);
+    const data_fim = fmt(rangeSelection.to);
+    setPeriodoPopoverOpen(false);
+    buscarViaDjen({ data_inicio, data_fim, label: `${data_inicio} → ${data_fim}` });
   };
 
   useEffect(() => {
@@ -106,7 +179,7 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
       .select('*')
       .eq('tenant_id', tenantId!)
       .order('data_disponibilizacao', { ascending: false })
-      .limit(200);
+      .limit(500);
 
     const { data, error } = await query;
     if (!error && data) setPublicacoes(data as any);
@@ -122,6 +195,16 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
 
   const filtered = publicacoes.filter(p => {
     if (statusFilter !== 'todos' && p.status !== statusFilter) return false;
+    if (periodoFilter !== 'tudo' && p.data_disponibilizacao) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const pubDate = new Date(p.data_disponibilizacao + 'T12:00:00');
+      const diffDias = Math.floor((today.getTime() - pubDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (periodoFilter === 'hoje' && diffDias !== 0) return false;
+      if (periodoFilter === '7' && diffDias > 7) return false;
+      if (periodoFilter === '15' && diffDias > 15) return false;
+      if (periodoFilter === '30' && diffDias > 30) return false;
+    }
     if (search) {
       const s = search.toLowerCase();
       return (
