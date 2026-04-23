@@ -50,6 +50,21 @@ const statusLabels: Record<string, string> = {
   descartada: 'Descartada',
 };
 
+function formatRelativeTime(iso: string | null): string | null {
+  if (!iso) return null;
+  const diffMs = Date.now() - new Date(iso).getTime();
+  if (diffMs < 0) return 'agora';
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return 'agora';
+  if (min < 60) return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h}h`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `há ${d}d`;
+  const m = Math.floor(d / 30);
+  return `há ${m} meses`;
+}
+
 export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps) {
   const { tenantId } = useTenantId();
   const [publicacoes, setPublicacoes] = useState<Publicacao[]>([]);
