@@ -86,6 +86,8 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const [editingPrazoDeadline, setEditingPrazoDeadline] = useState<Deadline | null>(null);
   const [editPrazoOpen, setEditPrazoOpen] = useState(false);
   const [clienteInfoOpen, setClienteInfoOpen] = useState(false);
+  const [pausarOpen, setPausarOpen] = useState(false);
+  const [pausarDate, setPausarDate] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
