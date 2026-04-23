@@ -43,7 +43,23 @@ function loadColumnConfig(tenantId: string | null): ColumnConfig[] {
   if (!tenantId) return getDefaultColumnConfig();
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PREFIX + tenantId);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const saved: ColumnConfig[] = JSON.parse(raw);
+      const defaults = getDefaultColumnConfig();
+      // Merge: garante que colunas novas (ex: 'pausado') apareçam para usuários antigos
+      const merged = [...saved];
+      for (const def of defaults) {
+        if (!merged.find((c) => c.id === def.id)) {
+          // Insere logo antes de 'concluido' se possível, senão no final
+          const concluidoIdx = merged.findIndex((c) => c.id === 'concluido');
+          const insertAt = concluidoIdx >= 0 ? concluidoIdx : merged.length;
+          merged.splice(insertAt, 0, { ...def, order: insertAt });
+          // Reindexa ordem
+          merged.forEach((c, i) => (c.order = i));
+        }
+      }
+      return merged;
+    }
   } catch {}
   return getDefaultColumnConfig();
 }

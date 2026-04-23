@@ -13,6 +13,7 @@ import {
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   X, Play, CheckCircle, Calendar, User, Clock, FileText, ListChecks, Users, Tag, ArrowLeft,
   Plus, Trash2, Download, Upload, ChevronDown, ChevronRight, Search, UserCircle, Scale, CalendarClock, Unlink,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
 import { usePlanejadorSubtasks } from "@/hooks/usePlanejadorSubtasks";
 import { usePlanejadorFiles } from "@/hooks/usePlanejadorFiles";
 import { usePlanejadorParticipants } from "@/hooks/usePlanejadorParticipants";
@@ -84,6 +86,8 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const [editingPrazoDeadline, setEditingPrazoDeadline] = useState<Deadline | null>(null);
   const [editPrazoOpen, setEditPrazoOpen] = useState(false);
   const [clienteInfoOpen, setClienteInfoOpen] = useState(false);
+  const [pausarOpen, setPausarOpen] = useState(false);
+  const [pausarDate, setPausarDate] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -432,6 +436,75 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
           <span className="text-sm font-medium">
             {format(new Date(task.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
           </span>
+        </div>
+        <div className="flex items-center gap-3 py-2 border-b border-border/50">
+          <CalendarClock className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground w-28">Retornar em</span>
+          {task.pausado_ate && new Date(task.pausado_ate) > new Date() ? (
+            <div className="flex items-center gap-2 flex-1">
+              <span className="text-sm font-medium">
+                {format(new Date(task.pausado_ate), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 w-6 p-0"
+                onClick={() => {
+                  onUpdate(task.id, { pausado_ate: null });
+                  toast.success("Pausa removida");
+                }}
+                title="Remover pausa"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ) : (
+            <Popover open={pausarOpen} onOpenChange={(o) => {
+              setPausarOpen(o);
+              if (o) {
+                // default: amanhã 9h
+                const d = new Date();
+                d.setDate(d.getDate() + 1);
+                d.setHours(9, 0, 0, 0);
+                const pad = (n: number) => String(n).padStart(2, '0');
+                setPausarDate(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+              }
+            }}>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground">
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Definir data
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-3" align="start">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">Pausar até</label>
+                  <Input
+                    type="datetime-local"
+                    value={pausarDate}
+                    onChange={(e) => setPausarDate(e.target.value)}
+                    className="h-9"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setPausarOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (!pausarDate) return;
+                        const iso = new Date(pausarDate).toISOString();
+                        onUpdate(task.id, { pausado_ate: iso, status: 'pending' });
+                        toast.success(`Tarefa pausada até ${format(new Date(pausarDate), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`);
+                        setPausarOpen(false);
+                      }}
+                    >
+                      OK
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       </div>
 
