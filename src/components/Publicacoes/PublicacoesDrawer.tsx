@@ -347,7 +347,17 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
                   selected={rangeSelection}
                   onSelect={setRangeSelection}
                   numberOfMonths={1}
-                  disabled={(date) => date > new Date()}
+                  disabled={(date) => {
+                    if (date > new Date()) return true;
+                    // Once a "from" is picked, prevent selecting a "to" more than 90 days away.
+                    if (rangeSelection?.from && !rangeSelection?.to) {
+                      const diffDias = Math.floor(
+                        Math.abs(date.getTime() - rangeSelection.from.getTime()) / (1000 * 60 * 60 * 24),
+                      );
+                      if (diffDias > 90) return true;
+                    }
+                    return false;
+                  }}
                   className="pointer-events-auto"
                 />
                 <div className="flex items-center justify-between gap-2 pt-1">
