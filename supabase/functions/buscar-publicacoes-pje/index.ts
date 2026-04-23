@@ -1003,20 +1003,28 @@ Deno.serve(async (req) => {
           // Delay between tribunais to avoid overwhelming sources
           await new Promise(r => setTimeout(r, 2000));
         }
-      }
+        }
 
-      console.log(`pje_scraper_oab done: found=${totalFound}, inserted=${totalInserted}, errors=${totalErrors}`);
+        console.log(`pje_scraper_oab done: found=${totalFound}, inserted=${totalInserted}, errors=${totalErrors}, n8n=${n8nCount}, firecrawl=${firecrawlCount}`);
+      };
+
+      // @ts-ignore EdgeRuntime is provided by Supabase edge runtime
+      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(runScraping());
+      } else {
+        // Fallback: fire-and-forget (still returns immediately)
+        runScraping().catch((e) => console.error('pje_scraper_oab background error:', e));
+      }
 
       return new Response(JSON.stringify({
         success: true,
+        queued: true,
         monitoramentos_processed: monitoramentos.length,
-        total_found: totalFound,
-        inserted: totalInserted,
-        errors: totalErrors,
         source: 'pje_scraper_oab',
-        sources_used: { n8n: n8nCount, firecrawl: firecrawlCount },
         force_source: forceSource,
         date_range: { data_inicio: formatDate(dataInicio), data_fim: formatDate(dataFim) },
+        message: 'Busca iniciada em segundo plano. Os resultados aparecerão na lista em alguns minutos.',
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
