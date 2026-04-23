@@ -125,6 +125,13 @@ export function usePlanejadorTasks() {
       return [...tasks, ...subtasksAsTasks];
     },
     enabled: !!tenantId,
+    refetchInterval: (query) => {
+      const data = query.state.data as PlanejadorTask[] | undefined;
+      const hasPaused = (data || []).some(
+        (t) => t.pausado_ate && new Date(t.pausado_ate) > new Date()
+      );
+      return hasPaused ? 60_000 : false;
+    },
   });
 
   const createTask = useMutation({
@@ -182,6 +189,7 @@ export function usePlanejadorTasks() {
       proxima_semana: [],
       duas_semanas: [],
       sem_prazo: [],
+      pausado: [],
       concluido: [],
     }
   );
