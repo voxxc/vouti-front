@@ -416,6 +416,18 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
                   <SelectItem value="descartada">Descartadas</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={periodoFilter} onValueChange={(v) => setPeriodoFilter(v as any)}>
+                <SelectTrigger className="w-[130px] h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hoje">Hoje</SelectItem>
+                  <SelectItem value="7">7 dias</SelectItem>
+                  <SelectItem value="15">15 dias</SelectItem>
+                  <SelectItem value="30">30 dias</SelectItem>
+                  <SelectItem value="tudo">Tudo</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* List */}
