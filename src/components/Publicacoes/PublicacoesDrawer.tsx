@@ -398,13 +398,13 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
                 <DropdownMenuSeparator />
                 <DropdownMenuRadioGroup
                   value={forceSource}
-                  onValueChange={(v) => setForceSource(v as 'auto' | 'n8n' | 'firecrawl')}
+                  onValueChange={(v) => setForceSource(v as 'firecrawl' | 'cnj_api' | 'n8n')}
                 >
-                  <DropdownMenuRadioItem value="auto" className="text-xs">
-                    Auto (CNJ API)
-                  </DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="firecrawl" className="text-xs">
-                    Firecrawl (emergência)
+                    Firecrawl (padrão)
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="cnj_api" className="text-xs">
+                    CNJ API (emergência)
                   </DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="n8n" className="text-xs">
                     n8n (legado)
