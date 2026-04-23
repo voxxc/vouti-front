@@ -3,7 +3,7 @@ import { PlanejadorTask, KanbanColumn, KANBAN_COLUMNS } from "@/hooks/usePlaneja
 import { PlanejadorTaskCard } from "./PlanejadorTaskCard";
 import { ColumnConfig } from "./PlanejadorSettings";
 import { PlanejadorLabel, PlanejadorLabelAssignment } from "@/hooks/usePlanejadorLabels";
-import { endOfWeek, addWeeks, setHours, subDays, startOfDay } from "date-fns";
+import { endOfWeek, addWeeks, setHours, subDays, startOfDay, addDays, endOfDay } from "date-fns";
 import { useMemo } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { usePlanejadorTaskViews } from "@/hooks/usePlanejadorTaskViews";
@@ -73,30 +73,41 @@ export function PlanejadorKanban({
     switch (destColumn) {
       case 'concluido':
         updates.status = 'completed';
+        updates.pausado_ate = null;
         break;
       case 'vencido':
         updates.status = 'pending';
         updates.prazo = subDays(startOfDay(now), 1).toISOString();
+        updates.pausado_ate = null;
         break;
       case 'hoje':
         updates.status = 'pending';
         updates.prazo = setHours(startOfDay(now), 18).toISOString();
+        updates.pausado_ate = null;
         break;
       case 'esta_semana':
         updates.status = 'pending';
         updates.prazo = endOfWeek(now, { weekStartsOn: 1 }).toISOString();
+        updates.pausado_ate = null;
         break;
       case 'proxima_semana':
         updates.status = 'pending';
         updates.prazo = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 }).toISOString();
+        updates.pausado_ate = null;
         break;
       case 'duas_semanas':
         updates.status = 'pending';
         updates.prazo = endOfWeek(addWeeks(now, 2), { weekStartsOn: 1 }).toISOString();
+        updates.pausado_ate = null;
         break;
       case 'sem_prazo':
         updates.status = 'pending';
         updates.prazo = null;
+        updates.pausado_ate = null;
+        break;
+      case 'pausado':
+        updates.status = 'pending';
+        updates.pausado_ate = endOfDay(addDays(now, 7)).toISOString();
         break;
     }
 
