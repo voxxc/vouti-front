@@ -171,6 +171,13 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
       toast.error('Selecione data inicial e final');
       return;
     }
+    const diffDias = Math.floor(
+      (rangeSelection.to.getTime() - rangeSelection.from.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    if (diffDias > 90) {
+      toast.error(`Intervalo máximo: 90 dias (selecionado: ${diffDias} dias)`);
+      return;
+    }
     const fmt = (d: Date) => {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
