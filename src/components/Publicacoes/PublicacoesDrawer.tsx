@@ -171,6 +171,13 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
       toast.error('Selecione data inicial e final');
       return;
     }
+    const diffDias = Math.floor(
+      (rangeSelection.to.getTime() - rangeSelection.from.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    if (diffDias > 90) {
+      toast.error(`Intervalo máximo: 90 dias (selecionado: ${diffDias} dias)`);
+      return;
+    }
     const fmt = (d: Date) => {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -340,7 +347,17 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
                   selected={rangeSelection}
                   onSelect={setRangeSelection}
                   numberOfMonths={1}
-                  disabled={(date) => date > new Date()}
+                  disabled={(date) => {
+                    if (date > new Date()) return true;
+                    // Once a "from" is picked, prevent selecting a "to" more than 90 days away.
+                    if (rangeSelection?.from && !rangeSelection?.to) {
+                      const diffDias = Math.floor(
+                        Math.abs(date.getTime() - rangeSelection.from.getTime()) / (1000 * 60 * 60 * 24),
+                      );
+                      if (diffDias > 90) return true;
+                    }
+                    return false;
+                  }}
                   className="pointer-events-auto"
                 />
                 <div className="flex items-center justify-between gap-2 pt-1">
