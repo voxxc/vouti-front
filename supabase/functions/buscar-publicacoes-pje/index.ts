@@ -919,9 +919,13 @@ Deno.serve(async (req) => {
     // ============================================================
     if (mode === 'pje_scraper_oab') {
       const tenantId = body.tenant_id;
-      // forceSource: 'auto' (default, n8n with firecrawl fallback), 'n8n', or 'firecrawl'
-      const forceSource: 'auto' | 'n8n' | 'firecrawl' =
-        body.force_source === 'n8n' || body.force_source === 'firecrawl' ? body.force_source : 'auto';
+      // forceSource: 'firecrawl' (NOVO DEFAULT), 'cnj_api' (emergência), 'n8n' (legado)
+      // Aceita 'auto' como alias legacy → firecrawl.
+      const rawSource = body.force_source;
+      const forceSource: 'firecrawl' | 'cnj_api' | 'n8n' =
+        rawSource === 'cnj_api' ? 'cnj_api'
+        : rawSource === 'n8n' ? 'n8n'
+        : 'firecrawl';
 
       // Auth: either Bearer token or service_role_key (for cron)
       const authHeader = req.headers.get('Authorization');
