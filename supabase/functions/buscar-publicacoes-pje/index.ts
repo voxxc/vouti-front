@@ -1175,8 +1175,9 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Pequeno delay entre tribunais para evitar rate limit (curto pois CNJ API é leve).
-          await new Promise(r => setTimeout(r, forceSource === 'auto' ? 300 : 2000));
+          // Delay entre tribunais — Firecrawl tem rate limit ~10 req/s, CNJ API é leve.
+          const delayMs = forceSource === 'cnj_api' ? 300 : forceSource === 'firecrawl' ? 1500 : 2000;
+          await new Promise(r => setTimeout(r, delayMs));
         }
         }
 
