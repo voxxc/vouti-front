@@ -768,6 +768,9 @@ Deno.serve(async (req) => {
     // ============================================================
     if (mode === 'pje_scraper_oab') {
       const tenantId = body.tenant_id;
+      // forceSource: 'auto' (default, n8n with firecrawl fallback), 'n8n', or 'firecrawl'
+      const forceSource: 'auto' | 'n8n' | 'firecrawl' =
+        body.force_source === 'n8n' || body.force_source === 'firecrawl' ? body.force_source : 'auto';
 
       // Auth: either Bearer token or service_role_key (for cron)
       const authHeader = req.headers.get('Authorization');
@@ -808,6 +811,8 @@ Deno.serve(async (req) => {
       let totalInserted = 0;
       let totalFound = 0;
       let totalErrors = 0;
+      let n8nCount = 0;
+      let firecrawlCount = 0;
 
       for (const mon of monitoramentos) {
         const nome = mon.nome || '';
@@ -833,8 +838,13 @@ Deno.serve(async (req) => {
 
         console.log(`pje_scraper_oab: monitoramento ${mon.id} (${nome || oabNumero}) - ${allSiglas.length} tribunais via n8n`);
 
-        // Process each tribunal via n8n webhook (headless browser in Brazil, bypasses geo-block)
+        // Process each tribunal: try n8n first, fallback to Firecrawl on failure (or force a source)
         for (const sigla of allSiglas) {
+          let pubs: any[] = [];
+          let usedSource: 'n8n' | 'firecrawl' | null = null;
+
+          // ===== n8n attempt =====
+          if (forceSource === 'n8n' || forceSource === 'auto') {
           try {
             const webhookPayload = {
               siglaTribunal: sigla,
@@ -849,7 +859,7 @@ Deno.serve(async (req) => {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-            const webhookRes = await fetch('https://voutibot.app.n8n.cloud/webhook/tjpr-scraper', {
+            const webhookRes = await fetch(N8N_WEBHOOK_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(webhookPayload),
@@ -860,8 +870,7 @@ Deno.serve(async (req) => {
             if (!webhookRes.ok) {
               const errText = await webhookRes.text().catch(() => '');
               console.error(`pje_scraper_oab: n8n error ${webhookRes.status} for ${sigla}: ${errText.substring(0, 200)}`);
-              totalErrors++;
-              continue;
+              throw new Error(`n8n HTTP ${webhookRes.status}`);
             }
 
             const webhookData = await webhookRes.json();
@@ -869,7 +878,11 @@ Deno.serve(async (req) => {
 
             if (items.length === 0) {
               console.log(`pje_scraper_oab: n8n returned 0 items for ${sigla}`);
-              continue;
+              // Treat as soft-empty: in 'auto' we still try Firecrawl, in 'n8n' we accept.
+              if (forceSource === 'n8n') {
+                continue;
+              }
+              throw new Error('n8n empty');
             }
 
             console.log(`pje_scraper_oab: n8n returned ${items.length} items for ${sigla}`);
@@ -877,7 +890,7 @@ Deno.serve(async (req) => {
             const nomePesquisado = nome || `OAB ${oabNumero}/${oabUf}`;
             const today = new Date().toISOString().split('T')[0];
 
-            const pubs = items.map((item: any) => {
+            pubs = items.map((item: any) => {
               const descricao = item.descricao || '';
               const tipo = descricao.toLowerCase().includes('intimação') || descricao.toLowerCase().includes('intimacao') ? 'Intimação'
                 : descricao.toLowerCase().includes('citação') || descricao.toLowerCase().includes('citacao') ? 'Citação'
@@ -905,9 +918,39 @@ Deno.serve(async (req) => {
                 partes: item.partes || null,
               };
             });
+            usedSource = 'n8n';
+          } catch (err: any) {
+            console.error(`pje_scraper_oab: n8n failed for ${sigla}: ${err.message}`);
+            // In 'auto' mode, fall through to Firecrawl. In 'n8n', count error and skip.
+            if (forceSource === 'n8n') {
+              totalErrors++;
+              continue;
+            }
+          }
+          }
 
+          // ===== Firecrawl attempt (fallback or forced) =====
+          if (pubs.length === 0 && (forceSource === 'firecrawl' || forceSource === 'auto')) {
+            try {
+              console.log(`pje_scraper_oab: trying Firecrawl for ${sigla} OAB ${oabNumero}/${oabUf}`);
+              pubs = await scrapeAndParseDjenFirecrawl(
+                sigla, mon, formatDate(dataInicio), formatDate(dataFim),
+              );
+              if (pubs.length > 0) {
+                usedSource = 'firecrawl';
+                console.log(`pje_scraper_oab: Firecrawl returned ${pubs.length} items for ${sigla}`);
+              } else {
+                console.log(`pje_scraper_oab: Firecrawl returned 0 items for ${sigla}`);
+              }
+            } catch (err: any) {
+              console.error(`pje_scraper_oab: Firecrawl failed for ${sigla}: ${err.message}`);
+              totalErrors++;
+            }
+          }
+
+          // ===== Persist results =====
+          if (pubs.length > 0 && usedSource) {
             totalFound += pubs.length;
-
             const { data: inserted, error: insertErr } = await supabaseAdmin
               .from('publicacoes')
               .upsert(pubs, {
@@ -917,17 +960,17 @@ Deno.serve(async (req) => {
               .select('id');
 
             if (insertErr) {
-              console.error(`pje_scraper_oab: insert error for ${sigla}:`, insertErr.message);
+              console.error(`pje_scraper_oab: insert error for ${sigla}: ${insertErr.message}`);
             } else {
-              totalInserted += inserted?.length || 0;
+              const insCount = inserted?.length || 0;
+              totalInserted += insCount;
+              if (usedSource === 'n8n') n8nCount += insCount;
+              else firecrawlCount += insCount;
             }
-
-            // Delay between tribunais to not overwhelm n8n
-            await new Promise(r => setTimeout(r, 2000));
-          } catch (err: any) {
-            console.error(`pje_scraper_oab: error for ${sigla}:`, err.message);
-            totalErrors++;
           }
+
+          // Delay between tribunais to avoid overwhelming sources
+          await new Promise(r => setTimeout(r, 2000));
         }
       }
 
@@ -940,6 +983,8 @@ Deno.serve(async (req) => {
         inserted: totalInserted,
         errors: totalErrors,
         source: 'pje_scraper_oab',
+        sources_used: { n8n: n8nCount, firecrawl: firecrawlCount },
+        force_source: forceSource,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
