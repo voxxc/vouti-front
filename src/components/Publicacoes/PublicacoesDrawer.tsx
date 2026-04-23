@@ -130,24 +130,24 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
         // Background mode: function returns immediately with `queued: true`
         if (d.queued) {
           toast.success(
-            `${prefix}busca iniciada em segundo plano (${d.monitoramentos_processed} monitoramento(s)). Atualize em alguns minutos.`,
+            `${prefix}busca via API oficial do CNJ iniciada em segundo plano (${d.monitoramentos_processed} monitoramento(s)). Atualize em alguns segundos.`,
             { duration: 6000 },
           );
           persistUltimaBusca();
-          // Re-fetch after a delay to show partial results
-          setTimeout(() => fetchPublicacoes(), 15000);
-          setTimeout(() => fetchPublicacoes(), 60000);
+          // API CNJ é rápida (~1-2s/tribunal), polling mais agressivo
+          setTimeout(() => fetchPublicacoes(), 10000);
+          setTimeout(() => fetchPublicacoes(), 30000);
           return;
         }
 
         const sources = d.sources_used || {};
         const sourceDetail =
-          sources.n8n && sources.firecrawl
-            ? ` (n8n: ${sources.n8n}, firecrawl: ${sources.firecrawl})`
+          sources.cnj_api
+            ? ` (CNJ API: ${sources.cnj_api})`
             : sources.firecrawl
               ? ` (firecrawl)`
               : sources.n8n
-                ? ``
+                ? ` (n8n)`
                 : '';
         toast.success(
           `${prefix}${d.inserted} nova(s) publicação(ões) de ${d.monitoramentos_processed} monitoramento(s)${sourceDetail}`,
