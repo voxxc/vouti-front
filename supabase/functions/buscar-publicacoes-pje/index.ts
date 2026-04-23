@@ -1012,6 +1012,7 @@ Deno.serve(async (req) => {
         source: 'pje_scraper_oab',
         sources_used: { n8n: n8nCount, firecrawl: firecrawlCount },
         force_source: forceSource,
+        date_range: { data_inicio: formatDate(dataInicio), data_fim: formatDate(dataFim) },
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
