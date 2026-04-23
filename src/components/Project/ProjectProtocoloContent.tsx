@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { format, isPast, isToday } from 'date-fns';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { ptBR } from 'date-fns/locale';
+import { dispatchDeadlineChange } from '@/utils/deadlineEvents';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -311,6 +312,7 @@ export function ProjectProtocoloContent({
       setSubtarefaDescricao('');
       setCumprirEtapa(false);
       setEtapaJaConcluida(false);
+      dispatchDeadlineChange({ deadlineId, action: "completed", completed: true });
       toast({ title: "Prazo concluído", description: cumprirEtapa ? "Prazo concluído e etapa cumprida com sucesso." : "Prazo marcado como concluído com sucesso." });
       if (cumprirEtapa && onRefetch) await onRefetch();
     } else {
@@ -343,6 +345,7 @@ export function ProjectProtocoloContent({
       }
       setReopenConfirmId(null);
       setReopenMotivo('');
+      dispatchDeadlineChange({ deadlineId, action: "reopened", completed: false });
       toast({ title: "Prazo reaberto", description: "Prazo marcado como pendente." });
     }
   };
@@ -398,6 +401,7 @@ export function ProjectProtocoloContent({
       setSelectedDeadline(null);
     }
     setDeleteDeadlineConfirm(null);
+    dispatchDeadlineChange({ deadlineId, action: "deleted" });
     toast({ title: "Prazo excluído" });
   };
 

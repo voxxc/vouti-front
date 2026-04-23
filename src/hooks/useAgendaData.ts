@@ -1,8 +1,9 @@
- import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
  import { supabase } from "@/integrations/supabase/client";
  import { useAuth } from "@/contexts/AuthContext";
  import { Deadline } from "@/types/agenda";
  import { parseISO, isValid } from "date-fns";
+import { DEADLINE_CHANGE_EVENT, DeadlineChangeDetail } from "@/utils/deadlineEvents";
  
  const safeParseDate = (dateString: string | null | undefined): Date => {
    if (!dateString) return new Date();
@@ -31,14 +32,12 @@
    const [isLoading, setIsLoading] = useState(true);
    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
  
-   useEffect(() => {
-     if (!user) {
-       setIsLoading(false);
-       return;
-     }
- 
-     const fetchDeadlines = async () => {
-       try {
+  const fetchDeadlines = useCallback(async () => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+    try {
           const { data, error } = await supabase
             .from('deadlines')
             .select(`
@@ -137,15 +136,40 @@ projectName: projectFromJoin || fallback?.name || '',
            });
   
           setDeadlines(mappedDeadlines);
-       } catch (error) {
-         console.error('[useAgendaData] Error:', error);
-       } finally {
-         setIsLoading(false);
-       }
-     };
- 
-     fetchDeadlines();
-   }, [user]);
+    } catch (error) {
+      console.error('[useAgendaData] Error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchDeadlines();
+  }, [fetchDeadlines]);
+
+  // Reactive updates: listen for global deadline change events,
+  // apply optimistic update, then refetch in background.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<DeadlineChangeDetail>).detail;
+      if (!detail?.deadlineId) return;
+
+      if (detail.action === "deleted") {
+        setDeadlines(prev => prev.filter(d => d.id !== detail.deadlineId));
+      } else if (detail.action === "completed" || detail.action === "reopened") {
+        const completed = detail.action === "completed";
+        setDeadlines(prev =>
+          prev.map(d => (d.id === detail.deadlineId ? { ...d, completed } : d))
+        );
+      }
+
+      // Background refetch to consolidate fields (concluidoEm, completedByName, etc.)
+      fetchDeadlines();
+    };
+
+    window.addEventListener(DEADLINE_CHANGE_EVENT, handler);
+    return () => window.removeEventListener(DEADLINE_CHANGE_EVENT, handler);
+  }, [fetchDeadlines]);
  
    return {
      deadlines,

@@ -38,6 +38,7 @@ import { useTenantId } from "@/hooks/useTenantId";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { cn } from "@/lib/utils";
 import { notifyDeadlineAssigned, notifyDeadlineTagged } from "@/utils/notificationHelpers";
+import { dispatchDeadlineChange } from "@/utils/deadlineEvents";
 
 interface AgendaContentProps {
   module?: string;
@@ -797,6 +798,12 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
         d.id === deadlineId ? { ...d, completed: !d.completed, updatedAt: new Date() } : d
       ));
 
+      dispatchDeadlineChange({
+        deadlineId,
+        action: !deadline.completed ? "completed" : "reopened",
+        completed: !deadline.completed,
+      });
+
       toast({
         title: "Status atualizado",
         description: "Status do prazo foi alterado com sucesso.",
@@ -909,6 +916,8 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
       setCumprirEtapa(false);
       setIsDetailDialogOpen(false);
       
+      dispatchDeadlineChange({ deadlineId: confirmCompleteDeadlineId, action: "completed", completed: true });
+
       toast({
         title: "Prazo concluído",
         description: cumprirEtapa ? "Prazo concluído e etapa do protocolo cumprida." : "Prazo marcado como concluído com comentário registrado.",
@@ -1006,6 +1015,8 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
 
       setDeadlines(deadlines.filter(d => d.id !== deadlineId));
       setIsDetailDialogOpen(false);
+
+      dispatchDeadlineChange({ deadlineId, action: "deleted" });
 
       toast({
         title: "Prazo excluído",

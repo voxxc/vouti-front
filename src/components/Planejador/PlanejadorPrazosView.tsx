@@ -116,7 +116,7 @@ export function PlanejadorPrazosView({ onDeadlineClick, searchQuery = "", select
   return (
     <div className="flex gap-3 h-full overflow-x-auto pb-2">
       {columns.map(col => (
-        <div key={col.id} className={`flex flex-col min-w-[240px] flex-1 rounded-xl ${glassBg} border ${borderColor}`}>
+        <div key={col.id} className={`flex flex-col min-w-[240px] flex-1 rounded-xl ${glassBg} border ${borderColor} transition-all duration-300`}>
           {/* Column header */}
           <div className="flex items-center gap-2 px-3 py-2.5 border-b border-inherit">
             <span className="flex items-center justify-center w-5 h-5 rounded-md flex-shrink-0" style={{ backgroundColor: col.color + "30", color: col.color }}>
@@ -136,7 +136,7 @@ export function PlanejadorPrazosView({ onDeadlineClick, searchQuery = "", select
                 <button
                   key={deadline.id}
                   onClick={() => onDeadlineClick(deadline.id)}
-                  className={`w-full text-left p-2.5 rounded-lg ${cardBg} border ${borderColor} transition-colors cursor-pointer`}
+                  className={`w-full text-left p-2.5 rounded-lg ${cardBg} border ${borderColor} transition-all duration-300 cursor-pointer`}
                 >
                   <p className={`text-sm font-medium ${text} line-clamp-2 break-words`}>{deadline.title}</p>
                   {deadline.projectName && (
