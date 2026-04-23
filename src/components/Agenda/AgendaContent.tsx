@@ -916,6 +916,8 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
       setCumprirEtapa(false);
       setIsDetailDialogOpen(false);
       
+      dispatchDeadlineChange({ deadlineId: confirmCompleteDeadlineId, action: "completed", completed: true });
+
       toast({
         title: "Prazo concluído",
         description: cumprirEtapa ? "Prazo concluído e etapa do protocolo cumprida." : "Prazo marcado como concluído com comentário registrado.",
@@ -1013,6 +1015,8 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
 
       setDeadlines(deadlines.filter(d => d.id !== deadlineId));
       setIsDetailDialogOpen(false);
+
+      dispatchDeadlineChange({ deadlineId, action: "deleted" });
 
       toast({
         title: "Prazo excluído",

@@ -399,6 +399,7 @@ export function ProjectProtocoloContent({
       setSelectedDeadline(null);
     }
     setDeleteDeadlineConfirm(null);
+    dispatchDeadlineChange({ deadlineId, action: "deleted" });
     toast({ title: "Prazo excluído" });
   };
 
