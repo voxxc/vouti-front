@@ -13,6 +13,7 @@ import {
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   X, Play, CheckCircle, Calendar, User, Clock, FileText, ListChecks, Users, Tag, ArrowLeft,
   Plus, Trash2, Download, Upload, ChevronDown, ChevronRight, Search, UserCircle, Scale, CalendarClock, Unlink,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
 import { usePlanejadorSubtasks } from "@/hooks/usePlanejadorSubtasks";
 import { usePlanejadorFiles } from "@/hooks/usePlanejadorFiles";
 import { usePlanejadorParticipants } from "@/hooks/usePlanejadorParticipants";
