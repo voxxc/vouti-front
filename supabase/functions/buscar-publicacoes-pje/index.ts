@@ -14,6 +14,97 @@ const N8N_WEBHOOK_URL = 'https://voutibot.app.n8n.cloud/webhook/tjpr-scraper';
 const FIRECRAWL_API_URL = 'https://api.firecrawl.dev/v2/scrape';
 const FIRECRAWL_TIMEOUT_MS = 45000;
 
+// ===== CNJ Comunica API (oficial) =====
+const CNJ_API_BASE = 'https://comunicaapi.pje.jus.br/api/v1/comunicacoes';
+const CNJ_API_TIMEOUT_MS = 20000;
+const CNJ_API_MAX_PAGES = 50; // safety cap = 5000 itens / tribunal
+const CNJ_API_PAGE_SIZE = 100;
+
+/**
+ * Busca comunicações na API oficial do CNJ (PJe Comunica), com paginação.
+ * Retorna array de itens brutos (sem parsing). Faz retry 1x em 5xx/network.
+ */
+async function fetchComunicacoesViaApiOficial(params: {
+  sigla: string;
+  oabNumero: string;
+  oabUf: string;
+  dataInicio: string;
+  dataFim: string;
+}): Promise<{ items: any[]; pages: number }> {
+  const allItems: any[] = [];
+  let pagina = 1;
+
+  const fetchPage = async (pageNum: number): Promise<any> => {
+    const url =
+      `${CNJ_API_BASE}?siglaTribunal=${encodeURIComponent(params.sigla)}` +
+      `&numeroOab=${encodeURIComponent(params.oabNumero)}` +
+      `&ufOab=${encodeURIComponent(params.oabUf.toLowerCase())}` +
+      `&dataDisponibilizacaoInicio=${params.dataInicio}` +
+      `&dataDisponibilizacaoFim=${params.dataFim}` +
+      `&itensPorPagina=${CNJ_API_PAGE_SIZE}` +
+      `&pagina=${pageNum}`;
+
+    const tryOnce = async (): Promise<Response> => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), CNJ_API_TIMEOUT_MS);
+      try {
+        const res = await fetch(url, {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+          },
+          signal: controller.signal,
+        });
+        return res;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
+
+    let res: Response;
+    try {
+      res = await tryOnce();
+      if (res.status >= 500) throw new Error(`CNJ API ${res.status}`);
+    } catch (err) {
+      // Retry uma única vez em erro de rede / 5xx
+      console.warn(`cnj_api: retry page ${pageNum} after error:`, (err as Error).message);
+      res = await tryOnce();
+    }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`CNJ API ${res.status}: ${text.substring(0, 200)}`);
+    }
+    return await res.json();
+  };
+
+  while (pagina <= CNJ_API_MAX_PAGES) {
+    const data = await fetchPage(pagina);
+
+    // Estrutura da resposta pode variar: { items }, { comunicacoes }, array direto, etc.
+    let pageItems: any[] = [];
+    if (Array.isArray(data)) pageItems = data;
+    else if (Array.isArray(data?.items)) pageItems = data.items;
+    else if (Array.isArray(data?.comunicacoes)) pageItems = data.comunicacoes;
+    else if (Array.isArray(data?.content)) pageItems = data.content;
+    else {
+      for (const key of Object.keys(data || {})) {
+        if (Array.isArray(data[key])) { pageItems = data[key]; break; }
+      }
+    }
+
+    if (pageItems.length === 0) break;
+    allItems.push(...pageItems);
+
+    // Se a página veio incompleta, é a última.
+    if (pageItems.length < CNJ_API_PAGE_SIZE) break;
+
+    pagina++;
+  }
+
+  return { items: allItems, pages: pagina };
+}
+
 // ===== Firecrawl scraper for DJEN (PJe Comunicações) =====
 // Returns { html, markdown } or throws on failure.
 async function scrapeDjenViaFirecrawl(params: {
