@@ -14,6 +14,97 @@ const N8N_WEBHOOK_URL = 'https://voutibot.app.n8n.cloud/webhook/tjpr-scraper';
 const FIRECRAWL_API_URL = 'https://api.firecrawl.dev/v2/scrape';
 const FIRECRAWL_TIMEOUT_MS = 45000;
 
+// ===== CNJ Comunica API (oficial) =====
+const CNJ_API_BASE = 'https://comunicaapi.pje.jus.br/api/v1/comunicacoes';
+const CNJ_API_TIMEOUT_MS = 20000;
+const CNJ_API_MAX_PAGES = 50; // safety cap = 5000 itens / tribunal
+const CNJ_API_PAGE_SIZE = 100;
+
+/**
+ * Busca comunicações na API oficial do CNJ (PJe Comunica), com paginação.
+ * Retorna array de itens brutos (sem parsing). Faz retry 1x em 5xx/network.
+ */
+async function fetchComunicacoesViaApiOficial(params: {
+  sigla: string;
+  oabNumero: string;
+  oabUf: string;
+  dataInicio: string;
+  dataFim: string;
+}): Promise<{ items: any[]; pages: number }> {
+  const allItems: any[] = [];
+  let pagina = 1;
+
+  const fetchPage = async (pageNum: number): Promise<any> => {
+    const url =
+      `${CNJ_API_BASE}?siglaTribunal=${encodeURIComponent(params.sigla)}` +
+      `&numeroOab=${encodeURIComponent(params.oabNumero)}` +
+      `&ufOab=${encodeURIComponent(params.oabUf.toLowerCase())}` +
+      `&dataDisponibilizacaoInicio=${params.dataInicio}` +
+      `&dataDisponibilizacaoFim=${params.dataFim}` +
+      `&itensPorPagina=${CNJ_API_PAGE_SIZE}` +
+      `&pagina=${pageNum}`;
+
+    const tryOnce = async (): Promise<Response> => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), CNJ_API_TIMEOUT_MS);
+      try {
+        const res = await fetch(url, {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+          },
+          signal: controller.signal,
+        });
+        return res;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
+
+    let res: Response;
+    try {
+      res = await tryOnce();
+      if (res.status >= 500) throw new Error(`CNJ API ${res.status}`);
+    } catch (err) {
+      // Retry uma única vez em erro de rede / 5xx
+      console.warn(`cnj_api: retry page ${pageNum} after error:`, (err as Error).message);
+      res = await tryOnce();
+    }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`CNJ API ${res.status}: ${text.substring(0, 200)}`);
+    }
+    return await res.json();
+  };
+
+  while (pagina <= CNJ_API_MAX_PAGES) {
+    const data = await fetchPage(pagina);
+
+    // Estrutura da resposta pode variar: { items }, { comunicacoes }, array direto, etc.
+    let pageItems: any[] = [];
+    if (Array.isArray(data)) pageItems = data;
+    else if (Array.isArray(data?.items)) pageItems = data.items;
+    else if (Array.isArray(data?.comunicacoes)) pageItems = data.comunicacoes;
+    else if (Array.isArray(data?.content)) pageItems = data.content;
+    else {
+      for (const key of Object.keys(data || {})) {
+        if (Array.isArray(data[key])) { pageItems = data[key]; break; }
+      }
+    }
+
+    if (pageItems.length === 0) break;
+    allItems.push(...pageItems);
+
+    // Se a página veio incompleta, é a última.
+    if (pageItems.length < CNJ_API_PAGE_SIZE) break;
+
+    pagina++;
+  }
+
+  return { items: allItems, pages: pagina };
+}
+
 // ===== Firecrawl scraper for DJEN (PJe Comunicações) =====
 // Returns { html, markdown } or throws on failure.
 async function scrapeDjenViaFirecrawl(params: {
@@ -843,6 +934,7 @@ Deno.serve(async (req) => {
         let totalInserted = 0;
         let totalFound = 0;
         let totalErrors = 0;
+        let cnjApiCount = 0;
         let n8nCount = 0;
         let firecrawlCount = 0;
 
@@ -868,15 +960,42 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        console.log(`pje_scraper_oab: monitoramento ${mon.id} (${nome || oabNumero}) - ${allSiglas.length} tribunais via n8n`);
+        console.log(`pje_scraper_oab: monitoramento ${mon.id} (${nome || oabNumero}) - ${allSiglas.length} tribunais — fonte=${forceSource}`);
 
-        // Process each tribunal: try n8n first, fallback to Firecrawl on failure (or force a source)
+        // Process each tribunal:
+        //  - 'auto'      → API oficial CNJ (sem fallback automático para evitar custo)
+        //  - 'firecrawl' → força Firecrawl (emergência)
+        //  - 'n8n'       → força n8n legado (deprecated)
         for (const sigla of allSiglas) {
           let pubs: any[] = [];
-          let usedSource: 'n8n' | 'firecrawl' | null = null;
+          let usedSource: 'cnj_api' | 'n8n' | 'firecrawl' | null = null;
+
+          // ===== CNJ API attempt (default 'auto') =====
+          if (forceSource === 'auto') {
+            try {
+              const result = await fetchComunicacoesViaApiOficial({
+                sigla,
+                oabNumero,
+                oabUf,
+                dataInicio: formatDate(dataInicio),
+                dataFim: formatDate(dataFim),
+              });
+              console.log(`cnj_api: ${sigla}/OAB ${oabNumero}/${oabUf} — ${result.pages} páginas, ${result.items.length} itens`);
+              if (result.items.length > 0) {
+                pubs = parsePublicacoesApiJson(result.items, sigla, mon);
+                usedSource = 'cnj_api';
+              }
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              console.error(`cnj_api: failed for ${sigla} OAB ${oabNumero}/${oabUf}: ${msg}`);
+              totalErrors++;
+              // Não cai em fallback automático — mantém custo controlado.
+            }
+          }
 
           // ===== n8n attempt =====
-          if (forceSource === 'n8n' || forceSource === 'auto') {
+          if (forceSource === 'n8n') {
+            console.warn(`pje_scraper_oab: n8n source is DEPRECATED, prefer 'auto' (CNJ API)`);
           try {
             const webhookPayload = {
               siglaTribunal: sigla,
@@ -910,11 +1029,7 @@ Deno.serve(async (req) => {
 
             if (items.length === 0) {
               console.log(`pje_scraper_oab: n8n returned 0 items for ${sigla}`);
-              // Treat as soft-empty: in 'auto' we still try Firecrawl, in 'n8n' we accept.
-              if (forceSource === 'n8n') {
-                continue;
-              }
-              throw new Error('n8n empty');
+              continue;
             }
 
             console.log(`pje_scraper_oab: n8n returned ${items.length} items for ${sigla}`);
@@ -953,16 +1068,13 @@ Deno.serve(async (req) => {
             usedSource = 'n8n';
           } catch (err: any) {
             console.error(`pje_scraper_oab: n8n failed for ${sigla}: ${err.message}`);
-            // In 'auto' mode, fall through to Firecrawl. In 'n8n', count error and skip.
-            if (forceSource === 'n8n') {
-              totalErrors++;
-              continue;
-            }
+            totalErrors++;
+            continue;
           }
           }
 
-          // ===== Firecrawl attempt (fallback or forced) =====
-          if (pubs.length === 0 && (forceSource === 'firecrawl' || forceSource === 'auto')) {
+          // ===== Firecrawl attempt (apenas se forçado manualmente) =====
+          if (pubs.length === 0 && forceSource === 'firecrawl') {
             try {
               console.log(`pje_scraper_oab: trying Firecrawl for ${sigla} OAB ${oabNumero}/${oabUf}`);
               pubs = await scrapeAndParseDjenFirecrawl(
@@ -996,17 +1108,18 @@ Deno.serve(async (req) => {
             } else {
               const insCount = inserted?.length || 0;
               totalInserted += insCount;
-              if (usedSource === 'n8n') n8nCount += insCount;
-              else firecrawlCount += insCount;
+              if (usedSource === 'cnj_api') cnjApiCount += insCount;
+              else if (usedSource === 'n8n') n8nCount += insCount;
+              else if (usedSource === 'firecrawl') firecrawlCount += insCount;
             }
           }
 
-          // Delay between tribunais to avoid overwhelming sources
-          await new Promise(r => setTimeout(r, 2000));
+          // Pequeno delay entre tribunais para evitar rate limit (curto pois CNJ API é leve).
+          await new Promise(r => setTimeout(r, forceSource === 'auto' ? 300 : 2000));
         }
         }
 
-        console.log(`pje_scraper_oab done: found=${totalFound}, inserted=${totalInserted}, errors=${totalErrors}, n8n=${n8nCount}, firecrawl=${firecrawlCount}`);
+        console.log(`pje_scraper_oab done: found=${totalFound}, inserted=${totalInserted}, errors=${totalErrors}, cnj_api=${cnjApiCount}, n8n=${n8nCount}, firecrawl=${firecrawlCount}`);
       };
 
       // @ts-ignore EdgeRuntime is provided by Supabase edge runtime
