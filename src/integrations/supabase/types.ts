@@ -3739,6 +3739,7 @@ export type Database = {
           descricao: string | null
           id: string
           ordem: number | null
+          pausado_ate: string | null
           prazo: string | null
           prioridade: string
           processo_oab_id: string | null
@@ -3756,6 +3757,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           ordem?: number | null
+          pausado_ate?: string | null
           prazo?: string | null
           prioridade?: string
           processo_oab_id?: string | null
@@ -3773,6 +3775,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           ordem?: number | null
+          pausado_ate?: string | null
           prazo?: string | null
           prioridade?: string
           processo_oab_id?: string | null
