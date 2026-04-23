@@ -298,12 +298,12 @@ async function scrapeAndParseDjenFirecrawl(
   mon: any,
   dataInicio: string,
   dataFim: string,
-): Promise<any[]> {
+): Promise<{ pubs: any[]; pages: number }> {
   const oabNumero = mon.oab_numero || '';
   const oabUf = mon.oab_uf || '';
-  if (!oabNumero || !oabUf) return [];
+  if (!oabNumero || !oabUf) return { pubs: [], pages: 0 };
 
-  const { html, markdown } = await scrapeDjenViaFirecrawl({
+  const { html, markdown, pages } = await scrapeDjenViaFirecrawl({
     sigla, oabNumero, oabUf, dataInicio, dataFim,
   });
 
@@ -312,7 +312,7 @@ async function scrapeAndParseDjenFirecrawl(
   if (pubs.length === 0 && markdown) {
     pubs = parseDjenFromMarkdown(markdown, sigla, mon);
   }
-  return pubs;
+  return { pubs, pages };
 }
 
 const TRIBUNAL_MAP: Record<string, string> = {
