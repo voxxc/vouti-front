@@ -1,93 +1,95 @@
 
 
-## Adicionar Firecrawl como fonte de scraping do DJEN (com fallback automático para n8n)
+## Filtros de período e busca incremental no Drawer de Publicações
 
 ### Causa raiz / Motivação
 
-Hoje o scraping de publicações do DJEN/PJe Comunicações depende de **um único caminho**: o webhook n8n self-hosted em `voutibot.app.n8n.cloud/webhook/tjpr-scraper` (modo `pje_scraper_oab`). Se o n8n cair, ficar lento ou for bloqueado pelo CloudFront futuramente, **as publicações param de chegar** — sem alternativa automática. Além disso, o n8n exige manutenção manual de servidor, tem latência variável e não tem SLA.
+Hoje o backend (`buscar-publicacoes-pje`, modo `pje_scraper_oab`) **já está vinculado** ao monitoramento configurado em **Extras → Publicações** — itera `publicacoes_monitoramentos` ativos e usa OAB + tribunais cadastrados. O que falta é controle no frontend:
 
-Firecrawl resolve isso com:
-- Pool de proxies residenciais brasileiros que bypassam o CloudFront do CNJ.
-- Renderização JavaScript completa (necessária pra SPA Angular do `comunica.pje.jus.br`).
-- API pronta, sem manter servidor.
-- Já tem connector oficial integrado no Lovable — sem secret manual.
+1. **Período fixo de 5 dias** hardcoded no Edge Function — usuário não consegue buscar histórico maior (ex: últimos 30/60 dias).
+2. **Listagem mostra todas as publicações sem filtro de data** — sem como ver apenas "o que chegou hoje" ou "esta semana".
+3. **Sem botão dedicado a "novidades"** — só existe o "Buscar DJEN" que é manual e demorado. Falta um atalho rápido pra incremento desde a última checagem.
 
 ### Correção
 
-**1. Conectar o connector Firecrawl** (uma vez, via UI da Lovable) — disponibiliza `FIRECRAWL_API_KEY` automaticamente nas Edge Functions.
+**1. Backend (`supabase/functions/buscar-publicacoes-pje/index.ts`):**
+- No modo `pje_scraper_oab`, aceitar parâmetros opcionais no body:
+  - `data_inicio` (YYYY-MM-DD) — sobrescreve o range fixo de 5 dias.
+  - `data_fim` (YYYY-MM-DD).
+  - `dias_retroativos` (number) — alternativa: usa `today - N days`. Default = 5 (mantém comportamento atual).
+- Validar com Zod (data válida, range máximo de 90 dias pra não estourar custo Firecrawl).
+- Logar o range usado por monitoramento.
 
-**2. Criar novo modo `firecrawl_oab`** em `supabase/functions/buscar-publicacoes-pje/index.ts`:
-- Itera os `monitoramentos` ativos (mesma lógica do `pje_scraper_oab`).
-- Para cada par `(tribunal, OAB)`, monta a URL do `comunica.pje.jus.br/consulta?siglaTribunal=X&numeroOab=Y&ufOab=Z&dataDisponibilizacaoInicio=...&dataDisponibilizacaoFim=...`.
-- Chama `POST https://api.firecrawl.dev/v2/scrape` com:
-  - `formats: ['markdown', 'html']`
-  - `onlyMainContent: true`
-  - `waitFor: 3000` (espera SPA renderizar)
-  - `location: { country: 'BR' }` (força proxy brasileiro)
-- Reaproveita o parser `parsePublicacoesPje` existente (já testado, funcional) sobre o HTML retornado.
-- Insere em `publicacoes` com mesmo `upsert + onConflict` já usado, garantindo zero duplicata cross-fonte.
+**2. Frontend (`src/components/Publicacoes/PublicacoesDrawer.tsx`):**
 
-**3. Estratégia de fallback automático** em `pje_scraper_oab`:
-- Tenta n8n primeiro (mantém comportamento atual).
-- Se n8n retornar erro (status ≠ 200, timeout, ou `items.length === 0` por 3 tribunais consecutivos), automaticamente faz fallback pra Firecrawl no mesmo loop, **sem o usuário perceber**.
-- Loga claramente qual fonte respondeu (`source: 'n8n'` vs `source: 'firecrawl'`) por tribunal.
+  **a) Dois botões no header (substituem o atual "Buscar DJEN"):**
+  - **"Novidades"** (primário, destaque visual): chama Edge Function com `dias_retroativos: 2` — busca rápida só do que é novo (últimas 48h). Toast: "X novas publicações desde ontem".
+  - **"Buscar período..."** (secundário): abre popover com Date Range Picker (shadcn `Calendar` mode="range") com presets:
+    - Hoje
+    - Últimos 7 dias (default)
+    - Últimos 15 dias
+    - Últimos 30 dias
+    - Personalizado
+  - Após escolher, dispara Edge Function com `data_inicio`/`data_fim` selecionadas.
 
-**4. Toggle manual no PublicacoesDrawer** (opcional, polimento):
-- Botão "Atualizar" continua disparando o modo unificado `pje_scraper_oab` (com fallback embutido).
-- Adicionar dropdown discreto "⚙ Forçar fonte" → `auto` (default) / `n8n` / `firecrawl`, pra debug.
+  **b) Filtro de período na listagem (cliente-side):**
+  - Adicionar dropdown "Período" ao lado do filtro de status com mesmas opções (Hoje / 7 dias / 15 dias / 30 dias / Tudo).
+  - Filtra `publicacoes` pelo `data_disponibilizacao` localmente (já temos os dados em memória).
+  - Default: "7 dias" (evita listar tudo desnecessariamente).
+
+  **c) Persistir "última busca" em localStorage:**
+  - Chave `publicacoes_ultima_busca_${tenantId}` com timestamp.
+  - Botão "Novidades" usa esse timestamp pra calcular `data_inicio` automaticamente (ou fallback: 2 dias).
+  - Mostrar discretamente abaixo do header: "Última atualização: há 3h" (formato relativo).
+
+  **d) Ajustar contadores:**
+  - Manter os 4 cards atuais (Hoje/Tratadas hoje/Descartadas hoje/Pendentes total) — já estão bons.
+
+**3. Manter intactos:**
+- `force_source` (dropdown debug) — fica como está.
+- Lógica n8n → Firecrawl fallback — não muda.
+- Tabela `publicacoes` e RLS — não muda.
+- `PublicacoesTab` em Extras — não muda.
 
 ### Arquivos afetados
 
 **Modificados:**
-- `supabase/functions/buscar-publicacoes-pje/index.ts`
-  - Nova função helper `scrapeViaFirecrawl(url, options)` que chama a API REST do Firecrawl.
-  - Nova função `parseDjenFromMarkdown(markdown, html, ...)` — wrapper que tenta o regex existente sobre o HTML; se falhar, faz fallback parsing sobre o markdown estruturado do Firecrawl (mais limpo e estável).
-  - Modo `pje_scraper_oab` ganha lógica de fallback: tenta n8n → se falhar, tenta Firecrawl pra mesma combinação `(sigla, oab)`.
-  - Novo modo isolado `firecrawl_oab` (pra forçar via dropdown manual).
-  - Variável `forceSource` aceita `'auto' | 'n8n' | 'firecrawl'` no body.
-- `src/components/Publicacoes/PublicacoesDrawer.tsx`
-  - Adicionar dropdown opcional "Forçar fonte" no botão de atualizar.
-  - Toast de feedback inclui qual fonte respondeu (n8n/firecrawl/misto).
+- `supabase/functions/buscar-publicacoes-pje/index.ts` — aceitar `data_inicio`/`data_fim`/`dias_retroativos` no modo `pje_scraper_oab`.
+- `src/components/Publicacoes/PublicacoesDrawer.tsx` — 2 botões (Novidades + Buscar período), dropdown de filtro de período, popover com Calendar range, persistência de "última busca".
 
-**Criados:**
-- Nenhum arquivo novo.
-
-**Connector necessário:**
-- `firecrawl` — via tool `standard_connectors--connect`. Sem connector, modo `firecrawl_oab` retorna erro claro pedindo conexão.
-
-**Sem mudanças:** banco, RLS, tabela `publicacoes`, schema de `monitoramentos`, demais Edge Functions, lógica de deduplicação.
+**Sem mudanças:** banco, RLS, `PublicacoesTab`, lógica de scraping, parsers, deduplicação.
 
 ### Impacto
 
 **Usuário final (UX):**
-- Botão "Atualizar publicações" no PublicacoesDrawer continua funcionando idêntico — agora mais resiliente.
-- Se n8n cair, publicações continuam chegando (fallback automático em segundos).
-- Toast pode mostrar "12 novas publicações (n8n: 8, firecrawl: 4)" pra transparência.
-- Dropdown de fonte fica escondido (acionado por ícone de engrenagem) — não polui UI normal.
+- Botão "Novidades" vira o uso primário diário — clica de manhã, vê só o que chegou desde ontem em 5 segundos.
+- Botão "Buscar período" pra investigações pontuais ou recuperar histórico.
+- Listagem filtrada por padrão (7 dias) — não polui com publicações antigas.
+- Indicador "Última atualização: há Xh" dá contexto sem precisar abrir log.
+- Nenhuma config nova: usa o que já está cadastrado em Extras → Publicações.
 
 **Dados:**
-- Zero migration, zero mudança de schema/RLS.
-- Mesmo `upsert onConflict` impede duplicatas mesmo com 2 fontes simultâneas.
-- Latência similar ao n8n (Firecrawl cobra por scrape, ~$0.001 cada).
+- Zero migration. Lógica de upsert/dedupe inalterada → buscar 30 dias 2x não duplica nada.
+- Custo Firecrawl: range maior = mais scrapes só quando user pede explicitamente. "Novidades" mantém custo baixo (range 2 dias, mesmo do default atual).
+- Rate limit Firecrawl preservado (cap de 90 dias no backend).
 
 **Riscos colaterais:**
-- **Custo:** Firecrawl é pago por request. Pra ~50 monitoramentos × 5 tribunais médios = 250 scrapes/dia ≈ $0.25/dia ≈ $7,5/mês. Baixo, mas existe. O fallback automático só dispara quando n8n falha, então em uso normal o custo é zero.
-- **Rate limit:** Firecrawl free tier tem 500 scrapes/mês. Se exceder, o user precisa upgrade (avisamos com toast claro).
-- **Parser:** O HTML do `comunica.pje.jus.br` deve voltar idêntico ao que o n8n retorna (mesma URL, mesmo CloudFront destino), então o regex `parsePublicacoesPje` existente deve funcionar 1:1. Se o Firecrawl entregar markdown em vez de HTML, o fallback de parsing pelo markdown cobre.
-- Nenhum risco em outros módulos — escopo cirúrgico no `buscar-publicacoes-pje`.
+- Buscar período longo (30+ dias) demora mais — mostrar spinner com mensagem "Pode levar 1-2 min".
+- localStorage por tenant — se user trocar de tenant, "última busca" é independente (correto).
+- Filtro cliente-side limitado aos 200 últimos registros (limit atual do `fetchPublicacoes`). Se user filtrar "Tudo" e tiver mais de 200, faltam dados. **Mitigação:** aumentar limit pra 500 ou paginar — proposta usar 500.
 
 **Quem é afetado:**
-- Tenants jurídicos que usam Controladoria → Push-Doc → publicações (todos).
-- Operação fica mais robusta sem o usuário precisar fazer nada.
+- Admins do módulo jurídico (única role com acesso ao drawer de Publicações).
+- Nenhum outro módulo afetado.
 
 ### Validação
 
-1. Conectar Firecrawl via UI → confirmar `FIRECRAWL_API_KEY` em `fetch_secrets`.
-2. Abrir Controladoria → PublicacoesDrawer → clicar "Atualizar".
-3. **Esperado caminho feliz:** n8n responde, comportamento idêntico ao atual.
-4. **Forçar Firecrawl** via dropdown "⚙ Forçar fonte → firecrawl" → publicações chegam, mesmo formato, sem duplicatas.
-5. **Simular falha do n8n** (mudar URL temporariamente pra inválida em ambiente de teste) → fallback automático pra Firecrawl, toast indica fonte mista.
-6. Conferir logs da Edge Function (`supabase--edge_function_logs buscar-publicacoes-pje`) — devem mostrar `source: 'firecrawl'` quando fallback dispara.
-7. Rodar duas vezes seguidas → segunda execução insere 0 (deduplicação intacta).
-8. Verificar no banco: `SELECT COUNT(*) FROM publicacoes WHERE created_at > NOW() - INTERVAL '5 min'` — sem registros duplicados.
+1. Cadastrar/garantir 1 monitoramento ativo em Extras → Publicações (OAB + tribunais).
+2. Abrir drawer de Publicações → clicar "Novidades" → toast mostra contagem do range curto (2 dias).
+3. Clicar "Buscar período" → escolher "Últimos 30 dias" → confirmar — Edge Function roda com range correto, deduplicação intacta (rodar 2x = 0 duplicados na 2ª).
+4. Range "Personalizado" com Calendar → escolher datas → busca executa.
+5. Tentar range > 90 dias via DevTools → backend retorna 400 com mensagem clara.
+6. Trocar dropdown "Período" da listagem → filtra cliente-side sem rechamar API.
+7. Indicador "Última atualização" atualiza após cada busca bem-sucedida.
+8. Logs do Edge Function (`buscar-publicacoes-pje`) mostram range usado por monitoramento.
 
