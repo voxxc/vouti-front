@@ -1,90 +1,86 @@
 
 
-## Trocar scraping (n8n + Firecrawl) por API oficial do CNJ no Drawer de Publicações
+## Tornar Firecrawl a única fonte de busca de Publicações
 
-### Causa raiz
+### Causa raiz / Motivação
 
-O modo `pje_scraper_oab` da edge function `buscar-publicacoes-pje` itera 30+ tribunais por monitoramento tentando:
-1. **n8n** → retorna `404 No workspace here` (workflow morto/desativado).
-2. **Firecrawl fallback** → retorna `0 items` em todos: a página DJEN é uma SPA pesada que não termina de renderizar nos 3.5s de `waitFor`, e mesmo aumentando o tempo, paginação não é tratada (só pega a 1ª página de ~10 resultados). Custo alto, lento, frágil.
+Hoje o modo `pje_scraper_oab` da edge function `buscar-publicacoes-pje` usa **CNJ API como padrão** (`force_source: 'auto' = cnj_api`), com Firecrawl apenas como opção manual. O usuário quer o inverso: **Firecrawl como única fonte primária**, removendo CNJ API e n8n da rotação automática.
 
-Resultado: usuário não recebe nenhuma publicação, mesmo com OAB cadastrada e período válido.
-
-**O que já existe pronto e não está sendo usado**: a função tem `parsePublicacoesApiJson` (linha 423) e o modo de teste `api_test_comunica` (linha 1061) que chamam `https://comunicaapi.pje.jus.br/api/v1/comunicacoes` — **API oficial pública do CNJ**, retorna JSON nativo com paginação, sem renderização JS, sem custo, sem rate limit agressivo.
+Para que o Firecrawl funcione de fato (e não retorne 0 itens como antes), é necessário **resolver os 2 problemas conhecidos** do scraper atual:
+1. **Renderização incompleta** — `waitFor: 3500ms` é insuficiente para a SPA do DJEN.
+2. **Sem paginação** — pega apenas a 1ª página (~10 resultados), perdendo o resto.
 
 ### Correção
 
-**Substituir o pipeline n8n→Firecrawl pela API oficial do CNJ no modo `pje_scraper_oab`**, mantendo Firecrawl apenas como último recurso emergencial (não como fallback automático em todo tribunal).
-
 #### Backend — `supabase/functions/buscar-publicacoes-pje/index.ts`
 
-1. Criar função `fetchComunicacoesViaApiOficial(sigla, oabNumero, oabUf, dataInicio, dataFim)`:
-   - Chama `https://comunicaapi.pje.jus.br/api/v1/comunicacoes?siglaTribunal=...&numeroOab=...&ufOab=...&dataDisponibilizacaoInicio=...&dataDisponibilizacaoFim=...&itensPorPagina=100&pagina=N`.
-   - Loop de paginação: incrementa `pagina` até retornar array vazio ou bater limite de segurança (50 páginas = 5000 itens por tribunal).
-   - Headers: `Accept: application/json`, `User-Agent` realista.
-   - Timeout de 20s por página.
-   - Retry 1x em caso de 5xx/network.
-   - Retorna array de itens brutos.
+1. **Reescrever `scrapeDjenViaFirecrawl`** para suportar paginação:
+   - Loop de páginas: incrementa parâmetro `pagina` na URL DJEN (`&pagina=N`) até retornar markdown sem novos itens ou bater limite de segurança (30 páginas = ~300 resultados por tribunal).
+   - Aumentar `waitFor` para **8000ms** (SPA pesada precisa de tempo).
+   - Adicionar `actions: [{ type: 'wait', milliseconds: 5000 }]` no payload Firecrawl para garantir renderização pós-carregamento JS.
+   - Acumular markdown de todas as páginas e passar para `parseDjenFromMarkdown` em lote.
+   - Logar: `firecrawl: TJPR/OAB 111056/PR — N páginas, M itens`.
 
-2. Reescrever loop principal do modo `pje_scraper_oab` (linhas ~870-1010):
-   - Para cada `mon` × `sigla`:
-     - Tentar `fetchComunicacoesViaApiOficial` → se sucesso (>0 itens ou resposta válida vazia), usar `parsePublicacoesApiJson` e marcar `usedSource = 'cnj_api'`.
-     - Se erro de rede/timeout → registrar em `totalErrors`, **não** cair em Firecrawl automaticamente (evita custo).
-   - Manter `forceSource` para debug:
-     - `'auto'` (novo default) = só API CNJ.
-     - `'firecrawl'` = força Firecrawl (manual, para emergência).
-     - `'n8n'` = mantido para compatibilidade mas marcado como deprecated nos logs.
+2. **Mudar default do `force_source`** de `'auto'` (CNJ API) para `'firecrawl'`:
+   - `'firecrawl'` (novo default) → scraping Firecrawl com paginação.
+   - `'cnj_api'` → opt-in manual via dropdown debug (mantido para emergência).
+   - `'n8n'` → mantido como legacy/deprecated.
 
-3. Manter `EdgeRuntime.waitUntil` (job assíncrono já implementado) — agora com latência muito menor pois API JSON é instantânea (~500ms por página) vs scraping (~30s por tribunal).
+3. **Reescrever loop principal** do modo `pje_scraper_oab`:
+   - Para cada `mon` × `sigla`: chamar Firecrawl direto.
+   - Sem fallback automático para CNJ API (se Firecrawl falhar num tribunal, registra erro e segue).
+   - Aumentar delay entre tribunais para **1500ms** (Firecrawl tem rate limit ~10 req/s no plan padrão).
 
-4. Logar por monitoramento: `cnj_api: TJPR/OAB 111056/PR — 3 páginas, 247 itens`.
+4. **Manter** `EdgeRuntime.waitUntil` (job assíncrono já implementado) — Firecrawl com paginação pode levar 1-3 min para múltiplos tribunais.
 
-5. Validação Zod do body permanece intacta.
+5. **Manter** `parseDjenFromMarkdown` (já existe e funciona com regex robusta de CNJ + datas + descrição).
 
 #### Frontend — `src/components/Publicacoes/PublicacoesDrawer.tsx`
 
-1. Atualizar texto do toast pós-busca: "Busca via API oficial do CNJ iniciada em segundo plano. Atualize em alguns segundos." (latência caiu drasticamente).
-2. Reduzir polling automático: 10s + 30s (em vez de 15s + 60s).
-3. Dropdown `forceSource` (debug) ganha 3 opções claras: `Auto (CNJ API)` / `Firecrawl (emergência)` / `n8n (legado)`.
+1. **Atualizar toast pós-busca**: "Busca via Firecrawl iniciada em segundo plano. Pode levar 1-3 minutos. Atualize em breve."
+2. **Aumentar polling automático** de volta para 30s + 90s (Firecrawl é mais lento que API).
+3. **Reordenar dropdown debug `forceSource`**:
+   - `Firecrawl (padrão)` ← default selecionado
+   - `CNJ API (emergência)`
+   - `n8n (legado)`
 
 ### Arquivos afetados
 
 **Modificados:**
-- `supabase/functions/buscar-publicacoes-pje/index.ts` — nova função `fetchComunicacoesViaApiOficial` com paginação; loop do modo `pje_scraper_oab` reescrito para usar API CNJ como primário; Firecrawl/n8n viram opt-in via `force_source`.
-- `src/components/Publicacoes/PublicacoesDrawer.tsx` — textos de toast, intervalos de polling, opções do dropdown debug.
+- `supabase/functions/buscar-publicacoes-pje/index.ts` — `scrapeDjenViaFirecrawl` reescrita com paginação + `waitFor` 8s + actions; loop principal aponta direto para Firecrawl; default do `force_source` mudado para `'firecrawl'`.
+- `src/components/Publicacoes/PublicacoesDrawer.tsx` — toast, polling intervals, ordem do dropdown debug.
 
-**Sem mudanças:** schema do banco, RLS, `parsePublicacoesApiJson` (já existe), `parsePublicacoesPjeOab` e `parseDjenFromMarkdown` (mantidos para fallback Firecrawl manual), `PublicacoesTab` em Extras, validação Zod do range de datas, lógica de upsert/dedupe.
+**Sem mudanças:** schema do banco, RLS, `parseDjenFromMarkdown` (já existe), `parsePublicacoesApiJson` (mantida só para opt-in CNJ API), validação Zod, lógica de upsert/dedupe, secret `FIRECRAWL_API_KEY` (já configurado).
 
 ### Impacto
 
 **Usuário final (UX):**
-- Busca passa a **funcionar de fato** — API oficial não bloqueia, retorna JSON paginado real.
-- Latência cai de ~30s/tribunal (Firecrawl) para ~1-2s/tribunal (API). Range de 30 dias com 5 tribunais: de ~3min para ~10s.
-- Histórico longo (90 dias) finalmente acessível sem perda por paginação.
-- Sem mudança visual significativa: mesmos botões, mesma listagem.
+- Firecrawl vira a única fonte automática — comportamento previsível e único, conforme solicitado.
+- Latência **maior** que CNJ API: ~30-90s por tribunal × N tribunais. Range de 30 dias com 5 tribunais ≈ 2-5 min (vs ~10s da CNJ API). Aceitável pelo usuário pois pediu Firecrawl explicitamente.
+- Toast e polling mais longos refletem essa latência real.
+- Resultados agora **completos** (paginação real) — diferentemente do estado anterior onde só vinha a 1ª página.
 
 **Dados:**
-- Zero migration. Mesma tabela `publicacoes`, mesmo upsert/dedupe (CNJ + data + descrição normalizada) → rodar 2x = 0 duplicados.
-- Volume potencialmente maior por busca (paginação real captura tudo) — comportamento esperado e desejado.
-- `metadata.fonte` passa a registrar `'cnj_api'` permitindo auditar origem.
+- Zero migration. Mesma tabela `publicacoes`, mesmo upsert/dedupe → rodar 2x = 0 duplicados.
+- `metadata.fonte` passa a registrar `'firecrawl'` em todos os inserts automáticos.
 
 **Riscos colaterais:**
-- API CNJ pode ter rate limit não documentado — mitigação: timeout 20s + retry 1x + log de erro por tribunal sem abortar o lote.
-- Estrutura JSON da API pode variar entre tribunais — `parsePublicacoesApiJson` já tem fallback flexível de campos (linhas 456-490), mas alguns tribunais novos podem precisar ajuste de mapeamento (ajustável depois pelos logs).
-- Firecrawl deixa de ser fallback automático → se um dia a API CNJ cair, usuário precisa selecionar manualmente "Firecrawl (emergência)" no dropdown debug. Aceitável: mantém custo controlado e comportamento previsível.
-- Workflow n8n morto continua existindo mas só roda se forçado — pode ser limpo numa próxima manutenção.
+- **Custo Firecrawl**: cada página = 1 crédito. 5 tribunais × 3 páginas média = 15 créditos por busca. Range de 90 dias pode chegar a 50+ créditos. Monitorar consumo no dashboard Firecrawl.
+- **Rate limit Firecrawl**: mitigado com delay 1500ms entre tribunais e timeout 60s por scrape.
+- **Possibilidade de falha em tribunais específicos**: se um tribunal cair, log registra erro mas lote continua. Usuário pode reexecutar.
+- **CNJ API ainda existe**: opt-in via dropdown debug "CNJ API (emergência)" caso Firecrawl tenha problema pontual.
 
 **Quem é afetado:**
-- Admins do módulo jurídico que usam o drawer de Publicações em Extras. Único papel com acesso.
-- Nenhum outro módulo, tenant ou integração afetado.
+- Apenas admins do módulo jurídico (drawer de Publicações em Extras). Nenhum outro módulo, tenant ou integração afetado.
 
 ### Validação
 
-1. Abrir Drawer de Publicações no `/demorais` → clicar "Novidades" → toast confirma busca em background.
-2. Aguardar ~10s → publicações aparecem na listagem (esperado: dezenas/centenas dependendo da OAB).
-3. Logs do edge function mostram: `cnj_api: TJPR/OAB 111056/PR — N páginas, M itens` para cada tribunal × monitoramento.
-4. Rodar "Buscar período → Últimos 30 dias" → confirma paginação funcionando (ver páginas múltiplas nos logs).
-5. Rodar a mesma busca 2x consecutivas → 2ª roda sem inserir duplicados (dedupe intacto).
-6. Forçar via dropdown debug "Firecrawl (emergência)" → confirma que o caminho legacy ainda funciona como antes.
-7. Tentar URL de teste manual via `mode: 'api_test_comunica'` no DevTools → confirma resposta JSON válida da API CNJ.
+1. Abrir Drawer de Publicações em `/demorais` → clicar "Novidades" → toast confirma busca Firecrawl em background.
+2. Aguardar 1-3 min → publicações aparecem na listagem.
+3. Logs do edge function mostram: `firecrawl: TJPR/OAB 111056/PR — N páginas, M itens` para cada tribunal × monitoramento.
+4. Rodar "Buscar período → Últimos 30 dias" → confirma paginação funcionando (múltiplas páginas nos logs por tribunal).
+5. Rodar a mesma busca 2x consecutivas → 2ª roda sem inserir duplicados.
+6. Confirmar dropdown debug mostra `Firecrawl (padrão)` como primeira opção e selecionada por default.
+7. Forçar via dropdown debug "CNJ API (emergência)" → confirma que caminho alternativo ainda funciona.
+8. Verificar consumo Firecrawl no dashboard após 1 ciclo completo de busca.
 
