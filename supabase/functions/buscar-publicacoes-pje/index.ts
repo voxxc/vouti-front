@@ -835,13 +835,17 @@ Deno.serve(async (req) => {
 
       console.log(`pje_scraper_oab: range ${formatDate(dataInicio)} → ${formatDate(dataFim)}`);
 
-      let totalInserted = 0;
-      let totalFound = 0;
-      let totalErrors = 0;
-      let n8nCount = 0;
-      let firecrawlCount = 0;
+      // Long-running work (n8n + Firecrawl per tribunal) easily exceeds the 150s
+      // edge function idle timeout. Run it in background via EdgeRuntime.waitUntil
+      // and return immediately so the UI doesn't see a 504.
+      const runScraping = async () => {
+        let totalInserted = 0;
+        let totalFound = 0;
+        let totalErrors = 0;
+        let n8nCount = 0;
+        let firecrawlCount = 0;
 
-      for (const mon of monitoramentos) {
+        for (const mon of monitoramentos) {
         const nome = mon.nome || '';
         const oabNumero = mon.oab_numero || '';
         const oabUf = mon.oab_uf || '';
