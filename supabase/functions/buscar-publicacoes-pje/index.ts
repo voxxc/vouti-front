@@ -106,13 +106,14 @@ async function fetchComunicacoesViaApiOficial(params: {
 }
 
 // ===== Firecrawl scraper for DJEN (PJe Comunicações) =====
-// Returns { html, markdown } or throws on failure.
-async function scrapeDjenViaFirecrawl(params: {
+// Scrapes a single DJEN page via Firecrawl. SPA pesada → waitFor longo + actions.
+async function scrapeDjenPageViaFirecrawl(params: {
   sigla: string;
   oabNumero: string;
   oabUf: string;
   dataInicio: string;
   dataFim: string;
+  pagina: number;
 }): Promise<{ html: string; markdown: string }> {
   const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
   if (!apiKey) {
@@ -124,7 +125,8 @@ async function scrapeDjenViaFirecrawl(params: {
     `&dataDisponibilizacaoInicio=${params.dataInicio}` +
     `&dataDisponibilizacaoFim=${params.dataFim}` +
     `&numeroOab=${encodeURIComponent(params.oabNumero)}` +
-    `&ufOab=${encodeURIComponent(params.oabUf.toLowerCase())}`;
+    `&ufOab=${encodeURIComponent(params.oabUf.toLowerCase())}` +
+    `&pagina=${params.pagina}`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), FIRECRAWL_TIMEOUT_MS);
@@ -140,7 +142,8 @@ async function scrapeDjenViaFirecrawl(params: {
         url,
         formats: ['markdown', 'html'],
         onlyMainContent: true,
-        waitFor: 3500,
+        waitFor: 8000,
+        actions: [{ type: 'wait', milliseconds: 5000 }],
         location: { country: 'BR', languages: ['pt-BR'] },
       }),
       signal: controller.signal,
@@ -153,21 +156,77 @@ async function scrapeDjenViaFirecrawl(params: {
       throw new Error(`Firecrawl ${res.status}: ${errMsg}`);
     }
 
-    // Firecrawl v2 returns either { data: { html, markdown } } or direct fields
     const payload = data?.data || data;
     const html = payload?.html || payload?.rawHtml || '';
     const markdown = payload?.markdown || '';
-
-    if (!html && !markdown) {
-      throw new Error('Firecrawl returned empty content');
-    }
-
     return { html, markdown };
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') throw new Error('Firecrawl timeout');
     throw err;
   }
+}
+
+// Multi-page scrape: itera páginas até esgotar (markdown sem novos itens) ou bater 30 páginas.
+async function scrapeDjenViaFirecrawl(params: {
+  sigla: string;
+  oabNumero: string;
+  oabUf: string;
+  dataInicio: string;
+  dataFim: string;
+}): Promise<{ html: string; markdown: string; pages: number }> {
+  const MAX_PAGES = 30;
+  const htmlParts: string[] = [];
+  const mdParts: string[] = [];
+  let pagesFetched = 0;
+  let lastSignature = '';
+
+  for (let pagina = 1; pagina <= MAX_PAGES; pagina++) {
+    let pageData: { html: string; markdown: string };
+    try {
+      pageData = await scrapeDjenPageViaFirecrawl({ ...params, pagina });
+    } catch (err: any) {
+      if (pagina === 1) throw err; // primeira página falhar = falha geral
+      console.warn(`firecrawl: page ${pagina} failed for ${params.sigla}: ${err.message} — parando paginação`);
+      break;
+    }
+    pagesFetched = pagina;
+
+    const html = pageData.html || '';
+    const markdown = pageData.markdown || '';
+
+    if (!html && !markdown) {
+      if (pagina === 1) throw new Error('Firecrawl returned empty content');
+      break;
+    }
+
+    // Heurística: se a página não contém nenhuma intimação/citação/comunicação → fim.
+    const hasItems = /Intimação|Citação|Comunicação/i.test(markdown) || /Intimação|Citação|Comunicação/i.test(html);
+    if (!hasItems) {
+      console.log(`firecrawl: page ${pagina} sem itens — fim da paginação`);
+      break;
+    }
+
+    // Detecta página repetida (DJEN sem `pagina` válida volta sempre à página 1).
+    const signature = (markdown || html).slice(0, 500);
+    if (signature === lastSignature) {
+      console.log(`firecrawl: page ${pagina} idêntica à anterior — fim da paginação`);
+      break;
+    }
+    lastSignature = signature;
+
+    htmlParts.push(html);
+    mdParts.push(markdown);
+
+    // Pequeno respiro para não estourar rate limit do Firecrawl.
+    if (pagina < MAX_PAGES) await new Promise(r => setTimeout(r, 500));
+  }
+
+  return {
+    html: htmlParts.join('\n\n'),
+    markdown: mdParts.join('\n\n'),
+    pages: pagesFetched,
+  };
 }
 
 // ===== Markdown fallback parser for DJEN content from Firecrawl =====
