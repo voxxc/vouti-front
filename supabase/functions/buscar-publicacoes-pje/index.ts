@@ -730,7 +730,8 @@ Deno.serve(async (req) => {
               return { found: pubs.length, inserted: inserted?.length || 0 };
             } catch (err) {
               clearTimeout(timeoutId);
-              console.error(`pje_scraper: error for ${numeroCnj}:`, err.message);
+              const errorMessage = err instanceof Error ? err.message : String(err);
+              console.error(`pje_scraper: error for ${numeroCnj}:`, errorMessage);
               return { found: 0, inserted: 0 };
             }
           })
