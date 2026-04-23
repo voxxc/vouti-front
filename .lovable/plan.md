@@ -1,86 +1,106 @@
 
 
-## Tornar Firecrawl a única fonte de busca de Publicações
+## Adicionar coluna "Pausados" + campo "Retornar em" no Planejador
 
 ### Causa raiz / Motivação
 
-Hoje o modo `pje_scraper_oab` da edge function `buscar-publicacoes-pje` usa **CNJ API como padrão** (`force_source: 'auto' = cnj_api`), com Firecrawl apenas como opção manual. O usuário quer o inverso: **Firecrawl como única fonte primária**, removendo CNJ API e n8n da rotação automática.
+Hoje o Kanban do Planejador tem 7 colunas (sem prazo, vencido, hoje, esta semana, próxima semana, duas semanas, concluído). Não existe forma de "pausar" uma tarefa para reaparecer numa data futura — o usuário precisa ou apagar o prazo (e perde a referência) ou deixar vencendo.
 
-Para que o Firecrawl funcione de fato (e não retorne 0 itens como antes), é necessário **resolver os 2 problemas conhecidos** do scraper atual:
-1. **Renderização incompleta** — `waitFor: 3500ms` é insuficiente para a SPA do DJEN.
-2. **Sem paginação** — pega apenas a 1ª página (~10 resultados), perdendo o resto.
+O usuário quer:
+1. Um campo **"Retornar em"** abaixo de "Criado em" no detalhe da tarefa (`PlanejadorTaskDetail.tsx`).
+2. Ao definir uma data e confirmar → card vai para uma **nova coluna "Pausados"** (posicionada à esquerda de "Concluído").
+3. Quando a data definida chegar → card volta automaticamente para **"Sem prazo"**.
 
 ### Correção
 
-#### Backend — `supabase/functions/buscar-publicacoes-pje/index.ts`
+#### 1. Banco — nova migration
 
-1. **Reescrever `scrapeDjenViaFirecrawl`** para suportar paginação:
-   - Loop de páginas: incrementa parâmetro `pagina` na URL DJEN (`&pagina=N`) até retornar markdown sem novos itens ou bater limite de segurança (30 páginas = ~300 resultados por tribunal).
-   - Aumentar `waitFor` para **8000ms** (SPA pesada precisa de tempo).
-   - Adicionar `actions: [{ type: 'wait', milliseconds: 5000 }]` no payload Firecrawl para garantir renderização pós-carregamento JS.
-   - Acumular markdown de todas as páginas e passar para `parseDjenFromMarkdown` em lote.
-   - Logar: `firecrawl: TJPR/OAB 111056/PR — N páginas, M itens`.
+- Adicionar coluna `pausado_ate timestamptz NULL` em `public.planejador_tasks`.
+- Index parcial: `CREATE INDEX idx_planejador_tasks_pausado_ate ON public.planejador_tasks(pausado_ate) WHERE pausado_ate IS NOT NULL;`
+- **Sem trigger/cron**: o "retorno automático" será feito de forma reativa pela função `categorizeTask` no front (zero custo, sem job assíncrono). Quando `pausado_ate <= now()`, o card naturalmente reaparece em "Sem prazo".
 
-2. **Mudar default do `force_source`** de `'auto'` (CNJ API) para `'firecrawl'`:
-   - `'firecrawl'` (novo default) → scraping Firecrawl com paginação.
-   - `'cnj_api'` → opt-in manual via dropdown debug (mantido para emergência).
-   - `'n8n'` → mantido como legacy/deprecated.
+#### 2. Hook — `src/hooks/usePlanejadorTasks.ts`
 
-3. **Reescrever loop principal** do modo `pje_scraper_oab`:
-   - Para cada `mon` × `sigla`: chamar Firecrawl direto.
-   - Sem fallback automático para CNJ API (se Firecrawl falhar num tribunal, registra erro e segue).
-   - Aumentar delay entre tribunais para **1500ms** (Firecrawl tem rate limit ~10 req/s no plan padrão).
+- Adicionar `'pausado'` ao tipo `KanbanColumn` e à constante `KANBAN_COLUMNS` (posicionado **antes de `concluido`**, com cor `#a855f7` roxo e label "Pausados").
+- Adicionar `pausado_ate?: string | null` à interface `PlanejadorTask`.
+- Atualizar `categorizeTask`:
+  - Logo no início, se `task.pausado_ate` existir e for **futuro** (> agora) e status ≠ completed → retornar `'pausado'`.
+  - Se `pausado_ate` existir mas já passou → ignorar (cai no fluxo normal e vai pra "sem prazo" pois o prazo continua null).
+- Adicionar `tasksByColumn.pausado: []` no acumulador.
+- Adicionar **auto-refresh leve**: `setInterval` a cada 60s que invalida a query quando há tarefas com `pausado_ate` próximo de expirar, OU mais simples — usar `refetchInterval: 60_000` no `useQuery` quando existe pelo menos uma task pausada (avaliar via `select` callback). Garante que o card "salte" para Sem Prazo sem precisar de F5.
 
-4. **Manter** `EdgeRuntime.waitUntil` (job assíncrono já implementado) — Firecrawl com paginação pode levar 1-3 min para múltiplos tribunais.
+#### 3. Detalhe — `src/components/Planejador/PlanejadorTaskDetail.tsx`
 
-5. **Manter** `parseDjenFromMarkdown` (já existe e funciona com regex robusta de CNJ + datas + descrição).
+- Abaixo do bloco "Criado em" (linha 429-435), adicionar novo bloco "Retornar em":
+  - Ícone: `CalendarClock` (já importado).
+  - Label: "Retornar em".
+  - Valor: se `task.pausado_ate` existir → mostrar data formatada + botão `X` pequeno para limpar (volta a coluna anterior).
+  - Se vazio → botão "Definir data" que abre um `Popover` com `Input type="datetime-local"` + botão "OK".
+- Ao clicar OK:
+  - Chamar `onUpdate(task.id, { pausado_ate: <ISO>, status: 'pending' })`.
+  - Toast: "Tarefa pausada até DD/MM/YYYY HH:mm".
+  - Fechar popover.
+- Ao limpar (X):
+  - `onUpdate(task.id, { pausado_ate: null })`.
 
-#### Frontend — `src/components/Publicacoes/PublicacoesDrawer.tsx`
+#### 4. Kanban — `src/components/Planejador/PlanejadorKanban.tsx`
 
-1. **Atualizar toast pós-busca**: "Busca via Firecrawl iniciada em segundo plano. Pode levar 1-3 minutos. Atualize em breve."
-2. **Aumentar polling automático** de volta para 30s + 90s (Firecrawl é mais lento que API).
-3. **Reordenar dropdown debug `forceSource`**:
-   - `Firecrawl (padrão)` ← default selecionado
-   - `CNJ API (emergência)`
-   - `n8n (legado)`
+- Adicionar case `'pausado'` no `switch (destColumn)` do `handleDragEnd`:
+  - `updates.pausado_ate = endOfDay(addDays(now, 7)).toISOString();` (default: pausa por 7 dias quando arrastado manualmente).
+  - `updates.status = 'pending'`.
+- Nos outros cases (vencido, hoje, semana, etc.) e em `concluido` / `sem_prazo`: adicionar `updates.pausado_ate = null` para garantir que sair da coluna Pausados limpa o campo.
+
+#### 5. Settings de colunas — `src/components/Planejador/PlanejadorSettings.tsx`
+
+- Não precisa mudar código (lê de `KANBAN_COLUMNS` automaticamente). A nova coluna aparecerá no painel de configuração já visível e reordenável.
+- `getDefaultColumnConfig` em `PlanejadorDrawer.tsx` também herda automaticamente.
+
+#### 6. Migração de configs salvas — `PlanejadorDrawer.tsx`
+
+- Onde carrega `columnConfig` do localStorage/DB: se a config salva existe mas não tem `pausado`, fazer merge com o default para incluir a nova coluna (visível, ordem antes de `concluido`). Evita que usuários antigos não vejam a coluna nova.
 
 ### Arquivos afetados
 
 **Modificados:**
-- `supabase/functions/buscar-publicacoes-pje/index.ts` — `scrapeDjenViaFirecrawl` reescrita com paginação + `waitFor` 8s + actions; loop principal aponta direto para Firecrawl; default do `force_source` mudado para `'firecrawl'`.
-- `src/components/Publicacoes/PublicacoesDrawer.tsx` — toast, polling intervals, ordem do dropdown debug.
+- `supabase/migrations/<nova>.sql` — adiciona coluna `pausado_ate` + index.
+- `src/integrations/supabase/types.ts` — regenerado automaticamente.
+- `src/hooks/usePlanejadorTasks.ts` — tipo, constante, `categorizeTask`, tasksByColumn, refetchInterval condicional.
+- `src/components/Planejador/PlanejadorTaskDetail.tsx` — novo bloco "Retornar em" com popover de datetime.
+- `src/components/Planejador/PlanejadorKanban.tsx` — case `pausado` no drag-end + limpar `pausado_ate` nos outros cases.
+- `src/components/Planejador/PlanejadorDrawer.tsx` — merge de columnConfig para incluir a nova coluna em instalações antigas.
 
-**Sem mudanças:** schema do banco, RLS, `parseDjenFromMarkdown` (já existe), `parsePublicacoesApiJson` (mantida só para opt-in CNJ API), validação Zod, lógica de upsert/dedupe, secret `FIRECRAWL_API_KEY` (já configurado).
+**Sem mudanças:** RLS (herda das policies existentes da tabela), `PlanejadorListView`, `PlanejadorTaskCard`, `PlanejadorPrazosView`, hooks de subtasks/labels/etapas.
 
 ### Impacto
 
 **Usuário final (UX):**
-- Firecrawl vira a única fonte automática — comportamento previsível e único, conforme solicitado.
-- Latência **maior** que CNJ API: ~30-90s por tribunal × N tribunais. Range de 30 dias com 5 tribunais ≈ 2-5 min (vs ~10s da CNJ API). Aceitável pelo usuário pois pediu Firecrawl explicitamente.
-- Toast e polling mais longos refletem essa latência real.
-- Resultados agora **completos** (paginação real) — diferentemente do estado anterior onde só vinha a 1ª página.
+- Nova ação "Retornar em" visível no detalhe da tarefa, logo abaixo de "Criado em" — fluxo intuitivo.
+- Nova coluna "Pausados" (roxa) aparece à esquerda de "Concluído" no Kanban.
+- Tarefas pausadas reaparecem em "Sem prazo" automaticamente quando a data chega (no máximo 60s de atraso por causa do polling).
+- Possibilidade extra: arrastar card para "Pausados" pausa por 7 dias por default (pode ser ajustado depois no popover).
+- Configuração da coluna pode ser reordenada/renomeada/ocultada via Settings, igual às outras.
 
 **Dados:**
-- Zero migration. Mesma tabela `publicacoes`, mesmo upsert/dedupe → rodar 2x = 0 duplicados.
-- `metadata.fonte` passa a registrar `'firecrawl'` em todos os inserts automáticos.
+- 1 nova coluna nullable, 1 index parcial — zero impacto em queries existentes.
+- Sem trigger/cron — auto-retorno é puramente client-side (categorização reativa). Custo zero no DB.
+- Refetch a cada 60s só ativa quando há pelo menos uma tarefa pausada, evitando overhead.
 
 **Riscos colaterais:**
-- **Custo Firecrawl**: cada página = 1 crédito. 5 tribunais × 3 páginas média = 15 créditos por busca. Range de 90 dias pode chegar a 50+ créditos. Monitorar consumo no dashboard Firecrawl.
-- **Rate limit Firecrawl**: mitigado com delay 1500ms entre tribunais e timeout 60s por scrape.
-- **Possibilidade de falha em tribunais específicos**: se um tribunal cair, log registra erro mas lote continua. Usuário pode reexecutar.
-- **CNJ API ainda existe**: opt-in via dropdown debug "CNJ API (emergência)" caso Firecrawl tenha problema pontual.
+- Se o usuário fechar o navegador, o card "voltará" só quando alguém abrir o Planejador novamente — aceitável pois é puramente visual (o dado em DB já reflete `pausado_ate < now()`).
+- Caso futuro precise notificação push ao retornar: exigirá trigger/edge function (fora do escopo).
+- Configurações de coluna salvas antigas serão migradas via merge — sem perda de personalização.
 
 **Quem é afetado:**
-- Apenas admins do módulo jurídico (drawer de Publicações em Extras). Nenhum outro módulo, tenant ou integração afetado.
+- Todos os usuários do Planejador (todos os roles que já têm acesso à feature). Multi-tenant: cada tenant herda automaticamente. Nenhum outro módulo afetado.
 
 ### Validação
 
-1. Abrir Drawer de Publicações em `/demorais` → clicar "Novidades" → toast confirma busca Firecrawl em background.
-2. Aguardar 1-3 min → publicações aparecem na listagem.
-3. Logs do edge function mostram: `firecrawl: TJPR/OAB 111056/PR — N páginas, M itens` para cada tribunal × monitoramento.
-4. Rodar "Buscar período → Últimos 30 dias" → confirma paginação funcionando (múltiplas páginas nos logs por tribunal).
-5. Rodar a mesma busca 2x consecutivas → 2ª roda sem inserir duplicados.
-6. Confirmar dropdown debug mostra `Firecrawl (padrão)` como primeira opção e selecionada por default.
-7. Forçar via dropdown debug "CNJ API (emergência)" → confirma que caminho alternativo ainda funciona.
-8. Verificar consumo Firecrawl no dashboard após 1 ciclo completo de busca.
+1. Rodar migration → confirmar coluna `pausado_ate` em `planejador_tasks`.
+2. Abrir Planejador → confirmar nova coluna "Pausados" (roxa) entre "Sem prazo grupo" e "Concluído".
+3. Abrir uma tarefa → confirmar campo "Retornar em" abaixo de "Criado em" → definir data futura → OK → card desaparece da coluna atual e aparece em "Pausados".
+4. Definir `pausado_ate` para 2 minutos no futuro → aguardar → card volta sozinho para "Sem prazo" (auto-refresh).
+5. Arrastar card para "Pausados" → confirma `pausado_ate = +7d` no DB.
+6. Arrastar card de "Pausados" para "Hoje" → confirma `pausado_ate` limpo.
+7. Limpar a data no detalhe (botão X) → card volta à categorização normal.
+8. Verificar Settings → reordenar/ocultar coluna "Pausados" → comportamento idêntico ao das demais.
 
