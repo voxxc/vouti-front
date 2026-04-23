@@ -125,6 +125,21 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
       if (res.error) throw res.error;
       const d = res.data;
       if (d?.success) {
+        const prefix = opts?.label ? `${opts.label}: ` : 'DJEN: ';
+
+        // Background mode: function returns immediately with `queued: true`
+        if (d.queued) {
+          toast.success(
+            `${prefix}busca iniciada em segundo plano (${d.monitoramentos_processed} monitoramento(s)). Atualize em alguns minutos.`,
+            { duration: 6000 },
+          );
+          persistUltimaBusca();
+          // Re-fetch after a delay to show partial results
+          setTimeout(() => fetchPublicacoes(), 15000);
+          setTimeout(() => fetchPublicacoes(), 60000);
+          return;
+        }
+
         const sources = d.sources_used || {};
         const sourceDetail =
           sources.n8n && sources.firecrawl
@@ -134,7 +149,6 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
               : sources.n8n
                 ? ``
                 : '';
-        const prefix = opts?.label ? `${opts.label}: ` : 'DJEN: ';
         toast.success(
           `${prefix}${d.inserted} nova(s) publicação(ões) de ${d.monitoramentos_processed} monitoramento(s)${sourceDetail}`,
         );
