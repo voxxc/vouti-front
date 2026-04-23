@@ -835,13 +835,17 @@ Deno.serve(async (req) => {
 
       console.log(`pje_scraper_oab: range ${formatDate(dataInicio)} → ${formatDate(dataFim)}`);
 
-      let totalInserted = 0;
-      let totalFound = 0;
-      let totalErrors = 0;
-      let n8nCount = 0;
-      let firecrawlCount = 0;
+      // Long-running work (n8n + Firecrawl per tribunal) easily exceeds the 150s
+      // edge function idle timeout. Run it in background via EdgeRuntime.waitUntil
+      // and return immediately so the UI doesn't see a 504.
+      const runScraping = async () => {
+        let totalInserted = 0;
+        let totalFound = 0;
+        let totalErrors = 0;
+        let n8nCount = 0;
+        let firecrawlCount = 0;
 
-      for (const mon of monitoramentos) {
+        for (const mon of monitoramentos) {
         const nome = mon.nome || '';
         const oabNumero = mon.oab_numero || '';
         const oabUf = mon.oab_uf || '';
@@ -999,20 +1003,28 @@ Deno.serve(async (req) => {
           // Delay between tribunais to avoid overwhelming sources
           await new Promise(r => setTimeout(r, 2000));
         }
-      }
+        }
 
-      console.log(`pje_scraper_oab done: found=${totalFound}, inserted=${totalInserted}, errors=${totalErrors}`);
+        console.log(`pje_scraper_oab done: found=${totalFound}, inserted=${totalInserted}, errors=${totalErrors}, n8n=${n8nCount}, firecrawl=${firecrawlCount}`);
+      };
+
+      // @ts-ignore EdgeRuntime is provided by Supabase edge runtime
+      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(runScraping());
+      } else {
+        // Fallback: fire-and-forget (still returns immediately)
+        runScraping().catch((e) => console.error('pje_scraper_oab background error:', e));
+      }
 
       return new Response(JSON.stringify({
         success: true,
+        queued: true,
         monitoramentos_processed: monitoramentos.length,
-        total_found: totalFound,
-        inserted: totalInserted,
-        errors: totalErrors,
         source: 'pje_scraper_oab',
-        sources_used: { n8n: n8nCount, firecrawl: firecrawlCount },
         force_source: forceSource,
         date_range: { data_inicio: formatDate(dataInicio), data_fim: formatDate(dataFim) },
+        message: 'Busca iniciada em segundo plano. Os resultados aparecerão na lista em alguns minutos.',
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
