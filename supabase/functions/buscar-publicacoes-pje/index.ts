@@ -10,6 +10,160 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const DATAJUD_API_KEY = 'cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw==';
 
 const BATCH_SIZE = 5;
+const N8N_WEBHOOK_URL = 'https://voutibot.app.n8n.cloud/webhook/tjpr-scraper';
+const FIRECRAWL_API_URL = 'https://api.firecrawl.dev/v2/scrape';
+const FIRECRAWL_TIMEOUT_MS = 45000;
+
+// ===== Firecrawl scraper for DJEN (PJe Comunicações) =====
+// Returns { html, markdown } or throws on failure.
+async function scrapeDjenViaFirecrawl(params: {
+  sigla: string;
+  oabNumero: string;
+  oabUf: string;
+  dataInicio: string;
+  dataFim: string;
+}): Promise<{ html: string; markdown: string }> {
+  const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+  if (!apiKey) {
+    throw new Error('FIRECRAWL_API_KEY is not configured. Connect Firecrawl in project settings.');
+  }
+
+  const url =
+    `https://comunica.pje.jus.br/consulta?siglaTribunal=${encodeURIComponent(params.sigla)}` +
+    `&dataDisponibilizacaoInicio=${params.dataInicio}` +
+    `&dataDisponibilizacaoFim=${params.dataFim}` +
+    `&numeroOab=${encodeURIComponent(params.oabNumero)}` +
+    `&ufOab=${encodeURIComponent(params.oabUf.toLowerCase())}`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FIRECRAWL_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(FIRECRAWL_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url,
+        formats: ['markdown', 'html'],
+        onlyMainContent: true,
+        waitFor: 3500,
+        location: { country: 'BR', languages: ['pt-BR'] },
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const errMsg = data?.error || data?.message || `HTTP ${res.status}`;
+      throw new Error(`Firecrawl ${res.status}: ${errMsg}`);
+    }
+
+    // Firecrawl v2 returns either { data: { html, markdown } } or direct fields
+    const payload = data?.data || data;
+    const html = payload?.html || payload?.rawHtml || '';
+    const markdown = payload?.markdown || '';
+
+    if (!html && !markdown) {
+      throw new Error('Firecrawl returned empty content');
+    }
+
+    return { html, markdown };
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') throw new Error('Firecrawl timeout');
+    throw err;
+  }
+}
+
+// ===== Markdown fallback parser for DJEN content from Firecrawl =====
+// Used when HTML parsing yields 0 (Firecrawl markdown is cleaner).
+function parseDjenFromMarkdown(markdown: string, sigla: string, mon: any): any[] {
+  const publicacoes: any[] = [];
+  const nomePesquisado = mon.nome || `OAB ${mon.oab_numero || ''}/${mon.oab_uf || ''}`;
+
+  // Split markdown into intimação blocks. The DJEN page typically renders each
+  // intimação starting with "N - Intimação" / "N - Citação" / "N - Comunicação".
+  const blocks = markdown.split(/(?=^\s*\d+\s*-\s*(?:Intimação|Citação|Comunicação)\b)/im);
+
+  for (const block of blocks) {
+    if (!/Intimação|Citação|Comunicação/i.test(block)) continue;
+
+    const dataMatch = block.match(/(?:Data(?: de disponibilização)?|disponibilização)[:\s]*\**\s*(\d{2}\/\d{2}\/\d{4})/i);
+    if (!dataMatch) continue;
+    const [dia, mes, ano] = dataMatch[1].split('/');
+    const dataDisp = `${ano}-${mes}-${dia}`;
+
+    const procMatch = block.match(/Processo[:\s]*\**\s*([\d.\-]+)/i)
+      || block.match(/(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})/);
+    const numeroProcesso = procMatch ? procMatch[1].trim() : 'sem_numero';
+
+    const orgaoMatch = block.match(/Órgão[:\s]*\**\s*([^\n]+)/i);
+    const orgao = orgaoMatch ? orgaoMatch[1].replace(/\*+/g, '').trim() : null;
+
+    const tipoMatch = block.match(/Tipo de comunicação[:\s]*\**\s*([^\n]+)/i);
+    const tipoCom = tipoMatch ? tipoMatch[1].replace(/\*+/g, '').trim() : 'Intimação';
+    const tipo = /citação|citacao/i.test(tipoCom) ? 'Citação' : 'Intimação';
+
+    const partesMatch = block.match(/Parte\(s\)[:\s]*\**([\s\S]*?)(?=Advogado\(s\)|Texto da intimação|$)/i);
+    const partes = partesMatch
+      ? partesMatch[1].replace(/\*+/g, '').replace(/\s+/g, ' ').trim().substring(0, 2000)
+      : null;
+
+    const textoMatch = block.match(/Texto da intimação[:\s]*\**([\s\S]*?)(?=^\s*\d+\s*-\s*(?:Intimação|Citação|Comunicação)|$)/im);
+    let conteudo = textoMatch
+      ? textoMatch[1].replace(/\*+/g, '').trim()
+      : block.replace(/\*+/g, '').trim();
+    conteudo = conteudo.substring(0, 5000);
+
+    publicacoes.push({
+      tenant_id: mon.tenant_id,
+      monitoramento_id: mon.id,
+      data_disponibilizacao: dataDisp,
+      data_publicacao: dataDisp,
+      tipo,
+      numero_processo: numeroProcesso,
+      diario_sigla: sigla,
+      diario_nome: `PJe Comunicações - ${sigla}`,
+      comarca: null,
+      nome_pesquisado: nomePesquisado,
+      conteudo_completo: conteudo,
+      link_acesso: 'https://comunica.pje.jus.br',
+      status: 'nao_tratada',
+      orgao,
+      responsavel: null,
+      partes,
+    });
+  }
+
+  return publicacoes;
+}
+
+// ===== Unified DJEN scrape via Firecrawl: returns parsed publicações for a (sigla, mon) =====
+async function scrapeAndParseDjenFirecrawl(
+  sigla: string,
+  mon: any,
+  dataInicio: string,
+  dataFim: string,
+): Promise<any[]> {
+  const oabNumero = mon.oab_numero || '';
+  const oabUf = mon.oab_uf || '';
+  if (!oabNumero || !oabUf) return [];
+
+  const { html, markdown } = await scrapeDjenViaFirecrawl({
+    sigla, oabNumero, oabUf, dataInicio, dataFim,
+  });
+
+  // Try HTML parser first (matches existing format), fall back to markdown parser.
+  let pubs = html ? parsePublicacoesPjeOab(html, sigla, mon) : [];
+  if (pubs.length === 0 && markdown) {
+    pubs = parseDjenFromMarkdown(markdown, sigla, mon);
+  }
+  return pubs;
+}
 
 const TRIBUNAL_MAP: Record<string, string> = {
   'TJPR': 'tjpr', 'TJSP': 'tjsp', 'TJRJ': 'tjrj', 'TJMG': 'tjmg',
