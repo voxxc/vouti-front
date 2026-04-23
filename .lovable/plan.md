@@ -1,85 +1,93 @@
 
 
-## Atualização imperceptível da view "Prazos" do Planejador ao concluir um prazo
+## Adicionar Firecrawl como fonte de scraping do DJEN (com fallback automático para n8n)
 
-### Causa raiz
+### Causa raiz / Motivação
 
-O hook `useAgendaData` (usado por `PlanejadorPrazosView`) faz o `fetch` dos prazos **uma única vez**, no `useEffect([user])`. Não há:
-- nenhuma subscription Realtime na tabela `deadlines`,
-- nenhum listener de `CustomEvent` (tipo `deadline-completion-changed`),
-- nenhum mecanismo de invalidação quando o `DeadlineDetailDialog` fecha após uma conclusão.
+Hoje o scraping de publicações do DJEN/PJe Comunicações depende de **um único caminho**: o webhook n8n self-hosted em `voutibot.app.n8n.cloud/webhook/tjpr-scraper` (modo `pje_scraper_oab`). Se o n8n cair, ficar lento ou for bloqueado pelo CloudFront futuramente, **as publicações param de chegar** — sem alternativa automática. Além disso, o n8n exige manutenção manual de servidor, tem latência variável e não tem SLA.
 
-Resultado: você conclui o prazo pelo dialog (que é aberto a partir do Planejador → `setDeadlineDetailOpen(true)`), o backend grava `completed=true`, o `AgendaContent` atualiza seu próprio state local — mas o `deadlines` do `useAgendaData` continua intacto. O card permanece visualmente na coluna antiga ("Hoje", "Vencido", etc.) até você dar refresh ou reabrir o Planejador.
-
-Outros componentes que disparam conclusão (`AgendaContent.handleConfirmComplete`, `DeadlineDetailDialog.handleConfirmComplete`, `ProjectProtocoloContent`) também não notificam ninguém — só atualizam state local próprio.
+Firecrawl resolve isso com:
+- Pool de proxies residenciais brasileiros que bypassam o CloudFront do CNJ.
+- Renderização JavaScript completa (necessária pra SPA Angular do `comunica.pje.jus.br`).
+- API pronta, sem manter servidor.
+- Já tem connector oficial integrado no Lovable — sem secret manual.
 
 ### Correção
 
-**1. Criar um canal de eventos global para mudanças em prazos** (`window.dispatchEvent`):
+**1. Conectar o connector Firecrawl** (uma vez, via UI da Lovable) — disponibiliza `FIRECRAWL_API_KEY` automaticamente nas Edge Functions.
 
-Em todos os pontos onde `deadlines` é atualizada no banco (conclusão, reabertura, exclusão), disparar:
-```ts
-window.dispatchEvent(new CustomEvent('deadline-completion-changed', {
-  detail: { deadlineId, completed: true | false }
-}));
-```
+**2. Criar novo modo `firecrawl_oab`** em `supabase/functions/buscar-publicacoes-pje/index.ts`:
+- Itera os `monitoramentos` ativos (mesma lógica do `pje_scraper_oab`).
+- Para cada par `(tribunal, OAB)`, monta a URL do `comunica.pje.jus.br/consulta?siglaTribunal=X&numeroOab=Y&ufOab=Z&dataDisponibilizacaoInicio=...&dataDisponibilizacaoFim=...`.
+- Chama `POST https://api.firecrawl.dev/v2/scrape` com:
+  - `formats: ['markdown', 'html']`
+  - `onlyMainContent: true`
+  - `waitFor: 3000` (espera SPA renderizar)
+  - `location: { country: 'BR' }` (força proxy brasileiro)
+- Reaproveita o parser `parsePublicacoesPje` existente (já testado, funcional) sobre o HTML retornado.
+- Insere em `publicacoes` com mesmo `upsert + onConflict` já usado, garantindo zero duplicata cross-fonte.
 
-Pontos de disparo:
-- `src/components/Agenda/DeadlineDetailDialog.tsx` → `handleConfirmComplete`, `handleReopenDeadline`.
-- `src/components/Agenda/AgendaContent.tsx` → `handleToggleComplete`, `handleConfirmComplete`, `handleDeleteDeadline`.
-- `src/components/Project/ProjectProtocoloContent.tsx` → onde marca `completed: true`.
+**3. Estratégia de fallback automático** em `pje_scraper_oab`:
+- Tenta n8n primeiro (mantém comportamento atual).
+- Se n8n retornar erro (status ≠ 200, timeout, ou `items.length === 0` por 3 tribunais consecutivos), automaticamente faz fallback pra Firecrawl no mesmo loop, **sem o usuário perceber**.
+- Loga claramente qual fonte respondeu (`source: 'n8n'` vs `source: 'firecrawl'`) por tribunal.
 
-**2. Tornar `useAgendaData` reativo**:
-
-Em `src/hooks/useAgendaData.ts`:
-- Extrair o `fetchDeadlines` para fora do `useEffect` (memoizado em um `useCallback`).
-- Adicionar um segundo `useEffect` que escuta `window.addEventListener('deadline-completion-changed', ...)` e re-executa o fetch.
-- **Atualização otimista**: antes de re-fazer o fetch (que tem latência de rede), aplicar a mudança imediatamente no state local via `setDeadlines(prev => prev.map(d => d.id === deadlineId ? { ...d, completed } : d))`. Isso garante que o card "salta" de coluna **na hora**, sem flicker, sem loading spinner. O fetch posterior só consolida (campos `concluidoEm`, `completedByName`, etc.).
-
-**3. Transição visual sutil** (opcional, polimento):
-
-Em `PlanejadorPrazosView.tsx`, adicionar uma classe de transição `transition-all duration-300` no container das colunas e nos cards, para que a mudança de coluna seja suave (fade-in/out) em vez de "pulo" abrupto. Sem animação chamativa — só um leve crossfade.
+**4. Toggle manual no PublicacoesDrawer** (opcional, polimento):
+- Botão "Atualizar" continua disparando o modo unificado `pje_scraper_oab` (com fallback embutido).
+- Adicionar dropdown discreto "⚙ Forçar fonte" → `auto` (default) / `n8n` / `firecrawl`, pra debug.
 
 ### Arquivos afetados
 
 **Modificados:**
-- `src/hooks/useAgendaData.ts` — extrair `fetchDeadlines` em `useCallback`; adicionar listener de `deadline-completion-changed` com atualização otimista + refetch.
-- `src/components/Agenda/DeadlineDetailDialog.tsx` — disparar event após `handleConfirmComplete` e `handleReopenDeadline`.
-- `src/components/Agenda/AgendaContent.tsx` — disparar event após `handleToggleComplete`, `handleConfirmComplete`, `handleDeleteDeadline`.
-- `src/components/Project/ProjectProtocoloContent.tsx` — disparar event após marcar conclusão de prazo.
-- `src/components/Planejador/PlanejadorPrazosView.tsx` — adicionar `transition-all duration-300` nos cards/colunas para a animação sutil de movimento entre colunas.
+- `supabase/functions/buscar-publicacoes-pje/index.ts`
+  - Nova função helper `scrapeViaFirecrawl(url, options)` que chama a API REST do Firecrawl.
+  - Nova função `parseDjenFromMarkdown(markdown, html, ...)` — wrapper que tenta o regex existente sobre o HTML; se falhar, faz fallback parsing sobre o markdown estruturado do Firecrawl (mais limpo e estável).
+  - Modo `pje_scraper_oab` ganha lógica de fallback: tenta n8n → se falhar, tenta Firecrawl pra mesma combinação `(sigla, oab)`.
+  - Novo modo isolado `firecrawl_oab` (pra forçar via dropdown manual).
+  - Variável `forceSource` aceita `'auto' | 'n8n' | 'firecrawl'` no body.
+- `src/components/Publicacoes/PublicacoesDrawer.tsx`
+  - Adicionar dropdown opcional "Forçar fonte" no botão de atualizar.
+  - Toast de feedback inclui qual fonte respondeu (n8n/firecrawl/misto).
 
-**Sem mudanças:** banco/RLS, tabela `deadlines`, lógica de classificação por coluna, demais componentes do Planejador (Kanban de tarefas continua funcionando como hoje, esse é separado).
+**Criados:**
+- Nenhum arquivo novo.
+
+**Connector necessário:**
+- `firecrawl` — via tool `standard_connectors--connect`. Sem connector, modo `firecrawl_oab` retorna erro claro pedindo conexão.
+
+**Sem mudanças:** banco, RLS, tabela `publicacoes`, schema de `monitoramentos`, demais Edge Functions, lógica de deduplicação.
 
 ### Impacto
 
 **Usuário final (UX):**
-- Ao concluir um prazo pelo dialog (a partir do Planejador, da Agenda ou do Protocolo), o card sai da coluna "Hoje/Vencido/Esta Semana" e aparece em "Concluído" **imediatamente** — sem precisar recarregar a página, fechar/abrir o Planejador ou aguardar.
-- Mudança é visualmente sutil (transição de 300ms), sem flash de loading, sem reordenação abrupta de outros cards.
-- Funciona nos dois sentidos: concluir → vai para "Concluído"; reabrir → volta para a coluna correspondente à data.
-- Exclusão de prazo também some do Planejador na hora.
+- Botão "Atualizar publicações" no PublicacoesDrawer continua funcionando idêntico — agora mais resiliente.
+- Se n8n cair, publicações continuam chegando (fallback automático em segundos).
+- Toast pode mostrar "12 novas publicações (n8n: 8, firecrawl: 4)" pra transparência.
+- Dropdown de fonte fica escondido (acionado por ícone de engrenagem) — não polui UI normal.
 
 **Dados:**
-- Zero mudança de schema, RLS, migrations.
-- Zero requisição extra desnecessária — só refetch quando algo realmente muda.
-- Atualização otimista evita "piscar" em redes lentas (tenant remoto, mobile 3G).
+- Zero migration, zero mudança de schema/RLS.
+- Mesmo `upsert onConflict` impede duplicatas mesmo com 2 fontes simultâneas.
+- Latência similar ao n8n (Firecrawl cobra por scrape, ~$0.001 cada).
 
 **Riscos colaterais:**
-- Mínimos. O refetch após o event é assíncrono e não bloqueia UI.
-- Se o update no banco falhar, o state otimista é sobrescrito pelo refetch — o card "volta" para a coluna original (comportamento correto: o usuário vê que falhou).
-- O CustomEvent é global — outros componentes que usem `useAgendaData` no futuro herdam o mesmo comportamento reativo automaticamente.
+- **Custo:** Firecrawl é pago por request. Pra ~50 monitoramentos × 5 tribunais médios = 250 scrapes/dia ≈ $0.25/dia ≈ $7,5/mês. Baixo, mas existe. O fallback automático só dispara quando n8n falha, então em uso normal o custo é zero.
+- **Rate limit:** Firecrawl free tier tem 500 scrapes/mês. Se exceder, o user precisa upgrade (avisamos com toast claro).
+- **Parser:** O HTML do `comunica.pje.jus.br` deve voltar idêntico ao que o n8n retorna (mesma URL, mesmo CloudFront destino), então o regex `parsePublicacoesPje` existente deve funcionar 1:1. Se o Firecrawl entregar markdown em vez de HTML, o fallback de parsing pelo markdown cobre.
+- Nenhum risco em outros módulos — escopo cirúrgico no `buscar-publicacoes-pje`.
 
 **Quem é afetado:**
-- Todos os usuários que usam Planejador → aba "Prazos", em todos os tenants jurídicos.
-- Também melhora a Agenda (qualquer tela que use `useAgendaData`).
+- Tenants jurídicos que usam Controladoria → Push-Doc → publicações (todos).
+- Operação fica mais robusta sem o usuário precisar fazer nada.
 
 ### Validação
 
-1. Abrir Planejador → aba "Prazos" → clicar em um prazo da coluna "Hoje" → no dialog, clicar "Concluir prazo" → confirmar.
-2. **Esperado:** o card desaparece de "Hoje" e aparece em "Concluído" suavemente, em <1s, sem reload.
-3. Repetir reabrindo (botão "Reabrir prazo" no dialog) → card volta para a coluna correta de acordo com a data.
-4. Concluir um prazo pela tela `/demorais/agenda` com o Planejador aberto em outra aba → na aba do Planejador, ao voltar o foco, prazo já está concluído (após próximo refetch).
-5. Concluir prazo via `ProjectProtocoloContent` (página do projeto) → se Planejador estiver aberto, atualiza igual.
-6. Excluir um prazo no dialog → some do Planejador imediatamente.
-7. Tema claro e escuro: animação suave em ambos.
+1. Conectar Firecrawl via UI → confirmar `FIRECRAWL_API_KEY` em `fetch_secrets`.
+2. Abrir Controladoria → PublicacoesDrawer → clicar "Atualizar".
+3. **Esperado caminho feliz:** n8n responde, comportamento idêntico ao atual.
+4. **Forçar Firecrawl** via dropdown "⚙ Forçar fonte → firecrawl" → publicações chegam, mesmo formato, sem duplicatas.
+5. **Simular falha do n8n** (mudar URL temporariamente pra inválida em ambiente de teste) → fallback automático pra Firecrawl, toast indica fonte mista.
+6. Conferir logs da Edge Function (`supabase--edge_function_logs buscar-publicacoes-pje`) — devem mostrar `source: 'firecrawl'` quando fallback dispara.
+7. Rodar duas vezes seguidas → segunda execução insere 0 (deduplicação intacta).
+8. Verificar no banco: `SELECT COUNT(*) FROM publicacoes WHERE created_at > NOW() - INTERVAL '5 min'` — sem registros duplicados.
 
