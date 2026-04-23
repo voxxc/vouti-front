@@ -1,95 +1,90 @@
 
 
-## Filtros de período e busca incremental no Drawer de Publicações
+## Trocar scraping (n8n + Firecrawl) por API oficial do CNJ no Drawer de Publicações
 
-### Causa raiz / Motivação
+### Causa raiz
 
-Hoje o backend (`buscar-publicacoes-pje`, modo `pje_scraper_oab`) **já está vinculado** ao monitoramento configurado em **Extras → Publicações** — itera `publicacoes_monitoramentos` ativos e usa OAB + tribunais cadastrados. O que falta é controle no frontend:
+O modo `pje_scraper_oab` da edge function `buscar-publicacoes-pje` itera 30+ tribunais por monitoramento tentando:
+1. **n8n** → retorna `404 No workspace here` (workflow morto/desativado).
+2. **Firecrawl fallback** → retorna `0 items` em todos: a página DJEN é uma SPA pesada que não termina de renderizar nos 3.5s de `waitFor`, e mesmo aumentando o tempo, paginação não é tratada (só pega a 1ª página de ~10 resultados). Custo alto, lento, frágil.
 
-1. **Período fixo de 5 dias** hardcoded no Edge Function — usuário não consegue buscar histórico maior (ex: últimos 30/60 dias).
-2. **Listagem mostra todas as publicações sem filtro de data** — sem como ver apenas "o que chegou hoje" ou "esta semana".
-3. **Sem botão dedicado a "novidades"** — só existe o "Buscar DJEN" que é manual e demorado. Falta um atalho rápido pra incremento desde a última checagem.
+Resultado: usuário não recebe nenhuma publicação, mesmo com OAB cadastrada e período válido.
+
+**O que já existe pronto e não está sendo usado**: a função tem `parsePublicacoesApiJson` (linha 423) e o modo de teste `api_test_comunica` (linha 1061) que chamam `https://comunicaapi.pje.jus.br/api/v1/comunicacoes` — **API oficial pública do CNJ**, retorna JSON nativo com paginação, sem renderização JS, sem custo, sem rate limit agressivo.
 
 ### Correção
 
-**1. Backend (`supabase/functions/buscar-publicacoes-pje/index.ts`):**
-- No modo `pje_scraper_oab`, aceitar parâmetros opcionais no body:
-  - `data_inicio` (YYYY-MM-DD) — sobrescreve o range fixo de 5 dias.
-  - `data_fim` (YYYY-MM-DD).
-  - `dias_retroativos` (number) — alternativa: usa `today - N days`. Default = 5 (mantém comportamento atual).
-- Validar com Zod (data válida, range máximo de 90 dias pra não estourar custo Firecrawl).
-- Logar o range usado por monitoramento.
+**Substituir o pipeline n8n→Firecrawl pela API oficial do CNJ no modo `pje_scraper_oab`**, mantendo Firecrawl apenas como último recurso emergencial (não como fallback automático em todo tribunal).
 
-**2. Frontend (`src/components/Publicacoes/PublicacoesDrawer.tsx`):**
+#### Backend — `supabase/functions/buscar-publicacoes-pje/index.ts`
 
-  **a) Dois botões no header (substituem o atual "Buscar DJEN"):**
-  - **"Novidades"** (primário, destaque visual): chama Edge Function com `dias_retroativos: 2` — busca rápida só do que é novo (últimas 48h). Toast: "X novas publicações desde ontem".
-  - **"Buscar período..."** (secundário): abre popover com Date Range Picker (shadcn `Calendar` mode="range") com presets:
-    - Hoje
-    - Últimos 7 dias (default)
-    - Últimos 15 dias
-    - Últimos 30 dias
-    - Personalizado
-  - Após escolher, dispara Edge Function com `data_inicio`/`data_fim` selecionadas.
+1. Criar função `fetchComunicacoesViaApiOficial(sigla, oabNumero, oabUf, dataInicio, dataFim)`:
+   - Chama `https://comunicaapi.pje.jus.br/api/v1/comunicacoes?siglaTribunal=...&numeroOab=...&ufOab=...&dataDisponibilizacaoInicio=...&dataDisponibilizacaoFim=...&itensPorPagina=100&pagina=N`.
+   - Loop de paginação: incrementa `pagina` até retornar array vazio ou bater limite de segurança (50 páginas = 5000 itens por tribunal).
+   - Headers: `Accept: application/json`, `User-Agent` realista.
+   - Timeout de 20s por página.
+   - Retry 1x em caso de 5xx/network.
+   - Retorna array de itens brutos.
 
-  **b) Filtro de período na listagem (cliente-side):**
-  - Adicionar dropdown "Período" ao lado do filtro de status com mesmas opções (Hoje / 7 dias / 15 dias / 30 dias / Tudo).
-  - Filtra `publicacoes` pelo `data_disponibilizacao` localmente (já temos os dados em memória).
-  - Default: "7 dias" (evita listar tudo desnecessariamente).
+2. Reescrever loop principal do modo `pje_scraper_oab` (linhas ~870-1010):
+   - Para cada `mon` × `sigla`:
+     - Tentar `fetchComunicacoesViaApiOficial` → se sucesso (>0 itens ou resposta válida vazia), usar `parsePublicacoesApiJson` e marcar `usedSource = 'cnj_api'`.
+     - Se erro de rede/timeout → registrar em `totalErrors`, **não** cair em Firecrawl automaticamente (evita custo).
+   - Manter `forceSource` para debug:
+     - `'auto'` (novo default) = só API CNJ.
+     - `'firecrawl'` = força Firecrawl (manual, para emergência).
+     - `'n8n'` = mantido para compatibilidade mas marcado como deprecated nos logs.
 
-  **c) Persistir "última busca" em localStorage:**
-  - Chave `publicacoes_ultima_busca_${tenantId}` com timestamp.
-  - Botão "Novidades" usa esse timestamp pra calcular `data_inicio` automaticamente (ou fallback: 2 dias).
-  - Mostrar discretamente abaixo do header: "Última atualização: há 3h" (formato relativo).
+3. Manter `EdgeRuntime.waitUntil` (job assíncrono já implementado) — agora com latência muito menor pois API JSON é instantânea (~500ms por página) vs scraping (~30s por tribunal).
 
-  **d) Ajustar contadores:**
-  - Manter os 4 cards atuais (Hoje/Tratadas hoje/Descartadas hoje/Pendentes total) — já estão bons.
+4. Logar por monitoramento: `cnj_api: TJPR/OAB 111056/PR — 3 páginas, 247 itens`.
 
-**3. Manter intactos:**
-- `force_source` (dropdown debug) — fica como está.
-- Lógica n8n → Firecrawl fallback — não muda.
-- Tabela `publicacoes` e RLS — não muda.
-- `PublicacoesTab` em Extras — não muda.
+5. Validação Zod do body permanece intacta.
+
+#### Frontend — `src/components/Publicacoes/PublicacoesDrawer.tsx`
+
+1. Atualizar texto do toast pós-busca: "Busca via API oficial do CNJ iniciada em segundo plano. Atualize em alguns segundos." (latência caiu drasticamente).
+2. Reduzir polling automático: 10s + 30s (em vez de 15s + 60s).
+3. Dropdown `forceSource` (debug) ganha 3 opções claras: `Auto (CNJ API)` / `Firecrawl (emergência)` / `n8n (legado)`.
 
 ### Arquivos afetados
 
 **Modificados:**
-- `supabase/functions/buscar-publicacoes-pje/index.ts` — aceitar `data_inicio`/`data_fim`/`dias_retroativos` no modo `pje_scraper_oab`.
-- `src/components/Publicacoes/PublicacoesDrawer.tsx` — 2 botões (Novidades + Buscar período), dropdown de filtro de período, popover com Calendar range, persistência de "última busca".
+- `supabase/functions/buscar-publicacoes-pje/index.ts` — nova função `fetchComunicacoesViaApiOficial` com paginação; loop do modo `pje_scraper_oab` reescrito para usar API CNJ como primário; Firecrawl/n8n viram opt-in via `force_source`.
+- `src/components/Publicacoes/PublicacoesDrawer.tsx` — textos de toast, intervalos de polling, opções do dropdown debug.
 
-**Sem mudanças:** banco, RLS, `PublicacoesTab`, lógica de scraping, parsers, deduplicação.
+**Sem mudanças:** schema do banco, RLS, `parsePublicacoesApiJson` (já existe), `parsePublicacoesPjeOab` e `parseDjenFromMarkdown` (mantidos para fallback Firecrawl manual), `PublicacoesTab` em Extras, validação Zod do range de datas, lógica de upsert/dedupe.
 
 ### Impacto
 
 **Usuário final (UX):**
-- Botão "Novidades" vira o uso primário diário — clica de manhã, vê só o que chegou desde ontem em 5 segundos.
-- Botão "Buscar período" pra investigações pontuais ou recuperar histórico.
-- Listagem filtrada por padrão (7 dias) — não polui com publicações antigas.
-- Indicador "Última atualização: há Xh" dá contexto sem precisar abrir log.
-- Nenhuma config nova: usa o que já está cadastrado em Extras → Publicações.
+- Busca passa a **funcionar de fato** — API oficial não bloqueia, retorna JSON paginado real.
+- Latência cai de ~30s/tribunal (Firecrawl) para ~1-2s/tribunal (API). Range de 30 dias com 5 tribunais: de ~3min para ~10s.
+- Histórico longo (90 dias) finalmente acessível sem perda por paginação.
+- Sem mudança visual significativa: mesmos botões, mesma listagem.
 
 **Dados:**
-- Zero migration. Lógica de upsert/dedupe inalterada → buscar 30 dias 2x não duplica nada.
-- Custo Firecrawl: range maior = mais scrapes só quando user pede explicitamente. "Novidades" mantém custo baixo (range 2 dias, mesmo do default atual).
-- Rate limit Firecrawl preservado (cap de 90 dias no backend).
+- Zero migration. Mesma tabela `publicacoes`, mesmo upsert/dedupe (CNJ + data + descrição normalizada) → rodar 2x = 0 duplicados.
+- Volume potencialmente maior por busca (paginação real captura tudo) — comportamento esperado e desejado.
+- `metadata.fonte` passa a registrar `'cnj_api'` permitindo auditar origem.
 
 **Riscos colaterais:**
-- Buscar período longo (30+ dias) demora mais — mostrar spinner com mensagem "Pode levar 1-2 min".
-- localStorage por tenant — se user trocar de tenant, "última busca" é independente (correto).
-- Filtro cliente-side limitado aos 200 últimos registros (limit atual do `fetchPublicacoes`). Se user filtrar "Tudo" e tiver mais de 200, faltam dados. **Mitigação:** aumentar limit pra 500 ou paginar — proposta usar 500.
+- API CNJ pode ter rate limit não documentado — mitigação: timeout 20s + retry 1x + log de erro por tribunal sem abortar o lote.
+- Estrutura JSON da API pode variar entre tribunais — `parsePublicacoesApiJson` já tem fallback flexível de campos (linhas 456-490), mas alguns tribunais novos podem precisar ajuste de mapeamento (ajustável depois pelos logs).
+- Firecrawl deixa de ser fallback automático → se um dia a API CNJ cair, usuário precisa selecionar manualmente "Firecrawl (emergência)" no dropdown debug. Aceitável: mantém custo controlado e comportamento previsível.
+- Workflow n8n morto continua existindo mas só roda se forçado — pode ser limpo numa próxima manutenção.
 
 **Quem é afetado:**
-- Admins do módulo jurídico (única role com acesso ao drawer de Publicações).
-- Nenhum outro módulo afetado.
+- Admins do módulo jurídico que usam o drawer de Publicações em Extras. Único papel com acesso.
+- Nenhum outro módulo, tenant ou integração afetado.
 
 ### Validação
 
-1. Cadastrar/garantir 1 monitoramento ativo em Extras → Publicações (OAB + tribunais).
-2. Abrir drawer de Publicações → clicar "Novidades" → toast mostra contagem do range curto (2 dias).
-3. Clicar "Buscar período" → escolher "Últimos 30 dias" → confirmar — Edge Function roda com range correto, deduplicação intacta (rodar 2x = 0 duplicados na 2ª).
-4. Range "Personalizado" com Calendar → escolher datas → busca executa.
-5. Tentar range > 90 dias via DevTools → backend retorna 400 com mensagem clara.
-6. Trocar dropdown "Período" da listagem → filtra cliente-side sem rechamar API.
-7. Indicador "Última atualização" atualiza após cada busca bem-sucedida.
-8. Logs do Edge Function (`buscar-publicacoes-pje`) mostram range usado por monitoramento.
+1. Abrir Drawer de Publicações no `/demorais` → clicar "Novidades" → toast confirma busca em background.
+2. Aguardar ~10s → publicações aparecem na listagem (esperado: dezenas/centenas dependendo da OAB).
+3. Logs do edge function mostram: `cnj_api: TJPR/OAB 111056/PR — N páginas, M itens` para cada tribunal × monitoramento.
+4. Rodar "Buscar período → Últimos 30 dias" → confirma paginação funcionando (ver páginas múltiplas nos logs).
+5. Rodar a mesma busca 2x consecutivas → 2ª roda sem inserir duplicados (dedupe intacto).
+6. Forçar via dropdown debug "Firecrawl (emergência)" → confirma que o caminho legacy ainda funciona como antes.
+7. Tentar URL de teste manual via `mode: 'api_test_comunica'` no DevTools → confirma resposta JSON válida da API CNJ.
 
