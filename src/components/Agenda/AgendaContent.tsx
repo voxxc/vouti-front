@@ -797,6 +797,12 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
         d.id === deadlineId ? { ...d, completed: !d.completed, updatedAt: new Date() } : d
       ));
 
+      dispatchDeadlineChange({
+        deadlineId,
+        action: !deadline.completed ? "completed" : "reopened",
+        completed: !deadline.completed,
+      });
+
       toast({
         title: "Status atualizado",
         description: "Status do prazo foi alterado com sucesso.",

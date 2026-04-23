@@ -311,6 +311,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
         completedByName: user?.user_metadata?.full_name || user?.email || undefined,
         completedByAvatar: user?.user_metadata?.avatar_url || undefined,
       });
+      dispatchDeadlineChange({ deadlineId: confirmCompleteId, action: "completed", completed: true });
       toast({ title: "Prazo concluído", description: cumprirEtapa ? "Prazo concluído e etapa do protocolo cumprida." : "Prazo marcado como concluído com comentário registrado." });
     } catch { toast({ title: "Erro", description: "Erro inesperado ao concluir prazo.", variant: "destructive" }); }
   };
@@ -350,6 +351,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
       setReopenDeadlineId(null);
       setReopenMotivo("");
       setDeadline({ ...deadline, completed: false, completedByUserId: undefined, completedByName: undefined, completedByAvatar: undefined, comentarioConclusao: undefined, concluidoEm: undefined });
+      dispatchDeadlineChange({ deadlineId: reopenDeadlineId, action: "reopened", completed: false });
     } catch {
       toast({ title: "Erro", description: "Não foi possível reabrir o prazo.", variant: "destructive" });
     }
