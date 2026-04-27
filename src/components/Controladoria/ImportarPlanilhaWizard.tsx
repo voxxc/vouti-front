@@ -286,7 +286,6 @@ export function ImportarPlanilhaWizard({ open, onOpenChange, oabId, oabLabel, on
                       <th className="p-2 text-left w-12">#</th>
                       <th className="p-2 text-left">CNJ</th>
                       <th className="p-2 text-left">Status</th>
-                      <th className="p-2 text-left">Cliente</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -306,9 +305,6 @@ export function ImportarPlanilhaWizard({ open, onOpenChange, oabId, oabLabel, on
                           <td className="p-2 font-mono text-xs">{r.cnjFormatado || r.cnj}</td>
                           <td className="p-2">
                             <StatusBadge status={r.status} motivo={r.motivo} />
-                          </td>
-                          <td className="p-2 text-muted-foreground truncate max-w-[200px]">
-                            {r.cliente || '—'}
                           </td>
                         </tr>
                       );
