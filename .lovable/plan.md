@@ -1,164 +1,102 @@
-## Importação em massa de processos via Excel/CSV (com preview e fila resiliente)
+## Frontend do Wizard + Cron de automação
 
-### Contexto / o que já existe hoje
+Conclusão da Fase 2 da importação em massa: interface visual + agendamento automático do worker.
 
-Hoje o `ImportarProcessoCNJDialog` já tem **dois modos**:
-- **Único**: 1 CNJ por vez.
-- **Em massa**: você cola CNJs um por um num input, vira uma lista, e ao clicar "Importar" ele chama `judit-buscar-processo-cnj` em loop (`for` no front).
+### O que vai ser construído
 
-Limitações atuais que causam o "bug de processos sem andamentos":
-1. O loop roda no **navegador** — se você fechar a aba/perder conexão, para tudo no meio.
-2. Não há **retry** quando a Judit retorna timeout/erro intermitente.
-3. Não há **estado persistente** da fila — não dá para retomar nem auditar o que falhou.
-4. Não há **preview/validação** antes de importar (só checa se tem 20 dígitos).
-5. Não há **importação por arquivo** (Excel/CSV).
-6. Andamentos são buscados *junto* do cadastro do processo na mesma chamada — se a parte de andamentos der timeout, o processo entra "vazio" e não é reprocessado.
-
----
-
-### Resposta direta à sua pergunta
-
-**Sim, Excel é a melhor forma**, mas com 3 reforços importantes:
-1. **Preview obrigatório antes de importar** (você revisa, marca/desmarca linha por linha, edite o que estiver errado).
-2. **Fila no banco (persistente)** + worker no servidor — não depende do navegador ficar aberto.
-3. **Cadastro e busca de andamentos em etapas separadas com retry automático** — o processo só é considerado "OK" depois que os andamentos chegaram.
-
----
-
-### O que será construído
-
-#### 1. Botão "Importar planilha" na aba OAB da Controladoria
-
-Ao lado do botão atual "Importar por CNJ", um novo botão **"Importar planilha"** abre um wizard de 3 passos.
-
-#### 2. Wizard de importação (3 passos)
+#### 1. Wizard de importação (3 passos)
+**Arquivo**: `src/components/Controladoria/ImportarPlanilhaWizard.tsx`
 
 ```text
-┌─ Passo 1: Upload ───────────────────────────────┐
-│  • Arrastar/soltar .xlsx, .xls ou .csv          │
-│  • Botão "Baixar modelo Excel"                  │
-│  • Tamanho máx: 5MB / 500 linhas por upload     │
-└─────────────────────────────────────────────────┘
+┌─ Passo 1: Upload ──────────────────────────────┐
+│  • Drop zone para .xlsx / .xls / .csv          │
+│  • Botão "Baixar modelo Excel"                 │
+│  • Lê arquivo no browser com SheetJS (xlsx)    │
+│  • Limite: 5MB / 500 linhas                    │
+└────────────────────────────────────────────────┘
                        ▼
-┌─ Passo 2: Mapeamento + Preview ─────────────────┐
-│  • Auto-detecta colunas (CNJ, parte, etc.)      │
-│  • Tabela com TODAS as linhas mostrando:        │
-│    [✓] CNJ            Status validação          │
-│    [✓] 0001-00...     ✅ Válido (novo)          │
-│    [✓] 0002-00...     ⚠️ Já cadastrado (pula)   │
-│    [✗] 0003-XX...     ❌ CNJ inválido           │
-│    [✓] 0004-00...     ✅ Válido (novo)          │
-│  • Filtros: só válidos / só erros / todos       │
-│  • Editor inline para corrigir CNJs ruins       │
-│  • Resumo: "412 válidos, 8 duplicados, 3 erros" │
-└─────────────────────────────────────────────────┘
+┌─ Passo 2: Preview + Validação ─────────────────┐
+│  Chama processo-import-validar-planilha        │
+│  Tabela com checkbox por linha:                │
+│  [✓] CNJ            Status                     │
+│  [✓] 0001-00...     ✅ Válido                  │
+│  [✓] 0002-00...     ⚠️ Já cadastrado          │
+│  [✗] 0003-XX...     ❌ CNJ inválido            │
+│  Filtros: válidos / duplicados / erros         │
+│  Resumo: "412 válidos, 8 duplicados, 3 erros"  │
+└────────────────────────────────────────────────┘
                        ▼
-┌─ Passo 3: Confirmar e enfileirar ───────────────┐
-│  • "Importar 412 processos"                     │
-│  • Avisa se ultrapassa limite do plano          │
-│  • Cria 1 job por linha em processo_import_jobs │
-│  • Fecha o dialog imediatamente                 │
-└─────────────────────────────────────────────────┘
+┌─ Passo 3: Confirmar ───────────────────────────┐
+│  • "Importar 412 processos"                    │
+│  • Chama processo-import-criar-lote            │
+│  • Toast de sucesso, fecha dialog              │
+└────────────────────────────────────────────────┘
 ```
 
-#### 3. Painel "Importações" (acompanhamento)
+**Arquivos auxiliares**:
+- `src/utils/parseProcessoExcel.ts` — usa lib `xlsx` (SheetJS) para ler planilhas no browser e gerar o template para download
+- Dependência nova: `xlsx` (SheetJS) via `bun add xlsx`
 
-Card/aba na Controladoria mostrando:
+#### 2. Aba "Importações" na Controladoria
+**Arquivo**: `src/components/Controladoria/ImportacoesTab.tsx`
 
+Lista de lotes (cards) ordenados por data:
 ```text
-Lote #4 — 23/04/2026 14:20  •  iniciado por João
-████████████░░░░░░  287/412 (69%)
-✅ 270 importados   ⚠️ 12 duplicados   ❌ 5 falhas   ⏳ 125 na fila
-
-[Ver detalhes]  [Reprocessar falhas]  [Cancelar lote]
+┌──────────────────────────────────────────────┐
+│ Lote #4 • 27/04/2026 14:20 • por João        │
+│ ████████████░░░░░░  287/412 (69%)            │
+│ ✅ 270  ⚠️ 12 dup.  ❌ 5  ⏳ 125              │
+│ [Ver detalhes] [Reprocessar falhas]          │
+└──────────────────────────────────────────────┘
 ```
 
-Tabela detalhada por linha com status individual: `pendente → buscando_processo → buscando_andamentos → concluido` (ou `falha_processo` / `falha_andamentos`).
+Drill-down ao clicar "Ver detalhes" → drawer com tabela job-a-job (CNJ, status, tentativas, erro, link para o processo criado).
 
-Atualização em tempo real via Supabase Realtime.
+**Hook**: `src/hooks/useImportLotes.ts` — query + Supabase Realtime para atualização em tempo real.
 
-#### 4. Fila resiliente (a parte que **garante que nenhum processo fique sem andamentos**)
+#### 3. Integração na OABManager
+**Arquivo editado**: `src/components/Controladoria/OABManager.tsx`
+- Adicionar botão **"Importar planilha"** ao lado do botão "Importar por CNJ" existente
+- Adicionar nova aba interna "Importações" mostrando o `ImportacoesTab`
 
-Cada job passa por **2 etapas obrigatórias** no servidor:
-
-```text
-Etapa A (buscar processo)         Etapa B (buscar andamentos)
-─────────────────                  ──────────────────────────
-judit-buscar-processo-cnj    →    judit-buscar-detalhes-processo
-                                          │
-                              ┌───────────┴──────────┐
-                          0 andamentos           ≥1 andamento
-                              │                       │
-                          retry x3 (5min,           ✅ concluido
-                          15min, 1h)
-                              │
-                       ainda 0? → falha_andamentos
-                       (visível no painel para
-                        reprocessar manualmente)
+#### 4. Cron pg_cron (worker automático)
+SQL via insert tool (porque contém URL e anon key):
+```sql
+SELECT cron.schedule(
+  'processo-import-worker-1min',
+  '* * * * *',
+  $$
+  SELECT net.http_post(
+    url:='https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/processo-import-worker',
+    headers:='{"Content-Type":"application/json","Authorization":"Bearer <anon_key>"}'::jsonb,
+    body:='{}'::jsonb
+  );
+  $$
+);
 ```
 
-Pontos-chave:
-- Etapa B só roda **depois** que A confirma que o processo foi criado com `id` válido.
-- Se a Judit devolve 0 andamentos, o job **não fica concluído** — ele volta para fila com backoff (5 min, 15 min, 1h).
-- Após 3 tentativas, marca como `falha_andamentos` e fica visível no painel para reprocessamento manual com 1 clique.
-- Worker chamado por **Cron Job a cada minuto** (extensão `pg_cron` do Supabase) — independe de o usuário estar logado.
+Pré-requisito: garantir extensões `pg_cron` e `pg_net` ativas (verificar via migration).
 
----
+### Arquivos criados/editados
 
-### Plano de execução (técnico, podem pular se quiser)
+| Arquivo | Tipo |
+|---|---|
+| `src/components/Controladoria/ImportarPlanilhaWizard.tsx` | novo |
+| `src/components/Controladoria/ImportacoesTab.tsx` | novo |
+| `src/components/Controladoria/ImportLoteCard.tsx` | novo |
+| `src/components/Controladoria/ImportJobsDrawer.tsx` | novo |
+| `src/hooks/useImportLotes.ts` | novo |
+| `src/utils/parseProcessoExcel.ts` | novo |
+| `src/components/Controladoria/OABManager.tsx` | editado (botão + aba) |
+| `package.json` | editado (`xlsx`) |
+| Cron pg_cron | SQL via insert |
 
-#### Migrations
-- `processo_import_lotes` (id, tenant_id, oab_id, criado_por, total_linhas, status, criado_em)
-- `processo_import_jobs` (id, lote_id, tenant_id, linha_planilha, numero_cnj, dados_planilha jsonb, status, tentativas_processo int, tentativas_andamentos int, processo_id, erro_mensagem, proximo_retry_em, atualizado_em)
-- RLS por tenant_id; pg_cron schedule a cada 1 min chamando edge function worker.
+### Resultado final
 
-#### Edge functions
-- `processo-import-worker` (cron) — pega N jobs prontos (`status IN ('pendente','aguardando_andamentos')` AND `proximo_retry_em <= now()`), processa em paralelo limitado (5 por vez) respeitando rate limit da Judit.
-- `processo-import-validar-planilha` — recebe o arquivo, valida CNJs, checa duplicados no tenant, devolve preview JSON sem persistir nada.
-- `processo-import-criar-lote` — recebe linhas confirmadas, cria lote + N jobs.
-- `processo-import-reprocessar` — reseta tentativas de jobs em `falha_*` selecionados.
-
-#### Frontend
-- `src/components/Controladoria/ImportarPlanilhaWizard.tsx` — 3 passos.
-- `src/components/Controladoria/ImportLoteCard.tsx` — card de progresso.
-- `src/components/Controladoria/ImportacoesTab.tsx` — listagem de lotes + drill-down em jobs.
-- `src/hooks/useImportLotes.ts` — query + realtime.
-- `src/utils/parseProcessoExcel.ts` — usa `xlsx` (SheetJS) para ler .xlsx/.csv no browser.
-
-#### Modelo de planilha (colunas reconhecidas)
-Obrigatórias: `CNJ` (ou `Numero do Processo`).
-Opcionais: `Parte Ativa`, `Parte Passiva`, `Cliente`, `Tribunal`, `Comarca`, `Tipo de Ação`, `Etiquetas` (separadas por `;`), `Observações`.
-
-Os campos opcionais são **mesclados** com os dados que a Judit retorna — se a Judit trouxer parte ativa, prevalece a da Judit; se não trouxer, usa o da planilha. Isso resolve casos de processos em sigilo.
-
----
-
-### Por que isso resolve o "bug sem andamentos"
-
-| Problema atual | Como o novo fluxo resolve |
-|----------------|---------------------------|
-| Loop no front para se fechar a aba | Worker no servidor via cron |
-| Timeout da Judit deixa processo vazio | Etapa B com retry 3x e backoff |
-| Sem visibilidade do que falhou | Painel mostra job-a-job com motivo |
-| Sem como reprocessar | Botão "Reprocessar falhas" |
-| Sem duplicar checagem antes | Preview valida duplicados no tenant |
-| Sem auditoria | Lotes ficam registrados com `criado_por` e timestamp |
-
----
-
-### Alternativas que descartei
-
-- **CSV puro sem wizard**: rápido de implementar mas perde a etapa de preview/edição, que é onde você corrige CNJs digitados errado.
-- **Importação direta sem fila persistente**: continua dependendo do navegador, mesmo problema de hoje.
-- **Webhook da Judit em vez de polling**: a Judit já manda webhook de andamentos, mas para a *primeira carga* o pull explícito é mais confiável — webhook fica para o monitoramento contínuo (que já existe).
-
----
-
-### Entrega
-
-- Wizard funcional com modelo `.xlsx` baixável.
-- Painel de acompanhamento em tempo real.
-- Fila resiliente com retry garantindo que processo só é marcado "OK" após andamentos chegarem.
-- Botão de reprocessar falhas com 1 clique.
+1. Você baixa o modelo `.xlsx`, preenche com seus CNJs (e dados opcionais como cliente, parte, etiquetas).
+2. Faz upload, revisa os erros/duplicados na tela, clica importar.
+3. Fecha a aba se quiser — o worker no servidor processa tudo a cada minuto.
+4. Acompanha o progresso em tempo real na aba "Importações".
+5. Falhas ficam visíveis com botão "Reprocessar" de 1 clique.
 
 Aprova para eu implementar?
