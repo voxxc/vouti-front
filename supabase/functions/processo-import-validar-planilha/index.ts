@@ -18,14 +18,6 @@ function formatCNJ(input: string): string | null {
 interface LinhaInput {
   linha: number;
   cnj: string;
-  parte_ativa?: string;
-  parte_passiva?: string;
-  cliente?: string;
-  tribunal?: string;
-  comarca?: string;
-  tipo_acao?: string;
-  etiquetas?: string;
-  observacoes?: string;
 }
 
 serve(async (req) => {
