@@ -145,16 +145,6 @@ export function ImportarPlanilhaWizard({ open, onOpenChange, oabId, oabLabel, on
       .map((r) => ({
         linha: r.linha,
         cnj: r.cnjFormatado!,
-        dados: {
-          parte_ativa: r.parte_ativa,
-          parte_passiva: r.parte_passiva,
-          cliente: r.cliente,
-          tribunal: r.tribunal,
-          comarca: r.comarca,
-          tipo_acao: r.tipo_acao,
-          etiquetas: r.etiquetas,
-          observacoes: r.observacoes,
-        },
       }));
 
     if (jobs.length === 0) {
