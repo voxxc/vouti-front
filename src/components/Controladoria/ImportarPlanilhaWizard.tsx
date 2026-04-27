@@ -145,16 +145,6 @@ export function ImportarPlanilhaWizard({ open, onOpenChange, oabId, oabLabel, on
       .map((r) => ({
         linha: r.linha,
         cnj: r.cnjFormatado!,
-        dados: {
-          parte_ativa: r.parte_ativa,
-          parte_passiva: r.parte_passiva,
-          cliente: r.cliente,
-          tribunal: r.tribunal,
-          comarca: r.comarca,
-          tipo_acao: r.tipo_acao,
-          etiquetas: r.etiquetas,
-          observacoes: r.observacoes,
-        },
       }));
 
     if (jobs.length === 0) {
@@ -229,7 +219,7 @@ export function ImportarPlanilhaWizard({ open, onOpenChange, oabId, oabLabel, on
                     <Upload className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
                     <p className="font-medium">Clique para selecionar uma planilha</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      .xlsx, .xls ou .csv • até 5MB / 500 linhas
+                      Uma coluna de CNJs (com ou sem cabeçalho) • .xlsx, .xls ou .csv • até 500 linhas
                     </p>
                   </>
                 )}
@@ -247,7 +237,7 @@ export function ImportarPlanilhaWizard({ open, onOpenChange, oabId, oabLabel, on
               />
               <Button variant="outline" onClick={downloadModeloExcel}>
                 <Download className="w-4 h-4 mr-2" />
-                Baixar modelo Excel
+                Baixar modelo (1 coluna de CNJs)
               </Button>
             </div>
           )}
@@ -296,7 +286,6 @@ export function ImportarPlanilhaWizard({ open, onOpenChange, oabId, oabLabel, on
                       <th className="p-2 text-left w-12">#</th>
                       <th className="p-2 text-left">CNJ</th>
                       <th className="p-2 text-left">Status</th>
-                      <th className="p-2 text-left">Cliente</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -316,9 +305,6 @@ export function ImportarPlanilhaWizard({ open, onOpenChange, oabId, oabLabel, on
                           <td className="p-2 font-mono text-xs">{r.cnjFormatado || r.cnj}</td>
                           <td className="p-2">
                             <StatusBadge status={r.status} motivo={r.motivo} />
-                          </td>
-                          <td className="p-2 text-muted-foreground truncate max-w-[200px]">
-                            {r.cliente || '—'}
                           </td>
                         </tr>
                       );
