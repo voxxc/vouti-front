@@ -219,7 +219,7 @@ export function ImportarPlanilhaWizard({ open, onOpenChange, oabId, oabLabel, on
                     <Upload className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
                     <p className="font-medium">Clique para selecionar uma planilha</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      .xlsx, .xls ou .csv • até 5MB / 500 linhas
+                      Uma coluna de CNJs (com ou sem cabeçalho) • .xlsx, .xls ou .csv • até 500 linhas
                     </p>
                   </>
                 )}
@@ -237,7 +237,7 @@ export function ImportarPlanilhaWizard({ open, onOpenChange, oabId, oabLabel, on
               />
               <Button variant="outline" onClick={downloadModeloExcel}>
                 <Download className="w-4 h-4 mr-2" />
-                Baixar modelo Excel
+                Baixar modelo (1 coluna de CNJs)
               </Button>
             </div>
           )}
