@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // Configuração
-const BATCH_SIZE = 5;             // jobs por execução do worker
+const BATCH_SIZE = 1;             // 1 por execucao para nao sobrecarregar a API Judit
 const MAX_TENTATIVAS_PROCESSO = 3;
 const MAX_TENTATIVAS_ANDAMENTOS = 3;
 
