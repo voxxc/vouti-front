@@ -4354,6 +4354,124 @@ export type Database = {
           },
         ]
       }
+      processo_import_jobs: {
+        Row: {
+          andamentos_inseridos: number | null
+          concluido_em: string | null
+          created_at: string
+          dados_planilha: Json
+          erro_mensagem: string | null
+          id: string
+          iniciado_em: string | null
+          linha_planilha: number
+          lote_id: string
+          numero_cnj: string
+          oab_id: string
+          processo_id: string | null
+          proximo_retry_em: string
+          status: string
+          tenant_id: string
+          tentativas_andamentos: number
+          tentativas_processo: number
+          updated_at: string
+        }
+        Insert: {
+          andamentos_inseridos?: number | null
+          concluido_em?: string | null
+          created_at?: string
+          dados_planilha?: Json
+          erro_mensagem?: string | null
+          id?: string
+          iniciado_em?: string | null
+          linha_planilha: number
+          lote_id: string
+          numero_cnj: string
+          oab_id: string
+          processo_id?: string | null
+          proximo_retry_em?: string
+          status?: string
+          tenant_id: string
+          tentativas_andamentos?: number
+          tentativas_processo?: number
+          updated_at?: string
+        }
+        Update: {
+          andamentos_inseridos?: number | null
+          concluido_em?: string | null
+          created_at?: string
+          dados_planilha?: Json
+          erro_mensagem?: string | null
+          id?: string
+          iniciado_em?: string | null
+          linha_planilha?: number
+          lote_id?: string
+          numero_cnj?: string
+          oab_id?: string
+          processo_id?: string | null
+          proximo_retry_em?: string
+          status?: string
+          tenant_id?: string
+          tentativas_andamentos?: number
+          tentativas_processo?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processo_import_jobs_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "processo_import_lotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processo_import_lotes: {
+        Row: {
+          created_at: string
+          criado_por: string
+          id: string
+          nome_arquivo: string | null
+          oab_id: string
+          observacoes: string | null
+          status: string
+          tenant_id: string
+          total_linhas: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por: string
+          id?: string
+          nome_arquivo?: string | null
+          oab_id: string
+          observacoes?: string | null
+          status?: string
+          tenant_id: string
+          total_linhas?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string
+          id?: string
+          nome_arquivo?: string | null
+          oab_id?: string
+          observacoes?: string | null
+          status?: string
+          tenant_id?: string
+          total_linhas?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processo_import_lotes_oab_id_fkey"
+            columns: ["oab_id"]
+            isOneToOne: false
+            referencedRelation: "oabs_cadastradas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       processo_monitoramento_escavador: {
         Row: {
           area: string | null
