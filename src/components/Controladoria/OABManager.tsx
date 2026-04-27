@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Plus, RefreshCw, Trash2, Scale, Search, FileInput } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Scale, Search, FileInput, FileSpreadsheet, Inbox } from 'lucide-react';
 import { EditarAdvogadoModal } from './EditarAdvogadoModal';
 import { ImportarProcessoCNJDialog } from './ImportarProcessoCNJDialog';
+import { ImportarPlanilhaWizard } from './ImportarPlanilhaWizard';
+import { ImportacoesTab } from './ImportacoesTab';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -67,6 +69,8 @@ export const OABManager = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [lawsuitBatchDialogOpen, setLawsuitBatchDialogOpen] = useState(false);
   const [importCNJDialogOpen, setImportCNJDialogOpen] = useState(false);
+  const [importPlanilhaOpen, setImportPlanilhaOpen] = useState(false);
+  const [selectedOabForPlanilha, setSelectedOabForPlanilha] = useState<OABCadastrada | null>(null);
   const [oabToDelete, setOabToDelete] = useState<OABCadastrada | null>(null);
   const [selectedOabForBatch, setSelectedOabForBatch] = useState<OABCadastrada | null>(null);
   const [selectedOabForImport, setSelectedOabForImport] = useState<OABCadastrada | null>(null);
@@ -83,6 +87,11 @@ export const OABManager = () => {
   const handleOpenImportCNJ = (oab: OABCadastrada) => {
     setSelectedOabForImport(oab);
     setImportCNJDialogOpen(true);
+  };
+
+  const handleOpenImportPlanilha = (oab: OABCadastrada) => {
+    setSelectedOabForPlanilha(oab);
+    setImportPlanilhaOpen(true);
   };
 
 
@@ -285,6 +294,16 @@ export const OABManager = () => {
             >
               <span>Geral</span>
             </button>
+            {canImportCNJ && (
+              <button
+                onClick={() => setActiveTab('importacoes')}
+                data-active={activeTab === 'importacoes'}
+                className="apple-tab whitespace-nowrap"
+              >
+                <Inbox className="w-3.5 h-3.5 mr-1 inline" />
+                <span>Importações</span>
+              </button>
+            )}
             {oabs.map((oab) => {
               const isActive = activeTab === oab.id;
               return (
@@ -308,6 +327,12 @@ export const OABManager = () => {
           <TabsContent value="geral" className="mt-4 flex-1">
             <GeralTab />
           </TabsContent>
+
+          {canImportCNJ && (
+            <TabsContent value="importacoes" className="mt-4 flex-1">
+              <ImportacoesTab />
+            </TabsContent>
+          )}
 
           {oabs.map((oab) => (
             <TabsContent key={oab.id} value={oab.id} className="mt-4 flex-1">
@@ -333,6 +358,17 @@ export const OABManager = () => {
                 </div>
                 <div className="flex items-center gap-1">
                   {canImportCNJ && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenImportPlanilha(oab)}
+                        className="text-xs"
+                      >
+                        <FileSpreadsheet className="w-4 h-4 mr-1" />
+                        <span className="hidden md:inline">Importar planilha</span>
+                        <span className="md:hidden">Planilha</span>
+                      </Button>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -343,6 +379,7 @@ export const OABManager = () => {
                       <span className="hidden md:inline">Importar CNJ</span>
                       <span className="md:hidden">CNJ</span>
                     </Button>
+                    </>
                   )}
                   {isAdmin && (
                     <Button
@@ -455,6 +492,20 @@ export const OABManager = () => {
           onSuccess={() => {
             fetchOABs();
             window.location.reload();
+          }}
+        />
+      )}
+
+      {/* Import Planilha Wizard */}
+      {selectedOabForPlanilha && (
+        <ImportarPlanilhaWizard
+          open={importPlanilhaOpen}
+          onOpenChange={setImportPlanilhaOpen}
+          oabId={selectedOabForPlanilha.id}
+          oabLabel={`OAB ${selectedOabForPlanilha.oab_numero}/${selectedOabForPlanilha.oab_uf}`}
+          onSuccess={() => {
+            setActiveTab('importacoes');
+            fetchOABs();
           }}
         />
       )}
