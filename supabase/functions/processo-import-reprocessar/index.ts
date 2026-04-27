@@ -22,8 +22,10 @@ serve(async (req) => {
     const userClient = createClient(supabaseUrl, supabaseAnon, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user }, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !user) throw new Error('Usuário inválido');
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: userErr } = await userClient.auth.getClaims(token);
+    if (userErr || !claimsData?.claims?.sub) throw new Error('Usuário inválido');
+    const user = { id: claimsData.claims.sub as string };
 
     const { loteId, jobIds } = await req.json() as {
       loteId?: string;

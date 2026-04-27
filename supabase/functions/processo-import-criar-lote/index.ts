@@ -25,12 +25,14 @@ serve(async (req) => {
     const supabaseAnon = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseService = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Validar usuário
+    // Validar usuário via JWT claims (compatível com signing-keys)
     const userClient = createClient(supabaseUrl, supabaseAnon, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user }, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !user) throw new Error('Usuário inválido');
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: userErr } = await userClient.auth.getClaims(token);
+    if (userErr || !claimsData?.claims?.sub) throw new Error('Usuário inválido');
+    const user = { id: claimsData.claims.sub as string };
 
     const { tenantId, oabId, nomeArquivo, jobs } = await req.json() as {
       tenantId: string;
