@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { checkIfUserIsAdmin } from '@/lib/auth-helpers';
+import { useTenantId } from './useTenantId';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface ReuniaoMetrics {
   totalReunioes: number;
@@ -26,16 +27,17 @@ export const useReuniaoMetrics = (
   const [metrics, setMetrics] = useState<ReuniaoMetrics | null>(null);
   const [userMetrics, setUserMetrics] = useState<UserMetrics[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { tenantId } = useTenantId();
+  const { userRole } = useAuth();
+  const isAdmin = userRole === 'admin' || userRole === 'controller';
 
   const fetchMetrics = async () => {
+    if (!tenantId) return;
+    
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
-      const admin = await checkIfUserIsAdmin(user.id);
-      setIsAdmin(admin);
 
       const targetUserId = userId || user.id;
 
@@ -53,10 +55,11 @@ export const useReuniaoMetrics = (
             nome,
             cor
           )
-        `);
+        `)
+        .eq('tenant_id', tenantId);
 
       // Filtrar por usuário se não for admin vendo todos
-      if (!admin || userId) {
+      if (!isAdmin || userId) {
         reunioesQuery = reunioesQuery.eq('user_id', targetUserId);
       }
 
@@ -137,7 +140,7 @@ export const useReuniaoMetrics = (
       });
 
       // Se for admin sem filtro de usuário, buscar métricas por usuário
-      if (admin && !userId) {
+      if (isAdmin && !userId) {
         await fetchUserMetrics(startDate, endDate);
       }
     } catch (error) {
@@ -161,7 +164,8 @@ export const useReuniaoMetrics = (
             nome,
             cor
           )
-        `);
+        `)
+        .eq('tenant_id', tenantId!);
 
       if (startDate) {
         query = query.gte('created_at', startDate.toISOString());
@@ -230,7 +234,7 @@ export const useReuniaoMetrics = (
 
   useEffect(() => {
     fetchMetrics();
-  }, [userId, startDate, endDate, statusIds]);
+  }, [userId, startDate, endDate, statusIds, tenantId, userRole]);
 
   return {
     metrics,
