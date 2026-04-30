@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Calendar, Users, TrendingUp, Target } from 'lucide-react';
 import { useReuniaoMetrics } from '@/hooks/useReuniaoMetrics';
 import { useTenantNavigation } from '@/hooks/useTenantNavigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { StatusDistributionChart } from '@/components/Reunioes/Charts/StatusDistributionChart';
 import { ReunioesTrendChart } from '@/components/Reunioes/Charts/ReunioesTrendChart';
 import { UserPerformanceTable } from '@/components/Reunioes/Charts/UserPerformanceTable';
@@ -16,9 +17,11 @@ import { ptBR } from 'date-fns/locale';
 
 const ReuniaoRelatorios = () => {
   const { navigate } = useTenantNavigation();
+  const { userRole } = useAuth();
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
-  const { metrics, userMetrics, loading, isAdmin } = useReuniaoMetrics(undefined, startDate, endDate);
+  const { metrics, userMetrics, loading } = useReuniaoMetrics(undefined, startDate, endDate);
+  const isAdmin = userRole === 'admin' || userRole === 'controller';
 
   if (!isAdmin) {
     return (
