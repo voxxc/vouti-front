@@ -465,6 +465,14 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                       </div>
                     </div>
                   )}
+                  {deadline.createdAt && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Criado em</label>
+                      <p className="text-foreground mt-1 text-sm">
+                        {safeFormatDate(deadline.createdAt, "dd/MM/yyyy 'às' HH:mm")}
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Status</label>
                     <Badge variant={deadline.completed ? "default" : safeIsPast(deadline.date) ? "destructive" : "secondary"} className="ml-2">
