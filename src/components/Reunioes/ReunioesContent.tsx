@@ -16,7 +16,7 @@
  import { Input } from '@/components/ui/input';
  import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
  import { Badge } from '@/components/ui/badge';
- import { Plus, Search, Filter, Edit, Trash2, Users, BarChart3, FileText, Settings } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, Users, BarChart3, FileText, Settings, UserCircle } from 'lucide-react';
  import { useReunioes } from '@/hooks/useReunioes';
  import { useReunioesDoMes } from '@/hooks/useReunioesDoMes';
  import { useTenantNavigation } from '@/hooks/useTenantNavigation';
