@@ -513,7 +513,7 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
           </div>
 
           {/* List + Carteiras */}
-          <ScrollArea className="flex-1">
+          <div className="flex-1 overflow-y-auto pr-2">
             {filteredProtocolos.length === 0 && carteiras.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <FolderKanban className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -530,14 +530,16 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                 )}
               </div>
             ) : (
-              <DragDropContext onDragEnd={handleDragEnd}>
+              <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                 {/* Main list (protocolos sem carteira) */}
                 <Droppable droppableId="protocolos-list">
-                  {(provided) => (
+                  {(provided, snapshot) => (
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
-                      className="space-y-1 min-h-[40px]"
+                      className={`space-y-1 min-h-[40px] rounded-md transition-colors ${
+                        snapshot.isDraggingOver ? 'bg-primary/5 ring-2 ring-primary/40 ring-dashed' : ''
+                      }`}
                     >
                       {protocolosSemCarteira.map((protocolo, index) => 
                         renderProtocoloItem(protocolo, index)
@@ -552,7 +554,12 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                   const protocoIds = carteiraProtocolos[carteira.id] || [];
                   const protocolosNaCarteira = filteredProtocolos.filter(p => protocoIds.includes(p.id));
                   return (
-                    <Collapsible key={carteira.id} defaultOpen className="space-y-2 mt-4">
+                    <Collapsible
+                      key={carteira.id}
+                      defaultOpen
+                      open={isDragging ? true : undefined}
+                      className="space-y-2 mt-4"
+                    >
                       <CollapsibleTrigger asChild>
                         <button className="w-full flex items-center gap-2 py-2 hover:opacity-80 transition-opacity">
                           <Briefcase className="w-4 h-4" style={{ color: carteira.cor }} />
@@ -591,11 +598,13 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <Droppable droppableId={`carteira-${carteira.id}`}>
-                          {(provided) => (
+                          {(provided, snapshot) => (
                             <div
                               {...provided.droppableProps}
                               ref={provided.innerRef}
-                              className="space-y-1 pl-3 border-l-2 ml-2 min-h-[40px]"
+                              className={`space-y-1 pl-3 border-l-2 ml-2 min-h-[40px] max-h-[400px] overflow-y-auto rounded-r-md transition-colors ${
+                                snapshot.isDraggingOver ? 'bg-primary/5 ring-2 ring-primary/40 ring-dashed' : ''
+                              }`}
                               style={{ borderColor: carteira.cor }}
                             >
                               {protocolosNaCarteira.length === 0 && (
@@ -616,7 +625,7 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                 })}
               </DragDropContext>
             )}
-          </ScrollArea>
+          </div>
         </>
       )}
 
