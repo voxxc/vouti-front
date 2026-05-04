@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Search, 
   Plus, 
@@ -16,9 +15,19 @@ import {
   GripVertical,
   Briefcase,
   Trash2,
-  Pencil
+  Pencil,
+  FolderInput,
+  X
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Select,
   SelectContent,
@@ -80,6 +89,7 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
   const [novaCarteiraNome, setNovaCarteiraNome] = useState('');
   const [novaCarteiraCor, setNovaCarteiraCor] = useState('#6366f1');
   const [editandoCarteira, setEditandoCarteira] = useState<any | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const { tenantId } = useTenantId();
   const { toast } = useToast();
@@ -304,6 +314,7 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
   };
 
   const handleDragEnd = (result: DropResult) => {
+    setIsDragging(false);
     if (!result.destination) return;
     
     const sourceId = result.source.droppableId;
@@ -333,6 +344,10 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
       reordered.splice(result.destination.index, 0, moved);
       reorderProtocolos(reordered.map(p => p.id));
     }
+  };
+
+  const handleDragStart = () => {
+    setIsDragging(true);
   };
 
   if (loading) {
