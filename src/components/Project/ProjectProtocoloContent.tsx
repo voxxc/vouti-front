@@ -193,6 +193,7 @@ export function ProjectProtocoloContent({
       .from('deadlines')
       .select(`
         id, title, description, date, completed, protocolo_etapa_id, project_id, tenant_id,
+        user_id, created_at, updated_at,
         comentario_conclusao, concluido_por, concluido_em, deadline_number, processo_oab_id,
         projects (name, client),
         advogado:profiles!deadlines_advogado_responsavel_id_fkey (user_id, full_name, avatar_url),
