@@ -178,17 +178,63 @@ export const useReuniaoClientes = () => {
 
   const obterHistoricoReunioesCliente = async (clienteId: string) => {
     try {
-      const { data, error } = await supabase
+      // Buscar dados do cliente para também localizar reuniões legadas (sem cliente_id)
+      const { data: cliente } = await supabase
+        .from('reuniao_clientes')
+        .select('id, nome, telefone, email, tenant_id')
+        .eq('id', clienteId)
+        .maybeSingle();
+
+      const { data: byId, error } = await supabase
         .from('reunioes')
-        .select(`
-          *,
-          reuniao_comentarios(*)
-        `)
+        .select(`*, reuniao_comentarios(*)`)
         .eq('cliente_id', clienteId)
         .order('data', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+
+      const merged = new Map<string, any>();
+      (byId || []).forEach(r => merged.set(r.id, r));
+
+      // Buscar reuniões antigas onde cliente_id está NULL mas batem por telefone ou nome
+      if (cliente) {
+        const filters: string[] = [];
+        const digits = (cliente.telefone || '').replace(/\D/g, '');
+        if (digits.length >= 8) {
+          filters.push(`cliente_telefone.ilike.%${digits.slice(-8)}%`);
+        }
+        if (cliente.nome) {
+          filters.push(`cliente_nome.ilike.${cliente.nome}`);
+        }
+
+        if (filters.length > 0) {
+          let q = supabase
+            .from('reunioes')
+            .select(`*, reuniao_comentarios(*)`)
+            .is('cliente_id', null)
+            .or(filters.join(','));
+
+          if (cliente.tenant_id) q = q.eq('tenant_id', cliente.tenant_id);
+
+          const { data: legacy } = await q.order('data', { ascending: false });
+          (legacy || []).forEach(r => {
+            // Confirmação extra: se temos telefone, exigir igualdade total dos dígitos
+            if (digits.length >= 8) {
+              const rd = (r.cliente_telefone || '').replace(/\D/g, '');
+              if (rd && rd === digits) merged.set(r.id, r);
+              else if (!r.cliente_telefone && cliente.nome && r.cliente_nome?.toLowerCase() === cliente.nome.toLowerCase()) {
+                merged.set(r.id, r);
+              }
+            } else if (cliente.nome && r.cliente_nome?.toLowerCase() === cliente.nome.toLowerCase()) {
+              merged.set(r.id, r);
+            }
+          });
+        }
+      }
+
+      return Array.from(merged.values()).sort((a, b) =>
+        (b.data || '').localeCompare(a.data || '')
+      );
     } catch (error: any) {
       console.error('Erro ao carregar histórico:', error);
       toast.error('Erro ao carregar histórico de reuniões');
