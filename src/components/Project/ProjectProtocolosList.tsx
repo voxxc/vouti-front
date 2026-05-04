@@ -398,6 +398,9 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
   const renderProtocoloItem = (protocolo: ProjectProtocolo, index: number) => {
     const etapasConcluidas = protocolo.etapas?.filter(e => e.status === 'concluido').length || 0;
     const totalEtapas = protocolo.etapas?.length || 0;
+    const carteiraAtualId = Object.entries(carteiraProtocolos).find(
+      ([, ids]) => ids.includes(protocolo.id)
+    )?.[0];
     
     return (
       <Draggable
@@ -433,9 +436,55 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                   )}
                 </div>
               </div>
-              <Badge className={STATUS_COLORS[protocolo.status]}>
-                {STATUS_LABELS[protocolo.status]}
-              </Badge>
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                {!isLocked && carteiras.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title="Mover para carteira"
+                      >
+                        <FolderInput className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel>Mover para carteira</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {carteiras.map((c) => (
+                        <DropdownMenuItem
+                          key={c.id}
+                          disabled={carteiraAtualId === c.id}
+                          onClick={() => handleMoverParaCarteira(protocolo.id, c.id)}
+                          className="gap-2"
+                        >
+                          <Briefcase className="h-3.5 w-3.5" style={{ color: c.cor }} />
+                          <span className="truncate">{c.nome}</span>
+                          {carteiraAtualId === c.id && (
+                            <Badge variant="secondary" className="ml-auto text-[10px]">atual</Badge>
+                          )}
+                        </DropdownMenuItem>
+                      ))}
+                      {carteiraAtualId && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleRemoverDeCarteira(protocolo.id, carteiraAtualId)}
+                            className="gap-2 text-destructive focus:text-destructive"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                            Remover da carteira
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                <Badge className={STATUS_COLORS[protocolo.status]}>
+                  {STATUS_LABELS[protocolo.status]}
+                </Badge>
+              </div>
             </div>
           </div>
         )}
