@@ -42,3 +42,14 @@ export const extrairTribunalDoNumeroProcesso = (numeroProcesso: string): string 
   console.warn(`Segmento de justiça desconhecido: ${segmento}`);
   return 'TJPR'; // fallback
 };
+
+/**
+ * Se a string contiver exatamente 20 dígitos (CNJ sem máscara),
+ * retorna o CNJ formatado NNNNNNN-DD.AAAA.J.TT.OOOO.
+ * Caso contrário, retorna a string original.
+ */
+export const formatCnjFromDigits = (input: string): string => {
+  const digits = (input || '').replace(/\D/g, '');
+  if (!/^\d{20}$/.test(digits)) return input;
+  return `${digits.slice(0, 7)}-${digits.slice(7, 9)}.${digits.slice(9, 13)}.${digits.slice(13, 14)}.${digits.slice(14, 16)}.${digits.slice(16, 20)}`;
+};
