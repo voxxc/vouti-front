@@ -189,33 +189,31 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
         if (ws) workspaceName = ws.nome;
       }
 
-      // Fetch creator and completer profiles in parallel
+      // Fetch creator and completer profiles
       let creatorName: string | undefined;
       let creatorAvatar: string | undefined;
       let completedByName: string | undefined;
       let completedByAvatar: string | undefined;
-      
-      const profilePromises: Promise<void>[] = [];
-      if (d.user_id) {
-        profilePromises.push(
-          supabase.from('profiles').select('full_name, avatar_url').eq('user_id', d.user_id).single()
-            .then(({ data: creator }) => { if (creator) { creatorName = creator.full_name; creatorAvatar = creator.avatar_url || undefined; } }) as Promise<void>
-        );
+
+      const userIdsToFetch = Array.from(new Set([d.user_id, d.concluido_por].filter(Boolean) as string[]));
+      if (userIdsToFetch.length > 0) {
+        const { data: profiles, error: profErr } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .in('user_id', userIdsToFetch);
+        if (profErr) console.error('[DeadlineDetailDialog] profiles error:', profErr);
+        const map = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+        if (d.user_id && map.has(d.user_id)) {
+          const c: any = map.get(d.user_id);
+          creatorName = c.full_name || undefined;
+          creatorAvatar = c.avatar_url || undefined;
+        }
+        if (d.concluido_por && map.has(d.concluido_por)) {
+          const c: any = map.get(d.concluido_por);
+          completedByName = c.full_name || undefined;
+          completedByAvatar = c.avatar_url || undefined;
+        }
       }
-      if (d.concluido_por && d.concluido_por !== d.user_id) {
-        profilePromises.push(
-          supabase.from('profiles').select('full_name, avatar_url').eq('user_id', d.concluido_por).single()
-            .then(({ data: completer }) => { if (completer) { completedByName = completer.full_name; completedByAvatar = completer.avatar_url || undefined; } }) as Promise<void>
-        );
-      } else if (d.concluido_por && d.concluido_por === d.user_id) {
-        // Same user, reuse after promise resolves
-        profilePromises.push(
-          Promise.resolve().then(() => { completedByName = creatorName; completedByAvatar = creatorAvatar; })
-        );
-      }
-      await Promise.all(profilePromises);
-      // If same user, values may not be set yet due to race, fix:
-      if (d.concluido_por === d.user_id) { completedByName = creatorName; completedByAvatar = creatorAvatar; }
 
       const mapped: Deadline = {
         id: d.id,
@@ -453,26 +451,26 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                       />
                     );
                   })()}
-                  {deadline.createdByName && (
+                  {(deadline.createdByName || deadline.createdByUserId) && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Criado por</label>
                       <div className="flex items-center gap-2 mt-1">
                         <Avatar className="h-6 w-6">
                           <AvatarImage src={deadline.createdByAvatar} />
-                          <AvatarFallback className="text-xs">{deadline.createdByName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                          <AvatarFallback className="text-xs">{(deadline.createdByName || 'U').charAt(0).toUpperCase()}</AvatarFallback>
                         </Avatar>
-                        <span>{deadline.createdByName}</span>
+                        <span>{deadline.createdByName || 'Usuário'}</span>
                       </div>
                     </div>
                   )}
-                  {deadline.createdAt && (
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Criado em</label>
-                      <p className="text-foreground mt-1 text-sm">
-                        {safeFormatDate(deadline.createdAt, "dd/MM/yyyy 'às' HH:mm")}
-                      </p>
-                    </div>
-                  )}
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Criado em</label>
+                    <p className="text-foreground mt-1 text-sm">
+                      {deadline.createdAt && isValid(deadline.createdAt)
+                        ? safeFormatDate(deadline.createdAt, "dd/MM/yyyy 'às' HH:mm")
+                        : '—'}
+                    </p>
+                  </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Status</label>
                     <Badge variant={deadline.completed ? "default" : safeIsPast(deadline.date) ? "destructive" : "secondary"} className="ml-2">
