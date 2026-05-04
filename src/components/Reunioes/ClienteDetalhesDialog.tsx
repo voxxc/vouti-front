@@ -11,7 +11,7 @@ import { ClienteInfoTab } from './ClienteInfoTab';
 import { ClienteComentariosTab } from './ClienteComentariosTab';
 import { ClienteArquivosTab } from './ClienteArquivosTab';
 import { ClienteHistoricoTab } from './ClienteHistoricoTab';
-import { Info, MessageSquare, FileText, History } from 'lucide-react';
+import { Info, MessageSquare, FileText, History, Loader2 } from 'lucide-react';
 
 interface ClienteDetalhesDialogProps {
   cliente: ReuniaoCliente | null;
@@ -36,15 +36,21 @@ export const ClienteDetalhesDialog = ({
     }
   };
 
-  if (!cliente) return null;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle className="text-2xl">{cliente.nome}</DialogTitle>
+          <DialogTitle className="text-2xl">
+            {cliente?.nome ?? 'Carregando ficha do lead...'}
+          </DialogTitle>
         </DialogHeader>
 
+        {!cliente ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <p className="text-sm">Carregando informações do lead...</p>
+          </div>
+        ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="info" className="flex items-center gap-2">
@@ -81,6 +87,7 @@ export const ClienteDetalhesDialog = ({
             <ClienteHistoricoTab clienteId={cliente.id} />
           </TabsContent>
         </Tabs>
+        )}
       </DialogContent>
     </Dialog>
   );

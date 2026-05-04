@@ -2,7 +2,7 @@ import { Reuniao } from '@/types/reuniao';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, Phone, X, CalendarClock, UserCheck } from 'lucide-react';
+import { Clock, Phone, X, CalendarClock, UserCheck, Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +12,7 @@ interface ReuniaoCardProps {
   onDesmarcar?: (reuniao: Reuniao) => void;
   onRemarcar?: (reuniao: Reuniao) => void;
   onAbrirCliente?: (reuniao: Reuniao) => void;
+  isLoadingLead?: boolean;
 }
 
 const getStatusColor = (status: Reuniao['status']) => {
@@ -24,7 +25,7 @@ const getStatusColor = (status: Reuniao['status']) => {
   return colors[status];
 };
 
-export const ReuniaoCard = ({ reuniao, onClick, onDesmarcar, onRemarcar, onAbrirCliente }: ReuniaoCardProps) => {
+export const ReuniaoCard = ({ reuniao, onClick, onDesmarcar, onRemarcar, onAbrirCliente, isLoadingLead }: ReuniaoCardProps) => {
   const hasLead = !!(reuniao.cliente_id || reuniao.cliente_nome || reuniao.cliente_telefone || reuniao.cliente_email);
   return (
     <Card
@@ -85,10 +86,12 @@ export const ReuniaoCard = ({ reuniao, onClick, onDesmarcar, onRemarcar, onAbrir
             hasLead && onAbrirCliente ? (
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); onAbrirCliente(reuniao); }}
-                className="text-xs text-primary hover:underline line-clamp-1 text-left"
+                disabled={isLoadingLead}
+                onClick={(e) => { e.stopPropagation(); if (!isLoadingLead) onAbrirCliente(reuniao); }}
+                className="text-xs text-primary hover:underline line-clamp-1 text-left inline-flex items-center gap-1 disabled:opacity-70 disabled:cursor-wait"
               >
-                {reuniao.cliente_nome}
+                {isLoadingLead && <Loader2 className="h-3 w-3 animate-spin" />}
+                <span>{reuniao.cliente_nome}</span>
               </button>
             ) : (
               <p className="text-xs text-muted-foreground line-clamp-1">{reuniao.cliente_nome}</p>
