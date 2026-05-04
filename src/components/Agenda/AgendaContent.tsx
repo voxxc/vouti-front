@@ -1727,6 +1727,15 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                       </div>
                     </div>
                   )}
+                  {selectedDeadline.createdAt && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Criado em</label>
+                      <p className="text-foreground mt-1 text-sm">
+                        {safeFormatDate(selectedDeadline.createdAt, "dd/MM/yyyy 'às' HH:mm")}
+                      </p>
+                    </div>
+                  )}
+
 
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Status</label>
