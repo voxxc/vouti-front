@@ -25,6 +25,8 @@
  import { AlterarSituacaoDialog } from '@/components/Reunioes/AlterarSituacaoDialog';
  import { ReuniaoComentarios } from '@/components/Reunioes/ReuniaoComentarios';
  import { ReuniaoArquivos } from '@/components/Reunioes/ReuniaoArquivos';
+import { ClienteDetalhesDialog } from '@/components/Reunioes/ClienteDetalhesDialog';
+import { useReuniaoClientes } from '@/hooks/useReuniaoClientes';
  import { Reuniao, ReuniaoFormData, HORARIOS_DISPONIVEIS, REUNIAO_STATUS_OPTIONS } from '@/types/reuniao';
  import { format, startOfMonth } from 'date-fns';
  import { ptBR } from 'date-fns/locale';
@@ -32,9 +34,14 @@
  import { Separator } from '@/components/ui/separator';
  import { useAuth } from '@/contexts/AuthContext';
  
- export function ReunioesContent() {
+interface ReunioesContentProps {
+  onCloseDrawer?: () => void;
+}
+
+export function ReunioesContent({ onCloseDrawer }: ReunioesContentProps = {}) {
    const { navigate } = useTenantNavigation();
    const { userRole } = useAuth();
+  const { clientes, fetchClientes } = useReuniaoClientes();
    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
    const [mesAtual, setMesAtual] = useState<Date>(startOfMonth(new Date()));
    const [searchTerm, setSearchTerm] = useState('');
@@ -47,6 +54,23 @@
    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
    const [showSituacaoDialog, setShowSituacaoDialog] = useState(false);
    const [situacaoAction, setSituacaoAction] = useState<'desmarcada' | 'remarcada'>('desmarcada');
+  const [clienteDetalhesId, setClienteDetalhesId] = useState<string | null>(null);
+  const [showClienteDetalhes, setShowClienteDetalhes] = useState(false);
+
+  const goTo = (path: string) => {
+    onCloseDrawer?.();
+    navigate(path);
+  };
+
+  const handleAbrirCliente = async (clienteId: string) => {
+    setClienteDetalhesId(clienteId);
+    setShowClienteDetalhes(true);
+    if (!clientes.find(c => c.id === clienteId)) {
+      await fetchClientes();
+    }
+  };
+
+  const selectedClienteDetalhes = clientes.find(c => c.id === clienteDetalhesId) || null;
  
    const { reunioes, loading, createReuniao, updateReuniao, deleteReuniao, alterarSituacaoReuniao } = useReunioes(selectedDate);
    const { diasComReunioes } = useReunioesDoMes(mesAtual);
@@ -144,17 +168,17 @@
        {/* Header com botões de navegação */}
        <div className="flex items-center justify-between">
          <h1 className="text-3xl font-bold">Reuniões</h1>
-         <div className="flex gap-2">
-           <Button variant="outline" onClick={() => navigate('/reunioes/metricas')}>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => goTo('/reunioes/metricas')}>
              <BarChart3 className="h-4 w-4 mr-2" />
              Minhas Métricas
            </Button>
-           <Button variant="outline" onClick={() => navigate('/reunioes/relatorios')}>
+            <Button variant="outline" onClick={() => goTo('/reunioes/relatorios')}>
              <FileText className="h-4 w-4 mr-2" />
              Relatórios
            </Button>
            {(userRole && ['admin', 'agenda'].includes(userRole)) && (
-             <Button variant="outline" onClick={() => navigate('/admin/reuniao-status')}>
+              <Button variant="outline" onClick={() => goTo('/admin/reuniao-status')}>
                <Settings className="h-4 w-4 mr-2" />
                Gerenciar Etiquetas
              </Button>
@@ -230,8 +254,8 @@
                  <CardTitle>
                    Reuniões - {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                  </CardTitle>
-                 <div className="flex items-center gap-2">
-                   <Button variant="outline" onClick={() => navigate('/reuniao-clientes')}>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={() => goTo('/reuniao-clientes')}>
                      <Users className="h-4 w-4 mr-2" />
                      Gerenciar Leads
                    </Button>
@@ -296,6 +320,7 @@
                                    onClick={() => handleViewDetails(reuniao)}
                                    onDesmarcar={handleDesmarcar}
                                    onRemarcar={handleRemarcar}
+                                    onAbrirCliente={handleAbrirCliente}
                                  />
                                ))}
                              </div>
