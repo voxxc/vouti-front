@@ -1,63 +1,30 @@
-## Unificar o detalhe de prazo no Workspace com o da Agenda + mostrar criação
+Vou corrigir isso em dois pontos para eliminar a divergência que ainda aparece no workspace e garantir que o criador/data sempre sejam exibidos.
 
-Hoje há **duas telas distintas** para o mesmo conceito:
+1. Remover de vez o diálogo antigo do workspace/protocolo
+- O replay mostra que a janela ainda está vindo de `ProjectProtocoloContent.tsx` com o layout antigo (`DESCRIÇÃO`, `DATA`, `PROJETO`, `CLIENTE`, `RESPONSÁVEL`, card azul de `Caso Vinculado`).
+- Vou substituir/garantir esse render pelo componente único `DeadlineDetailDialog`, que é o mesmo usado como padrão na Agenda.
+- Também vou limpar os imports/estados/funções antigas que mantêm esse diálogo antigo vivo, para evitar que o preview continue abrindo a versão errada.
 
-- **Agenda** → usa o componente `DeadlineDetailDialog` (busca o prazo por ID, abas Info/Comentários/Conclusão, mostra Origem/Vinculado, ações de concluir/reabrir/editar/excluir).
-- **Workspace (Protocolo)** → tem um Dialog escrito *inline* dentro de `ProjectProtocoloContent.tsx` (~300 linhas duplicadas), com layout parecido mas divergente.
+2. Garantir que o payload/listagem do workspace traga auditoria do prazo
+- Na busca dos prazos vinculados em `ProjectProtocoloContent.tsx`, vou incluir `created_at`, `updated_at` e `user_id` no select.
+- Mesmo usando `DeadlineDetailDialog` por `deadlineId`, isso evita dados incompletos nos cards/listas e em qualquer fallback interno.
 
-O resultado é desalinhamento visual e funcional (campos a menos, ações em ordem diferente, sem abas Origem/Vinculado etc.).
+3. Corrigir o carregamento do criador no detalhe
+- Em `DeadlineDetailDialog.tsx`, vou tornar a busca do perfil do criador mais robusta:
+  - buscar `profiles` por `user_id = deadlines.user_id`;
+  - se não encontrar nome, exibir fallback como `Usuário`/email quando disponível, em vez de simplesmente esconder o campo;
+  - manter avatar quando existir.
+- A seção `Criado por` deixará de depender de nome perfeito para aparecer; se existir `user_id`, o campo aparece.
 
-### Objetivo
+4. Garantir data e hora de criação em todos os detalhes
+- Em `DeadlineDetailDialog.tsx`, vou exibir `Criado em` sempre que `created_at` existir, formatado como `dd/MM/yyyy às HH:mm`.
+- Vou evitar fallback enganoso para `new Date()` quando `created_at` vier vazio; se estiver ausente no banco, isso ficará claro em vez de mostrar a data atual incorretamente.
+- Em `AgendaContent.tsx`, vou manter/adaptar a mesma lógica para a janela inline da Agenda enquanto ela ainda existir.
 
-1. No Workspace, abrir **o mesmo `DeadlineDetailDialog` da Agenda** ao clicar num prazo.
-2. Adicionar **data + hora de criação** do prazo dentro do diálogo (vale para Agenda e Workspace, já que será o mesmo componente).
+5. Padronizar visual
+- A janela aberta pelo workspace passará a ter o mesmo layout/tabs da janela padrão da Agenda.
+- A seção de auditoria ficará visível no final da aba `Informações`:
+  - `Criado por` com avatar/inicial;
+  - `Criado em` com data e hora.
 
----
-
-### Mudanças
-
-**1. `src/components/Project/ProjectProtocoloContent.tsx`**
-- Importar `DeadlineDetailDialog` de `@/components/Agenda/DeadlineDetailDialog`.
-- Substituir todo o bloco `<Dialog open={isDetailDialogOpen}>...</Dialog>` (linhas ~862–1170) por:
-  ```tsx
-  <DeadlineDetailDialog
-    deadlineId={selectedDeadline?.id ?? null}
-    open={isDetailDialogOpen}
-    onOpenChange={(open) => {
-      setIsDetailDialogOpen(open);
-      if (!open) {
-        setSelectedDeadline(null);
-        fetchPrazosVinculados(); // reflete mudanças (concluir/editar/excluir)
-      }
-    }}
-  />
-  ```
-- Remover o `EditarPrazoDialog` solto no fim (linhas 1174–1183) — o `DeadlineDetailDialog` já tem o botão "Editar" que abre o `EditarPrazoDialog` internamente.
-- Limpar imports e estados que ficarem órfãos (`isEditPrazoOpen`, `editingDeadlineObj`, `confirmCompleteId`, `reopenConfirmId`, `deleteDeadlineConfirm` se só eram usados pelo bloco removido — manter os que ainda forem usados em outros lugares do arquivo, como nos botões de "concluir rápido" da lista).
-- Manter `openDeadlineDetails`, `selectedDeadline` e `isDetailDialogOpen` (continuam sendo o gatilho do clique).
-- O `DeadlineDetailDialog` se sincroniza via `dispatchDeadlineChange` / evento global `deadline-change`; mesmo assim, o `fetchPrazosVinculados()` no `onOpenChange(false)` garante que a lista local do workspace reflita imediatamente.
-
-**2. `src/components/Agenda/DeadlineDetailDialog.tsx`**
-- Na aba **"Informações"**, abaixo dos campos de Data/Projeto/Cliente, adicionar bloco:
-  ```tsx
-  <div>
-    <span className="text-sm font-medium text-muted-foreground">Criado em</span>
-    <p className="mt-1 text-sm">
-      {format(deadline.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-      {deadline.createdByName ? ` por ${deadline.createdByName}` : ''}
-    </p>
-  </div>
-  ```
-- O campo `createdAt` já é populado na query interna do componente (linha 232: `createdAt: safeParseTimestamp(d.created_at)`). O `created_at` da tabela `deadlines` é `timestamptz`, então hora vem incluída.
-- Se a query interna não estiver trazendo o nome do criador, ler junto: `creator:profiles!deadlines_user_id_fkey(full_name)` e mapear para `createdByName` (opcional — exibe só a data se não vier).
-
-### Resultado
-
-- Mesmo visual, abas e ações ao clicar num prazo, esteja ele na Agenda ou dentro de um Protocolo do Workspace.
-- Toda janela de detalhe passa a mostrar **"Criado em DD/MM/AAAA às HH:mm"** (e, se disponível, "por Fulano").
-- Reduz ~300 linhas duplicadas em `ProjectProtocoloContent.tsx`.
-
-### Fora de escopo
-
-- Não muda o `EditarPrazoDialog` (form de edição) — continua sendo aberto pelo botão "Editar" dentro do detalhe.
-- Não mexe na listagem de prazos do workspace (cards), só no diálogo que abre ao clicar.
+Resultado esperado: ao abrir qualquer prazo pelo workspace ou pela Agenda, a janela exibirá o mesmo detalhe e mostrará quem criou o prazo e quando foi criado.
