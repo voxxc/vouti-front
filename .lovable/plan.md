@@ -1,48 +1,63 @@
-## Problema
+## Unificar o detalhe de prazo no Workspace com o da Agenda + mostrar criação
 
-Na aba **Controladoria > Geral**, a busca só encontra processos quando o CNJ é digitado com a pontuação (`0000134-75.2024.8.16.0192`). Se o usuário digita só os 20 dígitos (`00001347520248160192`), nada aparece — porque o campo `numero_cnj` no banco está armazenado **com** a pontuação, e o `ilike` compara texto literal.
+Hoje há **duas telas distintas** para o mesmo conceito:
 
-## Solução
+- **Agenda** → usa o componente `DeadlineDetailDialog` (busca o prazo por ID, abas Info/Comentários/Conclusão, mostra Origem/Vinculado, ações de concluir/reabrir/editar/excluir).
+- **Workspace (Protocolo)** → tem um Dialog escrito *inline* dentro de `ProjectProtocoloContent.tsx` (~300 linhas duplicadas), com layout parecido mas divergente.
 
-Ajustar `src/hooks/useAllProcessosOAB.ts` para detectar quando o termo digitado é uma sequência de 20 dígitos (CNJ sem máscara) e, nesse caso, formatá-lo automaticamente para o padrão CNJ antes de fazer a query no Supabase.
+O resultado é desalinhamento visual e funcional (campos a menos, ações em ordem diferente, sem abas Origem/Vinculado etc.).
 
-A busca formatada continua usando `ilike`, então o usuário pode colar:
-- `00001347520248160192` → convertido para `0000134-75.2024.8.16.0192`
-- `0000134-75.2024.8.16.0192` → usado como está
-- partes do número, nome de parte, tribunal → comportamento atual mantido
+### Objetivo
 
-### Detalhes técnicos
+1. No Workspace, abrir **o mesmo `DeadlineDetailDialog` da Agenda** ao clicar num prazo.
+2. Adicionar **data + hora de criação** do prazo dentro do diálogo (vale para Agenda e Workspace, já que será o mesmo componente).
 
-No bloco de search server-side (linha ~47):
+---
 
-```ts
-if (searchTerm.trim()) {
-  const raw = searchTerm.trim();
-  const digits = raw.replace(/\D/g, '');
-  let cnjVariant = raw;
+### Mudanças
 
-  // Se o usuário digitou exatamente 20 dígitos, formatar como CNJ
-  if (/^\d{20}$/.test(digits)) {
-    cnjVariant = `${digits.slice(0,7)}-${digits.slice(7,9)}.${digits.slice(9,13)}.${digits.slice(13,14)}.${digits.slice(14,16)}.${digits.slice(16,20)}`;
-  }
+**1. `src/components/Project/ProjectProtocoloContent.tsx`**
+- Importar `DeadlineDetailDialog` de `@/components/Agenda/DeadlineDetailDialog`.
+- Substituir todo o bloco `<Dialog open={isDetailDialogOpen}>...</Dialog>` (linhas ~862–1170) por:
+  ```tsx
+  <DeadlineDetailDialog
+    deadlineId={selectedDeadline?.id ?? null}
+    open={isDetailDialogOpen}
+    onOpenChange={(open) => {
+      setIsDetailDialogOpen(open);
+      if (!open) {
+        setSelectedDeadline(null);
+        fetchPrazosVinculados(); // reflete mudanças (concluir/editar/excluir)
+      }
+    }}
+  />
+  ```
+- Remover o `EditarPrazoDialog` solto no fim (linhas 1174–1183) — o `DeadlineDetailDialog` já tem o botão "Editar" que abre o `EditarPrazoDialog` internamente.
+- Limpar imports e estados que ficarem órfãos (`isEditPrazoOpen`, `editingDeadlineObj`, `confirmCompleteId`, `reopenConfirmId`, `deleteDeadlineConfirm` se só eram usados pelo bloco removido — manter os que ainda forem usados em outros lugares do arquivo, como nos botões de "concluir rápido" da lista).
+- Manter `openDeadlineDetails`, `selectedDeadline` e `isDetailDialogOpen` (continuam sendo o gatilho do clique).
+- O `DeadlineDetailDialog` se sincroniza via `dispatchDeadlineChange` / evento global `deadline-change`; mesmo assim, o `fetchPrazosVinculados()` no `onOpenChange(false)` garante que a lista local do workspace reflita imediatamente.
 
-  const termoRaw = `%${raw}%`;
-  const termoCnj = `%${cnjVariant}%`;
+**2. `src/components/Agenda/DeadlineDetailDialog.tsx`**
+- Na aba **"Informações"**, abaixo dos campos de Data/Projeto/Cliente, adicionar bloco:
+  ```tsx
+  <div>
+    <span className="text-sm font-medium text-muted-foreground">Criado em</span>
+    <p className="mt-1 text-sm">
+      {format(deadline.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+      {deadline.createdByName ? ` por ${deadline.createdByName}` : ''}
+    </p>
+  </div>
+  ```
+- O campo `createdAt` já é populado na query interna do componente (linha 232: `createdAt: safeParseTimestamp(d.created_at)`). O `created_at` da tabela `deadlines` é `timestamptz`, então hora vem incluída.
+- Se a query interna não estiver trazendo o nome do criador, ler junto: `creator:profiles!deadlines_user_id_fkey(full_name)` e mapear para `createdByName` (opcional — exibe só a data se não vier).
 
-  query = query.or(
-    `numero_cnj.ilike.${termoCnj},numero_cnj.ilike.${termoRaw},parte_ativa.ilike.${termoRaw},parte_passiva.ilike.${termoRaw},tribunal_sigla.ilike.${termoRaw}`
-  );
-}
-```
+### Resultado
 
-Extrair também a formatação para um helper reutilizável em `src/utils/processoHelpers.ts` (`formatCnjFromDigits`) para manter consistência.
+- Mesmo visual, abas e ações ao clicar num prazo, esteja ele na Agenda ou dentro de um Protocolo do Workspace.
+- Toda janela de detalhe passa a mostrar **"Criado em DD/MM/AAAA às HH:mm"** (e, se disponível, "por Fulano").
+- Reduz ~300 linhas duplicadas em `ProjectProtocoloContent.tsx`.
 
-## Arquivos alterados
+### Fora de escopo
 
-- `src/utils/processoHelpers.ts` — novo helper `formatCnjFromDigits`.
-- `src/hooks/useAllProcessosOAB.ts` — usar o helper na construção do filtro.
-
-## Fora de escopo
-
-- Não muda o input visual nem força máscara — usuário pode digitar com ou sem pontuação.
-- Não altera busca de CNPJ / OAB / Push-docs (pode ser estendido depois se quiser).
+- Não muda o `EditarPrazoDialog` (form de edição) — continua sendo aberto pelo botão "Editar" dentro do detalhe.
+- Não mexe na listagem de prazos do workspace (cards), só no diálogo que abre ao clicar.
