@@ -859,6 +859,17 @@ export function ProjectProtocoloContent({
         <EditarAdvogadoProjectModal projectId={projectId} open={showAdvogadoModal} onOpenChange={(open) => { setShowAdvogadoModal(open); if (!open) refetchAdvogado(); }} />
       )}
 
+      <DeadlineDetailDialog
+        deadlineId={selectedDeadline?.id ?? null}
+        open={isDetailDialogOpen}
+        onOpenChange={(open) => {
+          setIsDetailDialogOpen(open);
+          if (!open) {
+            setSelectedDeadline(null);
+            fetchPrazosVinculados();
+          }
+        }}
+      />
     </>
   );
 }
