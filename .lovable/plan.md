@@ -1,30 +1,40 @@
-Vou corrigir isso em dois pontos para eliminar a divergência que ainda aparece no workspace e garantir que o criador/data sempre sejam exibidos.
+Identifiquei por que “nada ainda” mudou no print atual.
 
-1. Remover de vez o diálogo antigo do workspace/protocolo
-- O replay mostra que a janela ainda está vindo de `ProjectProtocoloContent.tsx` com o layout antigo (`DESCRIÇÃO`, `DATA`, `PROJETO`, `CLIENTE`, `RESPONSÁVEL`, card azul de `Caso Vinculado`).
-- Vou substituir/garantir esse render pelo componente único `DeadlineDetailDialog`, que é o mesmo usado como padrão na Agenda.
-- Também vou limpar os imports/estados/funções antigas que mantêm esse diálogo antigo vivo, para evitar que o preview continue abrindo a versão errada.
+O modal que você está vendo ainda vem do fluxo do workspace/protocolo, e a consulta desse fluxo continua trazendo os prazos sem `user_id`, `created_at` e `updated_at`. O próprio network log confirma isso: o prazo nº 910 está sendo carregado com `id`, `title`, `date`, `deadline_number`, etc., mas sem `user_id` e sem `created_at`. No banco, esses dados existem:
 
-2. Garantir que o payload/listagem do workspace traga auditoria do prazo
-- Na busca dos prazos vinculados em `ProjectProtocoloContent.tsx`, vou incluir `created_at`, `updated_at` e `user_id` no select.
-- Mesmo usando `DeadlineDetailDialog` por `deadlineId`, isso evita dados incompletos nos cards/listas e em qualquer fallback interno.
+- Prazo nº 910: `created_at = 2026-04-27 19:32:36`
+- Criado por: `Izabelita Beatriz`
 
-3. Corrigir o carregamento do criador no detalhe
-- Em `DeadlineDetailDialog.tsx`, vou tornar a busca do perfil do criador mais robusta:
-  - buscar `profiles` por `user_id = deadlines.user_id`;
-  - se não encontrar nome, exibir fallback como `Usuário`/email quando disponível, em vez de simplesmente esconder o campo;
-  - manter avatar quando existir.
-- A seção `Criado por` deixará de depender de nome perfeito para aparecer; se existir `user_id`, o campo aparece.
+Plano de correção:
 
-4. Garantir data e hora de criação em todos os detalhes
-- Em `DeadlineDetailDialog.tsx`, vou exibir `Criado em` sempre que `created_at` existir, formatado como `dd/MM/yyyy às HH:mm`.
-- Vou evitar fallback enganoso para `new Date()` quando `created_at` vier vazio; se estiver ausente no banco, isso ficará claro em vez de mostrar a data atual incorretamente.
-- Em `AgendaContent.tsx`, vou manter/adaptar a mesma lógica para a janela inline da Agenda enquanto ela ainda existir.
+1. Corrigir a consulta do workspace/protocolo
+   - Em `ProjectProtocoloContent.tsx`, incluir `user_id`, `created_at` e `updated_at` no `select` de `fetchPrazosVinculados`.
+   - Incluir também o perfil do criador, usando o relacionamento `profiles` do `user_id` quando possível.
+   - Isso resolve o caso exato do print, porque hoje esse payload chega incompleto.
 
-5. Padronizar visual
-- A janela aberta pelo workspace passará a ter o mesmo layout/tabs da janela padrão da Agenda.
-- A seção de auditoria ficará visível no final da aba `Informações`:
-  - `Criado por` com avatar/inicial;
-  - `Criado em` com data e hora.
+2. Remover estados/lógica antiga que não deveriam mais controlar o modal
+   - Limpar estados e funções antigas do modal inline em `ProjectProtocoloContent.tsx` que ainda ficaram depois da troca para `DeadlineDetailDialog`.
+   - O clique no prazo deve apenas abrir `DeadlineDetailDialog` por `deadlineId`, para garantir que o workspace use exatamente o mesmo componente visual da agenda.
 
-Resultado esperado: ao abrir qualquer prazo pelo workspace ou pela Agenda, a janela exibirá o mesmo detalhe e mostrará quem criou o prazo e quando foi criado.
+3. Tornar o `DeadlineDetailDialog` mais robusto
+   - Buscar `user_id`, `created_at` e `updated_at` explicitamente no detalhe.
+   - Buscar o perfil do criador pelo `profiles.user_id` e usar fallback por e-mail/nome quando o nome não vier.
+   - Renderizar sempre:
+     - `Criado por`: nome do usuário ou `Usuário` se só houver ID.
+     - `Criado em`: `dd/MM/yyyy às HH:mm`, ou `—` se realmente não existir.
+
+4. Corrigir também o modal inline da Agenda
+   - Em `AgendaContent.tsx`, alterar a renderização atual que ainda depende de `createdByName` e `createdAt` para ficar igual à lógica robusta do `DeadlineDetailDialog`.
+   - Assim, agenda, dashboard, controladoria, planejador e workspace ficam consistentes.
+
+5. Ajustar o carregamento do AgendaDrawer, se necessário
+   - `AgendaDrawer` aceita `initialDeadlineId`, mas `DashboardLayout` não repassa esse valor no drawer global.
+   - Vou revisar e corrigir esse repasse se estiver afetando algum clique vindo do dashboard/agenda.
+
+Resultado esperado:
+
+- Ao abrir o prazo nº 910 pelo workspace, deve aparecer:
+  - `Criado por` → Izabelita Beatriz
+  - `Criado em` → 27/04/2026 às 19:32
+- A janela de detalhes pelo workspace ficará igual à da agenda.
+- Todos os prazos passam a exibir data/hora de criação quando o banco tiver esse dado.

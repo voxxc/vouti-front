@@ -1713,28 +1713,28 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                     );
                   })()}
                   
-                  {selectedDeadline.createdByName && (
+                  {(selectedDeadline.createdByName || selectedDeadline.createdByUserId) && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Criado por</label>
                       <div className="flex items-center gap-2 mt-1">
                         <Avatar className="h-6 w-6">
                           <AvatarImage src={selectedDeadline.createdByAvatar} />
                           <AvatarFallback className="text-xs">
-                            {selectedDeadline.createdByName?.charAt(0).toUpperCase() || 'U'}
+                            {(selectedDeadline.createdByName || 'U').charAt(0).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        <span>{selectedDeadline.createdByName}</span>
+                        <span>{selectedDeadline.createdByName || 'Usuário'}</span>
                       </div>
                     </div>
                   )}
-                  {selectedDeadline.createdAt && (
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Criado em</label>
-                      <p className="text-foreground mt-1 text-sm">
-                        {safeFormatDate(selectedDeadline.createdAt, "dd/MM/yyyy 'às' HH:mm")}
-                      </p>
-                    </div>
-                  )}
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Criado em</label>
+                    <p className="text-foreground mt-1 text-sm">
+                      {selectedDeadline.createdAt && isValid(selectedDeadline.createdAt)
+                        ? safeFormatDate(selectedDeadline.createdAt, "dd/MM/yyyy 'às' HH:mm")
+                        : '—'}
+                    </p>
+                  </div>
 
 
                   <div>

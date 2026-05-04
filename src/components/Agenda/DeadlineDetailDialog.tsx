@@ -199,18 +199,18 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
       if (userIdsToFetch.length > 0) {
         const { data: profiles, error: profErr } = await supabase
           .from('profiles')
-          .select('user_id, full_name, avatar_url')
+          .select('user_id, full_name, avatar_url, email')
           .in('user_id', userIdsToFetch);
         if (profErr) console.error('[DeadlineDetailDialog] profiles error:', profErr);
         const map = new Map((profiles || []).map((p: any) => [p.user_id, p]));
         if (d.user_id && map.has(d.user_id)) {
           const c: any = map.get(d.user_id);
-          creatorName = c.full_name || undefined;
+          creatorName = c.full_name || c.email || undefined;
           creatorAvatar = c.avatar_url || undefined;
         }
         if (d.concluido_por && map.has(d.concluido_por)) {
           const c: any = map.get(d.concluido_por);
-          completedByName = c.full_name || undefined;
+          completedByName = c.full_name || c.email || undefined;
           completedByAvatar = c.avatar_url || undefined;
         }
       }
