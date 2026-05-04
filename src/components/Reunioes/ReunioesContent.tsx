@@ -428,7 +428,22 @@ export function ReunioesContent({ onCloseDrawer }: ReunioesContentProps = {}) {
  
                  {(selectedReuniao.cliente_nome || selectedReuniao.cliente_telefone || selectedReuniao.cliente_email) && (
                    <div className="p-4 border rounded-lg space-y-2">
-                     <h4 className="font-semibold text-sm">Informações do Cliente</h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-sm">Informações do Cliente</h4>
+                        {selectedReuniao.cliente_id && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setShowDetailsDialog(false);
+                              handleAbrirCliente(selectedReuniao.cliente_id!);
+                            }}
+                          >
+                            <UserCircle className="h-4 w-4 mr-2" />
+                            Ver ficha do lead
+                          </Button>
+                        )}
+                      </div>
                      {selectedReuniao.cliente_nome && (
                        <p className="text-sm">
                          <span className="font-medium">Nome:</span> {selectedReuniao.cliente_nome}
@@ -495,6 +510,14 @@ export function ReunioesContent({ onCloseDrawer }: ReunioesContentProps = {}) {
         situacao={situacaoAction}
          onConfirm={handleConfirmSituacao}
        />
+
+        {/* Dialog de Detalhes do Cliente/Lead */}
+        <ClienteDetalhesDialog
+          cliente={selectedClienteDetalhes}
+          open={showClienteDetalhes}
+          onOpenChange={setShowClienteDetalhes}
+          onUpdate={fetchClientes}
+        />
      </div>
    );
  }
