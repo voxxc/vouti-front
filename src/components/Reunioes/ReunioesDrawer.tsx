@@ -28,7 +28,7 @@
          {/* Conteudo scrollavel */}
          <ScrollArea className="flex-1">
            <div className="p-6">
-             <ReunioesContent />
+             <ReunioesContent onCloseDrawer={() => onOpenChange(false)} />
            </div>
          </ScrollArea>
        </SheetContent>
