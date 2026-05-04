@@ -58,6 +58,7 @@ export function ReunioesContent({ onCloseDrawer }: ReunioesContentProps = {}) {
    const [situacaoAction, setSituacaoAction] = useState<'desmarcada' | 'remarcada'>('desmarcada');
   const [clienteDetalhesId, setClienteDetalhesId] = useState<string | null>(null);
   const [showClienteDetalhes, setShowClienteDetalhes] = useState(false);
+  const [loadingLeadReuniaoId, setLoadingLeadReuniaoId] = useState<string | null>(null);
 
   const goTo = (path: string) => {
     onCloseDrawer?.();
@@ -65,6 +66,8 @@ export function ReunioesContent({ onCloseDrawer }: ReunioesContentProps = {}) {
   };
 
   const handleAbrirCliente = async (reuniao: Reuniao) => {
+    if (loadingLeadReuniaoId) return; // bloqueia cliques duplos
+    setLoadingLeadReuniaoId(reuniao.id);
     let clienteId = reuniao.cliente_id;
 
     // Se não há vínculo direto, tenta resolver por telefone/nome dentro do tenant
@@ -134,12 +137,18 @@ export function ReunioesContent({ onCloseDrawer }: ReunioesContentProps = {}) {
 
     if (!clienteId) {
       toast.error('Não foi possível localizar a ficha do lead.');
+      setLoadingLeadReuniaoId(null);
       return;
     }
 
-    await fetchClientes();
+    // Abre o dialog imediatamente; ele exibe skeleton enquanto cliente é carregado
     setClienteDetalhesId(clienteId);
     setShowClienteDetalhes(true);
+    try {
+      await fetchClientes();
+    } finally {
+      setLoadingLeadReuniaoId(null);
+    }
   };
 
   const selectedClienteDetalhes = clientes.find(c => c.id === clienteDetalhesId) || null;
@@ -393,6 +402,7 @@ export function ReunioesContent({ onCloseDrawer }: ReunioesContentProps = {}) {
                                    onDesmarcar={handleDesmarcar}
                                    onRemarcar={handleRemarcar}
                                     onAbrirCliente={handleAbrirCliente}
+                                    isLoadingLead={loadingLeadReuniaoId === reuniao.id}
                                  />
                                ))}
                              </div>

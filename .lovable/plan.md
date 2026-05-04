@@ -1,29 +1,30 @@
-# Redesign do Card de Reunião
+# Loading e prevenção de cliques duplos ao abrir ficha do lead
 
-## Objetivo
-- Remover o botão "Ver ficha do lead" do card (ficará apenas no modal de detalhes).
-- Tornar os botões "Desmarcada" e "Remarcada" mais compactos e visualmente discretos.
-- Limpar o layout do card.
+## Problema
+Ao clicar em "Ver ficha do lead" (no nome no card ou botão no modal), há latência (busca/cria cliente, depois `fetchClientes()`). O usuário clica várias vezes e o modal abre repetidamente.
 
 ## Mudanças
 
-### 1. `src/components/Reunioes/ReuniaoCard.tsx`
-- **Remover** completamente o bloco do botão `Ver ficha do lead` (e a prop `onAbrirCliente`).
-- **Tornar o nome do cliente clicável**: o nome do lead vira um link sutil (hover sublinhado, cor primary) que abre a ficha — substitui o botão grande, mas mantém o atalho.
-- **Redesign dos botões de situação**:
-  - Trocar de `variant="outline"` largura total → ícones pequenos (`size="icon"` ou `ghost`) à direita do header do card.
-  - Usar `Tooltip` para indicar "Desmarcar" / "Remarcar" no hover.
-  - Remover o `border-t` separador.
-- Reorganizar visualmente:
-  - Linha 1: título + badge status + ícones de ação (desmarcar/remarcar) à direita
-  - Linha 2: nome do cliente (clicável se houver lead resolvível) com ícone User
-  - Linha 3: telefone + duração inline (compactos)
-  - Linha 4: "Agendado por" em texto pequeno
-  - Descrição opcional, pequena
+### 1. `src/components/Reunioes/ReunioesContent.tsx`
+- Adicionar estado `loadingClienteReuniaoId: string | null`.
+- No `handleAbrirCliente`:
+  - Se já está carregando, retornar (debounce/guard).
+  - Setar `loadingClienteReuniaoId = reuniao.id` no início.
+  - **Otimização**: abrir o dialog imediatamente após resolver `clienteId` (antes do `fetchClientes`), e deixar o dialog mostrar skeleton enquanto `cliente` ainda é `null`.
+  - Limpar loading no `finally`.
+- Passar `loadingId` ao `ReuniaoCard` via prop.
 
-### 2. `src/components/Reunioes/ReunioesContent.tsx`
-- Manter `onAbrirCliente` passado ao `ReuniaoCard` (agora usado pelo nome clicável).
-- Manter o botão "Ver ficha do lead" no modal de detalhes (já existe).
+### 2. `src/components/Reunioes/ReuniaoCard.tsx`
+- Aceitar prop `isLoadingLead?: boolean`.
+- No nome clicável: quando `isLoadingLead`, mostrar `<Loader2 className="animate-spin" />` ao lado do nome e desabilitar o botão (`disabled`, `pointer-events-none`).
+
+### 3. `src/components/Reunioes/ClienteDetalhesDialog.tsx`
+- Em vez de retornar `null` quando `cliente` é `null` mas `open` é `true`, renderizar o `Dialog` com um skeleton/spinner de loading no body. Isso permite abrir o modal instantaneamente.
+
+### 4. Botão "Ver ficha do lead" no modal de detalhes (ReunioesContent.tsx)
+- Adicionar estado de loading local; mostrar `<Loader2 spin />` e `disabled` enquanto resolve.
 
 ## Resultado
-Card mais limpo, com ações secundárias compactas via ícones, e o atalho do lead preservado de forma sutil pelo nome clicável.
+- Clique único bloqueia novos cliques (sem reabertura).
+- Feedback visual imediato (spinner no card e modal abrindo com skeleton).
+- Percepção de velocidade muito maior.
