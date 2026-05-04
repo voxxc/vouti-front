@@ -33,6 +33,8 @@ import { useReuniaoClientes } from '@/hooks/useReuniaoClientes';
  import { ScrollArea } from '@/components/ui/scroll-area';
  import { Separator } from '@/components/ui/separator';
  import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
  
 interface ReunioesContentProps {
   onCloseDrawer?: () => void;
@@ -62,12 +64,82 @@ export function ReunioesContent({ onCloseDrawer }: ReunioesContentProps = {}) {
     navigate(path);
   };
 
-  const handleAbrirCliente = async (clienteId: string) => {
+  const handleAbrirCliente = async (reuniao: Reuniao) => {
+    let clienteId = reuniao.cliente_id;
+
+    // Se não há vínculo direto, tenta resolver por telefone/nome dentro do tenant
+    if (!clienteId) {
+      try {
+        const tenantId = (await supabase.auth.getUser()).data.user
+          ? (await supabase.from('profiles').select('tenant_id').eq('user_id', (await supabase.auth.getUser()).data.user!.id).maybeSingle()).data?.tenant_id
+          : null;
+
+        const digits = (reuniao.cliente_telefone || '').replace(/\D/g, '');
+        if (tenantId && digits.length >= 8) {
+          const { data: byPhone } = await supabase
+            .from('reuniao_clientes')
+            .select('id, telefone')
+            .eq('tenant_id', tenantId)
+            .ilike('telefone', `%${digits.slice(-8)}%`)
+            .limit(5);
+          const match = (byPhone || []).find(
+            (c: any) => (c.telefone || '').replace(/\D/g, '') === digits
+          );
+          if (match) clienteId = match.id;
+        }
+
+        if (!clienteId && tenantId && reuniao.cliente_nome) {
+          const { data: byName } = await supabase
+            .from('reuniao_clientes')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .ilike('nome', reuniao.cliente_nome)
+            .limit(1)
+            .maybeSingle();
+          if (byName?.id) clienteId = byName.id;
+        }
+
+        // Não encontrou: cria a partir dos dados da reunião
+        if (!clienteId && tenantId && reuniao.cliente_nome) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: novo } = await supabase
+              .from('reuniao_clientes')
+              .insert({
+                user_id: user.id,
+                created_by: user.id,
+                tenant_id: tenantId,
+                nome: reuniao.cliente_nome,
+                telefone: reuniao.cliente_telefone || null,
+                email: reuniao.cliente_email || null,
+                origem: 'reuniao',
+              })
+              .select('id')
+              .single();
+            if (novo?.id) clienteId = novo.id;
+          }
+        }
+
+        // Atualiza a reunião com o cliente_id resolvido para próximos cliques
+        if (clienteId) {
+          await supabase
+            .from('reunioes')
+            .update({ cliente_id: clienteId })
+            .eq('id', reuniao.id);
+        }
+      } catch (err) {
+        console.error('Erro ao resolver lead da reunião:', err);
+      }
+    }
+
+    if (!clienteId) {
+      toast.error('Não foi possível localizar a ficha do lead.');
+      return;
+    }
+
+    await fetchClientes();
     setClienteDetalhesId(clienteId);
     setShowClienteDetalhes(true);
-    if (!clientes.find(c => c.id === clienteId)) {
-      await fetchClientes();
-    }
   };
 
   const selectedClienteDetalhes = clientes.find(c => c.id === clienteDetalhesId) || null;
@@ -430,13 +502,13 @@ export function ReunioesContent({ onCloseDrawer }: ReunioesContentProps = {}) {
                    <div className="p-4 border rounded-lg space-y-2">
                       <div className="flex items-center justify-between">
                         <h4 className="font-semibold text-sm">Informações do Cliente</h4>
-                        {selectedReuniao.cliente_id && (
+                       {(selectedReuniao.cliente_id || selectedReuniao.cliente_nome || selectedReuniao.cliente_telefone || selectedReuniao.cliente_email) && (
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => {
                               setShowDetailsDialog(false);
-                              handleAbrirCliente(selectedReuniao.cliente_id!);
+                              handleAbrirCliente(selectedReuniao);
                             }}
                           >
                             <UserCircle className="h-4 w-4 mr-2" />
