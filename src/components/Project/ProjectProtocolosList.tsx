@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Search, 
   Plus, 
@@ -16,9 +15,19 @@ import {
   GripVertical,
   Briefcase,
   Trash2,
-  Pencil
+  Pencil,
+  FolderInput,
+  X
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Select,
   SelectContent,
@@ -80,6 +89,7 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
   const [novaCarteiraNome, setNovaCarteiraNome] = useState('');
   const [novaCarteiraCor, setNovaCarteiraCor] = useState('#6366f1');
   const [editandoCarteira, setEditandoCarteira] = useState<any | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const { tenantId } = useTenantId();
   const { toast } = useToast();
@@ -304,6 +314,7 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
   };
 
   const handleDragEnd = (result: DropResult) => {
+    setIsDragging(false);
     if (!result.destination) return;
     
     const sourceId = result.source.droppableId;
@@ -333,6 +344,10 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
       reordered.splice(result.destination.index, 0, moved);
       reorderProtocolos(reordered.map(p => p.id));
     }
+  };
+
+  const handleDragStart = () => {
+    setIsDragging(true);
   };
 
   if (loading) {
@@ -383,6 +398,9 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
   const renderProtocoloItem = (protocolo: ProjectProtocolo, index: number) => {
     const etapasConcluidas = protocolo.etapas?.filter(e => e.status === 'concluido').length || 0;
     const totalEtapas = protocolo.etapas?.length || 0;
+    const carteiraAtualId = Object.entries(carteiraProtocolos).find(
+      ([, ids]) => ids.includes(protocolo.id)
+    )?.[0];
     
     return (
       <Draggable
@@ -418,9 +436,55 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                   )}
                 </div>
               </div>
-              <Badge className={STATUS_COLORS[protocolo.status]}>
-                {STATUS_LABELS[protocolo.status]}
-              </Badge>
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                {!isLocked && carteiras.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title="Mover para carteira"
+                      >
+                        <FolderInput className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel>Mover para carteira</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {carteiras.map((c) => (
+                        <DropdownMenuItem
+                          key={c.id}
+                          disabled={carteiraAtualId === c.id}
+                          onClick={() => handleMoverParaCarteira(protocolo.id, c.id)}
+                          className="gap-2"
+                        >
+                          <Briefcase className="h-3.5 w-3.5" style={{ color: c.cor }} />
+                          <span className="truncate">{c.nome}</span>
+                          {carteiraAtualId === c.id && (
+                            <Badge variant="secondary" className="ml-auto text-[10px]">atual</Badge>
+                          )}
+                        </DropdownMenuItem>
+                      ))}
+                      {carteiraAtualId && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleRemoverDeCarteira(protocolo.id, carteiraAtualId)}
+                            className="gap-2 text-destructive focus:text-destructive"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                            Remover da carteira
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                <Badge className={STATUS_COLORS[protocolo.status]}>
+                  {STATUS_LABELS[protocolo.status]}
+                </Badge>
+              </div>
             </div>
           </div>
         )}
@@ -498,7 +562,7 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
           </div>
 
           {/* List + Carteiras */}
-          <ScrollArea className="flex-1">
+          <div className="flex-1 overflow-y-auto pr-2">
             {filteredProtocolos.length === 0 && carteiras.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <FolderKanban className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -515,14 +579,16 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                 )}
               </div>
             ) : (
-              <DragDropContext onDragEnd={handleDragEnd}>
+              <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                 {/* Main list (protocolos sem carteira) */}
                 <Droppable droppableId="protocolos-list">
-                  {(provided) => (
+                  {(provided, snapshot) => (
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
-                      className="space-y-1 min-h-[40px]"
+                      className={`space-y-1 min-h-[40px] rounded-md transition-colors ${
+                        snapshot.isDraggingOver ? 'bg-primary/5 ring-2 ring-primary/40 ring-dashed' : ''
+                      }`}
                     >
                       {protocolosSemCarteira.map((protocolo, index) => 
                         renderProtocoloItem(protocolo, index)
@@ -537,7 +603,12 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                   const protocoIds = carteiraProtocolos[carteira.id] || [];
                   const protocolosNaCarteira = filteredProtocolos.filter(p => protocoIds.includes(p.id));
                   return (
-                    <Collapsible key={carteira.id} defaultOpen className="space-y-2 mt-4">
+                    <Collapsible
+                      key={carteira.id}
+                      defaultOpen
+                      open={isDragging ? true : undefined}
+                      className="space-y-2 mt-4"
+                    >
                       <CollapsibleTrigger asChild>
                         <button className="w-full flex items-center gap-2 py-2 hover:opacity-80 transition-opacity">
                           <Briefcase className="w-4 h-4" style={{ color: carteira.cor }} />
@@ -576,11 +647,13 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <Droppable droppableId={`carteira-${carteira.id}`}>
-                          {(provided) => (
+                          {(provided, snapshot) => (
                             <div
                               {...provided.droppableProps}
                               ref={provided.innerRef}
-                              className="space-y-1 pl-3 border-l-2 ml-2 min-h-[40px]"
+                              className={`space-y-1 pl-3 border-l-2 ml-2 min-h-[40px] max-h-[400px] overflow-y-auto rounded-r-md transition-colors ${
+                                snapshot.isDraggingOver ? 'bg-primary/5 ring-2 ring-primary/40 ring-dashed' : ''
+                              }`}
                               style={{ borderColor: carteira.cor }}
                             >
                               {protocolosNaCarteira.length === 0 && (
@@ -601,7 +674,7 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                 })}
               </DragDropContext>
             )}
-          </ScrollArea>
+          </div>
         </>
       )}
 
