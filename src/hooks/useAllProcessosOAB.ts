@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantId } from './useTenantId';
 import { ProcessoOAB, OABCadastrada } from './useOABs';
+import { formatCnjFromDigits } from '@/utils/processoHelpers';
 
 export interface ProcessoOABComOAB extends ProcessoOAB {
   oab_numero: string;
@@ -45,8 +46,21 @@ export const useAllProcessosOAB = () => {
 
       // Server-side search
       if (searchTerm.trim()) {
-        const termo = `%${searchTerm.trim()}%`;
-        query = query.or(`numero_cnj.ilike.${termo},parte_ativa.ilike.${termo},parte_passiva.ilike.${termo},tribunal_sigla.ilike.${termo}`);
+        const raw = searchTerm.trim();
+        const cnjFormatted = formatCnjFromDigits(raw);
+        const termoRaw = `%${raw}%`;
+        const termoCnj = `%${cnjFormatted}%`;
+        const orParts = [
+          `numero_cnj.ilike.${termoRaw}`,
+          `parte_ativa.ilike.${termoRaw}`,
+          `parte_passiva.ilike.${termoRaw}`,
+          `tribunal_sigla.ilike.${termoRaw}`,
+        ];
+        // Se o usuário digitou os 20 dígitos sem pontuação, também procura pelo CNJ formatado
+        if (cnjFormatted !== raw) {
+          orParts.unshift(`numero_cnj.ilike.${termoCnj}`);
+        }
+        query = query.or(orParts.join(','));
       }
 
       const { data, error, count } = await query
