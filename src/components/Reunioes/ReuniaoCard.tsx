@@ -2,7 +2,8 @@ import { Reuniao } from '@/types/reuniao';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, User, Phone, X, CalendarClock, UserCheck, UserCircle } from 'lucide-react';
+import { Clock, Phone, X, CalendarClock, UserCheck } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 interface ReuniaoCardProps {
@@ -24,9 +25,10 @@ const getStatusColor = (status: Reuniao['status']) => {
 };
 
 export const ReuniaoCard = ({ reuniao, onClick, onDesmarcar, onRemarcar, onAbrirCliente }: ReuniaoCardProps) => {
+  const hasLead = !!(reuniao.cliente_id || reuniao.cliente_nome || reuniao.cliente_telefone || reuniao.cliente_email);
   return (
     <Card
-      className="p-3 cursor-pointer hover:shadow-md transition-shadow border-l-4"
+      className="p-3 cursor-pointer hover:shadow-md transition-shadow border-l-4 group"
       style={{
         borderLeftColor: reuniao.status === '1ª reunião' ? '#3b82f6' :
                          reuniao.status === 'em contato' ? '#eab308' :
@@ -34,94 +36,93 @@ export const ReuniaoCard = ({ reuniao, onClick, onDesmarcar, onRemarcar, onAbrir
       }}
       onClick={onClick}
     >
-      <div className="space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <h4 className="font-semibold text-sm line-clamp-1">{reuniao.titulo}</h4>
-          <Badge variant="secondary" className={cn('text-xs', getStatusColor(reuniao.status))}>
-            {reuniao.status}
-          </Badge>
-        </div>
-
-        {reuniao.cliente_nome && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <User className="h-3 w-3" />
-            <span className="line-clamp-1 flex-1">{reuniao.cliente_nome}</span>
+      <TooltipProvider delayDuration={200}>
+        <div className="space-y-1.5">
+          {/* Header: título + status + ações */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <h4 className="font-semibold text-sm line-clamp-1">{reuniao.titulo}</h4>
+              <Badge variant="secondary" className={cn('text-[10px] px-1.5 py-0 shrink-0', getStatusColor(reuniao.status))}>
+                {reuniao.status}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+              {onRemarcar && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6"
+                      onClick={(e) => { e.stopPropagation(); onRemarcar(reuniao); }}
+                    >
+                      <CalendarClock className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Remarcar</TooltipContent>
+                </Tooltip>
+              )}
+              {onDesmarcar && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => { e.stopPropagation(); onDesmarcar(reuniao); }}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Desmarcar</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
           </div>
-        )}
 
-        {onAbrirCliente && (reuniao.cliente_id || reuniao.cliente_nome || reuniao.cliente_telefone || reuniao.cliente_email) && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 w-full text-xs"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAbrirCliente(reuniao);
-            }}
-          >
-            <UserCircle className="h-3 w-3 mr-1" />
-            Ver ficha do lead
-          </Button>
-        )}
-
-        {reuniao.cliente_telefone && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Phone className="h-3 w-3" />
-            <span>{reuniao.cliente_telefone}</span>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Clock className="h-3 w-3" />
-          <span>{reuniao.duracao_minutos} min</span>
-        </div>
-
-        {reuniao.criado_por_nome && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <UserCheck className="h-3 w-3" />
-            <span>Agendado por: {reuniao.criado_por_nome}</span>
-          </div>
-        )}
-
-        {reuniao.descricao && (
-          <p className="text-xs text-muted-foreground line-clamp-2 mt-2">
-            {reuniao.descricao}
-          </p>
-        )}
-
-        {(onDesmarcar || onRemarcar) && (
-          <div className="flex items-center gap-2 mt-3 pt-2 border-t">
-            {onDesmarcar && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs flex-1"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDesmarcar(reuniao);
-                }}
+          {/* Cliente clicável */}
+          {reuniao.cliente_nome && (
+            hasLead && onAbrirCliente ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onAbrirCliente(reuniao); }}
+                className="text-xs text-primary hover:underline line-clamp-1 text-left"
               >
-                <X className="h-3 w-3 mr-1" />
-                Desmarcada
-              </Button>
+                {reuniao.cliente_nome}
+              </button>
+            ) : (
+              <p className="text-xs text-muted-foreground line-clamp-1">{reuniao.cliente_nome}</p>
+            )
+          )}
+
+          {/* Meta inline */}
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            {reuniao.cliente_telefone && (
+              <span className="flex items-center gap-1">
+                <Phone className="h-3 w-3" />
+                {reuniao.cliente_telefone}
+              </span>
             )}
-            {onRemarcar && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs flex-1"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemarcar(reuniao);
-                }}
-              >
-                <CalendarClock className="h-3 w-3 mr-1" />
-                Remarcada
-              </Button>
-            )}
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {reuniao.duracao_minutos} min
+            </span>
           </div>
-        )}
-      </div>
+
+          {reuniao.criado_por_nome && (
+            <p className="flex items-center gap-1 text-[10px] text-muted-foreground/80">
+              <UserCheck className="h-3 w-3" />
+              {reuniao.criado_por_nome}
+            </p>
+          )}
+
+          {reuniao.descricao && (
+            <p className="text-[11px] text-muted-foreground line-clamp-2">
+              {reuniao.descricao}
+            </p>
+          )}
+        </div>
+      </TooltipProvider>
     </Card>
   );
 };
