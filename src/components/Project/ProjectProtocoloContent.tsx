@@ -77,6 +77,7 @@ import { EditarAdvogadoProjectModal } from './EditarAdvogadoProjectModal';
 import { ProtocoloVinculoTab } from './ProtocoloVinculoTab';
 import { DeadlineComentarios } from '@/components/Agenda/DeadlineComentarios';
 import { EditarPrazoDialog } from '@/components/Agenda/EditarPrazoDialog';
+import { DeadlineDetailDialog } from '@/components/Agenda/DeadlineDetailDialog';
 import { Deadline } from '@/types/agenda';
 import { TaskComentarios } from './TaskComentarios';
 import { Separator } from '@/components/ui/separator';
