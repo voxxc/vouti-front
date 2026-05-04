@@ -33,6 +33,8 @@ import { useReuniaoClientes } from '@/hooks/useReuniaoClientes';
  import { ScrollArea } from '@/components/ui/scroll-area';
  import { Separator } from '@/components/ui/separator';
  import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
  
 interface ReunioesContentProps {
   onCloseDrawer?: () => void;
@@ -500,13 +502,13 @@ export function ReunioesContent({ onCloseDrawer }: ReunioesContentProps = {}) {
                    <div className="p-4 border rounded-lg space-y-2">
                       <div className="flex items-center justify-between">
                         <h4 className="font-semibold text-sm">Informações do Cliente</h4>
-                        {selectedReuniao.cliente_id && (
+                       {(selectedReuniao.cliente_id || selectedReuniao.cliente_nome || selectedReuniao.cliente_telefone || selectedReuniao.cliente_email) && (
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => {
                               setShowDetailsDialog(false);
-                              handleAbrirCliente(selectedReuniao.cliente_id!);
+                              handleAbrirCliente(selectedReuniao);
                             }}
                           >
                             <UserCircle className="h-4 w-4 mr-2" />
