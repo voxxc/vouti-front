@@ -453,26 +453,26 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                       />
                     );
                   })()}
-                  {deadline.createdByName && (
+                  {(deadline.createdByName || deadline.createdByUserId) && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Criado por</label>
                       <div className="flex items-center gap-2 mt-1">
                         <Avatar className="h-6 w-6">
                           <AvatarImage src={deadline.createdByAvatar} />
-                          <AvatarFallback className="text-xs">{deadline.createdByName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                          <AvatarFallback className="text-xs">{(deadline.createdByName || 'U').charAt(0).toUpperCase()}</AvatarFallback>
                         </Avatar>
-                        <span>{deadline.createdByName}</span>
+                        <span>{deadline.createdByName || 'Usuário'}</span>
                       </div>
                     </div>
                   )}
-                  {deadline.createdAt && (
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Criado em</label>
-                      <p className="text-foreground mt-1 text-sm">
-                        {safeFormatDate(deadline.createdAt, "dd/MM/yyyy 'às' HH:mm")}
-                      </p>
-                    </div>
-                  )}
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Criado em</label>
+                    <p className="text-foreground mt-1 text-sm">
+                      {deadline.createdAt && isValid(deadline.createdAt)
+                        ? safeFormatDate(deadline.createdAt, "dd/MM/yyyy 'às' HH:mm")
+                        : '—'}
+                    </p>
+                  </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Status</label>
                     <Badge variant={deadline.completed ? "default" : safeIsPast(deadline.date) ? "destructive" : "secondary"} className="ml-2">
