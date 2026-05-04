@@ -2,7 +2,7 @@ import { Reuniao } from '@/types/reuniao';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Clock, User, Phone, X, CalendarClock, UserCheck } from 'lucide-react';
+import { Clock, User, Phone, X, CalendarClock, UserCheck, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ReuniaoCardProps {
@@ -10,6 +10,7 @@ interface ReuniaoCardProps {
   onClick: () => void;
   onDesmarcar?: (reuniao: Reuniao) => void;
   onRemarcar?: (reuniao: Reuniao) => void;
+  onAbrirCliente?: (clienteId: string) => void;
 }
 
 const getStatusColor = (status: Reuniao['status']) => {
@@ -22,7 +23,7 @@ const getStatusColor = (status: Reuniao['status']) => {
   return colors[status];
 };
 
-export const ReuniaoCard = ({ reuniao, onClick, onDesmarcar, onRemarcar }: ReuniaoCardProps) => {
+export const ReuniaoCard = ({ reuniao, onClick, onDesmarcar, onRemarcar, onAbrirCliente }: ReuniaoCardProps) => {
   return (
     <Card
       className="p-3 cursor-pointer hover:shadow-md transition-shadow border-l-4"
@@ -44,7 +45,21 @@ export const ReuniaoCard = ({ reuniao, onClick, onDesmarcar, onRemarcar }: Reuni
         {reuniao.cliente_nome && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <User className="h-3 w-3" />
-            <span className="line-clamp-1">{reuniao.cliente_nome}</span>
+            <span className="line-clamp-1 flex-1">{reuniao.cliente_nome}</span>
+            {reuniao.cliente_id && onAbrirCliente && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6 shrink-0"
+                title="Abrir ficha do lead"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAbrirCliente(reuniao.cliente_id!);
+                }}
+              >
+                <UserCircle className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         )}
 
