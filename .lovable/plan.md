@@ -1,33 +1,48 @@
+## Problema
 
-# Correção: Indicadores e Relatórios de Reuniões
+Na aba **Controladoria > Geral**, a busca só encontra processos quando o CNJ é digitado com a pontuação (`0000134-75.2024.8.16.0192`). Se o usuário digita só os 20 dígitos (`00001347520248160192`), nada aparece — porque o campo `numero_cnj` no banco está armazenado **com** a pontuação, e o `ilike` compara texto literal.
 
-## Problema Identificado
+## Solução
 
-As páginas de **Métricas** (`/reunioes/metricas`) e **Relatórios** (`/reunioes/relatorios`) não funcionam por dois motivos:
+Ajustar `src/hooks/useAllProcessosOAB.ts` para detectar quando o termo digitado é uma sequência de 20 dígitos (CNJ sem máscara) e, nesse caso, formatá-lo automaticamente para o padrão CNJ antes de fazer a query no Supabase.
 
-1. **`useReuniaoMetrics`** (hook principal de ambas as páginas) **não filtra por `tenant_id`** — viola a regra de isolamento multi-tenant. Isso causa queries sem retorno ou erros de RLS.
+A busca formatada continua usando `ilike`, então o usuário pode colar:
+- `00001347520248160192` → convertido para `0000134-75.2024.8.16.0192`
+- `0000134-75.2024.8.16.0192` → usado como está
+- partes do número, nome de parte, tribunal → comportamento atual mantido
 
-2. **`checkIfUserIsAdmin`** (usada no hook acima) **não filtra por `tenant_id`** — pode retornar `false` incorretamente, fazendo a página de Relatórios mostrar "Acesso Negado".
+### Detalhes técnicos
 
-## Correções
+No bloco de search server-side (linha ~47):
 
-### 1. Atualizar `useReuniaoMetrics` para receber e usar `tenant_id`
+```ts
+if (searchTerm.trim()) {
+  const raw = searchTerm.trim();
+  const digits = raw.replace(/\D/g, '');
+  let cnjVariant = raw;
 
-- Adicionar `tenant_id` como parâmetro (via `useTenantId` internamente ou recebido)
-- Aplicar `.eq('tenant_id', tenantId)` em todas as queries de `reunioes`
-- Aguardar `tenantId` estar disponível antes de executar queries (guard clause)
+  // Se o usuário digitou exatamente 20 dígitos, formatar como CNJ
+  if (/^\d{20}$/.test(digits)) {
+    cnjVariant = `${digits.slice(0,7)}-${digits.slice(7,9)}.${digits.slice(9,13)}.${digits.slice(13,14)}.${digits.slice(14,16)}.${digits.slice(16,20)}`;
+  }
 
-### 2. Corrigir verificação de admin com tenant
+  const termoRaw = `%${raw}%`;
+  const termoCnj = `%${cnjVariant}%`;
 
-- Substituir `checkIfUserIsAdmin` por verificação via `useAuth().userRole` (já disponível no contexto) ou usar `checkIfUserIsAdminOrController` com `tenantId`
-- Garantir que a página de Relatórios use a role do tenant correto
+  query = query.or(
+    `numero_cnj.ilike.${termoCnj},numero_cnj.ilike.${termoRaw},parte_ativa.ilike.${termoRaw},parte_passiva.ilike.${termoRaw},tribunal_sigla.ilike.${termoRaw}`
+  );
+}
+```
 
-### 3. Ajustar `MinhasMetricasReuniao`
+Extrair também a formatação para um helper reutilizável em `src/utils/processoHelpers.ts` (`formatCnjFromDigits`) para manter consistência.
 
-- Já usa `useTenantId` para leads, mas o hook `useReuniaoMetrics` que ele chama não passa o tenant — corrigir essa conexão
+## Arquivos alterados
 
-### Arquivos a editar
+- `src/utils/processoHelpers.ts` — novo helper `formatCnjFromDigits`.
+- `src/hooks/useAllProcessosOAB.ts` — usar o helper na construção do filtro.
 
-- `src/hooks/useReuniaoMetrics.ts` — adicionar `tenant_id` filtering e corrigir admin check
-- `src/pages/ReuniaoRelatorios.tsx` — usar `userRole` do AuthContext ao invés de depender do hook para admin check
-- `src/components/Reunioes/MinhasMetricasReuniao.tsx` — passar tenant_id para o hook se necessário
+## Fora de escopo
+
+- Não muda o input visual nem força máscara — usuário pode digitar com ou sem pontuação.
+- Não altera busca de CNPJ / OAB / Push-docs (pode ser estendido depois se quiser).
