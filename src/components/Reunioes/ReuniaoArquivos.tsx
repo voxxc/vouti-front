@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
 import { useReuniaoArquivos } from '@/hooks/useReuniaoArquivos';
 import { 
   Upload, 
@@ -9,7 +10,9 @@ import {
   Download, 
   Trash2, 
   File,
-  X 
+  X,
+  RotateCw,
+  AlertCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -22,8 +25,10 @@ export const ReuniaoArquivos = ({ reuniaoId }: ReuniaoArquivosProps) => {
   const {
     arquivos,
     loading,
-    uploading,
+    uploadingFiles,
     uploadArquivo,
+    retryUpload,
+    dismissUpload,
     deleteArquivo,
     downloadArquivo,
     getPreviewUrl
@@ -32,13 +37,12 @@ export const ReuniaoArquivos = ({ reuniaoId }: ReuniaoArquivosProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    for (const file of Array.from(files)) {
-      await uploadArquivo(file);
-    }
+    // Disparar uploads em paralelo, sem bloquear a UI
+    Array.from(files).forEach((file) => uploadArquivo(file));
 
     // Limpar input
     if (fileInputRef.current) {
@@ -73,10 +77,9 @@ export const ReuniaoArquivos = ({ reuniaoId }: ReuniaoArquivosProps) => {
           variant="outline"
           size="sm"
           onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
         >
           <Upload className="h-4 w-4 mr-2" />
-          {uploading ? 'Enviando...' : 'Anexar Arquivo'}
+          Anexar Arquivo
         </Button>
         <input
           ref={fileInputRef}
@@ -84,16 +87,66 @@ export const ReuniaoArquivos = ({ reuniaoId }: ReuniaoArquivosProps) => {
           multiple
           onChange={handleFileSelect}
           className="hidden"
-          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
         />
       </div>
 
       <ScrollArea className="h-64">
+        {/* Uploads em andamento */}
+        {uploadingFiles.length > 0 && (
+          <div className="space-y-2 mb-3 pr-4">
+            {uploadingFiles.map((u) => (
+              <div
+                key={u.id}
+                className="border border-border rounded-lg p-3 space-y-2 bg-muted/30"
+              >
+                <div className="flex items-start gap-2">
+                  <div className="p-2 rounded bg-muted">
+                    {u.status === 'error' ? (
+                      <AlertCircle className="h-4 w-4 text-destructive" />
+                    ) : (
+                      <Upload className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{u.file_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {u.status === 'error'
+                        ? u.error || 'Erro no envio'
+                        : `Enviando... ${u.progress}%`}
+                    </p>
+                    {u.status === 'uploading' && (
+                      <Progress value={u.progress} className="mt-1" />
+                    )}
+                  </div>
+                  {u.status === 'error' ? (
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => retryUpload(u.id)}
+                      >
+                        <RotateCw className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => dismissUpload(u.id)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {loading ? (
           <p className="text-sm text-muted-foreground text-center py-8">
             Carregando arquivos...
           </p>
-        ) : arquivos.length === 0 ? (
+        ) : arquivos.length === 0 && uploadingFiles.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Upload className="h-12 w-12 mx-auto mb-2 opacity-50" />
             <p className="text-sm">Nenhum arquivo anexado</p>
