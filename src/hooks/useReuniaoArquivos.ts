@@ -1,14 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ReuniaoArquivo } from '@/types/reuniao';
 import { toast } from 'sonner';
 import { useTenantId } from '@/hooks/useTenantId';
 
+export interface UploadingFile {
+  id: string;
+  file_name: string;
+  file_size: number;
+  file_type?: string;
+  progress: number;
+  status: 'uploading' | 'error';
+  error?: string;
+  file?: File;
+}
+
 export const useReuniaoArquivos = (reuniaoId: string) => {
   const { tenantId } = useTenantId();
   const [arquivos, setArquivos] = useState<ReuniaoArquivo[]>([]);
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
 
   const fetchArquivos = async () => {
     if (!reuniaoId) return;
@@ -31,54 +42,102 @@ export const useReuniaoArquivos = (reuniaoId: string) => {
     }
   };
 
-  const uploadArquivo = async (file: File) => {
-    try {
-      setUploading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
+  // Upload em background com progresso real via XHR
+  const uploadArquivo = useCallback((file: File) => {
+    const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-      // Validação de tamanho (máx 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error('Arquivo muito grande. Tamanho máximo: 10MB');
-        return;
-      }
+    setUploadingFiles((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        file_name: file.name,
+        file_size: file.size,
+        file_type: file.type,
+        progress: 0,
+        status: 'uploading',
+        file,
+      },
+    ]);
 
-      // Gerar caminho único
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${reuniaoId}/${Date.now()}.${fileExt}`;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Usuário não autenticado');
 
-      // Upload para storage
-      const { error: uploadError } = await supabase.storage
-        .from('reuniao-attachments')
-        .upload(fileName, file);
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) throw new Error('Sessão inválida');
 
-      if (uploadError) throw uploadError;
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${user.id}/${reuniaoId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
 
-      // Salvar metadados no banco
-      const { error: dbError } = await supabase
-        .from('reuniao_arquivos')
-        .insert({
-          reuniao_id: reuniaoId,
-          file_name: file.name,
-          file_path: fileName,
-          file_size: file.size,
-          file_type: file.type,
-          uploaded_by: user.id,
-          tenant_id: tenantId
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+        const uploadUrl = `${supabaseUrl}/storage/v1/object/reuniao-attachments/${fileName}`;
+
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', uploadUrl);
+          xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+          if (file.type) xhr.setRequestHeader('Content-Type', file.type);
+          xhr.setRequestHeader('x-upsert', 'false');
+
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const pct = Math.round((e.loaded / e.total) * 100);
+              setUploadingFiles((prev) =>
+                prev.map((u) => (u.id === tempId ? { ...u, progress: pct } : u))
+              );
+            }
+          };
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) resolve();
+            else reject(new Error(`Falha no upload (${xhr.status}): ${xhr.responseText}`));
+          };
+          xhr.onerror = () => reject(new Error('Erro de rede no upload'));
+          xhr.send(file);
         });
 
-      if (dbError) throw dbError;
+        const { error: dbError } = await supabase
+          .from('reuniao_arquivos')
+          .insert({
+            reuniao_id: reuniaoId,
+            file_name: file.name,
+            file_path: fileName,
+            file_size: file.size,
+            file_type: file.type,
+            uploaded_by: user.id,
+            tenant_id: tenantId,
+          });
 
-      toast.success('Arquivo enviado com sucesso!');
-      await fetchArquivos();
-    } catch (error: any) {
-      console.error('Erro ao enviar arquivo:', error);
-      toast.error('Erro ao enviar arquivo');
-      throw error;
-    } finally {
-      setUploading(false);
-    }
-  };
+        if (dbError) throw dbError;
+
+        setUploadingFiles((prev) => prev.filter((u) => u.id !== tempId));
+        await fetchArquivos();
+      } catch (error: any) {
+        console.error('Erro ao enviar arquivo:', error);
+        setUploadingFiles((prev) =>
+          prev.map((u) =>
+            u.id === tempId
+              ? { ...u, status: 'error', error: error.message || 'Erro ao enviar' }
+              : u
+          )
+        );
+        toast.error(`Erro ao enviar ${file.name}`);
+      }
+    })();
+  }, [reuniaoId, tenantId]);
+
+  const retryUpload = useCallback((id: string) => {
+    const item = uploadingFiles.find((u) => u.id === id);
+    if (!item?.file) return;
+    setUploadingFiles((prev) => prev.filter((u) => u.id !== id));
+    uploadArquivo(item.file);
+  }, [uploadingFiles, uploadArquivo]);
+
+  const dismissUpload = useCallback((id: string) => {
+    setUploadingFiles((prev) => prev.filter((u) => u.id !== id));
+  }, []);
 
   const deleteArquivo = async (arquivoId: string) => {
     try {
@@ -156,8 +215,11 @@ export const useReuniaoArquivos = (reuniaoId: string) => {
   return {
     arquivos,
     loading,
-    uploading,
+    uploadingFiles,
+    uploading: uploadingFiles.some((u) => u.status === 'uploading'),
     uploadArquivo,
+    retryUpload,
+    dismissUpload,
     deleteArquivo,
     downloadArquivo,
     getPreviewUrl,
