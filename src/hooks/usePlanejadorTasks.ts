@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
@@ -174,6 +175,24 @@ export function usePlanejadorTasks() {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['planejador-tasks'] }),
   });
+
+  // Realtime: refletir mudanças de outros usuários sem refresh
+  useEffect(() => {
+    if (!tenantId) return;
+    const invalidate = () => queryClient.invalidateQueries({ queryKey: ['planejador-tasks', tenantId] });
+    const channel = supabase
+      .channel(`planejador-tasks-${tenantId}`)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'planejador_tasks', filter: `tenant_id=eq.${tenantId}` },
+        invalidate
+      )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'planejador_task_subtasks', filter: `tenant_id=eq.${tenantId}` },
+        invalidate
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [tenantId, queryClient]);
 
   // Categorize tasks into columns
   const tasksByColumn = (tasksQuery.data || []).reduce<Record<KanbanColumn, PlanejadorTask[]>>(
