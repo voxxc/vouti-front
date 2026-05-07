@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
@@ -32,6 +33,18 @@ export function usePlanejadorFiles(taskId: string) {
       return data as PlanejadorFile[];
     },
   });
+
+  useEffect(() => {
+    if (!taskId) return;
+    const channel = supabase
+      .channel(`planejador-files-${taskId}`)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'planejador_task_files', filter: `task_id=eq.${taskId}` },
+        () => queryClient.invalidateQueries({ queryKey: ['planejador-files', taskId] })
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [taskId, queryClient]);
 
   const upload = useMutation({
     mutationFn: async (file: File) => {
