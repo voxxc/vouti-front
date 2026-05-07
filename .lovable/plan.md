@@ -1,47 +1,76 @@
 ## Problema
 
-Em `ProjectProtocolosList.tsx`, os processos são arrastados para dentro de **carteiras** usando `@hello-pangea/dnd`. Quando uma carteira tem muitos processos, surgem dois problemas:
+Quando outro usuário edita uma tarefa no Planejador (anexa arquivo, muda título, adiciona subtarefa, comentário, etapa, participante, label, etc.), as alterações **não aparecem em tempo real** no PC de quem está com a tarefa aberta. Só aparece com refresh manual.
 
-1. **Autoscroll quebrado**: o conteúdo está dentro de um `<ScrollArea>` (Radix). O `@hello-pangea/dnd` não detecta corretamente o viewport interno do Radix ScrollArea como container scrollável, então o autoscroll durante o drag não funciona — o usuário precisa dar zoom out para ver a carteira destino.
-2. **Sem alternativa ao drag**: a única forma de mover um processo para uma carteira é arrastando, o que fica inviável em listas longas.
+Causa: nenhum hook do Planejador escuta `postgres_changes`, e as tabelas envolvidas não estão na publication `supabase_realtime` (exceto `task_history`).
 
 ## Solução
 
-### 1. Substituir `ScrollArea` pelo overflow nativo (corrige autoscroll)
+Adicionar Realtime nas tabelas do Planejador + subscriptions nos hooks que alimentam a UI.
 
-No bloco da linha 501 (`<ScrollArea className="flex-1">`), trocar por:
+### 1. Migration — habilitar Realtime
 
-```tsx
-<div className="flex-1 overflow-y-auto" data-rfd-scroll-container>
+```sql
+ALTER TABLE planejador_tasks REPLICA IDENTITY FULL;
+ALTER TABLE planejador_task_files REPLICA IDENTITY FULL;
+ALTER TABLE planejador_task_subtasks REPLICA IDENTITY FULL;
+ALTER TABLE planejador_task_etapas REPLICA IDENTITY FULL;
+ALTER TABLE planejador_task_participants REPLICA IDENTITY FULL;
+ALTER TABLE planejador_task_labels REPLICA IDENTITY FULL;
+ALTER TABLE planejador_task_label_assignments REPLICA IDENTITY FULL;
+ALTER TABLE planejador_task_activity_log REPLICA IDENTITY FULL;
+ALTER TABLE task_comentarios REPLICA IDENTITY FULL;
+ALTER TABLE task_tarefas REPLICA IDENTITY FULL;
+
+ALTER PUBLICATION supabase_realtime ADD TABLE
+  planejador_tasks,
+  planejador_task_files,
+  planejador_task_subtasks,
+  planejador_task_etapas,
+  planejador_task_participants,
+  planejador_task_labels,
+  planejador_task_label_assignments,
+  planejador_task_activity_log,
+  task_comentarios,
+  task_tarefas;
 ```
 
-O `@hello-pangea/dnd` detecta `overflow: auto` nativo e ativa o autoscroll automaticamente quando o cursor chega perto da borda. Isso resolve o problema de "ter que dar zoom out".
+### 2. Subscriptions nos hooks
 
-### 2. Adicionar ação "Mover para carteira" como alternativa ao drag
+Em cada hook abaixo, adicionar um `useEffect` que cria um channel filtrado por `task_id`/`tenant_id` e invalida a queryKey correspondente em qualquer evento (`*`):
 
-No `renderProtocoloItem` (linha 383), adicionar um pequeno botão de ícone `FolderInput`/`MoveRight` ao lado do `GripVertical`, que abre um `DropdownMenu` listando:
-- Cada carteira existente (com a cor) → move para aquela carteira
-- "Remover da carteira" (se já está em uma) → volta para a lista principal
+| Hook | Tabela | Filter | Invalida |
+|------|--------|--------|----------|
+| `usePlanejadorTasks` | `planejador_tasks` + `planejador_task_subtasks` | `tenant_id=eq.{tenantId}` | `['planejador-tasks', tenantId]` |
+| `usePlanejadorFiles` | `planejador_task_files` | `task_id=eq.{taskId}` | `['planejador-files', taskId]` |
+| `usePlanejadorSubtasks` | `planejador_task_subtasks` | `task_id=eq.{taskId}` | `['planejador-subtasks', taskId]` + tasks |
+| `usePlanejadorEtapas` | `planejador_task_etapas` | `task_id=eq.{taskId}` | `['planejador-etapas', taskId]` |
+| `usePlanejadorParticipants` | `planejador_task_participants` | `task_id=eq.{taskId}` | `['planejador-participants', taskId]` |
+| `usePlanejadorLabels` (assignments) | `planejador_task_label_assignments` | `task_id=eq.{taskId}` | label-assignments |
+| `usePlanejadorActivityLog` | `planejador_task_activity_log` | `task_id=eq.{taskId}` | activity log |
+| `useTaskComentarios` | `task_comentarios` | `task_id=eq.{taskId}` | comentários |
 
-Reaproveita os handlers existentes `handleMoverParaCarteira` e `handleRemoverDeCarteira`. Funciona com 1 clique, sem depender de drag.
+Padrão usado:
 
-### 3. Melhorias visuais durante o drag
+```ts
+useEffect(() => {
+  if (!taskId) return;
+  const channel = supabase
+    .channel(`planejador-files-${taskId}`)
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'planejador_task_files', filter: `task_id=eq.${taskId}` },
+      () => queryClient.invalidateQueries({ queryKey: ['planejador-files', taskId] })
+    )
+    .subscribe();
+  return () => { supabase.removeChannel(channel); };
+}, [taskId, queryClient]);
+```
 
-- **Destaque do destino**: nas Droppables (linha 520 e 578), quando `snapshot.isDraggingOver` for true, aplicar fundo `bg-primary/5` e borda `border-primary/40 border-dashed` para feedback claro.
-- **Auto-colapsar outras carteiras durante drag**: usar um state `isDragging` setado no `onDragStart` do `DragDropContext`. Quando ativo, forçar `open={false}` nos `Collapsible` das carteiras que não são origem nem destino atual — encurta a lista e facilita o drop. Ao soltar, restaura.
-- **Cabeçalho da carteira como drop zone**: quando uma carteira está colapsada, ainda assim permitir drop no header dela (envolve o `CollapsibleTrigger` na própria `Droppable` ou usa um sub-droppable no header).
+Nomes de channel únicos por hook + id evitam conflito.
 
-### 4. Cap visual de altura por carteira
+### 3. Resultado
 
-Cada carteira passa a ter `max-h-[400px] overflow-y-auto` no container interno (linha 583). Mesmo "lotada", ocupa altura limitada e o usuário sempre vê a próxima carteira/lista. O autoscroll interno + autoscroll externo funcionam juntos.
+- Alterações de qualquer usuário (título, descrição, status, prazo, anexos, subtarefas, etapas, participantes, labels, comentários, log) aparecem instantaneamente para quem está com a tarefa aberta, sem refresh.
+- Como já usamos React Query, basta invalidar a queryKey — o refetch acontece automático e a UI atualiza.
 
-## Arquivos afetados
-
-- `src/components/Project/ProjectProtocolosList.tsx` — todas as mudanças acima
-
-## Resultado
-
-- Drag funciona suave mesmo com 100+ processos numa carteira (autoscroll)
-- Quem preferir, usa o botão "Mover para carteira" e nem precisa arrastar
-- Feedback visual claro de onde vai cair o item
-- Carteiras lotadas não estouram a tela
+Posso aplicar?

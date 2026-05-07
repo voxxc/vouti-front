@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
@@ -31,6 +32,18 @@ export function usePlanejadorActivityLog(taskId: string) {
       return data as ActivityLogEntry[];
     },
   });
+
+  useEffect(() => {
+    if (!taskId) return;
+    const channel = supabase
+      .channel(`planejador-activity-log-${taskId}`)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'planejador_task_activity_log', filter: `task_id=eq.${taskId}` },
+        () => queryClient.invalidateQueries({ queryKey: ['planejador-activity-log', taskId] })
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [taskId, queryClient]);
 
   const log = useMutation({
     mutationFn: async (params: { action: string; details?: Record<string, any> }) => {

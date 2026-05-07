@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
@@ -72,6 +73,21 @@ export function usePlanejadorLabelAssignments(taskId: string) {
       return data as PlanejadorLabelAssignment[];
     },
   });
+
+  useEffect(() => {
+    if (!taskId) return;
+    const channel = supabase
+      .channel(`planejador-label-assignments-${taskId}`)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'planejador_task_label_assignments', filter: `task_id=eq.${taskId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['planejador-label-assignments', taskId] });
+          queryClient.invalidateQueries({ queryKey: ['planejador-all-label-assignments'] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [taskId, queryClient]);
 
   const assign = useMutation({
     mutationFn: async (labelId: string) => {

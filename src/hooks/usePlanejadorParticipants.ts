@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
@@ -28,6 +29,18 @@ export function usePlanejadorParticipants(taskId: string) {
       return data as PlanejadorParticipant[];
     },
   });
+
+  useEffect(() => {
+    if (!taskId) return;
+    const channel = supabase
+      .channel(`planejador-participants-${taskId}`)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'planejador_task_participants', filter: `task_id=eq.${taskId}` },
+        () => queryClient.invalidateQueries({ queryKey: ['planejador-participants', taskId] })
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [taskId, queryClient]);
 
   const add = useMutation({
     mutationFn: async (userId: string) => {
