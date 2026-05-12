@@ -370,9 +370,16 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
 
   const fetchDeadlinesAsync = async () => {
     try {
-      const { data, error } = await supabase
-        .from('deadlines')
-        .select(`
+      // Paginação manual para evitar o limite implícito de 1000 registros do Supabase
+      const PAGE_SIZE = 1000;
+      let from = 0;
+      let acc: any[] = [];
+      let lastError: any = null;
+      // Hard cap para segurança (até 20.000 prazos por tenant)
+      for (let i = 0; i < 20; i++) {
+        const { data: page, error: pageError } = await supabase
+          .from('deadlines')
+          .select(`
           *,
           projects (name, client),
           advogado:profiles!deadlines_advogado_responsavel_id_fkey (
@@ -392,8 +399,23 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
             protocolo:project_protocolos (id, nome, project_id, processo_oab_id, workspace_id)
           )
         `)
-        .eq('module', module)
-        .order('date', { ascending: true });
+          .eq('module', module)
+          .order('date', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, from + PAGE_SIZE - 1);
+
+        if (pageError) {
+          lastError = pageError;
+          break;
+        }
+        if (!page || page.length === 0) break;
+        acc = acc.concat(page);
+        if (page.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+
+      const data = acc;
+      const error = lastError;
 
       if (error) {
         console.error('[AgendaContent] Error fetching deadlines:', error);
@@ -1481,8 +1503,37 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
             )}
           </div>
 
-          {/* Selected Date Section - always visible */}
-          {(() => {
+          {/* Search Results Section - visible when searching */}
+          {searchTerm.trim() !== "" && (() => {
+            const results = filteredDeadlines.slice().sort((a, b) => a.date.getTime() - b.date.getTime());
+            return (
+              <div>
+                <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2 tracking-tight">
+                  <Search className="h-4 w-4 text-primary" />
+                  Resultados da busca
+                  <span className="text-muted-foreground font-normal">({results.length})</span>
+                </h4>
+                {results.length > 0 ? (
+                  <div className="max-h-[480px] overflow-y-auto space-y-2 pr-2">
+                    {results.map((deadline) => (
+                      <DeadlineRow key={deadline.id} deadline={deadline} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="apple-empty rounded-2xl border border-border/60 bg-card py-8">
+                    <span className="apple-empty-icon">
+                      <Search className="h-6 w-6" />
+                    </span>
+                    <p className="apple-empty-title">Nenhum prazo encontrado</p>
+                    <p className="apple-empty-subtitle">Tente outro termo de busca.</p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Selected Date Section - hidden while searching */}
+          {searchTerm.trim() === "" && (() => {
             const forDate = getDeadlinesForDate(selectedDate).filter(d => !d.completed);
             return (
               <div>
