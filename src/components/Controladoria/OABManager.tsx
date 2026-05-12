@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { fetchAllPaginated } from '@/lib/supabasePagination';
 import { cn } from '@/lib/utils';
 import { Plus, RefreshCw, Trash2, Scale, Search, FileInput, FileSpreadsheet, Inbox } from 'lucide-react';
 import { EditarAdvogadoModal } from './EditarAdvogadoModal';
