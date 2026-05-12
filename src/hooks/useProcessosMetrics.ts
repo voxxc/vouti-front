@@ -73,13 +73,6 @@ const fetchProcessosMetrics = async (tenantId: string): Promise<ProcessosMetrics
     }
   }
 
-  // Calcular andamentos recentes (ultimos 7 dias)
-  const seteDiasAtras = new Date();
-  seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
-  const andamentosRecentes = andamentosTenant.filter(a => 
-    a.created_at && new Date(a.created_at) >= seteDiasAtras
-  ).length;
-
   // Analisar prazos
   let proximosPrazos = 0;
   let processosAtrasados = 0;
