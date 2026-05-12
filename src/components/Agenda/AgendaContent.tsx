@@ -370,9 +370,16 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
 
   const fetchDeadlinesAsync = async () => {
     try {
-      const { data, error } = await supabase
-        .from('deadlines')
-        .select(`
+      // Paginação manual para evitar o limite implícito de 1000 registros do Supabase
+      const PAGE_SIZE = 1000;
+      let from = 0;
+      let acc: any[] = [];
+      let lastError: any = null;
+      // Hard cap para segurança (até 20.000 prazos por tenant)
+      for (let i = 0; i < 20; i++) {
+        const { data: page, error: pageError } = await supabase
+          .from('deadlines')
+          .select(`
           *,
           projects (name, client),
           advogado:profiles!deadlines_advogado_responsavel_id_fkey (
@@ -392,8 +399,23 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
             protocolo:project_protocolos (id, nome, project_id, processo_oab_id, workspace_id)
           )
         `)
-        .eq('module', module)
-        .order('date', { ascending: true });
+          .eq('module', module)
+          .order('date', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, from + PAGE_SIZE - 1);
+
+        if (pageError) {
+          lastError = pageError;
+          break;
+        }
+        if (!page || page.length === 0) break;
+        acc = acc.concat(page);
+        if (page.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+
+      const data = acc;
+      const error = lastError;
 
       if (error) {
         console.error('[AgendaContent] Error fetching deadlines:', error);
