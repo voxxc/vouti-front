@@ -64,13 +64,14 @@ export function FinancialContent({ onNavigateMetrics, onViewCliente }: Financial
       if (error) throw error;
 
       const clienteIds = (data || []).map(c => c.id);
-      const { data: parcelasData } = clienteIds.length > 0
+      const parcelasResult = clienteIds.length > 0
         ? await fetchAllPaginated<any>(() => supabase
             .from('cliente_parcelas')
             .select('*')
             .in('cliente_id', clienteIds)
             .order('id', { ascending: true }))
-        : { data: [] as any[], error: null };
+        : { data: [] as any[] };
+      const parcelasData = parcelasResult.data;
 
       const parcelasPorCliente = (parcelasData || []).reduce((acc, parcela) => {
         if (!acc[parcela.cliente_id]) {
