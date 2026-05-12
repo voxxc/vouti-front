@@ -564,11 +564,13 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
     try {
       if (!tenantId) return;
 
-      const { data, error } = await supabase
-        .from('processos_oab')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('numero_cnj');
+      const { data, error } = await fetchAllPaginated<any>(
+        () => supabase
+          .from('processos_oab')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .order('numero_cnj')
+      );
 
       if (error) throw error;
 
