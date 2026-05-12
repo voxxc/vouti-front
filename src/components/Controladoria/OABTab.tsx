@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { fetchAllPaginated } from '@/lib/supabasePagination';
 import { 
   Eye, Bell, Loader2, FileText, ChevronLeft, ChevronRight,
   Link2, AlertCircle, Filter, Users, Trash2, Search, X, Scale
