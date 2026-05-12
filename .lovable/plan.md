@@ -1,77 +1,112 @@
 ## Causa raiz
 
-- O prazo existe no banco e está correto para a Agenda:
-  - **Título:** `(FATAL 27/05) COMPROVAR JG - Nº 5000599-96.2026.8.21.0092`
-  - **Responsável:** Alan Claudio Maran
-  - **Módulo:** `legal`
-  - **Status:** aberto
-  - **Data gravada:** `2026-05-22`
-  - **Tenant:** SOLVENZA
-- O motivo principal de ele não aparecer é o **limite padrão do Supabase de 1000 registros por consulta**.
-- A Agenda busca os prazos ordenados por data sem paginação. Esse prazo está na posição **1002** da lista da SOLVENZA, então ele fica fora do retorno inicial.
-- Isso também afeta outros prazos próximos: identifiquei registros a partir da posição 1001 que também podem não aparecer na Agenda.
-- Além disso, a busca atual filtra os dados, mas a tela principal continua presa à **data selecionada**. Então, mesmo pesquisando por um prazo de 22/05, a área visível pode continuar mostrando “Sem prazos para esta data” se o calendário estiver em 12/05.
+O Supabase aplica um **limite implícito de 1.000 linhas por query** quando não há `.limit()` ou `.range()`. Vários pontos do código fazem `select(...)` para "tudo do tenant" sem paginação, então quando uma tabela ultrapassa 1.000 linhas em um tenant, os registros excedentes **somem silenciosamente** das telas, métricas e relatórios — exatamente o que aconteceu com o prazo do Alan.
+
+Após varredura completa do `src/` e `supabase/functions/`, identifiquei **490 SELECTs de listagem sem paginação**. A maioria é segura hoje porque os dados ainda são pequenos. Porém:
+
+- **Tabelas já grandes** (risco real ou iminente):
+  - `processos_oab_andamentos` — 41.814 linhas (global)
+  - `whatsapp_messages` — 20.697 linhas
+  - `project_protocolo_etapas` — 1.668 linhas
+  - `deadlines` — 1.025 linhas (1.013 só na SOLVENZA — já estourava)
+  - `processos_oab` — 734 linhas (perto do limite por tenant)
+  - `project_protocolos` — 658 linhas
+
+- **Sintomas confirmados ou iminentes**:
+  - Prazos sumindo da Agenda (corrigido na rodada anterior).
+  - Indicadores de Controladoria mostrando números abaixo do real.
+  - Métricas de Dashboard de prazos truncadas.
+  - "Prazos Concluídos" da Central paralisando em 1.000.
+  - Inbox/Kanban do WhatsApp listando só as 1.000 mensagens mais recentes em tenants ativos.
 
 ## Correção
 
-1. **Corrigir o carregamento da Agenda**
-   - Alterar a busca de prazos para carregar em páginas/lotes usando `.range(...)`, até trazer todos os prazos visíveis pela RLS.
-   - Manter o filtro por `module='legal'` e respeitar o `tenant_id`/RLS existente.
-   - Isso elimina a dependência perigosa do limite implícito de 1000 registros.
+A correção será feita em **3 camadas**, do mais crítico para o periférico:
 
-2. **Evitar recorrência em outros pontos da Agenda/Planejador**
-   - Aplicar o mesmo padrão no hook `useAgendaData`, usado na visão de prazos do Planejador.
-   - Revisar os pontos que listam prazos por caso/projeto para garantir que consultas pequenas e contextuais não estejam sendo afetadas pelo mesmo limite.
+### Camada 1 — Helper compartilhado de paginação
+Criar `src/lib/supabasePagination.ts` exportando:
+- `fetchAllPaginated(builderFactory, pageSize=1000, hardCap=20)` — repete `.range()` até esgotar.
+- Padrão único para todos os pontos que precisam de "todos os registros visíveis".
 
-3. **Melhorar o comportamento da busca na Agenda**
-   - Quando houver texto na busca, exibir uma seção clara de **Resultados da busca**, independente da data selecionada no calendário.
-   - Assim, ao buscar pelo CNJ ou pelo título, o prazo aparece imediatamente, mesmo se o dia selecionado for outro.
+### Camada 2 — Telas e métricas que JÁ truncam (Tier 1)
+Trocar SELECT-all por paginação ou contagem agregada. Onde só precisamos de número, usar `count: 'exact', head: true` para não baixar linhas.
 
-4. **Manter a regra de participação já corrigida**
-   - Continuar usando o critério unificado: criador, advogado responsável, usuários marcados e concluído_por.
-   - Para o caso informado, Alan aparece porque é `advogado_responsavel_id` do prazo.
+| Arquivo | O que ajustar |
+|---|---|
+| `src/hooks/useProcessosMetrics.ts` | Contar `processos_oab_andamentos` por `count: exact, head: true`; paginar `deadlines` por tenant. |
+| `src/components/Controladoria/ControladoriaIndicadores.tsx` | Paginar `deadlines` e `processos_oab` por tenant. |
+| `src/components/Controladoria/CentralPrazosConcluidos.tsx` | Paginar prazos concluídos. |
+| `src/components/Dashboard/PrazosDistributionChart.tsx` | Paginar `deadlines`. |
 
-## Arquivos afetados
+### Camada 3 — Listagens que vão truncar logo (Tier 2)
+Aplicar paginação ou `.limit()` explícito (com justificativa de UX, ex.: últimos 30 dias / últimos 200 itens).
 
-- `src/components/Agenda/AgendaContent.tsx`
-  - Paginar o carregamento dos prazos.
-  - Ajustar a visualização quando houver busca ativa.
+| Arquivo | O que ajustar |
+|---|---|
+| `src/components/CRM/WhatsAppBot.tsx` (linhas 651, 1112) | Limitar mensagens recentes (ex.: últimas 500) ou paginar conforme uso. |
+| `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppInbox.tsx` | Paginar mensagens não atribuídas. |
+| `src/components/WhatsApp/sections/WhatsAppInbox.tsx`, `WhatsAppKanban.tsx`, `WhatsAppLabelConversations.tsx` | Aplicar `.limit()` em ordens desc + carregar agrupado por contato. |
+| `src/components/Controladoria/OABTab.tsx`, `OABManager.tsx` | Paginar `processos_oab` por tenant. |
+| `src/components/Project/ProjectProcessos.tsx` | Paginar lista de processos. |
+| `src/components/SuperAdmin/SuperAdminMonitoramento.tsx` e funções edge `judit-*` | Paginar `processos_oab`/`processos_oab_andamentos` quando aplicável. |
 
-- `src/hooks/useAgendaData.ts`
-  - Paginar o carregamento usado em outras telas que consomem dados da Agenda/Planejador.
+### Camada 4 — Listagens médias, crescimento previsto (Tier 3)
+Paginar para evitar regressão futura silenciosa, sem mudança visível na UX:
 
-- Possivelmente `src/components/Controladoria/PrazosCasoTab.tsx`
-  - Apenas se a revisão confirmar risco real de limite em listagens de prazos por caso.
+| Arquivo |
+|---|
+| `src/components/Financial/FinancialContent.tsx`, `FinancialMetrics.tsx`, `src/pages/Financial.tsx`, `src/hooks/useRelatorioFinanceiro.ts` (clientes, parcelas, custos, colaborador_vales, colaborador_pagamentos) |
+| `src/hooks/useClientes.ts`, `useClienteAnalytics.ts`, `useAniversarios.ts` |
+| `src/hooks/useColaboradores.ts` |
+| `src/hooks/useReunioes.ts`, `useReuniaoMetrics.ts`, `useRelatorioReunioes.ts`, `useReuniaoClientes.ts` |
+| `src/hooks/useTasksMetrics.ts`, `useClienteTasksMetrics.ts`, `src/components/Dashboard/OverviewSection.tsx`, `src/components/Search/GlobalSearch.tsx` |
+| `src/hooks/usePlanejadorTasks.ts` |
+| `src/components/Agenda/AgendaContent.tsx` (carga de `project_protocolos` por tenant em fluxo de criação) |
+
+### Camada 5 — Memória do projeto
+Adicionar regra `mem://architecture/supabase-1000-row-limit` no índice: **toda listagem deve usar `fetchAllPaginated`, `.range()` ou `.limit()` explícito; nunca confiar no retorno padrão**. Isso evita que a próxima feature reintroduza o bug.
+
+## Arquivos afetados (resumo)
+
+- Novo: `src/lib/supabasePagination.ts`
+- Edits Tier 1 (4 arquivos)
+- Edits Tier 2 (7–9 arquivos React + 4 edge functions)
+- Edits Tier 3 (~14 hooks/páginas)
+- Atualização de `mem://index.md` + nova memória
+
+Total estimado: ~30 arquivos ajustados, sem schema/migration nem mudança de RLS.
 
 ## Impacto
 
 1. **Usuário final / UX**
-   - O prazo do Alan passa a aparecer na Agenda sem depender de refresh, truques ou filtros manuais.
-   - Outros prazos além dos primeiros 1000 também passam a aparecer.
-   - Ao pesquisar por título/CNJ, o resultado aparece diretamente, mesmo que a data selecionada no calendário seja diferente.
+   - Prazos, processos, mensagens, indicadores e relatórios voltam a mostrar **todos** os dados visíveis pela RLS, não só os 1.000 primeiros.
+   - Onde fizer sentido (WhatsApp Inbox/Kanban), a janela visível terá um limite explícito (ex.: últimos 500 itens) com possibilidade futura de "carregar mais".
+   - Telas continuam com o mesmo layout — a mudança é silenciosa e corretiva.
 
 2. **Dados / migrations / RLS / performance**
-   - Não precisa migration.
-   - Não altera RLS.
-   - Não altera dados existentes.
-   - A Agenda fará mais de uma chamada quando houver mais de 1000 prazos, mas em lotes controlados; é mais correto e previsível do que perder registros.
+   - Sem migration, sem alteração de RLS, sem alteração de schema.
+   - Nenhum dado é mutado.
+   - Performance: queries de tenants pequenos não mudam (1 lote = 1 chamada). Tenants grandes farão 2–3 chamadas em vez de truncar — mais correto e previsível.
+   - Métricas que apenas contam linhas migram para `count: exact, head: true`, o que é **mais rápido** que baixar 1.000 linhas e contar no JS.
 
 3. **Riscos colaterais**
-   - A primeira carga da Agenda pode ficar um pouco mais pesada em tenants com muitos prazos.
-   - Para reduzir risco, a paginação será limitada a lotes e reaproveitará o mapeamento atual sem mudar a estrutura visual principal.
+   - Em telas com tabelas muito grandes, a primeira carga pode levar alguns segundos a mais em tenants enormes — mitigado por limites explícitos onde cabe.
+   - Algumas listagens do WhatsApp deixarão de rolar infinitamente: passarão a mostrar "últimas N" com possibilidade de evoluir para paginação real depois.
+   - Edge functions que iteram processos via Judit ficarão um pouco mais lentas em tenants enormes; já são jobs de background.
 
 4. **Quem é afetado**
-   - Todos os usuários da Agenda jurídica (`legal`) no tenant SOLVENZA e em outros tenants com muitos prazos.
-   - Admins/controllers e advogados, incluindo Alan.
-   - Planejador, caso use o hook `useAgendaData` para mostrar prazos.
+   - **Todos os tenants e papéis**, com benefício mais visível para tenants grandes (SOLVENZA hoje, outros no futuro).
+   - **Admin/controller** ganham indicadores corretos.
+   - **Advogado/perito/financeiro** veem todos os seus prazos, processos, parcelas e relatórios.
+   - **CRM/WhatsApp** ganha consistência ao listar conversas em volumes altos.
+   - **Super admin** passa a ver totais reais.
 
 ## Validação
 
-- Confirmar no banco que o prazo `16b84fd9-8ea0-4805-a114-9f3db7e22c17` está incluído após a paginação.
-- Validar que prazos nas posições acima de 1000 aparecem na Agenda.
-- Validar busca por:
-  - `COMPROVAR JG`
-  - `5000599-96.2026.8.21.0092`
-  - `Alan`
-- Conferir que filtros por usuário continuam respeitando criador, responsável, marcado e concluído_por.
-- Garantir que não houve alteração em permissões/RLS nem exposição indevida entre tenants.
+- Conferir no banco que cada tabela com `> 1000` linhas em algum tenant retorna a contagem correta na tela após a paginação (deadlines, processos_oab_andamentos, processos_oab).
+- Re-testar o caso original do Alan (`16b84fd9-...`) já corrigido.
+- Validar Indicadores da Controladoria contra `count(*)` direto no banco para SOLVENZA.
+- Validar Dashboard de prazos e Central de Concluídos contra contagem direta.
+- Validar Inbox/Kanban do WhatsApp em tenant com >1000 mensagens (SOLVENZA).
+- Verificar que nenhum filtro `tenant_id`/RLS foi alterado (mesma visibilidade entre tenants).
+- Adicionar a regra de paginação em `mem://` para que a IA aplique automaticamente em novas features.
