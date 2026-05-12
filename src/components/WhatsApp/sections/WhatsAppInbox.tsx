@@ -199,7 +199,8 @@ export const WhatsAppInbox = ({ initialConversationPhone, onConversationOpened }
             .select("from_number, message_text, created_at")
             .eq("tenant_id", tenantId)
             .or(orFilter)
-            .order("created_at", { ascending: false });
+            .order("created_at", { ascending: false })
+            .limit(2000);
 
           // Group shared messages by phone (only first = latest)
           const seenShared = new Set<string>();
