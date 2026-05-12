@@ -106,31 +106,32 @@ export function SuperAdminMonitoramento() {
   const { data: processosMonitorados, isLoading: processosLoading, refetch: refetchProcessos } = useQuery({
     queryKey: ['super-admin-processos-monitorados', selectedTenant],
     queryFn: async () => {
-      let query = supabase
-        .from('processos_oab')
-        .select(`
-          id, 
-          numero_cnj, 
-          tracking_id, 
-          tracking_request_id,
-          tracking_request_data,
-          detalhes_request_id, 
-          monitoramento_ativo,
-          updated_at,
-          tenant_id,
-          tenant:tenants(name)
-        `)
-        .eq('monitoramento_ativo', true)
-        .not('tracking_id', 'is', null)
-        .order('updated_at', { ascending: false });
-
-      if (selectedTenant !== 'all') {
-        query = query.eq('tenant_id', selectedTenant);
-      }
-
-      const { data, error } = await query;
+      const buildQuery = () => {
+        let q = supabase
+          .from('processos_oab')
+          .select(`
+            id, 
+            numero_cnj, 
+            tracking_id, 
+            tracking_request_id,
+            tracking_request_data,
+            detalhes_request_id, 
+            monitoramento_ativo,
+            updated_at,
+            tenant_id,
+            tenant:tenants(name)
+          `)
+          .eq('monitoramento_ativo', true)
+          .not('tracking_id', 'is', null)
+          .order('updated_at', { ascending: false });
+        if (selectedTenant !== 'all') {
+          q = q.eq('tenant_id', selectedTenant);
+        }
+        return q;
+      };
+      const { data, error } = await fetchAllPaginated<ProcessoMonitorado>(buildQuery);
       if (error) throw error;
-      return data as ProcessoMonitorado[];
+      return data;
     },
   });
 
