@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
+import { fetchAllPaginated } from "@/lib/supabasePagination";
 import { extrairTribunalDoNumeroProcesso } from "@/utils/processoHelpers";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
