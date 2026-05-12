@@ -1503,8 +1503,37 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
             )}
           </div>
 
-          {/* Selected Date Section - always visible */}
-          {(() => {
+          {/* Search Results Section - visible when searching */}
+          {searchTerm.trim() !== "" && (() => {
+            const results = filteredDeadlines.slice().sort((a, b) => a.date.getTime() - b.date.getTime());
+            return (
+              <div>
+                <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2 tracking-tight">
+                  <Search className="h-4 w-4 text-primary" />
+                  Resultados da busca
+                  <span className="text-muted-foreground font-normal">({results.length})</span>
+                </h4>
+                {results.length > 0 ? (
+                  <div className="max-h-[480px] overflow-y-auto space-y-2 pr-2">
+                    {results.map((deadline) => (
+                      <DeadlineRow key={deadline.id} deadline={deadline} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="apple-empty rounded-2xl border border-border/60 bg-card py-8">
+                    <span className="apple-empty-icon">
+                      <Search className="h-6 w-6" />
+                    </span>
+                    <p className="apple-empty-title">Nenhum prazo encontrado</p>
+                    <p className="apple-empty-subtitle">Tente outro termo de busca.</p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Selected Date Section - hidden while searching */}
+          {searchTerm.trim() === "" && (() => {
             const forDate = getDeadlinesForDate(selectedDate).filter(d => !d.completed);
             return (
               <div>
