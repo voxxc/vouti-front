@@ -98,10 +98,13 @@ export const ControladoriaIndicadores = () => {
 
     const fetchProcessos = async () => {
       setLoading(true);
-      const { data: processos, error } = await supabase
-        .from("processos_oab")
-        .select("tribunal_sigla, numero_cnj")
-        .eq("tenant_id", tenantId);
+      const { data: processos, error } = await fetchAllPaginated<{ tribunal_sigla: string | null; numero_cnj: string | null }>(
+        () => supabase
+          .from("processos_oab")
+          .select("tribunal_sigla, numero_cnj")
+          .eq("tenant_id", tenantId)
+          .order("id", { ascending: true })
+      );
 
       if (error) { console.error(error); setLoading(false); return; }
 
@@ -124,10 +127,13 @@ export const ControladoriaIndicadores = () => {
     const fetchPrazos = async () => {
       setLoadingPrazos(true);
 
-      const { data: deadlines, error } = await supabase
-        .from("deadlines")
-        .select("id, title, date, completed, concluido_por, concluido_em, created_at, project_id, user_id, deadline_number")
-        .eq("tenant_id", tenantId);
+      const { data: deadlines, error } = await fetchAllPaginated<RawDeadline>(
+        () => supabase
+          .from("deadlines")
+          .select("id, title, date, completed, concluido_por, concluido_em, created_at, project_id, user_id, deadline_number")
+          .eq("tenant_id", tenantId)
+          .order("id", { ascending: true })
+      );
 
       if (error) { console.error(error); setLoadingPrazos(false); return; }
 
