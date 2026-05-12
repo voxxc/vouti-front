@@ -103,18 +103,22 @@ export function FinancialMetrics() {
       const isFinanceiro = userRoles.some(r => r === 'financeiro');
       const hasFullAccess = isAdmin || isFinanceiro;
 
-      let query = supabase.from('clientes').select('*');
-      if (!hasFullAccess) query = query.eq('user_id', user.id);
-
-      const { data: clientes } = await query;
+      const buildClientesQuery = () => {
+        let q = supabase.from('clientes').select('*').order('id', { ascending: true });
+        if (!hasFullAccess) q = q.eq('user_id', user.id);
+        return q;
+      };
+      const { data: clientes } = await fetchAllPaginated<any>(buildClientesQuery);
       const clienteIds = (clientes || []).map(c => c.id);
 
-      // Fetch all data in parallel
+      // Fetch all data in parallel (paginado para evitar limite de 1000)
       const [parcelasRes, custosRes, categoriasRes, pagamentosRes] = await Promise.all([
-        supabase.from('cliente_parcelas').select('*').in('cliente_id', clienteIds),
-        supabase.from('custos').select('*'),
-        supabase.from('custo_categorias').select('*'),
-        supabase.from('colaborador_pagamentos').select('*'),
+        clienteIds.length > 0
+          ? fetchAllPaginated<any>(() => supabase.from('cliente_parcelas').select('*').in('cliente_id', clienteIds).order('id', { ascending: true }))
+          : Promise.resolve({ data: [], error: null }),
+        fetchAllPaginated<any>(() => supabase.from('custos').select('*').order('id', { ascending: true })),
+        fetchAllPaginated<any>(() => supabase.from('custo_categorias').select('*').order('id', { ascending: true })),
+        fetchAllPaginated<any>(() => supabase.from('colaborador_pagamentos').select('*').order('id', { ascending: true })),
       ]);
 
       const parcelas = parcelasRes.data || [];
