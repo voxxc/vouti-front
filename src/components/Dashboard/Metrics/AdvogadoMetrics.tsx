@@ -37,15 +37,24 @@ const AdvogadoMetrics = ({ userId, userName }: AdvogadoMetricsProps) => {
       const collabIds = collaboratorProjectsRes.data?.map(p => p.project_id) || [];
       const allProjectIds = [...new Set([...createdIds, ...collabIds])];
 
-      const [deadlinesRes] = await Promise.all([
-        supabase
-          .from('deadlines')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .eq('completed', false)
-          .gte('date', today.toISOString().split('T')[0])
-          .lte('date', nextWeek.toISOString().split('T')[0]),
-      ]);
+      // Critério unificado de participação: criador, advogado ou tagged.
+      const { data: taggedRows } = await supabase
+        .from('deadline_tags')
+        .select('deadline_id')
+        .eq('tagged_user_id', userId);
+      const taggedIds = (taggedRows || []).map((t: any) => t.deadline_id);
+
+      const orFilter = `user_id.eq.${userId},advogado_responsavel_id.eq.${userId}${
+        taggedIds.length > 0 ? `,id.in.(${taggedIds.join(',')})` : ''
+      }`;
+
+      const deadlinesRes = await supabase
+        .from('deadlines')
+        .select('id', { count: 'exact', head: true })
+        .or(orFilter)
+        .eq('completed', false)
+        .gte('date', today.toISOString().split('T')[0])
+        .lte('date', nextWeek.toISOString().split('T')[0]);
 
       return {
         myProjects: allProjectIds.length,

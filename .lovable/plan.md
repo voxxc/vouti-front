@@ -1,76 +1,41 @@
-## Problema
+## Causa raiz
 
-Quando outro usuário edita uma tarefa no Planejador (anexa arquivo, muda título, adiciona subtarefa, comentário, etapa, participante, label, etc.), as alterações **não aparecem em tempo real** no PC de quem está com a tarefa aberta. Só aparece com refresh manual.
+O prazo existe normalmente (`module='legal'`, data 22/05/2026, não concluído, tenant correto) e a RLS de `deadlines` libera SELECT para 4 papéis: **criador (`user_id`)**, **advogado (`advogado_responsavel_id`)**, **concluído_por** e **taggeados**.
 
-Causa: nenhum hook do Planejador escuta `postgres_changes`, e as tabelas envolvidas não estão na publication `supabase_realtime` (exceto `task_history`).
+- Dentro do **Projeto**, a lista de prazos respeita só a RLS — então o usuário vê.
+- Na **Agenda** (`src/components/Agenda/AgendaContent.tsx`, linhas 587-594), há um filtro client-side adicional que considera **apenas advogado ou tagged**, ignorando criador e concluído_por.
 
-## Solução
+Neste prazo: `user_id=7d88feb9…` (criador) e `advogado=158daf46…`. Se o usuário logado é o criador mas não o advogado nem está taggeado, a RLS o autoriza (aparece no projeto), mas o filtro da Agenda esconde.
 
-Adicionar Realtime nas tabelas do Planejador + subscriptions nos hooks que alimentam a UI.
+Já existe no mesmo arquivo a função `isUserParticipant` (linha 581) que cobre os 4 papéis corretamente — só é usada para a seção "Concluídos". A divergência é local.
 
-### 1. Migration — habilitar Realtime
+## Correção
 
-```sql
-ALTER TABLE planejador_tasks REPLICA IDENTITY FULL;
-ALTER TABLE planejador_task_files REPLICA IDENTITY FULL;
-ALTER TABLE planejador_task_subtasks REPLICA IDENTITY FULL;
-ALTER TABLE planejador_task_etapas REPLICA IDENTITY FULL;
-ALTER TABLE planejador_task_participants REPLICA IDENTITY FULL;
-ALTER TABLE planejador_task_labels REPLICA IDENTITY FULL;
-ALTER TABLE planejador_task_label_assignments REPLICA IDENTITY FULL;
-ALTER TABLE planejador_task_activity_log REPLICA IDENTITY FULL;
-ALTER TABLE task_comentarios REPLICA IDENTITY FULL;
-ALTER TABLE task_tarefas REPLICA IDENTITY FULL;
+1. Em `AgendaContent.tsx`, substituir o predicado de `filteredDeadlines` (linhas 587-594) para usar `isUserParticipant` (criador + advogado + tagged + concluído_por), igual já é feito em "Concluídos".
+2. Aplicar o mesmo critério ao filtro `selectedUserFilter` (passar a usar `isUserParticipant(deadline, selectedUserFilter)`).
+3. Revisar e padronizar o mesmo critério, se houver o bug, em:
+   - `src/components/Dashboard/PrazosAbertosPanel.tsx`
+   - `src/components/Dashboard/Metrics/AdvogadoMetrics.tsx`
+   - `src/components/Dashboard/Metrics/FinanceiroMetrics.tsx`
+   - `src/components/Dashboard/PrazosDistributionChart.tsx`
 
-ALTER PUBLICATION supabase_realtime ADD TABLE
-  planejador_tasks,
-  planejador_task_files,
-  planejador_task_subtasks,
-  planejador_task_etapas,
-  planejador_task_participants,
-  planejador_task_labels,
-  planejador_task_label_assignments,
-  planejador_task_activity_log,
-  task_comentarios,
-  task_tarefas;
-```
+## Arquivos afetados
 
-### 2. Subscriptions nos hooks
+- `src/components/Agenda/AgendaContent.tsx` (correção principal)
+- Os 4 arquivos do Dashboard acima (revisão; ajuste só se reproduzirem o mesmo padrão restrito)
+- **Sem migration. Sem alteração de RLS.**
 
-Em cada hook abaixo, adicionar um `useEffect` que cria um channel filtrado por `task_id`/`tenant_id` e invalida a queryKey correspondente em qualquer evento (`*`):
+## Impacto
 
-| Hook | Tabela | Filter | Invalida |
-|------|--------|--------|----------|
-| `usePlanejadorTasks` | `planejador_tasks` + `planejador_task_subtasks` | `tenant_id=eq.{tenantId}` | `['planejador-tasks', tenantId]` |
-| `usePlanejadorFiles` | `planejador_task_files` | `task_id=eq.{taskId}` | `['planejador-files', taskId]` |
-| `usePlanejadorSubtasks` | `planejador_task_subtasks` | `task_id=eq.{taskId}` | `['planejador-subtasks', taskId]` + tasks |
-| `usePlanejadorEtapas` | `planejador_task_etapas` | `task_id=eq.{taskId}` | `['planejador-etapas', taskId]` |
-| `usePlanejadorParticipants` | `planejador_task_participants` | `task_id=eq.{taskId}` | `['planejador-participants', taskId]` |
-| `usePlanejadorLabels` (assignments) | `planejador_task_label_assignments` | `task_id=eq.{taskId}` | label-assignments |
-| `usePlanejadorActivityLog` | `planejador_task_activity_log` | `task_id=eq.{taskId}` | activity log |
-| `useTaskComentarios` | `task_comentarios` | `task_id=eq.{taskId}` | comentários |
+1. **Usuário final**: prazos em que o usuário é apenas o **criador** passam a aparecer na Agenda dele (idêntico ao que já mostra no projeto). Acaba a inconsistência "vejo no projeto mas não na agenda". Filtro "por usuário" passa a refletir todos os papéis de participação.
+2. **Dados**: nenhuma mudança em schema, RLS ou performance (filtro continua O(n) sobre dados já carregados).
+3. **Riscos colaterais**: usuários que criam muitos prazos para terceiros podem ver a Agenda mais "cheia" — é o comportamento correto. Nenhum dado novo é exposto: a RLS já liberava esses prazos.
+4. **Quem é afetado**: todos os perfis que criam prazos para outros (controladoria, comercial, admin delegando, etc.) em todos os tenants. Admin/controller: comportamento inalterado (já viam tudo).
 
-Padrão usado:
+## Validação
 
-```ts
-useEffect(() => {
-  if (!taskId) return;
-  const channel = supabase
-    .channel(`planejador-files-${taskId}`)
-    .on('postgres_changes',
-      { event: '*', schema: 'public', table: 'planejador_task_files', filter: `task_id=eq.${taskId}` },
-      () => queryClient.invalidateQueries({ queryKey: ['planejador-files', taskId] })
-    )
-    .subscribe();
-  return () => { supabase.removeChannel(channel); };
-}, [taskId, queryClient]);
-```
-
-Nomes de channel únicos por hook + id evitam conflito.
-
-### 3. Resultado
-
-- Alterações de qualquer usuário (título, descrição, status, prazo, anexos, subtarefas, etapas, participantes, labels, comentários, log) aparecem instantaneamente para quem está com a tarefa aberta, sem refresh.
-- Como já usamos React Query, basta invalidar a queryKey — o refetch acontece automático e a UI atualiza.
-
-Posso aplicar?
+- Logar como o criador do prazo `16b84fd9-8ea0-4805-a114-9f3db7e22c17` → deve aparecer em "Próximos" e no calendário da Agenda.
+- Logar como o advogado `158daf46…` → continua aparecendo (regressão).
+- Logar como usuário sem vínculo → **não** aparece (RLS continua bloqueando).
+- Trocar o filtro de usuário entre criador, advogado e "todos" → todos devem mostrar o prazo.
+- Conferir Dashboard `PrazosAbertosPanel` com o usuário criador.
