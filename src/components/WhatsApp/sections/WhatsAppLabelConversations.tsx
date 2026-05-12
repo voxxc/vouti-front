@@ -90,7 +90,8 @@ export const WhatsAppLabelConversations = ({ labelId, labelName }: WhatsAppLabel
       let msgQuery = supabase
         .from("whatsapp_messages")
         .select("id, from_number, message_text, created_at, agent_id")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(3000);
 
       if (tenantId) {
         msgQuery = msgQuery.eq("tenant_id", tenantId);

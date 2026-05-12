@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllPaginated } from '@/lib/supabasePagination';
 import { Cliente, ClienteDocumento } from '@/types/cliente';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,15 +20,15 @@ export const useClientes = () => {
 
       const isAdmin = userRoles.some(r => r === 'admin');
 
-      let query = supabase
-        .from('clientes')
-        .select('*');
-
-      if (!isAdmin) {
-        query = query.eq('user_id', user.id);
-      }
-
-      const { data, error } = await query.order('created_at', { ascending: false });
+      const buildQuery = () => {
+        let q = supabase
+          .from('clientes')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!isAdmin) q = q.eq('user_id', user.id);
+        return q;
+      };
+      const { data, error } = await fetchAllPaginated<any>(buildQuery);
 
       if (error) throw error;
       return (data || []) as unknown as Cliente[];

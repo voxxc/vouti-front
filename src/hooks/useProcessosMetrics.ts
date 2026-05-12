@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { useTenantId } from '@/hooks/useTenantId';
+import { fetchAllPaginated } from '@/lib/supabasePagination';
 
 export interface ProcessosMetrics {
   totalProcessos: number;
@@ -15,39 +16,62 @@ export interface ProcessosMetrics {
 }
 
 const fetchProcessosMetrics = async (tenantId: string): Promise<ProcessosMetrics> => {
-  const [processosRes, andamentosRes, prazosRes, oabsRes] = await Promise.all([
-    supabase
-      .from('processos_oab')
-      .select('id, monitoramento_ativo, detalhes_request_id')
-      .eq('tenant_id', tenantId),
-    supabase
-      .from('processos_oab_andamentos')
-      .select('id, created_at, processo_oab_id'),
-    supabase
-      .from('deadlines')
-      .select('date, completed')
-      .eq('tenant_id', tenantId),
-    supabase
-      .from('oabs_cadastradas')
-      .select('id')
-      .eq('tenant_id', tenantId)
+  const [processosRes, prazosRes, oabsRes] = await Promise.all([
+    fetchAllPaginated<{ id: string; monitoramento_ativo: boolean | null; detalhes_request_id: string | null }>(
+      () => supabase
+        .from('processos_oab')
+        .select('id, monitoramento_ativo, detalhes_request_id')
+        .eq('tenant_id', tenantId)
+        .order('id', { ascending: true })
+    ),
+    fetchAllPaginated<{ date: string | null; completed: boolean | null }>(
+      () => supabase
+        .from('deadlines')
+        .select('date, completed')
+        .eq('tenant_id', tenantId)
+        .order('id', { ascending: true })
+    ),
+    fetchAllPaginated<{ id: string }>(
+      () => supabase
+        .from('oabs_cadastradas')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .order('id', { ascending: true })
+    ),
   ]);
 
   const processos = processosRes.data || [];
-  const andamentos = andamentosRes.data || [];
   const prazos = prazosRes.data || [];
   const oabs = oabsRes.data || [];
 
-  // Filtrar andamentos apenas dos processos do tenant
-  const processoIds = new Set(processos.map(p => p.id));
-  const andamentosTenant = andamentos.filter(a => processoIds.has(a.processo_oab_id));
+  const processoIds = processos.map(p => p.id);
 
-  // Calcular andamentos recentes (ultimos 7 dias)
-  const seteDiasAtras = new Date();
-  seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
-  const andamentosRecentes = andamentosTenant.filter(a => 
-    a.created_at && new Date(a.created_at) >= seteDiasAtras
-  ).length;
+  // Total andamentos: contagem rápida sem baixar linhas (evita limite de 1000).
+  let totalAndamentos = 0;
+  let andamentosRecentes = 0;
+  if (processoIds.length > 0) {
+    const seteDiasAtras = new Date();
+    seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
+
+    // Quebrar em chunks para evitar URL muito longa no .in()
+    const CHUNK = 200;
+    for (let i = 0; i < processoIds.length; i += CHUNK) {
+      const chunk = processoIds.slice(i, i + CHUNK);
+      const [totalRes, recentesRes] = await Promise.all([
+        supabase
+          .from('processos_oab_andamentos')
+          .select('id', { count: 'exact', head: true })
+          .in('processo_oab_id', chunk),
+        supabase
+          .from('processos_oab_andamentos')
+          .select('id', { count: 'exact', head: true })
+          .in('processo_oab_id', chunk)
+          .gte('created_at', seteDiasAtras.toISOString()),
+      ]);
+      totalAndamentos += totalRes.count ?? 0;
+      andamentosRecentes += recentesRes.count ?? 0;
+    }
+  }
 
   // Analisar prazos
   let proximosPrazos = 0;
@@ -69,7 +93,7 @@ const fetchProcessosMetrics = async (tenantId: string): Promise<ProcessosMetrics
     totalProcessos: processos.length,
     processosMonitorando: processos.filter(p => p.monitoramento_ativo).length,
     processosComDetalhes: processos.filter(p => p.detalhes_request_id).length,
-    totalAndamentos: andamentosTenant.length,
+    totalAndamentos,
     andamentosRecentes,
     totalOABs: oabs.length,
     proximosPrazos,

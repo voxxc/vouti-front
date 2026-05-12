@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllPaginated } from '@/lib/supabasePagination';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { startOfMonth, endOfMonth, differenceInDays, parseISO, isWithinInterval } from 'date-fns';
@@ -47,12 +48,12 @@ export function useRelatorioFinanceiro() {
 
       // Buscar dados em paralelo
       const [clientesResult, parcelasResult, custosResult, colaboradoresResult, valesResult, categoriasResult] = await Promise.all([
-        supabase.from('clientes').select('*').eq('tenant_id', tenant.id),
-        supabase.from('cliente_parcelas').select('*').eq('tenant_id', tenant.id),
-        supabase.from('custos').select('*, custo_categorias(nome, cor)').eq('tenant_id', tenant.id),
-        supabase.from('colaboradores').select('*').eq('tenant_id', tenant.id).eq('status', 'ativo'),
-        supabase.from('colaborador_vales').select('*').eq('tenant_id', tenant.id),
-        supabase.from('custo_categorias').select('*').eq('tenant_id', tenant.id),
+        fetchAllPaginated<any>(() => supabase.from('clientes').select('*').eq('tenant_id', tenant.id).order('id', { ascending: true })),
+        fetchAllPaginated<any>(() => supabase.from('cliente_parcelas').select('*').eq('tenant_id', tenant.id).order('id', { ascending: true })),
+        fetchAllPaginated<any>(() => supabase.from('custos').select('*, custo_categorias(nome, cor)').eq('tenant_id', tenant.id).order('id', { ascending: true })),
+        fetchAllPaginated<any>(() => supabase.from('colaboradores').select('*').eq('tenant_id', tenant.id).eq('status', 'ativo').order('id', { ascending: true })),
+        fetchAllPaginated<any>(() => supabase.from('colaborador_vales').select('*').eq('tenant_id', tenant.id).order('id', { ascending: true })),
+        fetchAllPaginated<any>(() => supabase.from('custo_categorias').select('*').eq('tenant_id', tenant.id).order('id', { ascending: true })),
       ]);
 
       const clientes = clientesResult.data || [];

@@ -124,7 +124,8 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
         .from("whatsapp_messages")
         .select("from_number, message_text, created_at")
         .eq("agent_id", agentId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(3000);
 
       // Load shared access messages (all agents for those phones)
       let sharedMsgs: any[] = [];
@@ -134,7 +135,8 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
           .from("whatsapp_messages")
           .select("from_number, message_text, created_at")
           .or(orFilter)
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false })
+        .limit(3000);
         sharedMsgs = data || [];
       }
 
@@ -233,7 +235,8 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
         .from("whatsapp_messages")
         .select("from_number, message_text, created_at")
         .eq("agent_id", agentId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(3000);
 
       let sharedMsgs: any[] = [];
       if (sharedPhones.size > 0) {
@@ -242,7 +245,8 @@ export const WhatsAppKanban = ({ agentId, agentName, onOpenConversation }: Whats
           .from("whatsapp_messages")
           .select("from_number, message_text, created_at")
           .or(orFilter)
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false })
+        .limit(3000);
         sharedMsgs = data || [];
       }
 

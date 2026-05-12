@@ -4,6 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaginated } from "@/lib/supabasePagination";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PieChartIcon, ChevronRight, Scale, BarChart3 } from "lucide-react";
 
@@ -91,27 +92,29 @@ const PrazosDistributionChart = ({ tenantId, userRole }: PrazosDistributionChart
     queryFn: async () => {
       const today = new Date();
 
-      let query = supabase
-        .from("deadlines")
-        .select("id, completed, date, user_id, advogado_responsavel_id, deadline_category");
+      const buildQuery = () => {
+        let q = supabase
+          .from("deadlines")
+          .select("id, completed, date, user_id, advogado_responsavel_id, deadline_category")
+          .order("id", { ascending: true });
 
-      if (period !== "all") {
-        const days = parseInt(period);
-        const startDate = new Date(today);
-        startDate.setDate(startDate.getDate() - days);
-        const endDate = new Date(today);
-        endDate.setDate(endDate.getDate() + days);
+        if (period !== "all") {
+          const days = parseInt(period);
+          const startDate = new Date(today);
+          startDate.setDate(startDate.getDate() - days);
+          const endDate = new Date(today);
+          endDate.setDate(endDate.getDate() + days);
+          q = q
+            .gte("date", startDate.toISOString().split("T")[0])
+            .lte("date", endDate.toISOString().split("T")[0]);
+        }
+        if (selectedUser !== "all") {
+          q = q.or(`user_id.eq.${selectedUser},advogado_responsavel_id.eq.${selectedUser}`);
+        }
+        return q;
+      };
 
-        query = query
-          .gte("date", startDate.toISOString().split("T")[0])
-          .lte("date", endDate.toISOString().split("T")[0]);
-      }
-
-      if (selectedUser !== "all") {
-        query = query.or(`user_id.eq.${selectedUser},advogado_responsavel_id.eq.${selectedUser}`);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await fetchAllPaginated<any>(buildQuery);
       if (error) {
         console.error("[PrazosDistribution]", error);
         return [];

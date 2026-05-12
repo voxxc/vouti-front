@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { fetchAllPaginated } from '@/lib/supabasePagination';
 import { cn } from '@/lib/utils';
 import { Plus, RefreshCw, Trash2, Scale, Search, FileInput, FileSpreadsheet, Inbox } from 'lucide-react';
 import { EditarAdvogadoModal } from './EditarAdvogadoModal';
@@ -132,10 +133,13 @@ export const OABManager = () => {
   // Carregar detalhes de todos os processos de uma OAB
   const handleCarregarDetalhesLote = async (oab: OABCadastrada) => {
     // Buscar processos para mostrar confirmacao
-    const { data } = await supabase
-      .from('processos_oab')
-      .select('id, numero_cnj, detalhes_request_id, detalhes_carregados')
-      .eq('oab_id', oab.id);
+    const { data } = await fetchAllPaginated<any>(
+      () => supabase
+        .from('processos_oab')
+        .select('id, numero_cnj, detalhes_request_id, detalhes_carregados')
+        .eq('oab_id', oab.id)
+        .order('id', { ascending: true })
+    );
     
     const processos = data || [];
     const comRequestId = processos.filter(p => p.detalhes_request_id).length;

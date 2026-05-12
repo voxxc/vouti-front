@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { fetchAllPaginated } from "@/lib/supabasePagination";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -116,9 +117,10 @@ export const CentralPrazosConcluidos = () => {
     try {
       const dateLimit = subDays(new Date(), parseInt(filterPeriod));
 
-      let query = supabase
-        .from('deadlines')
-        .select(`
+      const buildQuery = () => {
+        let q = supabase
+          .from('deadlines')
+          .select(`
           id,
           title,
           description,
@@ -152,16 +154,17 @@ export const CentralPrazosConcluidos = () => {
             )
           )
         `)
-        .eq('completed', true)
-        .eq('tenant_id', tenantId)
-        .gte('concluido_em', dateLimit.toISOString())
-        .order('concluido_em', { ascending: false });
+          .eq('completed', true)
+          .eq('tenant_id', tenantId)
+          .gte('concluido_em', dateLimit.toISOString())
+          .order('concluido_em', { ascending: false });
+        if (filterUserId !== "all") {
+          q = q.or(`advogado_responsavel_id.eq.${filterUserId},concluido_por.eq.${filterUserId}`);
+        }
+        return q;
+      };
 
-      if (filterUserId !== "all") {
-        query = query.or(`advogado_responsavel_id.eq.${filterUserId},concluido_por.eq.${filterUserId}`);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await fetchAllPaginated<any>(buildQuery);
 
       if (error) {
         console.error('Error fetching prazos:', error);

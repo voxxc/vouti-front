@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { fetchAllPaginated } from '@/lib/supabasePagination';
 import { 
   Eye, Bell, Loader2, FileText, ChevronLeft, ChevronRight,
   Link2, AlertCircle, Filter, Users, Trash2, Search, X, Scale
@@ -89,10 +90,13 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
   useEffect(() => {
     const fetchCompartilhados = async () => {
       if (!tenantId) return;
-      const { data, error } = await supabase
-        .from('processos_oab')
-        .select(`numero_cnj, oab_id, oabs_cadastradas!inner(oab_numero, nome_advogado)`)
-        .eq('tenant_id', tenantId);
+      const { data, error } = await fetchAllPaginated<any>(
+        () => supabase
+          .from('processos_oab')
+          .select(`numero_cnj, oab_id, oabs_cadastradas!inner(oab_numero, nome_advogado)`)
+          .eq('tenant_id', tenantId)
+          .order('id', { ascending: true })
+      );
       if (error || !data) return;
       
       const cnjMap = new Map<string, { advogadoNome: string; oabNumero: string }[]>();

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllPaginated } from '@/lib/supabasePagination';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/Dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -74,25 +75,28 @@ const Financial = () => {
       const hasFullAccess = isAdmin || isFinanceiro;
 
       // Query condicional: admins e financeiro veem todos, outros veem apenas seus clientes
-      let query = supabase
-        .from('clientes')
-        .select('*')
-        .order('data_fechamento', { ascending: false });
-
-      if (!hasFullAccess) {
-        query = query.eq('user_id', user.id);
-      }
-
-      const { data, error } = await query;
+      const buildQuery = () => {
+        let q = supabase
+          .from('clientes')
+          .select('*')
+          .order('data_fechamento', { ascending: false });
+        if (!hasFullAccess) q = q.eq('user_id', user.id);
+        return q;
+      };
+      const { data, error } = await fetchAllPaginated<any>(buildQuery);
 
       if (error) throw error;
 
       // Buscar parcelas de todos os clientes
       const clienteIds = (data || []).map(c => c.id);
-      const { data: parcelasData } = await supabase
-        .from('cliente_parcelas')
-        .select('*')
-        .in('cliente_id', clienteIds);
+      const parcelasResult = clienteIds.length > 0
+        ? await fetchAllPaginated<any>(() => supabase
+            .from('cliente_parcelas')
+            .select('*')
+            .in('cliente_id', clienteIds)
+            .order('id', { ascending: true }))
+        : { data: [] as any[] };
+      const parcelasData = parcelasResult.data;
 
       const parcelasPorCliente = (parcelasData || []).reduce((acc, parcela) => {
         if (!acc[parcela.cliente_id]) {

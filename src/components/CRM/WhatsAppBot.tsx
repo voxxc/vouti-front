@@ -646,12 +646,14 @@ const WhatsAppBot: React.FC = () => {
     
     const loadConversations = async () => {
       try {
-        // Buscar todas as mensagens do tenant
+        // Buscar mensagens recentes do tenant (últimas 5000) para montar a lista de contatos.
+        // Limite explícito evita o cap implícito de 1000 do Supabase e mantém performance.
         const { data: messages, error } = await supabase
           .from('whatsapp_messages')
           .select('*')
           .eq('tenant_id', tenantId)
-          .order('timestamp', { ascending: false });
+          .order('timestamp', { ascending: false })
+          .limit(5000);
 
         if (error) {
           console.error('Erro ao carregar mensagens:', error);
@@ -1108,12 +1110,15 @@ const WhatsAppBot: React.FC = () => {
                           const { data: userData } = await supabase.auth.getUser();
                           if (!userData.user) return;
                           
+                          // Carrega últimas 1000 mensagens da conversa em ordem cronológica.
                           const { data } = await supabase
                             .from('whatsapp_messages')
                             .select('*')
                             .eq('user_id', userData.user.id)
                             .eq('from_number', contact.number)
-                            .order('timestamp', { ascending: true });
+                            .order('timestamp', { ascending: false })
+                            .limit(1000);
+                          data?.reverse();
 
                           setMessages(data?.map(msg => ({
                             id: msg.id,
