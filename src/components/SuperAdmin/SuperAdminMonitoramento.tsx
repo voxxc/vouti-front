@@ -132,7 +132,7 @@ export function SuperAdminMonitoramento() {
       };
       const { data, error } = await fetchAllPaginated<ProcessoMonitorado>(buildQuery);
       if (error) throw error;
-      return data;
+      return data as ProcessoMonitorado[];
     },
   });
 
