@@ -584,12 +584,14 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
     deadline.createdByUserId === userId ||
     deadline.completedByUserId === userId;
 
-  // For non-completed sections: filter by advogado/tagged only (original behavior)
+  // Critério unificado de participação: criador, advogado, tagged ou concluído_por.
+  // Alinha a Agenda com a RLS de `deadlines` e com o que aparece no Projeto,
+  // evitando o bug em que o criador via o prazo no Projeto mas não na Agenda.
   const filteredDeadlines = deadlines.filter(deadline => {
     const matchesSearch = matchesSearchFilter(deadline);
-    const matchesUser = selectedUserFilter === "all" || 
-      deadline.advogadoResponsavel?.userId === selectedUserFilter ||
-      deadline.taggedUsers?.some(t => t.userId === selectedUserFilter);
+    const matchesUser =
+      selectedUserFilter === "all" ||
+      isUserParticipant(deadline, selectedUserFilter);
     return matchesSearch && matchesUser;
   });
 
