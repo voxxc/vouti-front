@@ -131,15 +131,18 @@ export const SuperAdminWhatsAppInbox = ({ initialConversationPhone, onConversati
     try {
       // Super Admin: buscar mensagens e contatos em paralelo
       const [messagesResult, contactsResult] = await Promise.all([
+        // Limite explícito para evitar cap implícito de 1000 e manter performance
         supabase
           .from("whatsapp_messages")
           .select("*")
           .is("tenant_id", null)
-          .order("created_at", { ascending: false }),
+          .order("created_at", { ascending: false })
+          .limit(5000),
         supabase
           .from("whatsapp_contacts")
           .select("phone, name")
           .is("tenant_id", null)
+          .limit(5000),
       ]);
 
       if (messagesResult.error) throw messagesResult.error;
