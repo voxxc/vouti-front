@@ -571,6 +571,12 @@ export function PrazosOrfaosTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <DeadlineDetailDialog
+        deadlineId={selectedDeadlineId}
+        open={!!selectedDeadlineId}
+        onOpenChange={(open) => !open && setSelectedDeadlineId(null)}
+      />
     </div>
   );
 }
