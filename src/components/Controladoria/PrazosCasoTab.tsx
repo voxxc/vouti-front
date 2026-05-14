@@ -3,6 +3,7 @@ import { format, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar, CheckCircle2, Clock, AlertTriangle, Loader2, User, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllPaginated, fetchAllPaginatedIn } from '@/lib/supabasePagination';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -57,11 +58,14 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
   const fetchPrazos = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
 
-    const { data: directData, error: directError } = await supabase
-      .from('deadlines')
-      .select(deadlineSelect)
-      .eq('processo_oab_id', processoOabId)
-      .order('date', { ascending: true });
+    const { data: directData, error: directError } = await fetchAllPaginated<any>(() =>
+      supabase
+        .from('deadlines')
+        .select(deadlineSelect)
+        .eq('processo_oab_id', processoOabId)
+        .order('date', { ascending: true })
+        .order('id', { ascending: true })
+    );
 
     if (directError) console.error('[PrazosCasoTab] Direct query error:', directError);
 
@@ -84,11 +88,16 @@ export const PrazosCasoTab = ({ processoOabId }: PrazosCasoTabProps) => {
       const etapaIds = etapasList.map((e: any) => e.id);
       const etapaMap = new Map(etapasList.map((e: any) => [e.id, e]));
 
-      const { data: protData, error: protError } = await supabase
-        .from('deadlines')
-        .select(deadlineSelect + ', protocolo_etapa_id')
-        .in('protocolo_etapa_id', etapaIds)
-        .order('date', { ascending: true });
+      const { data: protData, error: protError } = await fetchAllPaginatedIn<any>(
+        etapaIds,
+        (chunk) =>
+          supabase
+            .from('deadlines')
+            .select(deadlineSelect + ', protocolo_etapa_id')
+            .in('protocolo_etapa_id', chunk)
+            .order('date', { ascending: true })
+            .order('id', { ascending: true })
+      );
 
       if (protError) console.error('[PrazosCasoTab] Protocol deadlines error:', protError);
 
