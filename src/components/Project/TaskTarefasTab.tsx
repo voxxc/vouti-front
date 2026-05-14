@@ -1025,6 +1025,52 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
               onChange={(users) => setPrazoFormData({ ...prazoFormData, taggedUsers: users })}
             />
 
+            {availableProtocolos.length > 0 && (
+              <>
+                <div>
+                  <label className="text-sm font-medium">
+                    Protocolo <span className="text-destructive">*</span>
+                  </label>
+                  <Select
+                    value={prazoProtocoloId}
+                    onValueChange={async (val) => {
+                      setPrazoProtocoloId(val);
+                      setPrazoEtapaId('');
+                      setPrazoEtapas(await loadEtapas(val));
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o protocolo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableProtocolos.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {prazoProtocoloId && prazoEtapas.length > 0 && (
+                  <div>
+                    <label className="text-sm font-medium">Etapa (opcional)</label>
+                    <Select
+                      value={prazoEtapaId || 'none'}
+                      onValueChange={(v) => setPrazoEtapaId(v === 'none' ? '' : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sem etapa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sem etapa</SelectItem>
+                        {prazoEtapas.map((e) => (
+                          <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </>
+            )}
+
             <div>
               <label className="text-sm font-medium">Descricao</label>
               <Textarea
