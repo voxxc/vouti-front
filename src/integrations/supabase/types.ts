@@ -5573,6 +5573,48 @@ export type Database = {
           },
         ]
       }
+      project_carteira_processos_audit: {
+        Row: {
+          acao: string
+          actor_user_id: string | null
+          carteira_id: string | null
+          created_at: string
+          id: string
+          motivo: string | null
+          project_processo_id: string | null
+          projeto_id: string | null
+          snapshot: Json | null
+          tenant_id: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          acao: string
+          actor_user_id?: string | null
+          carteira_id?: string | null
+          created_at?: string
+          id?: string
+          motivo?: string | null
+          project_processo_id?: string | null
+          projeto_id?: string | null
+          snapshot?: Json | null
+          tenant_id?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          acao?: string
+          actor_user_id?: string | null
+          carteira_id?: string | null
+          created_at?: string
+          id?: string
+          motivo?: string | null
+          project_processo_id?: string | null
+          projeto_id?: string | null
+          snapshot?: Json | null
+          tenant_id?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: []
+      }
       project_carteira_protocolos: {
         Row: {
           carteira_id: string
@@ -10866,6 +10908,10 @@ export type Database = {
         Args: { encrypted_text: string; key: string }
         Returns: string
       }
+      desvincular_processo_do_projeto: {
+        Args: { p_motivo?: string; p_project_processo_id: string }
+        Returns: undefined
+      }
       encrypt_credential: {
         Args: { key: string; text_to_encrypt: string }
         Returns: string
@@ -11056,6 +11102,10 @@ export type Database = {
       is_tagged_in_deadline: {
         Args: { _deadline_id: string; _user_id: string }
         Returns: boolean
+      }
+      mover_processo_para_carteira: {
+        Args: { p_carteira_id: string; p_project_processo_id: string }
+        Returns: undefined
       }
       normalize_descricao: { Args: { txt: string }; Returns: string }
       reorder_planejador_task: {
