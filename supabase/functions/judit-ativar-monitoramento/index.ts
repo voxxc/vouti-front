@@ -103,6 +103,48 @@ serve(async (req) => {
 
     console.log('[Judit] Monitoramento ativado com sucesso');
 
+    // Registrar em tenant_banco_ids (tipo='tracking')
+    if (effectiveTenantId) {
+      // Remover entry de tracking_desativado para esse tracking_id se existir
+      await supabase
+        .from('tenant_banco_ids')
+        .delete()
+        .eq('tenant_id', effectiveTenantId)
+        .eq('tipo', 'tracking_desativado')
+        .eq('external_id', trackingId);
+
+      // Verificar se já existe (UPSERT manual)
+      const { data: existing } = await supabase
+        .from('tenant_banco_ids')
+        .select('id')
+        .eq('tenant_id', effectiveTenantId)
+        .eq('tipo', 'tracking')
+        .eq('external_id', trackingId)
+        .maybeSingle();
+
+      const payload = {
+        tenant_id: effectiveTenantId,
+        tipo: 'tracking',
+        referencia_id: processoId,
+        external_id: trackingId,
+        descricao: `Tracking ativo - CNJ ${numeroProcesso}`,
+        metadata: {
+          tracking_id: trackingId,
+          processo_oab_id: processoId,
+          numero_cnj: numeroProcesso,
+          ativado_em: new Date().toISOString(),
+          recurrence: 1,
+          com_credencial: !!customerKey,
+        },
+      };
+
+      if (existing) {
+        await supabase.from('tenant_banco_ids').update(payload).eq('id', existing.id);
+      } else {
+        await supabase.from('tenant_banco_ids').insert(payload);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
