@@ -82,3 +82,15 @@ Para cada `WHERE id IN (ids)` onde `ids` pode passar de 500, troca por `fetchAll
 - UI no Super-Admin para `project_carteira_processos_audit` (timeline de movimentações).
 - Regra ESLint custom proibindo `.from(...).select(...)` de listagem sem `.limit()`/`.range()`/`fetchAllPaginated*`.
 - Documentação do padrão.
+
+## Status final da Fase 2
+
+Todos os pontos da auditoria revisados:
+
+- **Já paginados em rodadas anteriores**: `OABTab`, `OABManager`, `Financial`, `PrazosDistributionChart`, `useProjectProtocolos`, `ProjectProcessos`, `useAndamentosNaoLidosGlobal`, `useOABs.fetchProcessos`, `ProjectProtocolosList`, `AgendaContent`, `SuperAdminMonitoramento`.
+- **Paginados nesta rodada**:
+  - `src/components/Controladoria/CentralSubtarefas.tsx` (deadlines + .in chunks de profiles/workspaces/processos/subtarefas).
+  - `src/components/Search/ProjectQuickSearch.tsx` (busca global de projetos e protocolos, ambos os ramos).
+  - `src/components/Dashboard/Metrics/AdminMetrics.tsx` (`project_protocolos`).
+  - `src/components/SuperAdmin/SuperAdminProcessosSemAndamentos.tsx` (lista global + `.in` de andamentos).
+- **Não exigem ação** (apenas `.single()` / `.maybeSingle()` / `.limit(N)` ou são UPDATE/INSERT): `useVoutiIA`, `useTaskVinculo`, `useProtocoloVinculo`, `usePrazosAutomaticos`, `TarefasTab`, `IntimacaoCard`, `CreateDeadlineDialog`, `ProjectProtocoloContent`, `SuperAdminWebhookTest` (`.limit(100)`), `NotificationCenter`, `ProjectView`.
