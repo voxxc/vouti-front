@@ -779,6 +779,52 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
                         excludeCurrentUser={false}
                       />
                     </div>
+
+                    {availableProtocolos.length > 0 && (
+                      <>
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-medium">
+                            Protocolo <span className="text-destructive">*</span>
+                          </label>
+                          <Select
+                            value={novaTarefaProtocoloId}
+                            onValueChange={async (val) => {
+                              setNovaTarefaProtocoloId(val);
+                              setNovaTarefaEtapaId('');
+                              setNovaTarefaEtapas(await loadEtapas(val));
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o protocolo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableProtocolos.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {novaTarefaProtocoloId && novaTarefaEtapas.length > 0 && (
+                          <div className="space-y-1.5">
+                            <label className="text-sm font-medium">Etapa (opcional)</label>
+                            <Select
+                              value={novaTarefaEtapaId || 'none'}
+                              onValueChange={(v) => setNovaTarefaEtapaId(v === 'none' ? '' : v)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Sem etapa" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Sem etapa</SelectItem>
+                                {novaTarefaEtapas.map((e) => (
+                                  <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </CollapsibleContent>
                 </Collapsible>
               </>
