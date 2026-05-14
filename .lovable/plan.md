@@ -1,3 +1,19 @@
+
+## Fase 2 — Paginação aplicada (continuação)
+
+- `src/lib/supabasePagination.ts`: novo helper `fetchAllPaginatedIn` para `WHERE col IN (...ids)` em chunks de 500.
+- `src/hooks/useAndamentosNaoLidosGlobal.ts`: lista global de processos do tenant agora paginada.
+- `src/hooks/useOABs.ts` (`fetchProcessos` por OAB): paginado.
+- `src/components/Project/ProjectProtocolosList.tsx`: carteiras + `project_carteira_protocolos` paginados (resolve carteiras vazias quando há >1000 vínculos).
+- `src/components/Agenda/AgendaContent.tsx`: 
+  - batch `processos_oab` / `project_protocolos` por IN-list agora chunked;
+  - selects de `projects` e `project_protocolos` no diálogo "Novo Prazo" paginados.
+
+### Impacto
+- **UX**: dropdowns e listas de protocolos/processos passam a mostrar todos os registros mesmo em tenants grandes (>1000 itens). Carteiras dentro de workspaces (ex.: Aureliano em Mercado Galvão) voltam a listar todos os vínculos.
+- **Dados**: nenhuma mutação, apenas leitura. Ligeiro aumento no número de requests para tenants pequenos é negligível (1 página única).
+- **Riscos**: para tenants enormes (>50k linhas em uma listagem) o `hardCap` padrão de 50 páginas é suficiente; revisar caso futuro tenant ultrapasse.
+- **Afetados**: todos os tenants — visivelmente os de grande volume (Solvenza, Mercado Galvão).
 ## Causa raiz
 
 A revisão do banco mostrou três classes distintas de "sumiço" silencioso desde a correção das mil linhas:
