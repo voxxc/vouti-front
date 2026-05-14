@@ -64,6 +64,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllPaginatedIn } from '@/lib/supabasePagination';
 import { ProjectProtocolo, ProjectProtocoloEtapa, CreateEtapaData } from '@/hooks/useProjectProtocolos';
 import { useProjectAdvogado } from '@/hooks/useProjectAdvogado';
 import { useProtocoloVinculo } from '@/hooks/useProtocoloVinculo';
@@ -189,19 +190,21 @@ export function ProjectProtocoloContent({
     setLoadingPrazos(true);
     const etapaIds = protocolo.etapas.map(e => e.id);
     
-    const { data, error } = await supabase
-      .from('deadlines')
-      .select(`
-        id, title, description, date, completed, protocolo_etapa_id, project_id, tenant_id,
-        user_id, created_at, updated_at,
-        comentario_conclusao, concluido_por, concluido_em, deadline_number, processo_oab_id,
-        projects (name, client),
-        advogado:profiles!deadlines_advogado_responsavel_id_fkey (user_id, full_name, avatar_url),
-        concluido_por_profile:profiles!deadlines_concluido_por_fkey (user_id, full_name, avatar_url),
-        deadline_tags (tagged_user_id, tagged_user:profiles!deadline_tags_tagged_user_id_fkey (user_id, full_name, avatar_url))
-      `)
-      .in('protocolo_etapa_id', etapaIds)
-      .order('created_at', { ascending: false });
+    const { data, error } = await fetchAllPaginatedIn<any>(etapaIds, (chunk) =>
+      supabase
+        .from('deadlines')
+        .select(`
+          id, title, description, date, completed, protocolo_etapa_id, project_id, tenant_id,
+          user_id, created_at, updated_at,
+          comentario_conclusao, concluido_por, concluido_em, deadline_number, processo_oab_id,
+          projects (name, client),
+          advogado:profiles!deadlines_advogado_responsavel_id_fkey (user_id, full_name, avatar_url),
+          concluido_por_profile:profiles!deadlines_concluido_por_fkey (user_id, full_name, avatar_url),
+          deadline_tags (tagged_user_id, tagged_user:profiles!deadline_tags_tagged_user_id_fkey (user_id, full_name, avatar_url))
+        `)
+        .in('protocolo_etapa_id', chunk)
+        .order('created_at', { ascending: false })
+    );
     
     if (!error) setPrazosVinculados(data || []);
     setLoadingPrazos(false);
