@@ -22,6 +22,7 @@ import {
 import { useProcessosOAB, ProcessoOAB, OABCadastrada } from '@/hooks/useOABs';
 import { ProcessoOABDetalhes } from './ProcessoOABDetalhes';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 import { useTenantId } from '@/hooks/useTenantId';
 
 interface OABTabProps {
@@ -68,6 +69,30 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
   } = useProcessosOAB(oabId);
   
   const { tenantId } = useTenantId();
+
+  const resetarProcesso = async (processoId: string, numeroCnj: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase.functions.invoke('judit-resetar-processo', {
+        body: { processoOabId: processoId, userId: user?.id }
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Falha ao resetar processo');
+      const novos = data.andamentosNovos ?? 0;
+      toast({
+        title: novos > 0 ? `${novos} novo(s) andamento(s)` : 'Nenhuma novidade',
+        description: data.monitoramentoDesativado
+          ? `${numeroCnj} — monitoramento desativado, reative para retomar.`
+          : `${numeroCnj} — atualização concluída.`,
+      });
+      await fetchProcessos();
+      return data;
+    } catch (err: any) {
+      toast({ title: 'Erro ao atualizar processo', description: err.message, variant: 'destructive' });
+      return null;
+    }
+  };
+
   const [selectedProcesso, setSelectedProcesso] = useState<ProcessoOAB | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -419,6 +444,7 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
         onToggleMonitoramento={handleToggleMonitoramento}
         onRefreshProcessos={fetchProcessos}
         onConsultarDetalhesRequest={consultarDetalhesRequest}
+        onResetarProcesso={resetarProcesso}
         onCarregarDetalhes={carregarDetalhes}
         onAtualizarProcesso={atualizarProcesso}
         oab={oab}
