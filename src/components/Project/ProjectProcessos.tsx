@@ -367,9 +367,10 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
     try {
       setLoading(true);
       
-      let query = supabase
-        .from('project_processos')
-        .select(`
+      const buildQuery = () => {
+        let q = supabase
+          .from('project_processos')
+          .select(`
           id,
           projeto_id,
           processo_oab_id,
@@ -404,23 +405,19 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
             processos_oab_andamentos!left(id, lida)
           )
         `)
-        .eq('projeto_id', projectId);
-
-      // CORREÇÃO: Isolar processos por workspace
-      // - Workspace padrão: mostra seus processos + órfãos (NULL)
-      // - Outros workspaces: mostra APENAS seus processos (filtro estrito)
-      if (workspaceId) {
-        if (defaultWorkspaceId && workspaceId === defaultWorkspaceId) {
-          // Workspace padrão inclui órfãos para compatibilidade
-          query = query.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
-        } else {
-          // Outros workspaces: filtro estrito
-          query = query.eq('workspace_id', workspaceId);
+          .eq('projeto_id', projectId);
+        if (workspaceId) {
+          if (defaultWorkspaceId && workspaceId === defaultWorkspaceId) {
+            q = q.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+          } else {
+            q = q.eq('workspace_id', workspaceId);
+          }
         }
-      }
+        return q.order('ordem', { ascending: true });
+      };
 
-      const { data, error } = await query.order('ordem', { ascending: true });
-
+      // Paginação obrigatória: projetos podem ultrapassar 1000 processos
+      const { data, error } = await fetchAllPaginated<any>(() => buildQuery() as any);
       if (error) throw error;
 
       const vinculados = (data || []).map(item => {
@@ -455,21 +452,25 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
   const loadCarteiras = useCallback(async () => {
     if (!workspaceId || !tenantId) return;
     try {
-      const { data: carteirasData } = await supabase
-        .from('project_carteiras')
-        .select('*')
-        .eq('projeto_id', projectId)
-        .eq('workspace_id', workspaceId)
-        .order('ordem');
+      const { data: carteirasData } = await fetchAllPaginated<any>(() =>
+        supabase
+          .from('project_carteiras')
+          .select('*')
+          .eq('projeto_id', projectId)
+          .eq('workspace_id', workspaceId)
+          .order('ordem') as any
+      );
       
       setCarteiras(carteirasData || []);
 
       if (carteirasData?.length) {
         const carteiraIds = carteirasData.map((c: any) => c.id);
-        const { data: cpData } = await supabase
-          .from('project_carteira_processos')
-          .select('carteira_id, project_processo_id')
-          .in('carteira_id', carteiraIds);
+        const { data: cpData } = await fetchAllPaginated<any>(() =>
+          supabase
+            .from('project_carteira_processos')
+            .select('carteira_id, project_processo_id')
+            .in('carteira_id', carteiraIds) as any
+        );
         
         const map: Record<string, string[]> = {};
         (cpData || []).forEach((cp: any) => {
