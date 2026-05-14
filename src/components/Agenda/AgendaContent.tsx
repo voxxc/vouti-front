@@ -24,7 +24,7 @@ import { DeadlineComentarios } from "./DeadlineComentarios";
 import AdvogadoSelector from "@/components/Controladoria/AdvogadoSelector";
 import UserTagSelector from "./UserTagSelector";
 import EditarPrazoDialog from "./EditarPrazoDialog";
-import { fetchAllPaginatedIn } from "@/lib/supabasePagination";
+import { fetchAllPaginated, fetchAllPaginatedIn } from "@/lib/supabasePagination";
 import { ProcessoOABDetalhes } from "@/components/Controladoria/ProcessoOABDetalhes";
 import { ProcessoOAB } from "@/hooks/useOABs";
 import { useToggleMonitoramento } from "@/hooks/useToggleMonitoramento";
