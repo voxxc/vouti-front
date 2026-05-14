@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
  import { Deadline } from "@/types/agenda";
  import { parseISO, isValid } from "date-fns";
 import { DEADLINE_CHANGE_EVENT, DeadlineChangeDetail } from "@/utils/deadlineEvents";
+import { fetchAllPaginated } from "@/lib/supabasePagination";
  
  const safeParseDate = (dateString: string | null | undefined): Date => {
    if (!dateString) return new Date();
@@ -38,40 +39,29 @@ import { DEADLINE_CHANGE_EVENT, DeadlineChangeDetail } from "@/utils/deadlineEve
       return;
     }
     try {
-           // Paginação manual para evitar o limite implícito de 1000 registros
-           const PAGE_SIZE = 1000;
-           let from = 0;
-           let acc: any[] = [];
-           let error: any = null;
-           for (let i = 0; i < 20; i++) {
-             const { data: page, error: pageError } = await supabase
+           // Paginação completa via helper (evita limite implícito de 1000 do Supabase)
+           const { data, error } = await fetchAllPaginated<any>(() =>
+             supabase
                .from('deadlines')
                .select(`
-              *,
-              projects (name, client),
-              advogado:profiles!deadlines_advogado_responsavel_id_fkey (
-                user_id, full_name, avatar_url
-              ),
-              concluido_por_profile:profiles!deadlines_concluido_por_fkey (
-                user_id, full_name, avatar_url
-              ),
-              deadline_tags (
-                tagged_user_id,
-                tagged_user:profiles!deadline_tags_tagged_user_id_fkey (
-                  user_id, full_name, avatar_url
-                )
-              )
-            `)
-             .order('date', { ascending: true })
-             .order('id', { ascending: true })
-             .range(from, from + PAGE_SIZE - 1);
-             if (pageError) { error = pageError; break; }
-             if (!page || page.length === 0) break;
-             acc = acc.concat(page);
-             if (page.length < PAGE_SIZE) break;
-             from += PAGE_SIZE;
-           }
-           const data = acc;
+                 *,
+                 projects (name, client),
+                 advogado:profiles!deadlines_advogado_responsavel_id_fkey (
+                   user_id, full_name, avatar_url
+                 ),
+                 concluido_por_profile:profiles!deadlines_concluido_por_fkey (
+                   user_id, full_name, avatar_url
+                 ),
+                 deadline_tags (
+                   tagged_user_id,
+                   tagged_user:profiles!deadline_tags_tagged_user_id_fkey (
+                     user_id, full_name, avatar_url
+                   )
+                 )
+               `)
+               .order('date', { ascending: true })
+               .order('id', { ascending: true })
+           );
 
           if (error) {
            console.error('[useAgendaData] Error:', error);
