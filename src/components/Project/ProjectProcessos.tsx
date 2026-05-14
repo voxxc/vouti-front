@@ -529,23 +529,16 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
 
   const handleMoverParaCarteira = async (projectProcessoId: string, carteiraId: string) => {
     try {
-      // Remove de outras carteiras primeiro
-      for (const [cId, pIds] of Object.entries(carteiraProcessos)) {
-        if (pIds.includes(projectProcessoId)) {
-          await supabase
-            .from('project_carteira_processos')
-            .delete()
-            .eq('carteira_id', cId)
-            .eq('project_processo_id', projectProcessoId);
-        }
-      }
-      // Adiciona na nova
-      await supabase
-        .from('project_carteira_processos')
-        .insert({ carteira_id: carteiraId, project_processo_id: projectProcessoId });
+      // RPC atômica + auditada: valida tenant e workspace antes de mover.
+      const { error } = await supabase.rpc('mover_processo_para_carteira', {
+        p_project_processo_id: projectProcessoId,
+        p_carteira_id: carteiraId,
+      });
+      if (error) throw error;
       loadCarteiras();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao mover processo para carteira:', error);
+      toast({ title: 'Erro', description: error?.message || 'Erro ao mover processo.', variant: 'destructive' });
     }
   };
 
@@ -634,11 +627,11 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
 
   const handleDesvincularProcesso = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('project_processos')
-        .delete()
-        .eq('id', id);
-
+      // RPC: registra em auditoria os vínculos de carteira antes de excluir o processo.
+      const { error } = await supabase.rpc('desvincular_processo_do_projeto', {
+        p_project_processo_id: id,
+        p_motivo: 'desvincular_ui',
+      });
       if (error) throw error;
 
       toast({
