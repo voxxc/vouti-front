@@ -73,30 +73,25 @@ export function useProjectProtocolos(projectId: string, workspaceId?: string | n
     try {
       setLoading(true);
       
-      let query = supabase
-        .from('project_protocolos')
-        .select(`
-          *,
-          etapas:project_protocolo_etapas(*)
-        `)
-        .eq('project_id', projectId);
-
-      // CORREÇÃO: Isolar protocolos por workspace
-      // - Workspace padrão: mostra seus protocolos + órfãos (NULL)
-      // - Outros workspaces: mostra APENAS seus protocolos (filtro estrito)
-      if (workspaceId) {
-        if (defaultWorkspaceId && workspaceId === defaultWorkspaceId) {
-          // Workspace padrão inclui órfãos para compatibilidade
-          query = query.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
-        } else {
-          // Outros workspaces: filtro estrito
-          query = query.eq('workspace_id', workspaceId);
+      const buildQuery = () => {
+        let q = supabase
+          .from('project_protocolos')
+          .select(`
+            *,
+            etapas:project_protocolo_etapas(*)
+          `)
+          .eq('project_id', projectId);
+        if (workspaceId) {
+          if (defaultWorkspaceId && workspaceId === defaultWorkspaceId) {
+            q = q.or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
+          } else {
+            q = q.eq('workspace_id', workspaceId);
+          }
         }
-      }
-      // Se workspaceId for null explicitamente, não aplica filtro - mostra todos
-
-      const { data, error } = await query.order('ordem', { ascending: true });
-
+        return q.order('ordem', { ascending: true });
+      };
+      // Paginação obrigatória — projetos podem ter > 1000 protocolos
+      const { data, error } = await fetchAllPaginated<any>(() => buildQuery() as any);
       if (error) throw error;
 
       // Buscar nomes dos responsáveis e de quem concluiu etapas
