@@ -957,14 +957,14 @@ export const ProcessoOABDetalhes = ({
                         {andamentos.length} andamento(s)
                       </p>
                       {/* Botao de atualizar andamentos (gratuito se tiver request_id) */}
-                      {processo.detalhes_request_id && onConsultarDetalhesRequest && (
+                      {onResetarProcesso && (
                         <Button 
                           variant="ghost" 
                           size="icon"
                           className="h-7 w-7"
                           onClick={handleRefreshAndamentos}
                           disabled={refreshingAndamentos}
-                          title="Atualizar andamentos"
+                          title="Atualizar andamentos (consulta nova ao tribunal)"
                         >
                           {refreshingAndamentos ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
