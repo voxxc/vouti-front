@@ -1,129 +1,115 @@
+## Causa raiz
 
-# Atualizar Andamentos com reset + registro de IDs no Super-Admin
+A revisão do banco mostrou três classes distintas de "sumiço" silencioso desde a correção das mil linhas:
 
-## Causa raiz / Comportamento atual
+**1) Carteiras vazias dentro de workspaces (Mercado Galvão / Aureliano e outros)**
+- No tenant inteiro: 216 carteiras cadastradas, apenas **6 vínculos** em `project_carteira_processos`. No projeto Mercado Galvão (55 carteiras): **0 vínculos**. Não é problema de paginação — os vínculos foram efetivamente apagados.
+- Causa: as duas FKs de `project_carteira_processos` (`carteira_id` e `project_processo_id`) estão com `ON DELETE CASCADE` (`confdeltype='c'`). Toda vez que um processo é desvinculado/recriado em `project_processos` (por troca de workspace, reordenação destrutiva, sync, etc.), o vínculo da carteira é apagado em silêncio. Não existe nenhuma trilha de auditoria.
+- A UI de `ProjectProcessos.handleDesvincularProcesso` faz `DELETE` direto em `project_processos` — qualquer fluxo que use isso some com a categorização da carteira.
 
-1. Botão **🔄 Atualizar andamentos** em `ProcessoOABDetalhes.tsx` (linha 949) chama `onConsultarDetalhesRequest`, que em `useAllProcessosOAB.ts` é **no-op**. Não força nova consulta.
-2. `judit-buscar-detalhes-processo` prefere cache (request_id existente, tracking_id, processo compartilhado). Não dá pra ressincronizar processos travados pela UI.
-3. Hoje **não há registro consolidado** no Super-Admin de "quando foi feito o último POST de reset, qual request_id retornou, qual tracking_id passou a valer". Existe `tenant_banco_ids` (com tipos `request_detalhes`, `tracking`, `tracking_desativado`) e `judit_api_logs`, mas a operação de reset que vamos criar precisa popular ambos.
+**2) Listagens ainda vulneráveis ao limite implícito de 1000 linhas**
+Mesmo após o hotfix, várias queries críticas ainda fazem `select('*').eq(...)` sem `.range`/`.limit`/`fetchAllPaginated`. Risco de sumiço silencioso conforme a tabela cresce:
+- `src/components/Project/ProjectProcessos.tsx` — `loadCarteiras` (`project_carteira_processos.in('carteira_id', […])`) e a query principal de `project_processos` (sem paginar).
+- `src/hooks/useProjectProtocolos.ts` — listagem de protocolos do projeto.
+- `src/hooks/useProjectsOptimized.ts` — `tasks` e `project_columns` por tenant.
+- `src/pages/ProjectView.tsx` e `src/pages/SectorView.tsx` — carregam `tasks` e `project_columns` do projeto sem paginar (projetos grandes podem ter > 1000 tarefas/colunas).
+- `src/pages/ProjectViewWrapper.tsx` / `AcordosView.tsx` — `tasks` por projeto.
+- `src/components/Agenda/AgendaContent.tsx` — vários `from('deadlines')` e `from('project_protocolos')` de leitura ampla.
+- `src/components/Controladoria/TarefasTab.tsx`, `CentralSubtarefas.tsx`, `IntimacaoCard.tsx` — leituras agregadas em `deadlines`/`project_processos`.
+- `src/components/Search/GlobalSearch.tsx` e `ProjectQuickSearch.tsx` — busca em `tasks`, `deadlines`, `project_protocolos`.
+- `src/hooks/useTOTPData.ts` (carteiras TOTP) e demais consumidores em `Dashboard/TOTP/*`.
+- `src/components/Project/TaskTarefasTab.tsx`, `ProjectProtocoloContent.tsx` — `deadlines` por projeto.
 
-## Correção / O que vai passar a acontecer
+**3) Dados órfãos que ficaram "invisíveis"**
+- `project_processos` com `workspace_id IS NULL` aparecem só no workspace padrão (regra atual em `loadProcessosVinculados`). Em projetos com vários workspaces criados depois, processos antigos podem estar desaparecendo do workspace correto.
 
-### Botão na Controladoria (UX)
+---
 
-Botão **🔄 Atualizar andamentos** abre `AlertDialog` de confirmação e dispara nova Edge Function `judit-resetar-processo` que executa em sequência:
+## Correção
 
-1. **Desativa monitoramento atual** (se ativo): `PATCH /tracking/:id status=paused` na Judit + zera `processos_oab.monitoramento_ativo`, `tracking_id`, `tracking_request_id` e `processo_monitoramento_judit.monitoramento_ativo`. Linha de monitoramento fica preservada.
-2. **Força POST novo** na Judit (`POST /requests` com `search_type=lawsuit_cnj`, `on_demand=true`), **ignorando todos os caches**. Usa credencial sigilosa do tenant se houver.
-3. **Polling** do novo `request_id` até completar (mesma lógica de `judit-buscar-detalhes-processo`).
-4. **Insere apenas o que é novo** — não apaga nada:
-   - Lê `MAX(data_movimentacao)` em `processos_oab_andamentos` para o processo (ex: `17/04/2026` no print).
-   - Calcula `andamento_key = generateAndamentoKey(data, descricao)` para cada andamento da resposta.
-   - Compara com as `andamento_key` existentes; **insere só os ausentes** com `data_movimentacao >= MAX existente`.
-   - Antigos ficam intocados (lida/não-lida preservado). Novos entram com `lida=false`.
-   - Evita inflar a Central da Controladoria.
-5. **Atualiza** `processos_oab` com novo `detalhes_request_id`, `detalhes_request_data = now()` e campos de cabeçalho **só se vierem preenchidos**.
-6. Toast: `"X novos andamentos. Monitoramento desativado — reative para retomar."` (`X=0` → `"Nenhuma novidade desde DD/MM."`)
+### Fase 1 — Recuperar e blindar carteiras (causa raiz #1)
 
-### Registro no Super-Admin (NOVO — foco desta iteração)
+1. Migração:
+   - Trocar `ON DELETE CASCADE` por `ON DELETE RESTRICT` em `project_carteira_processos.project_processo_id` (impede sumiço silencioso quando alguém deleta processo vinculado a carteira).
+   - Criar tabela `project_carteira_processos_audit` (histórico de inserts/deletes com `actor`, `motivo`, `snapshot`).
+   - Trigger `BEFORE DELETE` em `project_processos` que copia os vínculos de carteira para a tabela de auditoria antes de qualquer remoção (mesmo se a FK voltar a ser cascade no futuro).
+2. Tentativa de recuperação: varrer `processo_historico` / `tenant_banco_ids` / logs antigos buscando vínculos passados; popular o que conseguirmos. Caso não exista trilha utilizável, documentar no Super-Admin que o histórico anterior é irrecuperável e oferecer botão "reclassificar carteiras" no `ProjectProcessos`.
+3. Refatorar `handleMoverParaCarteira`:
+   - Usar 1 transação (RPC) que faz delete + insert atomicamente.
+   - Validar que `project_processo_id` pertence ao mesmo `workspace_id` da carteira; bloquear no servidor.
 
-Tudo o que a `judit-resetar-processo` faz é gravado em **dois lugares já existentes**, sem criar tabela nova:
+### Fase 2 — Eliminar limite de 1000 linhas em todas as listagens "completas"
 
-**A) `judit_api_logs`** — registro detalhado por chamada HTTP:
-- `tipo_chamada='reset_processo_pause'` para o PATCH de pause (com `request_payload`, `response_payload`, `tracking_id` antigo).
-- `tipo_chamada='reset_processo_post'` para o POST novo (com `request_payload`, `response_payload`, `request_id` retornado, latência, `sucesso`).
-- `tipo_chamada='reset_processo_polling'` opcionalmente para a última leitura do `/responses` (com count de andamentos, novos inseridos).
-- Cada log carrega `tenant_id`, `oab_id`, `processo_id`, `user_id`, `created_at`. Já aparece em `TenantJuditLogsDialog.tsx`.
+Substituir por `fetchAllPaginated` (ou `.limit()` explícito quando for janela proposital) em:
+- `ProjectProcessos.tsx` (carteiras + processos vinculados)
+- `useProjectProtocolos.ts`
+- `useProjectsOptimized.ts`
+- `ProjectView.tsx`, `SectorView.tsx`, `ProjectViewWrapper.tsx`, `AcordosView.tsx`, `AcordosViewWrapper.tsx`, `ProjectDrawerContent.tsx`
+- `AgendaContent.tsx`, `useAgendaData.ts`, `useTasksMetrics.ts`, `useClienteTasksMetrics.ts`
+- `Controladoria/{TarefasTab,CentralSubtarefas,CentralPrazosConcluidos,IntimacaoCard,ControladoriaIndicadores,PrazosCasoTab}.tsx`
+- `Communication/NotificationCenter.tsx`
+- `Dashboard/{PrazosAbertosPanel,Metrics/AdminMetrics,PrazosDistributionChart}.tsx`
+- `Search/{GlobalSearch,ProjectQuickSearch}.tsx`
+- `useTOTPData.ts` e `Dashboard/TOTP/*`
+- `Project/{TaskTarefasTab,ProjectProtocoloContent,ProjectProtocolosList,CreateDeadlineDialog,EtapaModal}.tsx`
 
-**B) `tenant_banco_ids`** — registro consolidado de IDs vivos do tenant (já é a "fonte de verdade" do dialog "Banco de IDs"):
-- Insere `tipo='request_detalhes'` com `external_id = <novo request_id>`, `referencia_id = processo_oab_id`, `descricao = "Reset manual - CNJ <numero> - <data>"`, `metadata = { numero_cnj, processo_oab_id, request_id, post_em: <iso>, origem: 'reset_manual', usuario_id }`.
-- Move o `tracking_id` antigo para `tipo='tracking_desativado'` (atualiza ou insere) com `metadata.desativado_em = <iso>` + `metadata.motivo = 'reset_manual'`.
-- Quando o usuário **reativar** o monitoramento via Switch (fluxo padrão `judit-ativar-monitoramento`), uma linha `tipo='tracking'` nova é inserida com o novo `tracking_id` + `metadata = { tracking_id, ativado_em, request_id_origem, processo_oab_id }`. **Para isso, ajusto `judit-ativar-monitoramento` para também gravar em `tenant_banco_ids`** (hoje pode estar gravando incompleto — verificar e padronizar).
+Para cada arquivo: revisar se a intenção é "todos os registros visíveis" (→ `fetchAllPaginated`) ou "uma janela" (→ `.limit(N)` justificado). Adicionar comentário curto explicando.
 
-### O que o Super-Admin vê
+### Fase 3 — Reatachar órfãos de workspace (causa raiz #3)
 
-No **TenantCard**, os 2 botões já existentes ganham dado novo automaticamente:
+1. Migração de manutenção: para cada projeto, atualizar `project_processos.workspace_id IS NULL` para o `workspace_id` default do projeto. Mesmo tratamento para `project_protocolos.workspace_id IS NULL`.
+2. Adicionar `NOT NULL` nas colunas `workspace_id` dessas duas tabelas (com default = workspace padrão do projeto via trigger `BEFORE INSERT`) para evitar reaparecer.
+3. Remover o ramo `or(workspace_id.eq.X,workspace_id.is.null)` em `loadProcessosVinculados` — passa a ser sempre `eq(workspace_id, X)`.
 
-- **"Banco de IDs"** (`TenantBancoIdsDialog`) — abas `Detalhes`, `Monitoramento`, `Desativado` passam a mostrar:
-  - **Detalhes (request_detalhes)**: cada reset cria uma linha — `CNJ • request_id • data do POST • origem (reset_manual / sync_automatico / monitoramento)`.
-  - **Monitoramento (tracking)**: tracking ativo atual com `tracking_id • ativado_em • request_id_origem`.
-  - **Desativado (tracking_desativado)**: histórico de trackings pausados com `tracking_id • desativado_em • motivo (reset_manual / desativacao_manual / falha)`.
-  - Botão de copiar e exportação PDF já existem.
-- **"Logs Judit"** (`TenantJuditLogsDialog`) — os 3 novos `tipo_chamada` (`reset_processo_*`) aparecem com label e ícone próprios. Adiciono mapping em `getTipoLabel` e `getTipoIcon` + filtro/contador no header.
+### Fase 4 — Guard-rail permanente
 
-Sem nenhuma tela nova. Tudo entra nos dialogs que o super-admin já usa.
+- Lint custom (regra ESLint simples no diretório `src/`) que avisa quando vê `.from('<tabela_de_risco>').select(...)` sem `.limit(`, `.range(` ou `fetchAllPaginated`. Lista de tabelas de risco vinda da memória `mem://architecture/supabase-1000-row-limit`.
+- Atualizar a memória com a nova lista expandida de tabelas de risco descoberta nesta auditoria.
+
+---
 
 ## Arquivos afetados
 
-**Edge Functions**
-- `supabase/functions/judit-resetar-processo/index.ts` (novo) — orquestra pause + POST + polling + insert incremental + grava em `judit_api_logs` e `tenant_banco_ids`.
-- `supabase/functions/judit-ativar-monitoramento/index.ts` (ajuste) — após criar tracking, garantir insert em `tenant_banco_ids` com `tipo='tracking'` e metadata completa (request_id_origem, ativado_em, processo_oab_id). Verificar que não duplica registros.
-- `supabase/functions/judit-desativar-monitoramento/index.ts` (ajuste) — ao pausar, atualizar/inserir `tipo='tracking_desativado'` com motivo. Verificar idempotência.
-
-**Front — Controladoria**
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — `handleRefreshAndamentos` abre `AlertDialog` e invoca `judit-resetar-processo`; ao final, recarrega andamentos e chama `onAtualizarProcesso` para refletir `monitoramento_ativo=false`. Botão sempre visível.
-- `src/hooks/useAllProcessosOAB.ts` — método `resetarProcesso(processoId, numeroCnj)` que invoca a Edge Function e dá refetch.
-- `src/hooks/useMonitoramentoJudit.ts` — adição equivalente para coerência.
-
-**Front — Super-Admin**
-- `src/components/SuperAdmin/TenantJuditLogsDialog.tsx` — adicionar `reset_processo_pause`, `reset_processo_post`, `reset_processo_polling` em:
-  - `getTipoLabel` ("Reset - Pause", "Reset - POST", "Reset - Polling")
-  - `getTipoIcon` (ícone `RotateCcw` da lucide-react)
-  - Card de contadores no header (novo card "Resets manuais")
-- `src/components/SuperAdmin/TenantBancoIdsDialog.tsx` — exibição já é genérica via `metadata`, mas:
-  - Renderizar campos extras quando metadata tiver `post_em`, `origem`, `motivo`, `desativado_em`, `ativado_em`, `request_id_origem` (formatados com `format(date, "dd/MM/yyyy HH:mm", { locale: ptBR })`).
-  - Badge "Reset manual" quando `metadata.origem === 'reset_manual'` para destacar.
-
-**Schema**
-- Sem migration. `tenant_banco_ids` e `judit_api_logs` já têm colunas suficientes (`metadata jsonb`, `tipo`, `external_id`, `referencia_id`).
+- Migrações novas: `project_carteira_processos` (FK + auditoria + trigger), backfill de `workspace_id`, NOT NULL + trigger default.
+- ~25 arquivos `.ts/.tsx` listados acima (substituição por `fetchAllPaginated`).
+- `src/components/Project/ProjectProcessos.tsx`: refator de `handleMoverParaCarteira` para RPC atômica + remover ramo de órfãos.
+- `src/components/SuperAdmin/`: novo card "Auditoria de carteiras" mostrando histórico de vínculos (reaproveita layout dos botões de IDs).
+- `mem://architecture/supabase-1000-row-limit`: atualização.
+- `eslint.config.js`: nova regra custom (opcional).
 
 ## Impacto
 
-**1. Para o usuário final (UX, telas, fluxos)**
-- **Controller / Advogado**: botão 🔄 da Controladoria passa a funcionar com confirmação. Lista mantém histórico, só novos andamentos aparecem como não lidos. Switch de monitoramento volta a "desativado" — usuário reativa quando quiser.
-- **Super-Admin**: nos botões existentes do `TenantCard`:
-  - "Banco de IDs" → mostra timeline completa de request_ids de detalhes (com data do POST), trackings ativos, trackings desativados — com motivo e data.
-  - "Logs Judit" → 3 novas categorias visíveis (Reset Pause, Reset POST, Reset Polling) com contador no header. Permite auditar quem disparou reset, quando, e qual foi o resultado.
-- Sem tela nova, sem rota nova.
+**Para o usuário final (UX, telas, fluxos)**
+- Carteiras param de "esvaziar sozinhas". Quando alguém tentar excluir um processo que está em carteira, recebe aviso claro ("remova da carteira primeiro" ou "isso vai apagar X classificações").
+- Aba do workspace passa a mostrar 100% dos processos/protocolos/tarefas mesmo em projetos com mais de 1000 itens — fim do sumiço silencioso (igual ao que aconteceu com prazos da Agenda).
+- Super-Admin ganha visibilidade do histórico de vínculos de carteira (quando, quem, qual motivo).
+- Processos órfãos de workspace voltam a aparecer no workspace padrão do projeto correto.
 
-**2. Para os dados (migrations, RLS, performance)**
-- Zero migration.
-- `judit_api_logs` ganha ~3 linhas por reset (uma para pause, uma para POST, opcionalmente uma para polling). Volume baixo — reset é ação manual.
-- `tenant_banco_ids` ganha 1 linha `request_detalhes` por reset + atualização de `tracking_desativado`. UPSERT por `(tenant_id, tipo, external_id)` para evitar duplicatas — verificar se índice único existe; se não, fazer SELECT + INSERT/UPDATE no código.
-- RLS já existente em ambas as tabelas (super_admin reads all, tenant_admin reads próprios).
+**Para os dados (migrations, RLS, performance)**
+- Backfill: `UPDATE` em `project_processos`/`project_protocolos` com `workspace_id IS NULL` (provavelmente algumas centenas de linhas).
+- Nova tabela `project_carteira_processos_audit` (cresce devagar, append-only).
+- Mudança de FK de CASCADE → RESTRICT: tentativas antigas de DELETE em `project_processos` passam a falhar se houver vínculo de carteira; precisamos garantir que toda UI que apaga processo trate o erro.
+- RLS: reuso de `tenant_id` + `has_role_in_tenant` nos novos objetos.
+- Performance: `fetchAllPaginated` faz N requests (N = páginas de 1000). Para projetos pequenos é equivalente. Para tenants grandes, somar `count(*) head:true` antes para evitar buscar 50k linhas onde não é preciso.
 
-**3. Riscos colaterais**
-- **Race com `judit-sync-monitorados`**: setar `processos_oab.detalhes_request_data = now()` no início do reset; sync ignora processos com `detalhes_request_data < 5min`.
-- **`LAWSUIT_NOT_FOUND`**: NÃO desativa monitoramento e NÃO move tracking para "desativado". Loga em `judit_api_logs` com `sucesso=false` e mostra toast de erro. Estado do banco fica intacto.
-- **Duplicação em `tenant_banco_ids`**: se o usuário clicar reset 2x rápido, o segundo reset cria nova linha `request_detalhes` (intencional — registro histórico) mas não duplica `tracking_desativado` (UPSERT).
-- **Custo Judit**: cada reset = 1 POST pago. Confirmação + cooldown de 30s no botão.
-- **Ajustes em `judit-ativar/desativar-monitoramento`**: se já gravam em `tenant_banco_ids`, padronização pode quebrar leituras antigas. Mitigação: revisar código atual antes de mexer; se já gravam, só completar metadata sem mudar formato.
+**Riscos colaterais**
+- Trocar CASCADE por RESTRICT pode quebrar fluxos que apagavam processo legitimamente (ex.: limpeza de duplicados). Mitigado adicionando RPC "delete_processo_with_carteira_cleanup" que move vínculos para auditoria antes do delete.
+- Tornar `workspace_id NOT NULL` exige garantir que TODA inserção (UI + edge functions de sync Judit) passe `workspace_id`. Trigger de default minimiza, mas precisa ser testado com `judit-resetar-processo`, `judit-ativar-monitoramento` e n8n.
+- `fetchAllPaginated` mal usado em listagens de UI muito grandes pode aumentar latência inicial — manter `.limit()` explícito onde a UI mostra só "últimos N".
 
-**4. Quem é afetado**
-- **Controller / Admin / Advogado**: ganham botão funcional para destravar processos.
-- **Super-Admin**: ganha rastreabilidade completa nos dialogs que já usa. Pode auditar todo reset (quem, quando, request_id retornado, tracking trocado).
-- **Tenants em geral**: zero impacto cruzado (escopo por `tenant_id`).
-- **Sincronização automática diária**: continua igual; após reativação manual, novo tracking entra na esteira.
+**Quem é afetado**
+- Todos os tenants com projetos multi-workspace (principalmente Solvenza/Mercado Galvão).
+- Admin / controller (ganham auditoria de carteiras no Super-Admin).
+- Advogados/estagiários (param de perder classificação manual de processos).
+- Edge functions Judit + n8n (precisam continuar setando `workspace_id` corretamente após o NOT NULL).
 
 ## Validação
 
-1. **Pré-teste no `5040965-07.2026.8.24.0930`**:
-   ```sql
-   SELECT id, tenant_id, monitoramento_ativo, tracking_id, detalhes_request_id, detalhes_request_data
-   FROM processos_oab WHERE numero_cnj = '5040965-07.2026.8.24.0930';
-   SELECT count(*), max(data_movimentacao) FROM processos_oab_andamentos WHERE processo_oab_id = '<id>';
-   SELECT tipo, external_id, metadata FROM tenant_banco_ids
-     WHERE tenant_id = '<tenant>' AND tipo IN ('tracking','tracking_desativado','request_detalhes')
-     ORDER BY created_at DESC LIMIT 10;
-   ```
-2. **Deploy** das Edge Functions + ajustes do front.
-3. **Teste manual reset**:
-   - Controladoria → processo → 🔄 → confirmar.
-   - Network: 1 chamada `judit-resetar-processo` com `success: true`, `andamentosNovos: N`.
-   - Banco: `tracking_id=null`, `monitoramento_ativo=false`, novo `detalhes_request_id`.
-   - Super-Admin → tenant card → "Logs Judit": 3 novas linhas (`reset_processo_pause`, `reset_processo_post`, `reset_processo_polling`).
-   - Super-Admin → tenant card → "Banco de IDs": aba Detalhes mostra novo `request_detalhes` com `metadata.origem='reset_manual'` e `post_em`. Aba Desativado mostra tracking antigo com `motivo='reset_manual'`.
-4. **Reativar** monitoramento pelo Switch:
-   - Aba "Banco de IDs" → Monitoramento: aparece nova linha `tracking` com `tracking_id` + `ativado_em` + `request_id_origem`.
-5. **Regressão Central**: contador de não lidos só sobe pelo `N` de novos andamentos (não pelo total).
-6. **Rollback**: reverter front + Edge Function — banco fica íntegro (apenas INSERT/UPDATE idempotentes).
+1. Rodar query de sanidade antes/depois: contagem de carteiras × contagem de vínculos por tenant.
+2. Caso de teste manual: criar carteira no workspace Aureliano, arrastar processo, trocar de workspace, voltar — vínculo preservado.
+3. Caso de teste manual: tentar excluir processo vinculado a carteira → mensagem clara, vínculo registrado em auditoria se confirmado.
+4. Projeto com > 1000 itens (simular ou usar maior tenant atual) — verificar que ProjectView lista todas as tarefas.
+5. `judit-resetar-processo` em processo monitorado → continuar com workspace_id correto, sem virar órfão.
+6. Check no Super-Admin: card de auditoria de carteiras mostra o histórico do teste.
+
+Posso começar pela Fase 1 (carteiras) ou prefere que eu rode as 4 fases em sequência?
