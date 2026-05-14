@@ -1254,19 +1254,21 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (open && tenantId) {
-            supabase
-              .from('projects')
-              .select('id, name, client')
-              .eq('tenant_id', tenantId)
-              .order('name')
-              .then(({ data }) => setAvailableProjects(data || []));
+            fetchAllPaginated<any>(() =>
+              supabase
+                .from('projects')
+                .select('id, name, client')
+                .eq('tenant_id', tenantId)
+                .order('name') as any
+            ).then(({ data }) => setAvailableProjects(data || []));
             // Load all tenant protocolos by default (no project filter)
-            supabase
-              .from('project_protocolos')
-              .select('id, nome, processo_oab_id')
-              .eq('tenant_id', tenantId)
-              .order('nome')
-              .then(({ data }) => setAvailableProtocolos(data || []));
+            fetchAllPaginated<any>(() =>
+              supabase
+                .from('project_protocolos')
+                .select('id, nome, processo_oab_id')
+                .eq('tenant_id', tenantId)
+                .order('nome') as any
+            ).then(({ data }) => setAvailableProtocolos(data || []));
           }
         }}>
           <DialogTrigger asChild>
@@ -1330,19 +1332,23 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                         .order('is_default', { ascending: false });
                       setAvailableWorkspaces(ws || []);
                       // Load protocolos linked to this project
-                      const { data: prots } = await supabase
-                        .from('project_protocolos')
-                        .select('id, nome, processo_oab_id')
-                        .eq('project_id', projectId)
-                        .order('nome');
+                      const { data: prots } = await fetchAllPaginated<any>(() =>
+                        supabase
+                          .from('project_protocolos')
+                          .select('id, nome, processo_oab_id')
+                          .eq('project_id', projectId)
+                          .order('nome') as any
+                      );
                       setAvailableProtocolos(prots || []);
                     } else if (tenantId) {
                       // No project selected: load all tenant protocolos
-                      const { data: allProts } = await supabase
-                        .from('project_protocolos')
-                        .select('id, nome, processo_oab_id')
-                        .eq('tenant_id', tenantId)
-                        .order('nome');
+                      const { data: allProts } = await fetchAllPaginated<any>(() =>
+                        supabase
+                          .from('project_protocolos')
+                          .select('id, nome, processo_oab_id')
+                          .eq('tenant_id', tenantId)
+                          .order('nome') as any
+                      );
                       setAvailableProtocolos(allProts || []);
                     }
                   }}
