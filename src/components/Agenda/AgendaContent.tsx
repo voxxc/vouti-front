@@ -703,6 +703,19 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
       return;
     }
 
+    // Bloquear criação de prazo "órfão": se o projeto tem protocolos cadastrados,
+    // o usuário precisa escolher um. Evita os prazos sem origem que aparecem na
+    // aba "Prazos OF" da Controladoria.
+    if (formData.projectId && availableProtocolos.length > 0 && !selectedProtocoloId) {
+      toast({
+        title: "Protocolo obrigatório",
+        description:
+          "Este projeto possui protocolos cadastrados. Selecione o protocolo de origem do prazo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setCreatingDeadline(true);
     try {
       // Use selected workspace or resolve default
