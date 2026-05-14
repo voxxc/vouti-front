@@ -263,7 +263,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
           )}
 
           {item.metadata && Object.keys(item.metadata).length > 0 && (
-            <div className="flex items-center gap-2 text-muted-foreground mt-2">
+            <div className="flex flex-wrap items-center gap-2 text-muted-foreground mt-2">
               {item.tipo === 'tracking_desativado' && (
                 <Badge variant="destructive" className="text-xs">
                   🔴 Desativado
@@ -277,6 +277,36 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
               {(item.metadata as Record<string, unknown>).tribunal && (
                 <Badge variant="secondary" className="text-xs">
                   {String((item.metadata as Record<string, unknown>).tribunal)}
+                </Badge>
+              )}
+              {(item.metadata as Record<string, unknown>).origem === 'reset_manual' && (
+                <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-600">
+                  Reset manual
+                </Badge>
+              )}
+              {(item.metadata as Record<string, unknown>).motivo && (
+                <Badge variant="outline" className="text-xs">
+                  Motivo: {String((item.metadata as Record<string, unknown>).motivo)}
+                </Badge>
+              )}
+              {(item.metadata as Record<string, unknown>).post_em && (
+                <span className="text-xs">
+                  POST: {format(new Date(String((item.metadata as Record<string, unknown>).post_em)), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                </span>
+              )}
+              {(item.metadata as Record<string, unknown>).ativado_em && (
+                <span className="text-xs">
+                  Ativado: {format(new Date(String((item.metadata as Record<string, unknown>).ativado_em)), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                </span>
+              )}
+              {(item.metadata as Record<string, unknown>).desativado_em && (
+                <span className="text-xs">
+                  Desativado: {format(new Date(String((item.metadata as Record<string, unknown>).desativado_em)), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                </span>
+              )}
+              {typeof (item.metadata as Record<string, unknown>).andamentos_novos === 'number' && (
+                <Badge variant="secondary" className="text-xs">
+                  +{Number((item.metadata as Record<string, unknown>).andamentos_novos)} andamentos
                 </Badge>
               )}
             </div>
