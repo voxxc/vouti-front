@@ -585,6 +585,29 @@ export const ProcessoOABDetalhes = ({
             </AlertDialogContent>
           </AlertDialog>
 
+          {/* Confirmação de reset/atualização forçada */}
+          <AlertDialog open={confirmResetOpen} onOpenChange={setConfirmResetOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Atualizar andamentos e ressincronizar?</AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-2 text-sm">
+                    <p>Esta ação vai:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Buscar andamentos atualizados direto do tribunal (consulta paga).</li>
+                      <li>Adicionar apenas os andamentos novos (não duplica nem apaga os atuais).</li>
+                      <li>Desativar o monitoramento diário — você precisará reativá-lo depois.</li>
+                    </ul>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={executarReset}>Atualizar e ressincronizar</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={(val) => {
               setActiveTab(val);
