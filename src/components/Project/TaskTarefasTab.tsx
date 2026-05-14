@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Calendar, Trash2, Loader2, Pencil, CalendarPlus, Check, ChevronsUpDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -50,6 +50,17 @@ import UserTagSelector from '@/components/Agenda/UserTagSelector';
 import { notifyDeadlineAssigned, notifyDeadlineTagged } from '@/utils/notificationHelpers';
 import { TaskTarefa } from '@/types/taskTarefa';
 import { cn } from '@/lib/utils';
+
+interface ProtocoloOption {
+  id: string;
+  nome: string;
+  workspace_id: string | null;
+  processo_oab_id: string | null;
+}
+interface EtapaOption {
+  id: string;
+  nome: string;
+}
 
 const FASES_SUGERIDAS = [
   'Analise Inicial',
@@ -118,6 +129,44 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
   const [novaTarefaResponsavelId, setNovaTarefaResponsavelId] = useState<string | null>(null);
   const [novaTarefaTaggedUsers, setNovaTarefaTaggedUsers] = useState<string[]>([]);
 
+  // Seletor de Protocolo/Etapa para evitar prazos órfãos
+  const [availableProtocolos, setAvailableProtocolos] = useState<ProtocoloOption[]>([]);
+  // Para o checkbox "criar prazo automaticamente" no dialog Nova Tarefa
+  const [novaTarefaProtocoloId, setNovaTarefaProtocoloId] = useState<string>('');
+  const [novaTarefaEtapaId, setNovaTarefaEtapaId] = useState<string>('');
+  const [novaTarefaEtapas, setNovaTarefaEtapas] = useState<EtapaOption[]>([]);
+  // Para o dialog "Criar Prazo na Agenda" (handleCriarPrazo)
+  const [prazoProtocoloId, setPrazoProtocoloId] = useState<string>('');
+  const [prazoEtapaId, setPrazoEtapaId] = useState<string>('');
+  const [prazoEtapas, setPrazoEtapas] = useState<EtapaOption[]>([]);
+
+  // Carrega protocolos do projeto quando muda projectId
+  useEffect(() => {
+    const loadProtocolos = async () => {
+      if (!projectId) {
+        setAvailableProtocolos([]);
+        return;
+      }
+      const { data } = await supabase
+        .from('project_protocolos')
+        .select('id, nome, workspace_id, processo_oab_id')
+        .eq('project_id', projectId)
+        .order('nome');
+      setAvailableProtocolos((data || []) as ProtocoloOption[]);
+    };
+    loadProtocolos();
+  }, [projectId]);
+
+  const loadEtapas = async (protocoloId: string): Promise<EtapaOption[]> => {
+    if (!protocoloId) return [];
+    const { data } = await supabase
+      .from('project_protocolo_etapas')
+      .select('id, nome')
+      .eq('protocolo_id', protocoloId)
+      .order('ordem');
+    return (data || []) as EtapaOption[];
+  };
+
   // States para combobox de fase
   const [fasePopoverOpen, setFasePopoverOpen] = useState(false);
   const [editFasePopoverOpen, setEditFasePopoverOpen] = useState(false);
@@ -136,6 +185,9 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
     setNovaTarefaResponsavelId(null);
     setNovaTarefaTaggedUsers([]);
     setFaseInputValue('');
+    setNovaTarefaProtocoloId('');
+    setNovaTarefaEtapaId('');
+    setNovaTarefaEtapas([]);
   };
 
   const handleSubmit = async () => {
