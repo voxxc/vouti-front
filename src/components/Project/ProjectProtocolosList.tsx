@@ -148,21 +148,25 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
   const loadCarteiras = useCallback(async () => {
     if (!workspaceId || !tenantId) return;
     try {
-      const { data: carteirasData } = await supabase
-        .from('project_carteiras')
-        .select('*')
-        .eq('projeto_id', projectId)
-        .eq('workspace_id', workspaceId)
-        .order('ordem');
+      const { data: carteirasData } = await fetchAllPaginated<any>(() =>
+        supabase
+          .from('project_carteiras')
+          .select('*')
+          .eq('projeto_id', projectId)
+          .eq('workspace_id', workspaceId)
+          .order('ordem') as any
+      );
       
       setCarteiras(carteirasData || []);
 
       if (carteirasData?.length) {
         const carteiraIds = carteirasData.map((c: any) => c.id);
-        const { data: cpData } = await supabase
-          .from('project_carteira_protocolos' as any)
-          .select('carteira_id, project_protocolo_id')
-          .in('carteira_id', carteiraIds);
+        const { data: cpData } = await fetchAllPaginatedIn<any>(carteiraIds, (chunk) =>
+          supabase
+            .from('project_carteira_protocolos' as any)
+            .select('carteira_id, project_protocolo_id')
+            .in('carteira_id', chunk) as any
+        );
         
         const map: Record<string, string[]> = {};
         ((cpData as any[]) || []).forEach((cp: any) => {
