@@ -377,6 +377,9 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
       responsavelId: null,
       taggedUsers: [],
     });
+    setPrazoProtocoloId('');
+    setPrazoEtapaId('');
+    setPrazoEtapas([]);
     setPrazoDialogOpen(true);
   };
 
