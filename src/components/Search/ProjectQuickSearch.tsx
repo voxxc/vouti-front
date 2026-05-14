@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantId } from '@/hooks/useTenantId';
 import { checkIfUserIsAdminOrController } from '@/lib/auth-helpers';
+import { fetchAllPaginated, fetchAllPaginatedIn } from '@/lib/supabasePagination';
 import { Search, FolderOpen, FileText } from 'lucide-react';
 
 interface ProjectQuickSearchProps {
@@ -50,17 +51,21 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtoc
     
     if (isAdminOrController) {
       const [projectsRes, protocolosRes] = await Promise.all([
-        supabase
-          .from('projects')
-          .select('id, name, client')
-          .eq('tenant_id', tenantId)
-          .eq('module', 'legal')
-          .order('updated_at', { ascending: false }),
-        supabase
-          .from('project_protocolos')
-          .select('id, nome, project_id, projects!inner(name, client, tenant_id)')
-          .eq('projects.tenant_id', tenantId)
-          .order('created_at', { ascending: false }),
+        fetchAllPaginated<any>(() =>
+          supabase
+            .from('projects')
+            .select('id, name, client')
+            .eq('tenant_id', tenantId)
+            .eq('module', 'legal')
+            .order('updated_at', { ascending: false }) as any
+        ),
+        fetchAllPaginated<any>(() =>
+          supabase
+            .from('project_protocolos')
+            .select('id, nome, project_id, projects!inner(name, client, tenant_id)')
+            .eq('projects.tenant_id', tenantId)
+            .order('created_at', { ascending: false }) as any
+        ),
       ]);
       
       if (projectsRes.error) {
@@ -93,13 +98,15 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtoc
         orFilter += `,id.in.(${collaboratorProjectIds.join(',')})`;
       }
       
-      const { data, error } = await supabase
-        .from('projects')
-        .select('id, name, client')
-        .eq('tenant_id', tenantId)
-        .eq('module', 'legal')
-        .or(orFilter)
-        .order('updated_at', { ascending: false });
+      const { data, error } = await fetchAllPaginated<any>(() =>
+        supabase
+          .from('projects')
+          .select('id, name, client')
+          .eq('tenant_id', tenantId)
+          .eq('module', 'legal')
+          .or(orFilter)
+          .order('updated_at', { ascending: false }) as any
+      );
       
       if (error) {
         console.error('[ProjectQuickSearch] Error loading projects:', error);
@@ -111,11 +118,14 @@ export const ProjectQuickSearch = ({ tenantPath, onSelectProject, onSelectProtoc
         // Load protocolos for accessible projects
         const projectIds = data.map(p => p.id);
         if (projectIds.length > 0) {
-          const { data: protData, error: protError } = await supabase
-            .from('project_protocolos')
-            .select('id, nome, project_id')
-            .in('project_id', projectIds)
-            .order('created_at', { ascending: false });
+          const { data: protData, error: protError } = await fetchAllPaginatedIn<any>(
+            projectIds,
+            (chunk) => supabase
+              .from('project_protocolos')
+              .select('id, nome, project_id')
+              .in('project_id', chunk)
+              .order('created_at', { ascending: false }) as any
+          );
           
           if (!protError && protData) {
             const projectMap = new Map(data.map(p => [p.id, p]));
