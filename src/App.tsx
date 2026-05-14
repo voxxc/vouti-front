@@ -37,6 +37,7 @@ const Financial = lazy(() => import("@/pages/Financial"));
 const Controladoria = lazy(() => import("@/pages/Controladoria"));
 const ControladoriaNovoProcesso = lazy(() => import("@/pages/ControladoriaNovoProcesso"));
 const ControladoriaProcessoDetalhes = lazy(() => import("@/pages/ControladoriaProcessoDetalhes"));
+const PrazosOf = lazy(() => import("@/pages/PrazosOf"));
 const Reunioes = lazy(() => import("@/pages/Reunioes"));
 const ReuniaoClientes = lazy(() => import("@/pages/ReuniaoClientes"));
 const ReuniaoMetricas = lazy(() => import("@/pages/ReuniaoMetricas"));
@@ -512,6 +513,12 @@ function App() {
               </TenantRouteWrapper>
             } />
             
+            <Route path="/:tenant/prazoof" element={
+              <TenantRouteWrapper>
+                <PrazosOf />
+              </TenantRouteWrapper>
+            } />
+
             {/* Reuniões - Tenant Dynamic */}
             <Route path="/:tenant/reunioes" element={
               <TenantRouteWrapper>
