@@ -440,21 +440,29 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
       // Batch fetch: casos vinculados (from protocolo's processo_oab_id)
       let casosMap: Record<string, any> = {};
       if (processoOabIdsFromProtocolos.size > 0) {
-        const { data: casos } = await supabase
-          .from('processos_oab')
-          .select('id, numero_cnj, parte_ativa, parte_passiva, tribunal')
-          .in('id', Array.from(processoOabIdsFromProtocolos));
-        (casos || []).forEach(c => { casosMap[c.id] = c; });
+        const { data: casos } = await fetchAllPaginatedIn<any>(
+          Array.from(processoOabIdsFromProtocolos),
+          (chunk) =>
+            supabase
+              .from('processos_oab')
+              .select('id, numero_cnj, parte_ativa, parte_passiva, tribunal')
+              .in('id', chunk) as any
+        );
+        (casos || []).forEach((c: any) => { casosMap[c.id] = c; });
       }
 
       // Batch fetch: protocolos vinculados (from caso's processo_oab_id)
       let protocolosMap: Record<string, any> = {};
       if (processoOabIdsFromCasos.size > 0) {
-        const { data: prots } = await supabase
-          .from('project_protocolos')
-          .select('id, nome, project_id, processo_oab_id, workspace_id')
-          .in('processo_oab_id', Array.from(processoOabIdsFromCasos));
-        (prots || []).forEach(p => {
+        const { data: prots } = await fetchAllPaginatedIn<any>(
+          Array.from(processoOabIdsFromCasos),
+          (chunk) =>
+            supabase
+              .from('project_protocolos')
+              .select('id, nome, project_id, processo_oab_id, workspace_id')
+              .in('processo_oab_id', chunk) as any
+        );
+        (prots || []).forEach((p: any) => {
           if (p.processo_oab_id) protocolosMap[p.processo_oab_id] = p;
         });
       }
