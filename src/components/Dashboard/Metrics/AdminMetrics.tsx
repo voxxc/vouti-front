@@ -17,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useAuth } from "@/contexts/AuthContext";
+import { fetchAllPaginated } from "@/lib/supabasePagination";
 
 interface AdminMetricsProps {
   userId: string;
@@ -39,12 +40,14 @@ const AdminMetrics = ({ userId, userName }: AdminMetricsProps) => {
       const [clientesRes, processosCountRes, protocolosRes] = await Promise.all([
         supabase.from('clientes').select('id', { count: 'exact', head: true }),
         supabase.rpc('get_dashboard_processos_count'),
-        supabase.from('project_protocolos').select(`
-          id, 
-          status, 
-          data_previsao,
-          etapas:project_protocolo_etapas(id, status)
-        `)
+        fetchAllPaginated<any>(() =>
+          supabase.from('project_protocolos').select(`
+            id, 
+            status, 
+            data_previsao,
+            etapas:project_protocolo_etapas(id, status)
+          `).order('id', { ascending: true }) as any
+        ),
       ]);
 
       // Calcular métricas de protocolos
