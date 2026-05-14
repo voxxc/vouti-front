@@ -40,16 +40,16 @@ export function SuperAdminCarteirasAudit() {
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['pcp-audit-superadmin'],
     queryFn: async () => {
-      const rows = await fetchAllPaginated<AuditRow>(
-        (from, to) =>
+      const { data: rows, error } = await fetchAllPaginated<AuditRow>(
+        () =>
           supabase
             .from('project_carteira_processos_audit')
             .select('*')
-            .order('created_at', { ascending: false })
-            .range(from, to),
-        { pageSize: 1000, hardCap: 5000 }
+            .order('created_at', { ascending: false }) as any,
+        { pageSize: 1000, hardCap: 20 }
       );
-      return rows;
+      if (error) throw error;
+      return rows ?? [];
     },
   });
 
