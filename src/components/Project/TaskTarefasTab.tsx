@@ -379,6 +379,16 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
       return;
     }
 
+    if (availableProtocolos.length > 0 && !prazoProtocoloId) {
+      toast({
+        title: 'Protocolo obrigatório',
+        description:
+          'Este projeto possui protocolos cadastrados. Selecione o protocolo de origem do prazo.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setPrazoSaving(true);
 
     try {
@@ -394,6 +404,7 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
         resolvedWorkspaceId = defaultWs?.id || null;
       }
 
+      const protocoloSel = availableProtocolos.find((p) => p.id === prazoProtocoloId);
       // Criar deadline
       const { data: deadline, error } = await supabase
         .from('deadlines')
@@ -406,7 +417,9 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
           advogado_responsavel_id: prazoFormData.responsavelId,
           tenant_id: tenantId,
           completed: false,
-          workspace_id: resolvedWorkspaceId,
+          workspace_id: protocoloSel?.workspace_id || resolvedWorkspaceId,
+          processo_oab_id: protocoloSel?.processo_oab_id || null,
+          protocolo_etapa_id: prazoEtapaId || null,
         })
         .select()
         .single();
