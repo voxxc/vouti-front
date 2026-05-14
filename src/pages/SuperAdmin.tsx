@@ -27,6 +27,7 @@ import { SuperAdminCofreJudit } from '@/components/SuperAdmin/SuperAdminCofreJud
 import { SuperAdminBuscaProcessosCPF } from '@/components/SuperAdmin/SuperAdminBuscaProcessosCPF';
 import { SuperAdminAuditoriaAndamentos } from '@/components/SuperAdmin/SuperAdminAuditoriaAndamentos';
 import { SuperAdminProcessosSemAndamentos } from '@/components/SuperAdmin/SuperAdminProcessosSemAndamentos';
+import { SuperAdminCarteirasAudit } from '@/components/SuperAdmin/SuperAdminCarteirasAudit';
 import { LinkBioSection } from '@/components/SuperAdmin/LinkBioSection';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { Badge } from '@/components/ui/badge';
@@ -386,6 +387,9 @@ export default function SuperAdmin() {
                 <DropdownMenuItem onClick={() => setMainTab('processos-sem-andamentos')} className="gap-2">
                   <AlertTriangle className="h-4 w-4" /> Processos s/ Andamentos
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMainTab('carteiras-audit')} className="gap-2">
+                  <ShieldAlert className="h-4 w-4" /> Auditoria Carteiras
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -511,6 +515,10 @@ export default function SuperAdmin() {
 
           <TabsContent value="processos-sem-andamentos">
             <SuperAdminProcessosSemAndamentos />
+          </TabsContent>
+
+          <TabsContent value="carteiras-audit">
+            <SuperAdminCarteirasAudit />
           </TabsContent>
         </Tabs>
       </main>
