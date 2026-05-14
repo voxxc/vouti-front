@@ -83,6 +83,7 @@ interface ProcessoOABDetalhesProps {
   onToggleMonitoramento: (processo: ProcessoOAB) => Promise<any>;
   onRefreshProcessos?: () => Promise<void>;
   onConsultarDetalhesRequest?: (processoId: string, requestId: string) => Promise<any>;
+  onResetarProcesso?: (processoId: string, numeroCnj: string) => Promise<any>;
   onCarregarDetalhes?: (processoId: string, numeroCnj: string) => Promise<any>;
   onAtualizarProcesso?: (processoId: string, dados: Partial<ProcessoOAB>) => Promise<boolean>;
   oab?: OABCadastrada | null;
@@ -192,6 +193,7 @@ export const ProcessoOABDetalhes = ({
   onToggleMonitoramento,
   onRefreshProcessos,
   onConsultarDetalhesRequest,
+  onResetarProcesso,
   onCarregarDetalhes,
   onAtualizarProcesso,
   oab
@@ -202,6 +204,7 @@ export const ProcessoOABDetalhes = ({
   const [togglingMonitoramento, setTogglingMonitoramento] = useState(false);
   const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
   const [confirmMonitoramentoOpen, setConfirmMonitoramentoOpen] = useState(false);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmacaoFinalOpen, setConfirmacaoFinalOpen] = useState(false);
   const [carregandoAndamentos, setCarregandoAndamentos] = useState(false);
@@ -319,12 +322,20 @@ export const ProcessoOABDetalhes = ({
   };
 
   const handleRefreshAndamentos = async () => {
-    if (!processo.detalhes_request_id || !onConsultarDetalhesRequest) return;
-    
+    if (!processo) return;
+    setConfirmResetOpen(true);
+  };
+
+  const executarReset = async () => {
+    if (!processo || !onResetarProcesso) return;
+    setConfirmResetOpen(false);
     setRefreshingAndamentos(true);
     try {
-      await onConsultarDetalhesRequest(processo.id, processo.detalhes_request_id);
+      const result = await onResetarProcesso(processo.id, processo.numero_cnj);
       await fetchAndamentos();
+      if (result?.monitoramentoDesativado && onAtualizarProcesso) {
+        await onAtualizarProcesso(processo.id, { monitoramento_ativo: false, tracking_id: null });
+      }
     } finally {
       setRefreshingAndamentos(false);
     }
