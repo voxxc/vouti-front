@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { fetchAllPaginated, fetchAllPaginatedIn } from '@/lib/supabasePagination';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,9 +36,10 @@ export const SuperAdminProcessosSemAndamentos = () => {
   const fetchProcessos = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('processos_oab')
-        .select(`
+      const { data, error } = await fetchAllPaginated<any>(() =>
+        supabase
+          .from('processos_oab')
+          .select(`
           id,
           numero_cnj,
           tribunal,
@@ -51,7 +53,8 @@ export const SuperAdminProcessosSemAndamentos = () => {
           notificado_em,
           tenants!inner(slug, name)
         `)
-        .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false }) as any
+      );
 
       if (error) throw error;
 
@@ -70,10 +73,13 @@ export const SuperAdminProcessosSemAndamentos = () => {
       
       let idsComAndamentos = new Set<string>();
       if (processoIds.length > 0) {
-        const { data: comAndamentos } = await supabase
-          .from('processos_oab_andamentos')
-          .select('processo_oab_id')
-          .in('processo_oab_id', processoIds);
+        const { data: comAndamentos } = await fetchAllPaginatedIn<any>(
+          processoIds,
+          (chunk) => supabase
+            .from('processos_oab_andamentos')
+            .select('processo_oab_id')
+            .in('processo_oab_id', chunk) as any
+        );
         idsComAndamentos = new Set((comAndamentos || []).map((a: any) => a.processo_oab_id));
       }
 

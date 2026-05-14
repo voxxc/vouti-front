@@ -14,6 +14,7 @@ import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
+import { fetchAllPaginated, fetchAllPaginatedIn } from "@/lib/supabasePagination";
 
 interface Subtarefa {
   id: string;
@@ -125,10 +126,13 @@ export const CentralSubtarefas = () => {
       const dateLimit = subDays(new Date(), parseInt(filterPeriod));
 
       // First get deadline IDs that have subtarefas
-      const { data: subtarefasDeadlineIds } = await supabase
-        .from('deadline_subtarefas')
-        .select('deadline_id')
-        .eq('tenant_id', tenantId);
+      const { data: subtarefasDeadlineIds } = await fetchAllPaginated<any>(() =>
+        supabase
+          .from('deadline_subtarefas')
+          .select('deadline_id')
+          .eq('tenant_id', tenantId)
+          .order('id', { ascending: true }) as any
+      );
 
       const deadlineIdsWithSubs = [...new Set((subtarefasDeadlineIds || []).map((s: any) => s.deadline_id))];
 
@@ -138,9 +142,10 @@ export const CentralSubtarefas = () => {
         return;
       }
 
-      let query = supabase
-        .from('deadlines')
-        .select(`
+      const buildDeadlinesQuery = () => {
+        let q = supabase
+          .from('deadlines')
+          .select(`
           id,
           title,
           description,
@@ -176,17 +181,20 @@ export const CentralSubtarefas = () => {
             )
           )
         `)
-        .eq('completed', true)
-        .eq('tenant_id', tenantId)
-        .in('id', deadlineIdsWithSubs)
-        .gte('concluido_em', dateLimit.toISOString())
-        .order('concluido_em', { ascending: false });
+          .eq('completed', true)
+          .eq('tenant_id', tenantId)
+          .gte('concluido_em', dateLimit.toISOString())
+          .order('concluido_em', { ascending: false });
+        if (filterUserId !== "all") {
+          q = q.or(`advogado_responsavel_id.eq.${filterUserId},concluido_por.eq.${filterUserId}`);
+        }
+        return q;
+      };
 
-      if (filterUserId !== "all") {
-        query = query.or(`advogado_responsavel_id.eq.${filterUserId},concluido_por.eq.${filterUserId}`);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await fetchAllPaginatedIn<any>(
+        deadlineIdsWithSubs,
+        (chunk) => (buildDeadlinesQuery() as any).in('id', chunk)
+      );
 
       if (error) {
         console.error('Error fetching prazos com subtarefas:', error);
@@ -200,10 +208,13 @@ export const CentralSubtarefas = () => {
       });
       let creatorMap: Record<string, any> = {};
       if (creatorIds.size > 0) {
-        const { data: creators } = await supabase
-          .from('profiles')
-          .select('user_id, full_name, avatar_url')
-          .in('user_id', Array.from(creatorIds));
+        const { data: creators } = await fetchAllPaginatedIn<any>(
+          Array.from(creatorIds),
+          (chunk) => supabase
+            .from('profiles')
+            .select('user_id, full_name, avatar_url')
+            .in('user_id', chunk) as any
+        );
         (creators || []).forEach((c: any) => { creatorMap[c.user_id] = c; });
       }
 
@@ -211,10 +222,13 @@ export const CentralSubtarefas = () => {
       const deadlineIds = (data || []).map((d: any) => d.id);
       let subtarefasMap: Record<string, Subtarefa[]> = {};
       if (deadlineIds.length > 0) {
-        const { data: subtarefasData } = await supabase
-          .from('deadline_subtarefas')
-          .select('id, deadline_id, descricao, concluida, concluida_em, created_at, atribuido_a, criado_por')
-          .in('deadline_id', deadlineIds);
+        const { data: subtarefasData } = await fetchAllPaginatedIn<any>(
+          deadlineIds,
+          (chunk) => supabase
+            .from('deadline_subtarefas')
+            .select('id, deadline_id, descricao, concluida, concluida_em, created_at, atribuido_a, criado_por')
+            .in('deadline_id', chunk) as any
+        );
 
         const subUserIds = new Set<string>();
         (subtarefasData || []).forEach((s: any) => {
@@ -223,10 +237,13 @@ export const CentralSubtarefas = () => {
         });
         let subProfileMap: Record<string, any> = {};
         if (subUserIds.size > 0) {
-          const { data: subProfiles } = await supabase
-            .from('profiles')
-            .select('user_id, full_name, avatar_url')
-            .in('user_id', Array.from(subUserIds));
+          const { data: subProfiles } = await fetchAllPaginatedIn<any>(
+            Array.from(subUserIds),
+            (chunk) => supabase
+              .from('profiles')
+              .select('user_id, full_name, avatar_url')
+              .in('user_id', chunk) as any
+          );
           (subProfiles || []).forEach((p: any) => { subProfileMap[p.user_id] = p; });
         }
 
@@ -251,10 +268,13 @@ export const CentralSubtarefas = () => {
       });
       let workspaceMap: Record<string, string> = {};
       if (workspaceIds.size > 0) {
-        const { data: workspaces } = await supabase
-          .from('project_workspaces')
-          .select('id, name')
-          .in('id', Array.from(workspaceIds));
+        const { data: workspaces } = await fetchAllPaginatedIn<any>(
+          Array.from(workspaceIds),
+          (chunk) => supabase
+            .from('project_workspaces')
+            .select('id, name')
+            .in('id', chunk) as any
+        );
         (workspaces || []).forEach((w: any) => { workspaceMap[w.id] = w.name; });
       }
 
@@ -265,10 +285,13 @@ export const CentralSubtarefas = () => {
       });
       let processoMap: Record<string, { numeroCnj: string; parteAtiva: string; partePassiva: string }> = {};
       if (processoIds.size > 0) {
-        const { data: processos } = await supabase
-          .from('processos_oab')
-          .select('id, numero_cnj, parte_ativa, parte_passiva')
-          .in('id', Array.from(processoIds));
+        const { data: processos } = await fetchAllPaginatedIn<any>(
+          Array.from(processoIds),
+          (chunk) => supabase
+            .from('processos_oab')
+            .select('id, numero_cnj, parte_ativa, parte_passiva')
+            .in('id', chunk) as any
+        );
         (processos || []).forEach((p: any) => {
           processoMap[p.id] = {
             numeroCnj: p.numero_cnj || '',
