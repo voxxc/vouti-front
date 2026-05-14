@@ -1400,7 +1400,9 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
               )}
               {availableProtocolos.length > 0 && (
                 <div>
-                  <label className="text-sm font-medium">Protocolo (opcional)</label>
+                  <label className="text-sm font-medium">
+                    Protocolo <span className="text-destructive">*</span>
+                  </label>
                   <Select
                     value={selectedProtocoloId || "none"}
                     onValueChange={async (val) => {
@@ -1423,10 +1425,9 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Sem protocolo" />
+                      <SelectValue placeholder="Selecione o protocolo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Sem protocolo</SelectItem>
                       {availableProtocolos.map(p => (
                         <SelectItem key={p.id} value={p.id}>
                           {p.nome}
