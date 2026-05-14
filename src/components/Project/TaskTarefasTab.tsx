@@ -47,6 +47,13 @@ import { useTenantId } from '@/hooks/useTenantId';
 import { supabase } from '@/integrations/supabase/client';
 import AdvogadoSelector from '@/components/Controladoria/AdvogadoSelector';
 import UserTagSelector from '@/components/Agenda/UserTagSelector';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { notifyDeadlineAssigned, notifyDeadlineTagged } from '@/utils/notificationHelpers';
 import { TaskTarefa } from '@/types/taskTarefa';
 import { cn } from '@/lib/utils';
