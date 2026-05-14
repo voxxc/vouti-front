@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Calendar, Trash2, Loader2, Pencil, CalendarPlus, Check, ChevronsUpDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -47,9 +47,27 @@ import { useTenantId } from '@/hooks/useTenantId';
 import { supabase } from '@/integrations/supabase/client';
 import AdvogadoSelector from '@/components/Controladoria/AdvogadoSelector';
 import UserTagSelector from '@/components/Agenda/UserTagSelector';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { notifyDeadlineAssigned, notifyDeadlineTagged } from '@/utils/notificationHelpers';
 import { TaskTarefa } from '@/types/taskTarefa';
 import { cn } from '@/lib/utils';
+
+interface ProtocoloOption {
+  id: string;
+  nome: string;
+  workspace_id: string | null;
+  processo_oab_id: string | null;
+}
+interface EtapaOption {
+  id: string;
+  nome: string;
+}
 
 const FASES_SUGERIDAS = [
   'Analise Inicial',
@@ -118,6 +136,44 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
   const [novaTarefaResponsavelId, setNovaTarefaResponsavelId] = useState<string | null>(null);
   const [novaTarefaTaggedUsers, setNovaTarefaTaggedUsers] = useState<string[]>([]);
 
+  // Seletor de Protocolo/Etapa para evitar prazos órfãos
+  const [availableProtocolos, setAvailableProtocolos] = useState<ProtocoloOption[]>([]);
+  // Para o checkbox "criar prazo automaticamente" no dialog Nova Tarefa
+  const [novaTarefaProtocoloId, setNovaTarefaProtocoloId] = useState<string>('');
+  const [novaTarefaEtapaId, setNovaTarefaEtapaId] = useState<string>('');
+  const [novaTarefaEtapas, setNovaTarefaEtapas] = useState<EtapaOption[]>([]);
+  // Para o dialog "Criar Prazo na Agenda" (handleCriarPrazo)
+  const [prazoProtocoloId, setPrazoProtocoloId] = useState<string>('');
+  const [prazoEtapaId, setPrazoEtapaId] = useState<string>('');
+  const [prazoEtapas, setPrazoEtapas] = useState<EtapaOption[]>([]);
+
+  // Carrega protocolos do projeto quando muda projectId
+  useEffect(() => {
+    const loadProtocolos = async () => {
+      if (!projectId) {
+        setAvailableProtocolos([]);
+        return;
+      }
+      const { data } = await supabase
+        .from('project_protocolos')
+        .select('id, nome, workspace_id, processo_oab_id')
+        .eq('project_id', projectId)
+        .order('nome');
+      setAvailableProtocolos((data || []) as ProtocoloOption[]);
+    };
+    loadProtocolos();
+  }, [projectId]);
+
+  const loadEtapas = async (protocoloId: string): Promise<EtapaOption[]> => {
+    if (!protocoloId) return [];
+    const { data } = await supabase
+      .from('project_protocolo_etapas')
+      .select('id, nome')
+      .eq('protocolo_id', protocoloId)
+      .order('ordem');
+    return (data || []) as EtapaOption[];
+  };
+
   // States para combobox de fase
   const [fasePopoverOpen, setFasePopoverOpen] = useState(false);
   const [editFasePopoverOpen, setEditFasePopoverOpen] = useState(false);
@@ -136,6 +192,9 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
     setNovaTarefaResponsavelId(null);
     setNovaTarefaTaggedUsers([]);
     setFaseInputValue('');
+    setNovaTarefaProtocoloId('');
+    setNovaTarefaEtapaId('');
+    setNovaTarefaEtapas([]);
   };
 
   const handleSubmit = async () => {
@@ -147,6 +206,22 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
     // Validar campos do prazo se checkbox marcado
     if (criarPrazoAutomatico && !projectId) {
       toast({ title: 'Projeto nao identificado', variant: 'destructive' });
+      return;
+    }
+
+    // Bloquear prazo órfão: se o projeto tem protocolos, exigir seleção
+    if (
+      criarPrazoAutomatico &&
+      projectId &&
+      availableProtocolos.length > 0 &&
+      !novaTarefaProtocoloId
+    ) {
+      toast({
+        title: 'Protocolo obrigatório',
+        description:
+          'Este projeto possui protocolos cadastrados. Selecione o protocolo de origem do prazo.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -173,6 +248,9 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
             .maybeSingle();
           resolvedWorkspaceId = defaultWs?.id || null;
 
+          const protocoloSel = availableProtocolos.find(
+            (p) => p.id === novaTarefaProtocoloId
+          );
           // 1. Criar deadline
           const { data: deadline, error } = await supabase
             .from('deadlines')
@@ -185,7 +263,9 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
               advogado_responsavel_id: novaTarefaResponsavelId,
               tenant_id: tenantId,
               completed: false,
-              workspace_id: resolvedWorkspaceId,
+              workspace_id: protocoloSel?.workspace_id || resolvedWorkspaceId,
+              processo_oab_id: protocoloSel?.processo_oab_id || null,
+              protocolo_etapa_id: novaTarefaEtapaId || null,
             })
             .select('id')
             .single();
@@ -297,12 +377,25 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
       responsavelId: null,
       taggedUsers: [],
     });
+    setPrazoProtocoloId('');
+    setPrazoEtapaId('');
+    setPrazoEtapas([]);
     setPrazoDialogOpen(true);
   };
 
   const handleCriarPrazo = async () => {
     if (!prazoFormData.titulo.trim() || !user?.id || !projectId) {
       toast({ title: 'Dados incompletos', variant: 'destructive' });
+      return;
+    }
+
+    if (availableProtocolos.length > 0 && !prazoProtocoloId) {
+      toast({
+        title: 'Protocolo obrigatório',
+        description:
+          'Este projeto possui protocolos cadastrados. Selecione o protocolo de origem do prazo.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -321,6 +414,7 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
         resolvedWorkspaceId = defaultWs?.id || null;
       }
 
+      const protocoloSel = availableProtocolos.find((p) => p.id === prazoProtocoloId);
       // Criar deadline
       const { data: deadline, error } = await supabase
         .from('deadlines')
@@ -333,7 +427,9 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
           advogado_responsavel_id: prazoFormData.responsavelId,
           tenant_id: tenantId,
           completed: false,
-          workspace_id: resolvedWorkspaceId,
+          workspace_id: protocoloSel?.workspace_id || resolvedWorkspaceId,
+          processo_oab_id: protocoloSel?.processo_oab_id || null,
+          protocolo_etapa_id: prazoEtapaId || null,
         })
         .select()
         .single();
@@ -686,6 +782,52 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
                         excludeCurrentUser={false}
                       />
                     </div>
+
+                    {availableProtocolos.length > 0 && (
+                      <>
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-medium">
+                            Protocolo <span className="text-destructive">*</span>
+                          </label>
+                          <Select
+                            value={novaTarefaProtocoloId}
+                            onValueChange={async (val) => {
+                              setNovaTarefaProtocoloId(val);
+                              setNovaTarefaEtapaId('');
+                              setNovaTarefaEtapas(await loadEtapas(val));
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o protocolo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableProtocolos.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {novaTarefaProtocoloId && novaTarefaEtapas.length > 0 && (
+                          <div className="space-y-1.5">
+                            <label className="text-sm font-medium">Etapa (opcional)</label>
+                            <Select
+                              value={novaTarefaEtapaId || 'none'}
+                              onValueChange={(v) => setNovaTarefaEtapaId(v === 'none' ? '' : v)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Sem etapa" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Sem etapa</SelectItem>
+                                {novaTarefaEtapas.map((e) => (
+                                  <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </CollapsibleContent>
                 </Collapsible>
               </>
@@ -885,6 +1027,52 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
               selectedUsers={prazoFormData.taggedUsers}
               onChange={(users) => setPrazoFormData({ ...prazoFormData, taggedUsers: users })}
             />
+
+            {availableProtocolos.length > 0 && (
+              <>
+                <div>
+                  <label className="text-sm font-medium">
+                    Protocolo <span className="text-destructive">*</span>
+                  </label>
+                  <Select
+                    value={prazoProtocoloId}
+                    onValueChange={async (val) => {
+                      setPrazoProtocoloId(val);
+                      setPrazoEtapaId('');
+                      setPrazoEtapas(await loadEtapas(val));
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o protocolo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableProtocolos.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {prazoProtocoloId && prazoEtapas.length > 0 && (
+                  <div>
+                    <label className="text-sm font-medium">Etapa (opcional)</label>
+                    <Select
+                      value={prazoEtapaId || 'none'}
+                      onValueChange={(v) => setPrazoEtapaId(v === 'none' ? '' : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sem etapa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sem etapa</SelectItem>
+                        {prazoEtapas.map((e) => (
+                          <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </>
+            )}
 
             <div>
               <label className="text-sm font-medium">Descricao</label>

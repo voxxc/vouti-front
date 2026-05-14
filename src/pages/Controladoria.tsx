@@ -2,10 +2,11 @@ import { useEffect } from "react";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Bell, Scale, FileStack, RefreshCw, ClipboardCheck } from "lucide-react";
+import { FileText, Bell, Scale, FileStack, RefreshCw, ClipboardCheck, AlertTriangle } from "lucide-react";
 import { OABManager } from "@/components/Controladoria/OABManager";
 import { PushDocsManager } from "@/components/Controladoria/PushDocsManager";
 import { CentralControladoria } from "@/components/Controladoria/CentralControladoria";
+import { PrazosOrfaosTab } from "@/components/Controladoria/PrazosOrfaosTab";
 import { useControladoriaCache } from "@/hooks/useControladoriaCache";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -78,6 +79,10 @@ const Controladoria = () => {
               <FileStack className="mr-2 h-4 w-4" />
               Push-Doc
             </TabsTrigger>
+            <TabsTrigger value="prazos-of">
+              <AlertTriangle className="mr-2 h-4 w-4" />
+              Prazos OF
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="central">
@@ -100,6 +105,14 @@ const Controladoria = () => {
             <Card>
               <CardContent className="pt-6">
                 <PushDocsManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="prazos-of">
+            <Card>
+              <CardContent className="pt-6">
+                <PrazosOrfaosTab />
               </CardContent>
             </Card>
           </TabsContent>
