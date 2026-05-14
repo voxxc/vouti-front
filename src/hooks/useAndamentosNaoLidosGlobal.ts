@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
+import { fetchAllPaginated } from "@/lib/supabasePagination";
 
 export interface ProcessoComNaoLidos {
   id: string;
