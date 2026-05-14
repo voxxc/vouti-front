@@ -1,112 +1,206 @@
-## Causa raiz
 
-O Supabase aplica um **limite implícito de 1.000 linhas por query** quando não há `.limit()` ou `.range()`. Vários pontos do código fazem `select(...)` para "tudo do tenant" sem paginação, então quando uma tabela ultrapassa 1.000 linhas em um tenant, os registros excedentes **somem silenciosamente** das telas, métricas e relatórios — exatamente o que aconteceu com o prazo do Alan.
+# Codilo como alternativa à Judit (multi-provider de monitoramento processual)
 
-Após varredura completa do `src/` e `supabase/functions/`, identifiquei **490 SELECTs de listagem sem paginação**. A maioria é segura hoje porque os dados ainda são pequenos. Porém:
+## Contexto
 
-- **Tabelas já grandes** (risco real ou iminente):
-  - `processos_oab_andamentos` — 41.814 linhas (global)
-  - `whatsapp_messages` — 20.697 linhas
-  - `project_protocolo_etapas` — 1.668 linhas
-  - `deadlines` — 1.025 linhas (1.013 só na SOLVENZA — já estourava)
-  - `processos_oab` — 734 linhas (perto do limite por tenant)
-  - `project_protocolos` — 658 linhas
+A operação atual depende 100% da Judit para consulta e monitoramento processual. Quando a Judit falha (ex.: `LAWSUIT_NOT_FOUND` no caso recente do `0043162-19.2026.8.16.0000`), não há fallback. A Codilo (https://docs.codilo.com.br) oferece um catálogo equivalente:
 
-- **Sintomas confirmados ou iminentes**:
-  - Prazos sumindo da Agenda (corrigido na rodada anterior).
-  - Indicadores de Controladoria mostrando números abaixo do real.
-  - Métricas de Dashboard de prazos truncadas.
-  - "Prazos Concluídos" da Central paralisando em 1.000.
-  - Inbox/Kanban do WhatsApp listando só as 1.000 mensagens mais recentes em tenants ativos.
+- **Consulta Única / Automática** — equivalentes ao `lawsuit_cnj` da Judit.
+- **Monitoramento Push** — `POST /v1/processo/novo` em `api.push.codilo.com.br`, callbacks por webhook (suporta múltiplas URLs e headers customizados).
+- **Vantagem real**: tem `pending-push` + `confirm-callback` (fila de eventos pendentes), o que protege contra perda de webhooks — coisa que a Judit não tem.
 
-## Correção
+## Estratégia
 
-A correção será feita em **3 camadas**, do mais crítico para o periférico:
+**Não substituir, abstrair.** Codilo entra como **provedor alternativo**, escolhido por tenant pelo super-admin no `TenantCard`. Internamente, todas as gravações continuam nas mesmas tabelas (`processos_oab`, `processos_oab_andamentos`) com o mesmo schema, atrás de uma camada `provider`. Isso permite:
 
-### Camada 1 — Helper compartilhado de paginação
-Criar `src/lib/supabasePagination.ts` exportando:
-- `fetchAllPaginated(builderFactory, pageSize=1000, hardCap=20)` — repete `.range()` até esgotar.
-- Padrão único para todos os pontos que precisam de "todos os registros visíveis".
+- Migração gradual (tenant a tenant).
+- Fallback futuro automático Codilo ↔ Judit.
+- Zero impacto para usuário final no curto prazo.
 
-### Camada 2 — Telas e métricas que JÁ truncam (Tier 1)
-Trocar SELECT-all por paginação ou contagem agregada. Onde só precisamos de número, usar `count: 'exact', head: true` para não baixar linhas.
+## Correção / Implementação
 
-| Arquivo | O que ajustar |
-|---|---|
-| `src/hooks/useProcessosMetrics.ts` | Contar `processos_oab_andamentos` por `count: exact, head: true`; paginar `deadlines` por tenant. |
-| `src/components/Controladoria/ControladoriaIndicadores.tsx` | Paginar `deadlines` e `processos_oab` por tenant. |
-| `src/components/Controladoria/CentralPrazosConcluidos.tsx` | Paginar prazos concluídos. |
-| `src/components/Dashboard/PrazosDistributionChart.tsx` | Paginar `deadlines`. |
+### 1. Banco de dados (migration única)
 
-### Camada 3 — Listagens que vão truncar logo (Tier 2)
-Aplicar paginação ou `.limit()` explícito (com justificativa de UX, ex.: últimos 30 dias / últimos 200 itens).
+**a) Tabela `tenants`** — coluna nova:
+- `api_provider text NOT NULL DEFAULT 'judit'` com check `('judit','codilo')`.
 
-| Arquivo | O que ajustar |
-|---|---|
-| `src/components/CRM/WhatsAppBot.tsx` (linhas 651, 1112) | Limitar mensagens recentes (ex.: últimas 500) ou paginar conforme uso. |
-| `src/components/SuperAdmin/WhatsApp/SuperAdminWhatsAppInbox.tsx` | Paginar mensagens não atribuídas. |
-| `src/components/WhatsApp/sections/WhatsAppInbox.tsx`, `WhatsAppKanban.tsx`, `WhatsAppLabelConversations.tsx` | Aplicar `.limit()` em ordens desc + carregar agrupado por contato. |
-| `src/components/Controladoria/OABTab.tsx`, `OABManager.tsx` | Paginar `processos_oab` por tenant. |
-| `src/components/Project/ProjectProcessos.tsx` | Paginar lista de processos. |
-| `src/components/SuperAdmin/SuperAdminMonitoramento.tsx` e funções edge `judit-*` | Paginar `processos_oab`/`processos_oab_andamentos` quando aplicável. |
+**b) Tabela `processos_oab`** — coluna nova:
+- `api_provider text NOT NULL DEFAULT 'judit'` (rastreia qual provedor está atendendo cada processo, permitindo coexistência durante migração).
 
-### Camada 4 — Listagens médias, crescimento previsto (Tier 3)
-Paginar para evitar regressão futura silenciosa, sem mudança visível na UX:
+**c) Tabela `processo_monitoramento_judit`** — renomear conceitualmente sem renomear ainda. Adicionar:
+- `provider text NOT NULL DEFAULT 'judit'`
+- `codilo_push_id text` (id retornado pelo `create-push` da Codilo)
 
-| Arquivo |
-|---|
-| `src/components/Financial/FinancialContent.tsx`, `FinancialMetrics.tsx`, `src/pages/Financial.tsx`, `src/hooks/useRelatorioFinanceiro.ts` (clientes, parcelas, custos, colaborador_vales, colaborador_pagamentos) |
-| `src/hooks/useClientes.ts`, `useClienteAnalytics.ts`, `useAniversarios.ts` |
-| `src/hooks/useColaboradores.ts` |
-| `src/hooks/useReunioes.ts`, `useReuniaoMetrics.ts`, `useRelatorioReunioes.ts`, `useReuniaoClientes.ts` |
-| `src/hooks/useTasksMetrics.ts`, `useClienteTasksMetrics.ts`, `src/components/Dashboard/OverviewSection.tsx`, `src/components/Search/GlobalSearch.tsx` |
-| `src/hooks/usePlanejadorTasks.ts` |
-| `src/components/Agenda/AgendaContent.tsx` (carga de `project_protocolos` por tenant em fluxo de criação) |
+**d) Nova tabela `credenciais_codilo`** (espelha `credenciais_judit`, separada por enquanto para isolar credenciais por provedor):
+- `tenant_id`, `access_token` (criptografado/secret), `base_url` opcional, `status`, `created_at`, `updated_at`.
+- RLS: super_admin pode tudo; admin do tenant pode ler.
 
-### Camada 5 — Memória do projeto
-Adicionar regra `mem://architecture/supabase-1000-row-limit` no índice: **toda listagem deve usar `fetchAllPaginated`, `.range()` ou `.limit()` explícito; nunca confiar no retorno padrão**. Isso evita que a próxima feature reintroduza o bug.
+**e) RPC helper** `get_provider_for_tenant(p_tenant_id uuid) returns text` — security definer, retorna `tenants.api_provider`. Usado pelas Edge Functions.
 
-## Arquivos afetados (resumo)
+**Sem mudança de schema em** `processos_oab_andamentos` (continua o destino comum).
 
-- Novo: `src/lib/supabasePagination.ts`
-- Edits Tier 1 (4 arquivos)
-- Edits Tier 2 (7–9 arquivos React + 4 edge functions)
-- Edits Tier 3 (~14 hooks/páginas)
-- Atualização de `mem://index.md` + nova memória
+### 2. Secrets (Edge Functions)
 
-Total estimado: ~30 arquivos ajustados, sem schema/migration nem mudança de RLS.
+- `CODILO_API_TOKEN` (token global de fallback se o tenant não tiver token próprio em `credenciais_codilo`).
+
+### 3. Camada de abstração em Edge Functions
+
+Criar arquivo compartilhado **`supabase/functions/_shared/legalProvider.ts`** com interface:
+
+```ts
+type LegalProvider = {
+  buscarProcesso(cnj, opts): Promise<{ andamentos[], detalhes, raw }>;
+  ativarMonitoramento(cnj, callbackUrl, opts): Promise<{ trackingId }>;
+  desativarMonitoramento(trackingId): Promise<void>;
+  consultarStatus(trackingId): Promise<{ requestIdAtual, lastUpdate }>;
+  parseWebhookPayload(body): NormalizedAndamento[];
+}
+```
+
+Dois adapters: `judit.ts` (extrai a lógica que já existe nas funções `judit-*`) e `codilo.ts` (novo).
+
+Função despachante `getProviderForTenant(tenantId)` resolve o adapter via RPC.
+
+### 4. Edge Functions Codilo (novas)
+
+- `codilo-buscar-processo` — POST `/autorequest` ou consulta única (autodetecta).
+- `codilo-ativar-monitoramento` — POST `https://api.push.codilo.com.br/v1/processo/novo` com `ignore: true` no cadastro inicial (não duplicar histórico já obtido).
+- `codilo-desativar-monitoramento` — DELETE.
+- `codilo-webhook` — recebe callback Codilo, normaliza para schema interno (`processos_oab_andamentos`), dispara notificação `andamento_novo`, atualiza `ultima_atualizacao`.
+- `codilo-sync-pendentes` (cron) — usa `pending-push` + `confirm-callback` para drenar webhooks perdidos. **Rede de segurança que não temos hoje com a Judit.**
+- `codilo-health` — espelho de `judit-health`.
+
+### 5. Atualizar Edge Functions de orquestração existentes
+
+Funções que hoje sempre chamam Judit precisam consultar o provider do tenant primeiro:
+
+- `judit-buscar-processo` (renomear lógica para chamar via `getProviderForTenant`) ou criar `monitor-buscar-processo` como entry-point único. **Decisão**: criar entry-point novo `monitor-buscar-processo` e `monitor-ativar-monitoramento` que internamente chamam Judit ou Codilo. As funções `judit-*` antigas continuam intactas para super-admin debugar.
+
+- `useMonitoramentoJudit` no front passa a invocar `monitor-buscar-processo` / `monitor-ativar-monitoramento` em vez de `judit-*`.
+
+### 6. UI — Super Admin (TenantCard)
+
+No `src/components/SuperAdmin/TenantCard.tsx`:
+
+- Adicionar **toggle/select compacto** abaixo do `PlanoIndicator`:
+  - Componente `<ProviderSelector tenantId provider onChange />` com 2 opções: `Judit` e `Codilo` (pílulas com ícones).
+  - Ao mudar, chama `supabase.from('tenants').update({ api_provider }).eq('id', tenant.id)`.
+  - Confirmação se há monitoramentos ativos: aviso "Processos já monitorados continuarão no provedor anterior. Apenas novos monitoramentos usarão o provedor selecionado."
+  - Badge no card mostrando o provedor atual (cor distinta — Judit roxo, Codilo verde).
+
+- Atualizar `EditTenantDialog.tsx` com mesmo seletor (consistência).
+
+- Atualizar `src/types/superadmin.ts` adicionando `api_provider?: 'judit' | 'codilo'` em `Tenant`.
+
+- **Novo dialog** `TenantCodiloCredenciaisDialog.tsx` (espelho do `TenantCredenciaisDialog`) acessível pelo dropdown do card quando o provider for Codilo. Permite super-admin colar/atualizar `access_token` por tenant.
+
+### 7. UI — Tenant (informativo, sem ação)
+
+- `src/components/Controladoria/...` — exibir badge discreto no card de processo monitorado mostrando qual provedor está atendendo aquele processo (`processos_oab.api_provider`). Útil para suporte.
+
+- `usePlanoLimites` permanece igual — limites de monitoramento não mudam.
+
+### 8. Memória do projeto
+
+Adicionar em `mem://`:
+- Nova memória `mem://legal-ops/multi-provider-monitoring-standard` com regras: usar `monitor-*` entry-points, nunca chamar `judit-*` ou `codilo-*` direto do front; novos processos herdam o provider do tenant; processo já monitorado mantém seu provedor original até desativar/reativar.
+- Atualizar `mem://legal-ops/judit-integration-standard` apontando para a nova abstração.
+
+## Arquivos afetados
+
+**Migrations**
+- 1 migration (colunas `api_provider`, `provider`, `codilo_push_id`, tabela `credenciais_codilo`, RPC `get_provider_for_tenant`).
+
+**Edge Functions — novas (6)**
+- `supabase/functions/_shared/legalProvider.ts` (+ adapters `judit.ts`, `codilo.ts`)
+- `codilo-buscar-processo/`
+- `codilo-ativar-monitoramento/`
+- `codilo-desativar-monitoramento/`
+- `codilo-webhook/`
+- `codilo-sync-pendentes/`
+- `codilo-health/`
+- `monitor-buscar-processo/` (despachante)
+- `monitor-ativar-monitoramento/` (despachante)
+- `monitor-desativar-monitoramento/` (despachante)
+
+**Edge Functions — pequenas alterações**
+- Nenhuma `judit-*` é alterada agora (mantém compat). Lógica é movida em refactor incremental conforme `monitor-*` amadurece.
+
+**Front (~7 arquivos)**
+- `src/types/superadmin.ts` — campo `api_provider`
+- `src/components/SuperAdmin/TenantCard.tsx` — seletor + badge
+- `src/components/SuperAdmin/EditTenantDialog.tsx` — seletor
+- `src/components/SuperAdmin/TenantCodiloCredenciaisDialog.tsx` (novo)
+- `src/components/Common/ProviderBadge.tsx` (novo, reutilizável)
+- `src/hooks/useMonitoramentoJudit.ts` → renomear para `useMonitoramento.ts`, invocar `monitor-*`
+- `src/hooks/useToggleMonitoramento.ts` → idem
+- `src/components/Controladoria/...` (1–2 arquivos para mostrar badge)
+
+**Memória**
+- 1 nova entry + 1 atualização no `mem://index.md`.
+
+Total: ~11 arquivos novos + ~7 alterados + 1 migration.
 
 ## Impacto
 
-1. **Usuário final / UX**
-   - Prazos, processos, mensagens, indicadores e relatórios voltam a mostrar **todos** os dados visíveis pela RLS, não só os 1.000 primeiros.
-   - Onde fizer sentido (WhatsApp Inbox/Kanban), a janela visível terá um limite explícito (ex.: últimos 500 itens) com possibilidade futura de "carregar mais".
-   - Telas continuam com o mesmo layout — a mudança é silenciosa e corretiva.
+**1. Para o usuário final (UX, telas, fluxos)**
+- Curto prazo (Fases 1-2 abaixo): **zero impacto**. Default `judit` em todos os tenants; nada muda.
+- Quando o super-admin trocar um tenant para Codilo: o usuário daquele tenant **não nota diferença** — botão "Ativar monitoramento" continua igual, andamentos chegam na mesma tela, mesma timeline.
+- Único elemento visível para usuário comum: badge discreto "Codilo" / "Judit" no card do processo monitorado (informativo, ajuda no suporte).
+- Super-admin ganha controle por tenant (toggle no card) + dialog para colar token Codilo.
 
-2. **Dados / migrations / RLS / performance**
-   - Sem migration, sem alteração de RLS, sem alteração de schema.
-   - Nenhum dado é mutado.
-   - Performance: queries de tenants pequenos não mudam (1 lote = 1 chamada). Tenants grandes farão 2–3 chamadas em vez de truncar — mais correto e previsível.
-   - Métricas que apenas contam linhas migram para `count: exact, head: true`, o que é **mais rápido** que baixar 1.000 linhas e contar no JS.
+**2. Para os dados (migrations, RLS, performance)**
+- 1 migration aditiva (sem rewrite de tabela). Tenants existentes recebem `api_provider='judit'` por default → nenhum dado quebra.
+- Nova tabela `credenciais_codilo` com RLS: super_admin gerencia; admin do tenant lê.
+- Webhooks Codilo gravam na **mesma tabela** `processos_oab_andamentos` → consultas, dashboards, RPCs (`get_andamentos_nao_lidos_por_processo`, `get_total_andamentos_nao_lidos`) continuam funcionando sem alteração.
+- Performance: neutra. Cada processo tem 1 provedor por vez. RPC `get_provider_for_tenant` é cache-friendly (índice em `tenants.id` já existe).
+- `prevent_delete_monitored_processo_oab` continua válido (não importa o provedor).
 
-3. **Riscos colaterais**
-   - Em telas com tabelas muito grandes, a primeira carga pode levar alguns segundos a mais em tenants enormes — mitigado por limites explícitos onde cabe.
-   - Algumas listagens do WhatsApp deixarão de rolar infinitamente: passarão a mostrar "últimas N" com possibilidade de evoluir para paginação real depois.
-   - Edge functions que iteram processos via Judit ficarão um pouco mais lentas em tenants enormes; já são jobs de background.
+**3. Riscos colaterais**
+- **Mapeamento de payload** Codilo → schema interno pode produzir andamentos duplicados ou faltando se campos divergirem. Mitigado por: testes de paridade na Fase 0 + reuso de `generateAndamentoKey` (já existe em `reprocessar-andamentos-monitorados`) para deduplicação.
+- **Cobertura por tribunal**: Codilo pode não cobrir 100% dos tribunais que a Judit cobre. Mitigado mantendo Judit como default e migrando tenants em ondas piloto.
+- **Webhook URL pública**: já temos infra para `judit-webhook` (URL pública das Edge Functions Supabase), então `codilo-webhook` é replicável.
+- **Custo dobrado** durante transição (pagando os dois provedores). Aceitável para piloto controlado.
+- **Confusão operacional**: super-admin pode trocar provider sem entender que processos antigos ficam no provedor antigo. Mitigado com dialog de confirmação explícito.
+- **Credenciais para sigilosos**: Judit suporta `customer_key`. Codilo precisa ser validado em campo (Fase 0). Se faltar, processos sigilosos continuam só na Judit.
 
-4. **Quem é afetado**
-   - **Todos os tenants e papéis**, com benefício mais visível para tenants grandes (SOLVENZA hoje, outros no futuro).
-   - **Admin/controller** ganham indicadores corretos.
-   - **Advogado/perito/financeiro** veem todos os seus prazos, processos, parcelas e relatórios.
-   - **CRM/WhatsApp** ganha consistência ao listar conversas em volumes altos.
-   - **Super admin** passa a ver totais reais.
+**4. Quem é afetado**
+- **Super admin**: ganha seletor de provider no `TenantCard` + dialog de credencial Codilo. Operação principal afetada.
+- **Admin do tenant**: zero impacto direto. Pode ver no banco que mudou, mas UX igual.
+- **Advogado, controladoria, agenda, financeiro, comercial, estagiário, perito**: **nenhum impacto**. Andamentos chegam pelo mesmo fluxo, mesmas notificações, mesmas telas.
+- **Tenants em piloto Codilo**: ganham rede de segurança extra (sync de pendentes via `pending-push`).
 
 ## Validação
 
-- Conferir no banco que cada tabela com `> 1000` linhas em algum tenant retorna a contagem correta na tela após a paginação (deadlines, processos_oab_andamentos, processos_oab).
-- Re-testar o caso original do Alan (`16b84fd9-...`) já corrigido.
-- Validar Indicadores da Controladoria contra `count(*)` direto no banco para SOLVENZA.
-- Validar Dashboard de prazos e Central de Concluídos contra contagem direta.
-- Validar Inbox/Kanban do WhatsApp em tenant com >1000 mensagens (SOLVENZA).
-- Verificar que nenhum filtro `tenant_id`/RLS foi alterado (mesma visibilidade entre tenants).
-- Adicionar a regra de paginação em `mem://` para que a IA aplique automaticamente em novas features.
+### Fase 0 — Antes de qualquer código
+- Conta sandbox Codilo + tabela de preços + lista de abrangência atual (a página `/abrangencia` da doc retornou 404, pedir CSV ao comercial).
+- Testar manualmente 5 CNJs reais já cobertos pela Judit (incluindo o `0043162-19.2026.8.16.0000` que falhou) via curl Codilo. Comparar: cobertura, latência, payload, qualidade dos andamentos. Documentar em `mem://legal-ops/codilo-coverage-baseline`.
+
+### Fase 1 — Backend (sem ligar UI)
+- Migration aplicada → confirmar que todos os tenants existentes têm `api_provider='judit'` e nada quebra.
+- Edge Functions `codilo-*` deployadas; testar cada uma com curl direto + token sandbox.
+- Testes Deno em `supabase/functions/codilo-webhook/codilo-webhook_test.ts` validando normalização do payload.
+- Comparar `generateAndamentoKey` aplicado a payload Judit vs payload Codilo do mesmo processo → mesmas chaves geradas.
+
+### Fase 2 — UI super-admin
+- Toggle no `TenantCard` muda `tenants.api_provider` no banco.
+- Badge atualiza visualmente. Dialog de credencial Codilo grava em `credenciais_codilo`.
+- Trocar provider de um tenant de teste → ativar monitoramento de novo processo → confirmar que vai para Codilo (verificar `processos_oab.api_provider='codilo'` e webhook chegando).
+
+### Fase 3 — Piloto controlado (2 semanas)
+- 1 tenant interno trocado para Codilo. Comparar diariamente:
+  - Total de andamentos novos detectados Codilo vs. mesmo processo na Judit (espelho).
+  - Latência média do webhook.
+  - Erros tipo `not_found` por provedor.
+- **Métricas de aceite**: paridade ≥ 95% nos andamentos detectados, latência ≤ Judit, taxa de erro `not_found` menor ou igual.
+
+### Fase 4 — Rollout
+- Ativar Codilo como opção visível e documentar para o super-admin.
+- Manter Judit como default por mais N meses.
+- **Sem descomissionar Judit** até paridade comprovada em 3 tenants reais.
+
+## Perguntas antes de eu implementar
+
+1. Confirma que o **default de novos tenants continua Judit**? (recomendado para não quebrar nada)
+2. Já tem **token sandbox Codilo** disponível pra eu pedir como secret, ou vamos criar a infra primeiro e você fornece depois?
+3. Para **processos já monitorados na Judit** quando o super-admin trocar o tenant para Codilo: mantenho na Judit (recomendado) ou ofereço botão "migrar todos para Codilo" (mais arriscado)?

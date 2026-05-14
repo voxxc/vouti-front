@@ -1467,6 +1467,50 @@ export type Database = {
           },
         ]
       }
+      credenciais_codilo: {
+        Row: {
+          access_token: string
+          base_url: string | null
+          created_at: string
+          enviado_por: string | null
+          id: string
+          observacoes: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          base_url?: string | null
+          created_at?: string
+          enviado_por?: string | null
+          id?: string
+          observacoes?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          base_url?: string | null
+          created_at?: string
+          enviado_por?: string | null
+          id?: string
+          observacoes?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credenciais_codilo_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credenciais_judit: {
         Row: {
           created_at: string | null
@@ -4552,11 +4596,13 @@ export type Database = {
       }
       processo_monitoramento_judit: {
         Row: {
+          codilo_push_id: string | null
           created_at: string | null
           id: string
           judit_data: Json | null
           monitoramento_ativo: boolean | null
           processo_id: string
+          provider: string
           recurrence: number | null
           tenant_id: string | null
           total_movimentacoes: number | null
@@ -4566,11 +4612,13 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          codilo_push_id?: string | null
           created_at?: string | null
           id?: string
           judit_data?: Json | null
           monitoramento_ativo?: boolean | null
           processo_id: string
+          provider?: string
           recurrence?: number | null
           tenant_id?: string | null
           total_movimentacoes?: number | null
@@ -4580,11 +4628,13 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          codilo_push_id?: string | null
           created_at?: string | null
           id?: string
           judit_data?: Json | null
           monitoramento_ativo?: boolean | null
           processo_id?: string
+          provider?: string
           recurrence?: number | null
           tenant_id?: string | null
           total_movimentacoes?: number | null
@@ -5057,6 +5107,7 @@ export type Database = {
           ai_enabled: boolean | null
           ai_summary: string | null
           ai_summary_data: Json | null
+          api_provider: string
           capa_completa: Json | null
           created_at: string | null
           data_distribuicao: string | null
@@ -5095,6 +5146,7 @@ export type Database = {
           ai_enabled?: boolean | null
           ai_summary?: string | null
           ai_summary_data?: Json | null
+          api_provider?: string
           capa_completa?: Json | null
           created_at?: string | null
           data_distribuicao?: string | null
@@ -5133,6 +5185,7 @@ export type Database = {
           ai_enabled?: boolean | null
           ai_summary?: string | null
           ai_summary_data?: Json | null
+          api_provider?: string
           capa_completa?: Json | null
           created_at?: string | null
           data_distribuicao?: string | null
@@ -8656,6 +8709,7 @@ export type Database = {
       }
       tenants: {
         Row: {
+          api_provider: string
           cnpj: string | null
           created_at: string | null
           email_contato: string | null
@@ -8675,6 +8729,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          api_provider?: string
           cnpj?: string | null
           created_at?: string | null
           email_contato?: string | null
@@ -8694,6 +8749,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          api_provider?: string
           cnpj?: string | null
           created_at?: string | null
           email_contato?: string | null
@@ -10857,6 +10913,10 @@ export type Database = {
           id: string
           name: string
         }[]
+      }
+      get_provider_for_tenant: {
+        Args: { p_tenant_id: string }
+        Returns: string
       }
       get_server_time_ms: { Args: never; Returns: number }
       get_tenant_by_slug: {
