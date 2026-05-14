@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AlertTriangle, Link2, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Link2, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -107,6 +107,25 @@ export function PrazosOrfaosTab() {
 
   // Detalhe do prazo
   const [selectedDeadlineId, setSelectedDeadlineId] = useState<string | null>(null);
+
+  // Ordenação
+  type SortKey = "number" | "title" | "date" | "project" | "creator" | "responsavel" | "status";
+  const [sortKey, setSortKey] = useState<SortKey>("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "title" || key === "project" || key === "creator" || key === "responsavel" ? "asc" : "desc");
+    }
+  };
+
+  const SortIcon = ({ k }: { k: SortKey }) => {
+    if (sortKey !== k) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  };
 
   const fetchData = async () => {
     if (!tenantId) return;
@@ -254,6 +273,46 @@ export function PrazosOrfaosTab() {
     });
   }, [rows, filterCreator, filterProject, search]);
 
+  const sortedRows = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    const cmpStr = (a?: string | null, b?: string | null) => {
+      const ea = !a;
+      const eb = !b;
+      if (ea && eb) return 0;
+      if (ea) return 1; // nulls always last
+      if (eb) return -1;
+      return (a as string).localeCompare(b as string, "pt-BR", { sensitivity: "base" }) * dir;
+    };
+    const cmpNum = (a: number | null | undefined, b: number | null | undefined) => {
+      const ea = a === null || a === undefined;
+      const eb = b === null || b === undefined;
+      if (ea && eb) return 0;
+      if (ea) return 1;
+      if (eb) return -1;
+      return ((a as number) - (b as number)) * dir;
+    };
+    return [...filteredRows].sort((a, b) => {
+      switch (sortKey) {
+        case "number":
+          return cmpNum(a.deadline_number, b.deadline_number);
+        case "title":
+          return cmpStr(a.title, b.title);
+        case "date":
+          return cmpNum(parseLocalDate(a.date).getTime(), parseLocalDate(b.date).getTime());
+        case "project":
+          return cmpStr(a.project_name || a.workspace_name, b.project_name || b.workspace_name);
+        case "creator":
+          return cmpStr(a.creator_name, b.creator_name);
+        case "responsavel":
+          return cmpStr(a.responsavel_name, b.responsavel_name);
+        case "status":
+          return ((a.completed ? 1 : 0) - (b.completed ? 1 : 0)) * dir;
+        default:
+          return 0;
+      }
+    });
+  }, [filteredRows, sortKey, sortDir]);
+
   const openLinkDialog = (row: OrphanDeadline) => {
     setLinkRow(row);
     setLinkProtocoloId("");
@@ -389,13 +448,27 @@ export function PrazosOrfaosTab() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-16">Nº</TableHead>
-              <TableHead>Título</TableHead>
-              <TableHead>Data</TableHead>
-              <TableHead>Projeto / Workspace</TableHead>
-              <TableHead>Criador</TableHead>
-              <TableHead>Responsável</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="w-16 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("number")}>
+                <span className="inline-flex items-center gap-1">Nº <SortIcon k="number" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("title")}>
+                <span className="inline-flex items-center gap-1">Título <SortIcon k="title" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("date")}>
+                <span className="inline-flex items-center gap-1">Data <SortIcon k="date" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("project")}>
+                <span className="inline-flex items-center gap-1">Projeto / Workspace <SortIcon k="project" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("creator")}>
+                <span className="inline-flex items-center gap-1">Criador <SortIcon k="creator" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("responsavel")}>
+                <span className="inline-flex items-center gap-1">Responsável <SortIcon k="responsavel" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("status")}>
+                <span className="inline-flex items-center gap-1">Status <SortIcon k="status" /></span>
+              </TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -408,7 +481,7 @@ export function PrazosOrfaosTab() {
                 </TableCell>
               </TableRow>
             )}
-            {!loading && filteredRows.length === 0 && (
+            {!loading && sortedRows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                   Nenhum prazo órfão encontrado.
@@ -416,7 +489,7 @@ export function PrazosOrfaosTab() {
               </TableRow>
             )}
             {!loading &&
-              filteredRows.map((row) => {
+              sortedRows.map((row) => {
                 const date = parseLocalDate(row.date);
                 const protocolosCount = (protocolosByProject[row.project_id || ""] || []).length;
                 return (
