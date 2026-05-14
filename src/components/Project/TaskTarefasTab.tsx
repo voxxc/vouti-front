@@ -202,6 +202,22 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
       return;
     }
 
+    // Bloquear prazo órfão: se o projeto tem protocolos, exigir seleção
+    if (
+      criarPrazoAutomatico &&
+      projectId &&
+      availableProtocolos.length > 0 &&
+      !novaTarefaProtocoloId
+    ) {
+      toast({
+        title: 'Protocolo obrigatório',
+        description:
+          'Este projeto possui protocolos cadastrados. Selecione o protocolo de origem do prazo.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSaving(true);
     const result = await adicionarTarefa({
       titulo: formData.titulo.trim(),
@@ -225,6 +241,9 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
             .maybeSingle();
           resolvedWorkspaceId = defaultWs?.id || null;
 
+          const protocoloSel = availableProtocolos.find(
+            (p) => p.id === novaTarefaProtocoloId
+          );
           // 1. Criar deadline
           const { data: deadline, error } = await supabase
             .from('deadlines')
@@ -237,7 +256,9 @@ export const TaskTarefasTab = ({ taskId, taskTitle, projectId, columnName }: Tas
               advogado_responsavel_id: novaTarefaResponsavelId,
               tenant_id: tenantId,
               completed: false,
-              workspace_id: resolvedWorkspaceId,
+              workspace_id: protocoloSel?.workspace_id || resolvedWorkspaceId,
+              processo_oab_id: protocoloSel?.processo_oab_id || null,
+              protocolo_etapa_id: novaTarefaEtapaId || null,
             })
             .select('id')
             .single();
