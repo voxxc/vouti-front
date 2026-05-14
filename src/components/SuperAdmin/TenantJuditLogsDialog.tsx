@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Activity, Search, FileText, Radar, CheckCircle, XCircle } from 'lucide-react';
+import { Activity, Search, FileText, Radar, CheckCircle, XCircle, RotateCcw } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -36,6 +36,7 @@ interface LogSummary {
   requestDocument: number;
   lawsuitCnj: number;
   tracking: number;
+  resets: number;
   custoTotal: number;
 }
 
@@ -46,6 +47,7 @@ export function TenantJuditLogsDialog({ tenant, open, onOpenChange }: TenantJudi
     requestDocument: 0,
     lawsuitCnj: 0,
     tracking: 0,
+    resets: 0,
     custoTotal: 0,
   });
   const [loading, setLoading] = useState(false);
@@ -77,6 +79,7 @@ export function TenantJuditLogsDialog({ tenant, open, onOpenChange }: TenantJudi
         requestDocument: logsData.filter(l => l.tipo_chamada === 'request-document').length,
         lawsuitCnj: logsData.filter(l => l.tipo_chamada === 'lawsuit_cnj').length,
         tracking: logsData.filter(l => l.tipo_chamada === 'tracking').length,
+        resets: logsData.filter(l => l.tipo_chamada?.startsWith('reset_processo')).length,
         custoTotal: logsData.reduce((acc, l) => acc + (Number(l.custo_estimado) || 0), 0),
       };
       setSummary(newSummary);
@@ -105,6 +108,12 @@ export function TenantJuditLogsDialog({ tenant, open, onOpenChange }: TenantJudi
         return 'Detalhes Processo';
       case 'tracking':
         return 'Monitoramento';
+      case 'reset_processo_pause':
+        return 'Reset - Pause Tracking';
+      case 'reset_processo_post':
+        return 'Reset - POST novo';
+      case 'reset_processo_polling':
+        return 'Reset - Polling';
       default:
         return tipo;
     }
@@ -118,6 +127,10 @@ export function TenantJuditLogsDialog({ tenant, open, onOpenChange }: TenantJudi
         return <FileText className="h-4 w-4" />;
       case 'tracking':
         return <Radar className="h-4 w-4" />;
+      case 'reset_processo_pause':
+      case 'reset_processo_post':
+      case 'reset_processo_polling':
+        return <RotateCcw className="h-4 w-4" />;
       default:
         return <Activity className="h-4 w-4" />;
     }
@@ -145,7 +158,7 @@ export function TenantJuditLogsDialog({ tenant, open, onOpenChange }: TenantJudi
         ) : (
           <div className="space-y-4">
             {/* Cards de resumo */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-4 gap-3">
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-center">
                 <div className="flex items-center justify-center gap-1 text-blue-600 mb-1">
                   <Search className="h-4 w-4" />
@@ -166,6 +179,13 @@ export function TenantJuditLogsDialog({ tenant, open, onOpenChange }: TenantJudi
                   <span className="text-2xl font-bold">{summary.tracking}</span>
                 </div>
                 <p className="text-xs text-muted-foreground">Tracking</p>
+              </div>
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-center">
+                <div className="flex items-center justify-center gap-1 text-amber-600 mb-1">
+                  <RotateCcw className="h-4 w-4" />
+                  <span className="text-2xl font-bold">{summary.resets}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Resets</p>
               </div>
             </div>
 
