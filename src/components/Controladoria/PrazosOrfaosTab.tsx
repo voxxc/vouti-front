@@ -44,6 +44,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaginated, fetchAllPaginatedIn } from "@/lib/supabasePagination";
 import { parseLocalDate } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
+import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 
 interface OrphanDeadline {
   id: string;
@@ -103,6 +104,9 @@ export function PrazosOrfaosTab() {
   // Exclusão
   const [deleteRow, setDeleteRow] = useState<OrphanDeadline | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Detalhe do prazo
+  const [selectedDeadlineId, setSelectedDeadlineId] = useState<string | null>(null);
 
   const fetchData = async () => {
     if (!tenantId) return;
@@ -416,7 +420,11 @@ export function PrazosOrfaosTab() {
                 const date = parseLocalDate(row.date);
                 const protocolosCount = (protocolosByProject[row.project_id || ""] || []).length;
                 return (
-                  <TableRow key={row.id}>
+                  <TableRow
+                    key={row.id}
+                    className="cursor-pointer hover:bg-muted/40"
+                    onClick={() => setSelectedDeadlineId(row.id)}
+                  >
                     <TableCell className="text-xs text-muted-foreground font-mono">
                       {row.deadline_number ?? "-"}
                     </TableCell>
@@ -447,7 +455,7 @@ export function PrazosOrfaosTab() {
                         <Badge variant="outline">Pendente</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="inline-flex gap-1">
                         <Button
                           variant="default"
