@@ -45,25 +45,28 @@ export const useAndamentosNaoLidosGlobal = () => {
     setLoading(true);
     try {
       // Query 1: Fetch processes with OAB data (lightweight, no andamentos join)
-      const { data: processosData, error: processosError } = await supabase
-        .from('processos_oab')
-        .select(`
-          id,
-          numero_cnj,
-          parte_ativa,
-          parte_passiva,
-          tribunal_sigla,
-          monitoramento_ativo,
-          oab_id,
-          capa_completa,
-          oabs_cadastradas!inner(
+      const { data: processosData, error: processosError } = await fetchAllPaginated<any>(() =>
+        supabase
+          .from('processos_oab')
+          .select(`
             id,
-            oab_numero,
-            oab_uf,
-            nome_advogado
-          )
-        `)
-        .eq('tenant_id', tenantId);
+            numero_cnj,
+            parte_ativa,
+            parte_passiva,
+            tribunal_sigla,
+            monitoramento_ativo,
+            oab_id,
+            capa_completa,
+            oabs_cadastradas!inner(
+              id,
+              oab_numero,
+              oab_uf,
+              nome_advogado
+            )
+          `)
+          .eq('tenant_id', tenantId)
+          .order('id') as any
+      );
 
       if (processosError) {
         console.error('Error fetching processos:', processosError);
