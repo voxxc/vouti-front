@@ -503,6 +503,7 @@ export const GeralTab = () => {
         onToggleMonitoramento={handleToggleMonitoramento}
         onRefreshProcessos={fetchProcessos}
         onConsultarDetalhesRequest={consultarDetalhesRequest}
+        onResetarProcesso={resetarProcesso}
         onCarregarDetalhes={carregarDetalhes}
         onAtualizarProcesso={atualizarProcesso}
         oab={selectedOAB}
