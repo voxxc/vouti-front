@@ -24,6 +24,7 @@ import { DeadlineComentarios } from "./DeadlineComentarios";
 import AdvogadoSelector from "@/components/Controladoria/AdvogadoSelector";
 import UserTagSelector from "./UserTagSelector";
 import EditarPrazoDialog from "./EditarPrazoDialog";
+import { fetchAllPaginated, fetchAllPaginatedIn } from "@/lib/supabasePagination";
 import { ProcessoOABDetalhes } from "@/components/Controladoria/ProcessoOABDetalhes";
 import { ProcessoOAB } from "@/hooks/useOABs";
 import { useToggleMonitoramento } from "@/hooks/useToggleMonitoramento";
@@ -440,21 +441,29 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
       // Batch fetch: casos vinculados (from protocolo's processo_oab_id)
       let casosMap: Record<string, any> = {};
       if (processoOabIdsFromProtocolos.size > 0) {
-        const { data: casos } = await supabase
-          .from('processos_oab')
-          .select('id, numero_cnj, parte_ativa, parte_passiva, tribunal')
-          .in('id', Array.from(processoOabIdsFromProtocolos));
-        (casos || []).forEach(c => { casosMap[c.id] = c; });
+        const { data: casos } = await fetchAllPaginatedIn<any>(
+          Array.from(processoOabIdsFromProtocolos),
+          (chunk) =>
+            supabase
+              .from('processos_oab')
+              .select('id, numero_cnj, parte_ativa, parte_passiva, tribunal')
+              .in('id', chunk) as any
+        );
+        (casos || []).forEach((c: any) => { casosMap[c.id] = c; });
       }
 
       // Batch fetch: protocolos vinculados (from caso's processo_oab_id)
       let protocolosMap: Record<string, any> = {};
       if (processoOabIdsFromCasos.size > 0) {
-        const { data: prots } = await supabase
-          .from('project_protocolos')
-          .select('id, nome, project_id, processo_oab_id, workspace_id')
-          .in('processo_oab_id', Array.from(processoOabIdsFromCasos));
-        (prots || []).forEach(p => {
+        const { data: prots } = await fetchAllPaginatedIn<any>(
+          Array.from(processoOabIdsFromCasos),
+          (chunk) =>
+            supabase
+              .from('project_protocolos')
+              .select('id, nome, project_id, processo_oab_id, workspace_id')
+              .in('processo_oab_id', chunk) as any
+        );
+        (prots || []).forEach((p: any) => {
           if (p.processo_oab_id) protocolosMap[p.processo_oab_id] = p;
         });
       }
@@ -1245,19 +1254,21 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (open && tenantId) {
-            supabase
-              .from('projects')
-              .select('id, name, client')
-              .eq('tenant_id', tenantId)
-              .order('name')
-              .then(({ data }) => setAvailableProjects(data || []));
+            fetchAllPaginated<any>(() =>
+              supabase
+                .from('projects')
+                .select('id, name, client')
+                .eq('tenant_id', tenantId)
+                .order('name') as any
+            ).then(({ data }) => setAvailableProjects(data || []));
             // Load all tenant protocolos by default (no project filter)
-            supabase
-              .from('project_protocolos')
-              .select('id, nome, processo_oab_id')
-              .eq('tenant_id', tenantId)
-              .order('nome')
-              .then(({ data }) => setAvailableProtocolos(data || []));
+            fetchAllPaginated<any>(() =>
+              supabase
+                .from('project_protocolos')
+                .select('id, nome, processo_oab_id')
+                .eq('tenant_id', tenantId)
+                .order('nome') as any
+            ).then(({ data }) => setAvailableProtocolos(data || []));
           }
         }}>
           <DialogTrigger asChild>
@@ -1321,19 +1332,23 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
                         .order('is_default', { ascending: false });
                       setAvailableWorkspaces(ws || []);
                       // Load protocolos linked to this project
-                      const { data: prots } = await supabase
-                        .from('project_protocolos')
-                        .select('id, nome, processo_oab_id')
-                        .eq('project_id', projectId)
-                        .order('nome');
+                      const { data: prots } = await fetchAllPaginated<any>(() =>
+                        supabase
+                          .from('project_protocolos')
+                          .select('id, nome, processo_oab_id')
+                          .eq('project_id', projectId)
+                          .order('nome') as any
+                      );
                       setAvailableProtocolos(prots || []);
                     } else if (tenantId) {
                       // No project selected: load all tenant protocolos
-                      const { data: allProts } = await supabase
-                        .from('project_protocolos')
-                        .select('id, nome, processo_oab_id')
-                        .eq('tenant_id', tenantId)
-                        .order('nome');
+                      const { data: allProts } = await fetchAllPaginated<any>(() =>
+                        supabase
+                          .from('project_protocolos')
+                          .select('id, nome, processo_oab_id')
+                          .eq('tenant_id', tenantId)
+                          .order('nome') as any
+                      );
                       setAvailableProtocolos(allProts || []);
                     }
                   }}

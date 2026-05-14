@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantId } from './useTenantId';
+import { fetchAllPaginated } from '@/lib/supabasePagination';
 
 export interface OABCadastrada {
   id: string;
@@ -354,14 +355,16 @@ export const useProcessosOAB = (oabId: string | null) => {
     setLoading(true);
     try {
       // Query otimizada: buscar processos com andamentos em uma única query
-      const { data: processosData, error } = await supabase
-        .from('processos_oab')
-        .select(`
-          *,
-          processos_oab_andamentos!left(id, lida)
-        `)
-        .eq('oab_id', oabId)
-        .order('ordem_lista', { ascending: true });
+      const { data: processosData, error } = await fetchAllPaginated<any>(() =>
+        supabase
+          .from('processos_oab')
+          .select(`
+            *,
+            processos_oab_andamentos!left(id, lida)
+          `)
+          .eq('oab_id', oabId)
+          .order('ordem_lista', { ascending: true }) as any
+      );
 
       if (error) throw error;
 

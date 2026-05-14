@@ -54,3 +54,33 @@ export async function fetchAllPaginated<T = any>(
   }
   return { data: all, error: null };
 }
+
+/**
+ * Executa um SELECT ... WHERE col IN (...ids) particionando os ids em
+ * chunks (default 500) e paginando cada chunk. Garante que nenhuma linha
+ * seja perdida quando a lista de ids ou o resultado ultrapassa 1000.
+ *
+ * Exemplo:
+ * ```ts
+ * const { data } = await fetchAllPaginatedIn<MyRow>(ids, (chunk) =>
+ *   supabase.from('processos_oab').select('id, numero_cnj').in('id', chunk)
+ * );
+ * ```
+ */
+export async function fetchAllPaginatedIn<T = any>(
+  ids: string[],
+  builderFactory: (chunk: string[]) => AnySupabaseBuilder,
+  options: FetchAllPaginatedOptions & { chunkSize?: number } = {}
+): Promise<{ data: T[]; error: any }> {
+  const chunkSize = options.chunkSize ?? 500;
+  const all: T[] = [];
+  if (!ids || ids.length === 0) return { data: all, error: null };
+  const unique = Array.from(new Set(ids));
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    const chunk = unique.slice(i, i + chunkSize);
+    const { data, error } = await fetchAllPaginated<T>(() => builderFactory(chunk), options);
+    if (error) return { data: all, error };
+    all.push(...data);
+  }
+  return { data: all, error: null };
+}
