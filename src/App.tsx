@@ -513,6 +513,12 @@ function App() {
               </TenantRouteWrapper>
             } />
             
+            <Route path="/:tenant/prazoof" element={
+              <TenantRouteWrapper>
+                <PrazosOf />
+              </TenantRouteWrapper>
+            } />
+
             {/* Reuniões - Tenant Dynamic */}
             <Route path="/:tenant/reunioes" element={
               <TenantRouteWrapper>
