@@ -83,6 +83,7 @@ interface ProcessoOABDetalhesProps {
   onToggleMonitoramento: (processo: ProcessoOAB) => Promise<any>;
   onRefreshProcessos?: () => Promise<void>;
   onConsultarDetalhesRequest?: (processoId: string, requestId: string) => Promise<any>;
+  onResetarProcesso?: (processoId: string, numeroCnj: string) => Promise<any>;
   onCarregarDetalhes?: (processoId: string, numeroCnj: string) => Promise<any>;
   onAtualizarProcesso?: (processoId: string, dados: Partial<ProcessoOAB>) => Promise<boolean>;
   oab?: OABCadastrada | null;
@@ -192,6 +193,7 @@ export const ProcessoOABDetalhes = ({
   onToggleMonitoramento,
   onRefreshProcessos,
   onConsultarDetalhesRequest,
+  onResetarProcesso,
   onCarregarDetalhes,
   onAtualizarProcesso,
   oab
@@ -202,6 +204,7 @@ export const ProcessoOABDetalhes = ({
   const [togglingMonitoramento, setTogglingMonitoramento] = useState(false);
   const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
   const [confirmMonitoramentoOpen, setConfirmMonitoramentoOpen] = useState(false);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmacaoFinalOpen, setConfirmacaoFinalOpen] = useState(false);
   const [carregandoAndamentos, setCarregandoAndamentos] = useState(false);
@@ -319,12 +322,20 @@ export const ProcessoOABDetalhes = ({
   };
 
   const handleRefreshAndamentos = async () => {
-    if (!processo.detalhes_request_id || !onConsultarDetalhesRequest) return;
-    
+    if (!processo) return;
+    setConfirmResetOpen(true);
+  };
+
+  const executarReset = async () => {
+    if (!processo || !onResetarProcesso) return;
+    setConfirmResetOpen(false);
     setRefreshingAndamentos(true);
     try {
-      await onConsultarDetalhesRequest(processo.id, processo.detalhes_request_id);
+      const result = await onResetarProcesso(processo.id, processo.numero_cnj);
       await fetchAndamentos();
+      if (result?.monitoramentoDesativado && onAtualizarProcesso) {
+        await onAtualizarProcesso(processo.id, { monitoramento_ativo: false, tracking_id: null });
+      }
     } finally {
       setRefreshingAndamentos(false);
     }
@@ -570,6 +581,29 @@ export const ProcessoOABDetalhes = ({
                 <AlertDialogAction onClick={handleConfirmToggle}>
                   {processo.monitoramento_ativo ? 'Desativar' : 'Ativar'}
                 </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Confirmação de reset/atualização forçada */}
+          <AlertDialog open={confirmResetOpen} onOpenChange={setConfirmResetOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Atualizar andamentos e ressincronizar?</AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-2 text-sm">
+                    <p>Esta ação vai:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Buscar andamentos atualizados direto do tribunal (consulta paga).</li>
+                      <li>Adicionar apenas os andamentos novos (não duplica nem apaga os atuais).</li>
+                      <li>Desativar o monitoramento diário — você precisará reativá-lo depois.</li>
+                    </ul>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={executarReset}>Atualizar e ressincronizar</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -946,14 +980,14 @@ export const ProcessoOABDetalhes = ({
                         {andamentos.length} andamento(s)
                       </p>
                       {/* Botao de atualizar andamentos (gratuito se tiver request_id) */}
-                      {processo.detalhes_request_id && onConsultarDetalhesRequest && (
+                      {onResetarProcesso && (
                         <Button 
                           variant="ghost" 
                           size="icon"
                           className="h-7 w-7"
                           onClick={handleRefreshAndamentos}
                           disabled={refreshingAndamentos}
-                          title="Atualizar andamentos"
+                          title="Atualizar andamentos (consulta nova ao tribunal)"
                         >
                           {refreshingAndamentos ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />

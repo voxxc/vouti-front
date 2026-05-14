@@ -1,206 +1,129 @@
 
-# Codilo como alternativa à Judit (multi-provider de monitoramento processual)
+# Atualizar Andamentos com reset + registro de IDs no Super-Admin
 
-## Contexto
+## Causa raiz / Comportamento atual
 
-A operação atual depende 100% da Judit para consulta e monitoramento processual. Quando a Judit falha (ex.: `LAWSUIT_NOT_FOUND` no caso recente do `0043162-19.2026.8.16.0000`), não há fallback. A Codilo (https://docs.codilo.com.br) oferece um catálogo equivalente:
+1. Botão **🔄 Atualizar andamentos** em `ProcessoOABDetalhes.tsx` (linha 949) chama `onConsultarDetalhesRequest`, que em `useAllProcessosOAB.ts` é **no-op**. Não força nova consulta.
+2. `judit-buscar-detalhes-processo` prefere cache (request_id existente, tracking_id, processo compartilhado). Não dá pra ressincronizar processos travados pela UI.
+3. Hoje **não há registro consolidado** no Super-Admin de "quando foi feito o último POST de reset, qual request_id retornou, qual tracking_id passou a valer". Existe `tenant_banco_ids` (com tipos `request_detalhes`, `tracking`, `tracking_desativado`) e `judit_api_logs`, mas a operação de reset que vamos criar precisa popular ambos.
 
-- **Consulta Única / Automática** — equivalentes ao `lawsuit_cnj` da Judit.
-- **Monitoramento Push** — `POST /v1/processo/novo` em `api.push.codilo.com.br`, callbacks por webhook (suporta múltiplas URLs e headers customizados).
-- **Vantagem real**: tem `pending-push` + `confirm-callback` (fila de eventos pendentes), o que protege contra perda de webhooks — coisa que a Judit não tem.
+## Correção / O que vai passar a acontecer
 
-## Estratégia
+### Botão na Controladoria (UX)
 
-**Não substituir, abstrair.** Codilo entra como **provedor alternativo**, escolhido por tenant pelo super-admin no `TenantCard`. Internamente, todas as gravações continuam nas mesmas tabelas (`processos_oab`, `processos_oab_andamentos`) com o mesmo schema, atrás de uma camada `provider`. Isso permite:
+Botão **🔄 Atualizar andamentos** abre `AlertDialog` de confirmação e dispara nova Edge Function `judit-resetar-processo` que executa em sequência:
 
-- Migração gradual (tenant a tenant).
-- Fallback futuro automático Codilo ↔ Judit.
-- Zero impacto para usuário final no curto prazo.
+1. **Desativa monitoramento atual** (se ativo): `PATCH /tracking/:id status=paused` na Judit + zera `processos_oab.monitoramento_ativo`, `tracking_id`, `tracking_request_id` e `processo_monitoramento_judit.monitoramento_ativo`. Linha de monitoramento fica preservada.
+2. **Força POST novo** na Judit (`POST /requests` com `search_type=lawsuit_cnj`, `on_demand=true`), **ignorando todos os caches**. Usa credencial sigilosa do tenant se houver.
+3. **Polling** do novo `request_id` até completar (mesma lógica de `judit-buscar-detalhes-processo`).
+4. **Insere apenas o que é novo** — não apaga nada:
+   - Lê `MAX(data_movimentacao)` em `processos_oab_andamentos` para o processo (ex: `17/04/2026` no print).
+   - Calcula `andamento_key = generateAndamentoKey(data, descricao)` para cada andamento da resposta.
+   - Compara com as `andamento_key` existentes; **insere só os ausentes** com `data_movimentacao >= MAX existente`.
+   - Antigos ficam intocados (lida/não-lida preservado). Novos entram com `lida=false`.
+   - Evita inflar a Central da Controladoria.
+5. **Atualiza** `processos_oab` com novo `detalhes_request_id`, `detalhes_request_data = now()` e campos de cabeçalho **só se vierem preenchidos**.
+6. Toast: `"X novos andamentos. Monitoramento desativado — reative para retomar."` (`X=0` → `"Nenhuma novidade desde DD/MM."`)
 
-## Correção / Implementação
+### Registro no Super-Admin (NOVO — foco desta iteração)
 
-### 1. Banco de dados (migration única)
+Tudo o que a `judit-resetar-processo` faz é gravado em **dois lugares já existentes**, sem criar tabela nova:
 
-**a) Tabela `tenants`** — coluna nova:
-- `api_provider text NOT NULL DEFAULT 'judit'` com check `('judit','codilo')`.
+**A) `judit_api_logs`** — registro detalhado por chamada HTTP:
+- `tipo_chamada='reset_processo_pause'` para o PATCH de pause (com `request_payload`, `response_payload`, `tracking_id` antigo).
+- `tipo_chamada='reset_processo_post'` para o POST novo (com `request_payload`, `response_payload`, `request_id` retornado, latência, `sucesso`).
+- `tipo_chamada='reset_processo_polling'` opcionalmente para a última leitura do `/responses` (com count de andamentos, novos inseridos).
+- Cada log carrega `tenant_id`, `oab_id`, `processo_id`, `user_id`, `created_at`. Já aparece em `TenantJuditLogsDialog.tsx`.
 
-**b) Tabela `processos_oab`** — coluna nova:
-- `api_provider text NOT NULL DEFAULT 'judit'` (rastreia qual provedor está atendendo cada processo, permitindo coexistência durante migração).
+**B) `tenant_banco_ids`** — registro consolidado de IDs vivos do tenant (já é a "fonte de verdade" do dialog "Banco de IDs"):
+- Insere `tipo='request_detalhes'` com `external_id = <novo request_id>`, `referencia_id = processo_oab_id`, `descricao = "Reset manual - CNJ <numero> - <data>"`, `metadata = { numero_cnj, processo_oab_id, request_id, post_em: <iso>, origem: 'reset_manual', usuario_id }`.
+- Move o `tracking_id` antigo para `tipo='tracking_desativado'` (atualiza ou insere) com `metadata.desativado_em = <iso>` + `metadata.motivo = 'reset_manual'`.
+- Quando o usuário **reativar** o monitoramento via Switch (fluxo padrão `judit-ativar-monitoramento`), uma linha `tipo='tracking'` nova é inserida com o novo `tracking_id` + `metadata = { tracking_id, ativado_em, request_id_origem, processo_oab_id }`. **Para isso, ajusto `judit-ativar-monitoramento` para também gravar em `tenant_banco_ids`** (hoje pode estar gravando incompleto — verificar e padronizar).
 
-**c) Tabela `processo_monitoramento_judit`** — renomear conceitualmente sem renomear ainda. Adicionar:
-- `provider text NOT NULL DEFAULT 'judit'`
-- `codilo_push_id text` (id retornado pelo `create-push` da Codilo)
+### O que o Super-Admin vê
 
-**d) Nova tabela `credenciais_codilo`** (espelha `credenciais_judit`, separada por enquanto para isolar credenciais por provedor):
-- `tenant_id`, `access_token` (criptografado/secret), `base_url` opcional, `status`, `created_at`, `updated_at`.
-- RLS: super_admin pode tudo; admin do tenant pode ler.
+No **TenantCard**, os 2 botões já existentes ganham dado novo automaticamente:
 
-**e) RPC helper** `get_provider_for_tenant(p_tenant_id uuid) returns text` — security definer, retorna `tenants.api_provider`. Usado pelas Edge Functions.
+- **"Banco de IDs"** (`TenantBancoIdsDialog`) — abas `Detalhes`, `Monitoramento`, `Desativado` passam a mostrar:
+  - **Detalhes (request_detalhes)**: cada reset cria uma linha — `CNJ • request_id • data do POST • origem (reset_manual / sync_automatico / monitoramento)`.
+  - **Monitoramento (tracking)**: tracking ativo atual com `tracking_id • ativado_em • request_id_origem`.
+  - **Desativado (tracking_desativado)**: histórico de trackings pausados com `tracking_id • desativado_em • motivo (reset_manual / desativacao_manual / falha)`.
+  - Botão de copiar e exportação PDF já existem.
+- **"Logs Judit"** (`TenantJuditLogsDialog`) — os 3 novos `tipo_chamada` (`reset_processo_*`) aparecem com label e ícone próprios. Adiciono mapping em `getTipoLabel` e `getTipoIcon` + filtro/contador no header.
 
-**Sem mudança de schema em** `processos_oab_andamentos` (continua o destino comum).
-
-### 2. Secrets (Edge Functions)
-
-- `CODILO_API_TOKEN` (token global de fallback se o tenant não tiver token próprio em `credenciais_codilo`).
-
-### 3. Camada de abstração em Edge Functions
-
-Criar arquivo compartilhado **`supabase/functions/_shared/legalProvider.ts`** com interface:
-
-```ts
-type LegalProvider = {
-  buscarProcesso(cnj, opts): Promise<{ andamentos[], detalhes, raw }>;
-  ativarMonitoramento(cnj, callbackUrl, opts): Promise<{ trackingId }>;
-  desativarMonitoramento(trackingId): Promise<void>;
-  consultarStatus(trackingId): Promise<{ requestIdAtual, lastUpdate }>;
-  parseWebhookPayload(body): NormalizedAndamento[];
-}
-```
-
-Dois adapters: `judit.ts` (extrai a lógica que já existe nas funções `judit-*`) e `codilo.ts` (novo).
-
-Função despachante `getProviderForTenant(tenantId)` resolve o adapter via RPC.
-
-### 4. Edge Functions Codilo (novas)
-
-- `codilo-buscar-processo` — POST `/autorequest` ou consulta única (autodetecta).
-- `codilo-ativar-monitoramento` — POST `https://api.push.codilo.com.br/v1/processo/novo` com `ignore: true` no cadastro inicial (não duplicar histórico já obtido).
-- `codilo-desativar-monitoramento` — DELETE.
-- `codilo-webhook` — recebe callback Codilo, normaliza para schema interno (`processos_oab_andamentos`), dispara notificação `andamento_novo`, atualiza `ultima_atualizacao`.
-- `codilo-sync-pendentes` (cron) — usa `pending-push` + `confirm-callback` para drenar webhooks perdidos. **Rede de segurança que não temos hoje com a Judit.**
-- `codilo-health` — espelho de `judit-health`.
-
-### 5. Atualizar Edge Functions de orquestração existentes
-
-Funções que hoje sempre chamam Judit precisam consultar o provider do tenant primeiro:
-
-- `judit-buscar-processo` (renomear lógica para chamar via `getProviderForTenant`) ou criar `monitor-buscar-processo` como entry-point único. **Decisão**: criar entry-point novo `monitor-buscar-processo` e `monitor-ativar-monitoramento` que internamente chamam Judit ou Codilo. As funções `judit-*` antigas continuam intactas para super-admin debugar.
-
-- `useMonitoramentoJudit` no front passa a invocar `monitor-buscar-processo` / `monitor-ativar-monitoramento` em vez de `judit-*`.
-
-### 6. UI — Super Admin (TenantCard)
-
-No `src/components/SuperAdmin/TenantCard.tsx`:
-
-- Adicionar **toggle/select compacto** abaixo do `PlanoIndicator`:
-  - Componente `<ProviderSelector tenantId provider onChange />` com 2 opções: `Judit` e `Codilo` (pílulas com ícones).
-  - Ao mudar, chama `supabase.from('tenants').update({ api_provider }).eq('id', tenant.id)`.
-  - Confirmação se há monitoramentos ativos: aviso "Processos já monitorados continuarão no provedor anterior. Apenas novos monitoramentos usarão o provedor selecionado."
-  - Badge no card mostrando o provedor atual (cor distinta — Judit roxo, Codilo verde).
-
-- Atualizar `EditTenantDialog.tsx` com mesmo seletor (consistência).
-
-- Atualizar `src/types/superadmin.ts` adicionando `api_provider?: 'judit' | 'codilo'` em `Tenant`.
-
-- **Novo dialog** `TenantCodiloCredenciaisDialog.tsx` (espelho do `TenantCredenciaisDialog`) acessível pelo dropdown do card quando o provider for Codilo. Permite super-admin colar/atualizar `access_token` por tenant.
-
-### 7. UI — Tenant (informativo, sem ação)
-
-- `src/components/Controladoria/...` — exibir badge discreto no card de processo monitorado mostrando qual provedor está atendendo aquele processo (`processos_oab.api_provider`). Útil para suporte.
-
-- `usePlanoLimites` permanece igual — limites de monitoramento não mudam.
-
-### 8. Memória do projeto
-
-Adicionar em `mem://`:
-- Nova memória `mem://legal-ops/multi-provider-monitoring-standard` com regras: usar `monitor-*` entry-points, nunca chamar `judit-*` ou `codilo-*` direto do front; novos processos herdam o provider do tenant; processo já monitorado mantém seu provedor original até desativar/reativar.
-- Atualizar `mem://legal-ops/judit-integration-standard` apontando para a nova abstração.
+Sem nenhuma tela nova. Tudo entra nos dialogs que o super-admin já usa.
 
 ## Arquivos afetados
 
-**Migrations**
-- 1 migration (colunas `api_provider`, `provider`, `codilo_push_id`, tabela `credenciais_codilo`, RPC `get_provider_for_tenant`).
+**Edge Functions**
+- `supabase/functions/judit-resetar-processo/index.ts` (novo) — orquestra pause + POST + polling + insert incremental + grava em `judit_api_logs` e `tenant_banco_ids`.
+- `supabase/functions/judit-ativar-monitoramento/index.ts` (ajuste) — após criar tracking, garantir insert em `tenant_banco_ids` com `tipo='tracking'` e metadata completa (request_id_origem, ativado_em, processo_oab_id). Verificar que não duplica registros.
+- `supabase/functions/judit-desativar-monitoramento/index.ts` (ajuste) — ao pausar, atualizar/inserir `tipo='tracking_desativado'` com motivo. Verificar idempotência.
 
-**Edge Functions — novas (6)**
-- `supabase/functions/_shared/legalProvider.ts` (+ adapters `judit.ts`, `codilo.ts`)
-- `codilo-buscar-processo/`
-- `codilo-ativar-monitoramento/`
-- `codilo-desativar-monitoramento/`
-- `codilo-webhook/`
-- `codilo-sync-pendentes/`
-- `codilo-health/`
-- `monitor-buscar-processo/` (despachante)
-- `monitor-ativar-monitoramento/` (despachante)
-- `monitor-desativar-monitoramento/` (despachante)
+**Front — Controladoria**
+- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — `handleRefreshAndamentos` abre `AlertDialog` e invoca `judit-resetar-processo`; ao final, recarrega andamentos e chama `onAtualizarProcesso` para refletir `monitoramento_ativo=false`. Botão sempre visível.
+- `src/hooks/useAllProcessosOAB.ts` — método `resetarProcesso(processoId, numeroCnj)` que invoca a Edge Function e dá refetch.
+- `src/hooks/useMonitoramentoJudit.ts` — adição equivalente para coerência.
 
-**Edge Functions — pequenas alterações**
-- Nenhuma `judit-*` é alterada agora (mantém compat). Lógica é movida em refactor incremental conforme `monitor-*` amadurece.
+**Front — Super-Admin**
+- `src/components/SuperAdmin/TenantJuditLogsDialog.tsx` — adicionar `reset_processo_pause`, `reset_processo_post`, `reset_processo_polling` em:
+  - `getTipoLabel` ("Reset - Pause", "Reset - POST", "Reset - Polling")
+  - `getTipoIcon` (ícone `RotateCcw` da lucide-react)
+  - Card de contadores no header (novo card "Resets manuais")
+- `src/components/SuperAdmin/TenantBancoIdsDialog.tsx` — exibição já é genérica via `metadata`, mas:
+  - Renderizar campos extras quando metadata tiver `post_em`, `origem`, `motivo`, `desativado_em`, `ativado_em`, `request_id_origem` (formatados com `format(date, "dd/MM/yyyy HH:mm", { locale: ptBR })`).
+  - Badge "Reset manual" quando `metadata.origem === 'reset_manual'` para destacar.
 
-**Front (~7 arquivos)**
-- `src/types/superadmin.ts` — campo `api_provider`
-- `src/components/SuperAdmin/TenantCard.tsx` — seletor + badge
-- `src/components/SuperAdmin/EditTenantDialog.tsx` — seletor
-- `src/components/SuperAdmin/TenantCodiloCredenciaisDialog.tsx` (novo)
-- `src/components/Common/ProviderBadge.tsx` (novo, reutilizável)
-- `src/hooks/useMonitoramentoJudit.ts` → renomear para `useMonitoramento.ts`, invocar `monitor-*`
-- `src/hooks/useToggleMonitoramento.ts` → idem
-- `src/components/Controladoria/...` (1–2 arquivos para mostrar badge)
-
-**Memória**
-- 1 nova entry + 1 atualização no `mem://index.md`.
-
-Total: ~11 arquivos novos + ~7 alterados + 1 migration.
+**Schema**
+- Sem migration. `tenant_banco_ids` e `judit_api_logs` já têm colunas suficientes (`metadata jsonb`, `tipo`, `external_id`, `referencia_id`).
 
 ## Impacto
 
 **1. Para o usuário final (UX, telas, fluxos)**
-- Curto prazo (Fases 1-2 abaixo): **zero impacto**. Default `judit` em todos os tenants; nada muda.
-- Quando o super-admin trocar um tenant para Codilo: o usuário daquele tenant **não nota diferença** — botão "Ativar monitoramento" continua igual, andamentos chegam na mesma tela, mesma timeline.
-- Único elemento visível para usuário comum: badge discreto "Codilo" / "Judit" no card do processo monitorado (informativo, ajuda no suporte).
-- Super-admin ganha controle por tenant (toggle no card) + dialog para colar token Codilo.
+- **Controller / Advogado**: botão 🔄 da Controladoria passa a funcionar com confirmação. Lista mantém histórico, só novos andamentos aparecem como não lidos. Switch de monitoramento volta a "desativado" — usuário reativa quando quiser.
+- **Super-Admin**: nos botões existentes do `TenantCard`:
+  - "Banco de IDs" → mostra timeline completa de request_ids de detalhes (com data do POST), trackings ativos, trackings desativados — com motivo e data.
+  - "Logs Judit" → 3 novas categorias visíveis (Reset Pause, Reset POST, Reset Polling) com contador no header. Permite auditar quem disparou reset, quando, e qual foi o resultado.
+- Sem tela nova, sem rota nova.
 
 **2. Para os dados (migrations, RLS, performance)**
-- 1 migration aditiva (sem rewrite de tabela). Tenants existentes recebem `api_provider='judit'` por default → nenhum dado quebra.
-- Nova tabela `credenciais_codilo` com RLS: super_admin gerencia; admin do tenant lê.
-- Webhooks Codilo gravam na **mesma tabela** `processos_oab_andamentos` → consultas, dashboards, RPCs (`get_andamentos_nao_lidos_por_processo`, `get_total_andamentos_nao_lidos`) continuam funcionando sem alteração.
-- Performance: neutra. Cada processo tem 1 provedor por vez. RPC `get_provider_for_tenant` é cache-friendly (índice em `tenants.id` já existe).
-- `prevent_delete_monitored_processo_oab` continua válido (não importa o provedor).
+- Zero migration.
+- `judit_api_logs` ganha ~3 linhas por reset (uma para pause, uma para POST, opcionalmente uma para polling). Volume baixo — reset é ação manual.
+- `tenant_banco_ids` ganha 1 linha `request_detalhes` por reset + atualização de `tracking_desativado`. UPSERT por `(tenant_id, tipo, external_id)` para evitar duplicatas — verificar se índice único existe; se não, fazer SELECT + INSERT/UPDATE no código.
+- RLS já existente em ambas as tabelas (super_admin reads all, tenant_admin reads próprios).
 
 **3. Riscos colaterais**
-- **Mapeamento de payload** Codilo → schema interno pode produzir andamentos duplicados ou faltando se campos divergirem. Mitigado por: testes de paridade na Fase 0 + reuso de `generateAndamentoKey` (já existe em `reprocessar-andamentos-monitorados`) para deduplicação.
-- **Cobertura por tribunal**: Codilo pode não cobrir 100% dos tribunais que a Judit cobre. Mitigado mantendo Judit como default e migrando tenants em ondas piloto.
-- **Webhook URL pública**: já temos infra para `judit-webhook` (URL pública das Edge Functions Supabase), então `codilo-webhook` é replicável.
-- **Custo dobrado** durante transição (pagando os dois provedores). Aceitável para piloto controlado.
-- **Confusão operacional**: super-admin pode trocar provider sem entender que processos antigos ficam no provedor antigo. Mitigado com dialog de confirmação explícito.
-- **Credenciais para sigilosos**: Judit suporta `customer_key`. Codilo precisa ser validado em campo (Fase 0). Se faltar, processos sigilosos continuam só na Judit.
+- **Race com `judit-sync-monitorados`**: setar `processos_oab.detalhes_request_data = now()` no início do reset; sync ignora processos com `detalhes_request_data < 5min`.
+- **`LAWSUIT_NOT_FOUND`**: NÃO desativa monitoramento e NÃO move tracking para "desativado". Loga em `judit_api_logs` com `sucesso=false` e mostra toast de erro. Estado do banco fica intacto.
+- **Duplicação em `tenant_banco_ids`**: se o usuário clicar reset 2x rápido, o segundo reset cria nova linha `request_detalhes` (intencional — registro histórico) mas não duplica `tracking_desativado` (UPSERT).
+- **Custo Judit**: cada reset = 1 POST pago. Confirmação + cooldown de 30s no botão.
+- **Ajustes em `judit-ativar/desativar-monitoramento`**: se já gravam em `tenant_banco_ids`, padronização pode quebrar leituras antigas. Mitigação: revisar código atual antes de mexer; se já gravam, só completar metadata sem mudar formato.
 
 **4. Quem é afetado**
-- **Super admin**: ganha seletor de provider no `TenantCard` + dialog de credencial Codilo. Operação principal afetada.
-- **Admin do tenant**: zero impacto direto. Pode ver no banco que mudou, mas UX igual.
-- **Advogado, controladoria, agenda, financeiro, comercial, estagiário, perito**: **nenhum impacto**. Andamentos chegam pelo mesmo fluxo, mesmas notificações, mesmas telas.
-- **Tenants em piloto Codilo**: ganham rede de segurança extra (sync de pendentes via `pending-push`).
+- **Controller / Admin / Advogado**: ganham botão funcional para destravar processos.
+- **Super-Admin**: ganha rastreabilidade completa nos dialogs que já usa. Pode auditar todo reset (quem, quando, request_id retornado, tracking trocado).
+- **Tenants em geral**: zero impacto cruzado (escopo por `tenant_id`).
+- **Sincronização automática diária**: continua igual; após reativação manual, novo tracking entra na esteira.
 
 ## Validação
 
-### Fase 0 — Antes de qualquer código
-- Conta sandbox Codilo + tabela de preços + lista de abrangência atual (a página `/abrangencia` da doc retornou 404, pedir CSV ao comercial).
-- Testar manualmente 5 CNJs reais já cobertos pela Judit (incluindo o `0043162-19.2026.8.16.0000` que falhou) via curl Codilo. Comparar: cobertura, latência, payload, qualidade dos andamentos. Documentar em `mem://legal-ops/codilo-coverage-baseline`.
-
-### Fase 1 — Backend (sem ligar UI)
-- Migration aplicada → confirmar que todos os tenants existentes têm `api_provider='judit'` e nada quebra.
-- Edge Functions `codilo-*` deployadas; testar cada uma com curl direto + token sandbox.
-- Testes Deno em `supabase/functions/codilo-webhook/codilo-webhook_test.ts` validando normalização do payload.
-- Comparar `generateAndamentoKey` aplicado a payload Judit vs payload Codilo do mesmo processo → mesmas chaves geradas.
-
-### Fase 2 — UI super-admin
-- Toggle no `TenantCard` muda `tenants.api_provider` no banco.
-- Badge atualiza visualmente. Dialog de credencial Codilo grava em `credenciais_codilo`.
-- Trocar provider de um tenant de teste → ativar monitoramento de novo processo → confirmar que vai para Codilo (verificar `processos_oab.api_provider='codilo'` e webhook chegando).
-
-### Fase 3 — Piloto controlado (2 semanas)
-- 1 tenant interno trocado para Codilo. Comparar diariamente:
-  - Total de andamentos novos detectados Codilo vs. mesmo processo na Judit (espelho).
-  - Latência média do webhook.
-  - Erros tipo `not_found` por provedor.
-- **Métricas de aceite**: paridade ≥ 95% nos andamentos detectados, latência ≤ Judit, taxa de erro `not_found` menor ou igual.
-
-### Fase 4 — Rollout
-- Ativar Codilo como opção visível e documentar para o super-admin.
-- Manter Judit como default por mais N meses.
-- **Sem descomissionar Judit** até paridade comprovada em 3 tenants reais.
-
-## Perguntas antes de eu implementar
-
-1. Confirma que o **default de novos tenants continua Judit**? (recomendado para não quebrar nada)
-2. Já tem **token sandbox Codilo** disponível pra eu pedir como secret, ou vamos criar a infra primeiro e você fornece depois?
-3. Para **processos já monitorados na Judit** quando o super-admin trocar o tenant para Codilo: mantenho na Judit (recomendado) ou ofereço botão "migrar todos para Codilo" (mais arriscado)?
+1. **Pré-teste no `5040965-07.2026.8.24.0930`**:
+   ```sql
+   SELECT id, tenant_id, monitoramento_ativo, tracking_id, detalhes_request_id, detalhes_request_data
+   FROM processos_oab WHERE numero_cnj = '5040965-07.2026.8.24.0930';
+   SELECT count(*), max(data_movimentacao) FROM processos_oab_andamentos WHERE processo_oab_id = '<id>';
+   SELECT tipo, external_id, metadata FROM tenant_banco_ids
+     WHERE tenant_id = '<tenant>' AND tipo IN ('tracking','tracking_desativado','request_detalhes')
+     ORDER BY created_at DESC LIMIT 10;
+   ```
+2. **Deploy** das Edge Functions + ajustes do front.
+3. **Teste manual reset**:
+   - Controladoria → processo → 🔄 → confirmar.
+   - Network: 1 chamada `judit-resetar-processo` com `success: true`, `andamentosNovos: N`.
+   - Banco: `tracking_id=null`, `monitoramento_ativo=false`, novo `detalhes_request_id`.
+   - Super-Admin → tenant card → "Logs Judit": 3 novas linhas (`reset_processo_pause`, `reset_processo_post`, `reset_processo_polling`).
+   - Super-Admin → tenant card → "Banco de IDs": aba Detalhes mostra novo `request_detalhes` com `metadata.origem='reset_manual'` e `post_em`. Aba Desativado mostra tracking antigo com `motivo='reset_manual'`.
+4. **Reativar** monitoramento pelo Switch:
+   - Aba "Banco de IDs" → Monitoramento: aparece nova linha `tracking` com `tracking_id` + `ativado_em` + `request_id_origem`.
+5. **Regressão Central**: contador de não lidos só sobe pelo `N` de novos andamentos (não pelo total).
+6. **Rollback**: reverter front + Edge Function — banco fica íntegro (apenas INSERT/UPDATE idempotentes).

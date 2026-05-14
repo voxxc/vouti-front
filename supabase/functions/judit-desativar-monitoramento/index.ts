@@ -26,10 +26,10 @@ serve(async (req) => {
 
     console.log('[Judit] Desativando monitoramento para processo:', processoId);
 
-    // Buscar tracking_id
+    // Buscar tracking_id e tenant
     const { data: monitoramento, error: fetchError } = await supabase
       .from('processo_monitoramento_judit')
-      .select('tracking_id')
+      .select('tracking_id, tenant_id')
       .eq('processo_id', processoId)
       .single();
 
@@ -38,6 +38,7 @@ serve(async (req) => {
     }
 
     const trackingId = monitoramento.tracking_id;
+    const tenantId = monitoramento.tenant_id;
 
     // Pausar tracking na Judit
     const pauseResponse = await fetch(`https://tracking.prod.judit.io/tracking/${trackingId}`, {
@@ -74,6 +75,58 @@ serve(async (req) => {
     }
 
     console.log('[Judit] Monitoramento desativado com sucesso');
+
+    // Atualizar tenant_banco_ids: mover para tracking_desativado
+    if (tenantId) {
+      // Buscar CNJ
+      const { data: proc } = await supabase
+        .from('processos_oab')
+        .select('numero_cnj')
+        .eq('id', processoId)
+        .single();
+      const numeroCnj = proc?.numero_cnj || '';
+
+      await supabase
+        .from('tenant_banco_ids')
+        .delete()
+        .eq('tenant_id', tenantId)
+        .eq('tipo', 'tracking')
+        .eq('external_id', trackingId);
+
+      const { data: existingDesat } = await supabase
+        .from('tenant_banco_ids')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('tipo', 'tracking_desativado')
+        .eq('external_id', trackingId)
+        .maybeSingle();
+
+      const payload = {
+        tenant_id: tenantId,
+        tipo: 'tracking_desativado',
+        referencia_id: processoId,
+        external_id: trackingId,
+        descricao: `Tracking desativado - CNJ ${numeroCnj}`,
+        metadata: {
+          tracking_id: trackingId,
+          processo_oab_id: processoId,
+          numero_cnj: numeroCnj,
+          desativado_em: new Date().toISOString(),
+          motivo: 'desativacao_manual',
+        },
+      };
+
+      if (existingDesat) {
+        await supabase.from('tenant_banco_ids').update(payload).eq('id', existingDesat.id);
+      } else {
+        await supabase.from('tenant_banco_ids').insert(payload);
+      }
+
+      await supabase
+        .from('processos_oab')
+        .update({ monitoramento_ativo: false, tracking_id: null, tracking_request_id: null })
+        .eq('id', processoId);
+    }
 
     return new Response(
       JSON.stringify({ success: true }),

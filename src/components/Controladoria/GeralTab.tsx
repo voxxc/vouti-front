@@ -51,7 +51,7 @@ export const GeralTab = () => {
   const {
     processos, loading, carregandoDetalhes, page, setPage, totalCount, pageSize,
     searchTerm, setSearchTerm, fetchProcessos, carregarDetalhes, toggleMonitoramento,
-    consultarDetalhesRequest, excluirProcesso, atualizarProcesso
+    consultarDetalhesRequest, resetarProcesso, excluirProcesso, atualizarProcesso
   } = useAllProcessosOAB();
 
   const [selectedProcesso, setSelectedProcesso] = useState<ProcessoOABComOAB | null>(null);
@@ -503,6 +503,7 @@ export const GeralTab = () => {
         onToggleMonitoramento={handleToggleMonitoramento}
         onRefreshProcessos={fetchProcessos}
         onConsultarDetalhesRequest={consultarDetalhesRequest}
+        onResetarProcesso={resetarProcesso}
         onCarregarDetalhes={carregarDetalhes}
         onAtualizarProcesso={atualizarProcesso}
         oab={selectedOAB}

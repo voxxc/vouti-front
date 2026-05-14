@@ -165,6 +165,32 @@ export const useAllProcessosOAB = () => {
     return { success: true };
   };
 
+  const resetarProcesso = async (processoId: string, numeroCnj: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase.functions.invoke('judit-resetar-processo', {
+        body: { processoOabId: processoId, userId: user?.id }
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Falha ao resetar processo');
+
+      const novos = data.andamentosNovos ?? 0;
+      toast({
+        title: novos > 0 ? `${novos} novo(s) andamento(s)` : 'Nenhuma novidade',
+        description: data.monitoramentoDesativado
+          ? `${numeroCnj} — monitoramento desativado, reative para retomar.`
+          : `${numeroCnj} — atualização concluída.`,
+      });
+
+      await fetchProcessos();
+      return data;
+    } catch (error: any) {
+      console.error('[useAllProcessosOAB] Erro reset:', error);
+      toast({ title: 'Erro ao atualizar processo', description: error.message, variant: 'destructive' });
+      return null;
+    }
+  };
+
   const excluirProcesso = async (processoId: string, numeroCnj: string) => {
     try {
       const { data: processoCheck } = await supabase
@@ -232,6 +258,7 @@ export const useAllProcessosOAB = () => {
     carregarDetalhes,
     toggleMonitoramento,
     consultarDetalhesRequest,
+    resetarProcesso,
     excluirProcesso,
     atualizarProcesso
   };
