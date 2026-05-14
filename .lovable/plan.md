@@ -1,96 +1,67 @@
-# Conclusão da Fase 2 — Paginação completa
-
 ## Causa raiz
-Supabase impõe limite implícito de 1.000 linhas em qualquer `select()` sem `.range()` / `.limit()`. Em tenants grandes (Solvenza, Mercado Galvão), isso faz registros "sumirem" silenciosamente em listagens, dropdowns e batches `IN (...)`.
+
+Em `src/components/Agenda/AgendaContent.tsx`, a função `isUserParticipant` (linhas 612–616) considera o **criador** do prazo (`createdByUserId`) como "participante" para fins de visibilidade na agenda:
+
+```ts
+const isUserParticipant = (deadline, userId) =>
+  deadline.advogadoResponsavel?.userId === userId ||
+  deadline.taggedUsers?.some(t => t.userId === userId) ||
+  deadline.createdByUserId === userId ||   // ← raiz do problema
+  deadline.completedByUserId === userId;
+```
+
+Como `deadlines.user_id` é sempre carimbado com o id de quem clicou em "Criar prazo" (ver `CreateDeadlineDialog.tsx:118` e `AgendaContent.tsx:725`), Lara e Izabelita — que criam prazos em nome de terceiros (Solvenza) — passam a aparecer como participantes mesmo sem terem responsabilidade real, e o prazo é exibido na agenda delas como se fosse delas.
+
+O comentário no código indica que esse comportamento foi adicionado para corrigir um bug antigo onde o criador via o prazo no Projeto mas não na Agenda. Hoje esse cenário não existe mais: se a pessoa quer acompanhar, ela se coloca como **advogado responsável**, **tagged** ou recebe pela RLS de admin/controller.
 
 ## Correção
-Aplicar `fetchAllPaginated` (listas) e `fetchAllPaginatedIn` (queries `WHERE col IN (ids)`) de `@/lib/supabasePagination` em todos os pontos restantes mapeados na auditoria. Selects que retornam um único registro (`.single()`/`.maybeSingle()`) e os com `.limit()` explícito ficam intocados.
+
+1. **Remover o critério de criador** do `isUserParticipant` em `AgendaContent.tsx`. Visibilidade na agenda passa a depender apenas de:
+   - Ser o advogado responsável
+   - Estar marcado em `deadline_tags`
+   - Ter concluído o prazo (`completedByUserId`)
+   - Ser admin/controller (que já vê tudo via filtro "Todos")
+
+2. **Manter** a exibição do badge "Criado por X" no detalhe do prazo (`createdByName`/`createdByAvatar` em `DeadlineDetailDialog`) — só removemos o critério de visibilidade, não a rastreabilidade.
+
+3. **Não alterar** RLS nem o insert: continuar gravando `deadlines.user_id = auth.uid()` para auditoria de quem criou.
+
+4. **Auditoria opcional (Solvenza, retroativa)**: rodar uma query SELECT (sem mudança de dados) para listar quantos prazos cada criador (Lara/Izabelita) gerou para outros usuários nos últimos 90 dias — só pra dimensionar o impacto antes do deploy.
 
 ## Arquivos afetados
 
-**Hooks**
-- `src/hooks/useVoutiIA.ts` — listagem de `processos_oab` para o assistente.
-- `src/hooks/useTaskVinculo.ts` — busca de processos por número/parte.
-- `src/hooks/useProtocoloVinculo.ts` — buscas de `processos_oab` e `project_protocolos`.
-- `src/hooks/usePrazosAutomaticos.ts` — varredura de `processos_oab` para gerar prazos.
-- `src/hooks/usePlanoLimites.ts` — contagem real (já usa `head`, mas a listagem auxiliar não).
-
-**Controladoria**
-- `src/components/Controladoria/TarefasTab.tsx` (linhas 229, 380) — `project_processos`.
-- `src/components/Controladoria/OABTab.tsx` (linha 120) — `processos_oab` por tenant.
-- `src/components/Controladoria/OABManager.tsx` (linha 138) — listagem de processos.
-- `src/components/Controladoria/IntimacaoCard.tsx` — `project_processos`.
-- `src/components/Controladoria/CentralSubtarefas.tsx` (linha 269) — `processos_oab`.
-
-**Project / Protocolos**
-- `src/components/Project/CreateDeadlineDialog.tsx` (linhas 78, 97) — dropdown de `project_protocolos`.
-- `src/components/Project/ProjectProtocoloContent.tsx` — apenas selects `.single()`, sem ação.
-
-**Search e dashboards**
-- `src/components/Search/ProjectQuickSearch.tsx` (linhas 60, 115) — busca global de `project_protocolos`.
-- `src/components/Dashboard/Metrics/AdminMetrics.tsx` (linha 42) — `project_protocolos`.
-- `src/components/Dashboard/PrazosDistributionChart.tsx` — agregações de prazos.
-
-**Super Admin / Comunicação**
-- `src/components/SuperAdmin/SuperAdminWebhookTest.tsx` (linha 42) — `processos_oab`.
-- `src/components/SuperAdmin/SuperAdminProcessosSemAndamentos.tsx` (linhas 39, 172).
-- `src/components/Communication/NotificationCenter.tsx` (linhas 152, 210).
-
-**Pages**
-- `src/pages/ProjectView.tsx` (linha 126) — `project_protocolos` por projeto.
-- `src/pages/Financial.tsx` — listagens financeiras.
-
-Para cada `WHERE id IN (ids)` onde `ids` pode passar de 500, troca por `fetchAllPaginatedIn` (chunk de 500). Para listagens sem filtro restritivo, troca por `fetchAllPaginated` com `.order(...)` estável (o helper exige range determinístico).
+- `src/components/Agenda/AgendaContent.tsx` — alterar `isUserParticipant` (1 linha) e o comentário acima dela.
+- Nenhum outro arquivo precisa mudar (o hook `useAgendaData.ts` não filtra por participante; usa o mesmo critério no consumidor).
+- **Sem migration, sem RLS, sem edge function.**
 
 ## Impacto
 
-1. **Usuário final (UX/telas/fluxos)**
-   - Tarefas, intimações e processos da Controladoria voltam a listar tudo em tenants com >1.000 registros.
-   - Busca global (`ProjectQuickSearch`) deixa de cortar resultados em projetos grandes.
-   - Dropdowns de "Novo Prazo" e `CreateDeadlineDialog` mostram todos os protocolos do projeto.
-   - VoutiIA passa a "ver" 100% da base de processos do tenant ao responder.
-   - Notificações e cards no NotificationCenter param de pular registros antigos.
-   - Dashboards de admin (AdminMetrics, PrazosDistributionChart) refletem totais reais.
+1. **Usuário final (UX)**:
+   - Lara, Izabelita e qualquer outro perfil que cria prazos para terceiros **deixam de ver na própria agenda** os prazos que criaram para outros.
+   - Continuam vendo na agenda apenas os prazos onde são responsáveis, marcadas (@) ou que concluíram.
+   - Quando precisarem auditar o que criaram, usam o filtro "Todos" (se forem admin/controller) ou a Central de Subtarefas.
+   - Detalhe do prazo continua mostrando "Criado por …" para todos.
 
-2. **Dados (migrations/RLS/performance)**
-   - **Sem migrations**, sem mudança de RLS — apenas leitura.
-   - **Performance**: para tenants pequenos (<1.000 linhas) é exatamente 1 request, custo zero. Para grandes, vira N requests sequenciais (1 por página de 1.000); aceitável e o helper tem `hardCap=50` (até 50k linhas por listagem).
-   - Ordenações estáveis adicionadas onde faltam, para garantir paginação correta.
+2. **Dados**:
+   - Nenhuma migration. Nenhuma RLS alterada.
+   - Nenhuma performance change (filtro client-side, mesma query).
+   - `deadlines.user_id` segue gravado normalmente (rastreabilidade preservada).
 
-3. **Riscos colaterais**
-   - Listas muito grandes podem aumentar latência inicial da tela (ex.: VoutiIA, busca global). Mitigável por debouncing/limit explícito quando o objetivo for "top N" — caso surja, adotamos `.limit()` no lugar.
-   - Ordenação adicionada pode mudar levemente a ordem visual em telas que dependiam da ordem default do Postgres.
-   - `SuperAdminProcessosSemAndamentos` sobre toda a base ficará mais lento; mantém escopo de admin.
+3. **Riscos colaterais**:
+   - Quem hoje *intencionalmente* criava um prazo "pra si" sem se colocar como responsável passaria a não ver na agenda. Mitigação: a criação já força `advogado_responsavel_id` (campo obrigatório no `CreateDeadlineDialog`); quem cria pra si, escolhe a si mesma.
+   - Possíveis prazos antigos sem `advogado_responsavel_id` ainda ficariam invisíveis para o criador. Vou verificar se existem (`SELECT COUNT(*) WHERE advogado_responsavel_id IS NULL`) e, se houver, listo num CSV pra triagem antes do deploy.
 
-4. **Quem é afetado**
-   - **Todos os tenants** se beneficiam, mas o ganho prático é visível em tenants grandes (Solvenza, Mercado Galvão, escritórios com OABs com muitos processos).
-   - **Admins/Controllers**: dashboards, super-admin e controladoria voltam a bater com a realidade.
-   - **Advogados/Estagiários**: tarefas, intimações e dropdowns de prazos completos.
-   - **Super-admin**: telas de diagnóstico passam a varrer 100% dos processos monitorados.
+4. **Quem é afetado**:
+   - **Diretamente**: Lara, Izabelita e qualquer perfil "comercial/agenda/financeiro" do tenant Solvenza que criava prazos em nome de outros.
+   - **Indiretamente**: todos os tenants — porque o critério é global. Mas o efeito é apenas tirar prazos "estranhos" da agenda do criador, não esconder nada de quem é responsável de fato.
+   - **Não afeta**: admins/controllers (continuam com o filtro "Todos" como padrão).
 
 ## Validação
-- Build TS limpo após cada lote de edição.
-- Conferir no `/solvenza/dashboard` e `/mercadogalvao/...` se as telas listadas voltam a popular itens previamente "ocultos".
-- Smoke test manual:
-  - Abrir Controladoria → Tarefas e OAB Tab num tenant grande e contar registros vs `count(*)` no SQL editor.
-  - Abrir `CreateDeadlineDialog` num projeto com >1.000 protocolos e validar que todos aparecem.
-  - Rodar busca global em projeto com >1.000 protocolos.
-  - Conferir NotificationCenter para advogado que recebia notificações antigas.
-- Linter Supabase para garantir que nenhuma policy/trigger foi tocada inadvertidamente.
 
-## Fora do escopo (Fase 4 — próxima)
-- UI no Super-Admin para `project_carteira_processos_audit` (timeline de movimentações).
-- Regra ESLint custom proibindo `.from(...).select(...)` de listagem sem `.limit()`/`.range()`/`fetchAllPaginated*`.
-- Documentação do padrão.
+1. Logar como **Lara** no Solvenza, abrir Agenda → confirmar que prazos onde ela é só criadora (e não responsável/tag) **sumiram**.
+2. Logar como o **advogado responsável** desses prazos → confirmar que continuam aparecendo normalmente.
+3. Abrir um prazo que ela criou → confirmar que o badge "Criado por Lara" continua visível no detalhe.
+4. Logar como admin Solvenza com filtro "Todos" → confirmar que continua vendo tudo.
+5. Repetir o teste no módulo CRM (mesmo componente, `module='crm'`) para garantir que nada quebra lá.
 
-## Status final da Fase 2
-
-Todos os pontos da auditoria revisados:
-
-- **Já paginados em rodadas anteriores**: `OABTab`, `OABManager`, `Financial`, `PrazosDistributionChart`, `useProjectProtocolos`, `ProjectProcessos`, `useAndamentosNaoLidosGlobal`, `useOABs.fetchProcessos`, `ProjectProtocolosList`, `AgendaContent`, `SuperAdminMonitoramento`.
-- **Paginados nesta rodada**:
-  - `src/components/Controladoria/CentralSubtarefas.tsx` (deadlines + .in chunks de profiles/workspaces/processos/subtarefas).
-  - `src/components/Search/ProjectQuickSearch.tsx` (busca global de projetos e protocolos, ambos os ramos).
-  - `src/components/Dashboard/Metrics/AdminMetrics.tsx` (`project_protocolos`).
-  - `src/components/SuperAdmin/SuperAdminProcessosSemAndamentos.tsx` (lista global + `.in` de andamentos).
-- **Não exigem ação** (apenas `.single()` / `.maybeSingle()` / `.limit(N)` ou são UPDATE/INSERT): `useVoutiIA`, `useTaskVinculo`, `useProtocoloVinculo`, `usePrazosAutomaticos`, `TarefasTab`, `IntimacaoCard`, `CreateDeadlineDialog`, `ProjectProtocoloContent`, `SuperAdminWebhookTest` (`.limit(100)`), `NotificationCenter`, `ProjectView`.
+Quer que eu execute?

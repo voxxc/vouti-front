@@ -612,12 +612,14 @@ export function AgendaContent({ module = 'legal', initialDeadlineId }: AgendaCon
   const isUserParticipant = (deadline: Deadline, userId: string) =>
     deadline.advogadoResponsavel?.userId === userId ||
     deadline.taggedUsers?.some(t => t.userId === userId) ||
-    deadline.createdByUserId === userId ||
     deadline.completedByUserId === userId;
 
-  // Critério unificado de participação: criador, advogado, tagged ou concluído_por.
-  // Alinha a Agenda com a RLS de `deadlines` e com o que aparece no Projeto,
-  // evitando o bug em que o criador via o prazo no Projeto mas não na Agenda.
+  // Visibilidade na Agenda: o usuário precisa ser advogado responsável,
+  // estar marcado em deadline_tags ou ter concluído o prazo. O criador
+  // (deadlines.user_id) NÃO entra como participante — quem cria prazos
+  // em nome de terceiros (ex.: comercial/agenda) não deve ver esses
+  // prazos na própria agenda. Rastreabilidade segue exposta via badge
+  // "Criado por X" no detalhe do prazo.
   const filteredDeadlines = deadlines.filter(deadline => {
     const matchesSearch = matchesSearchFilter(deadline);
     const matchesUser =
