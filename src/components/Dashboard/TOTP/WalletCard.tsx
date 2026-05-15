@@ -135,21 +135,25 @@ export function WalletCard({
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="relative">
+      {isWalletDragOver && (
+        <div className="absolute -top-1 left-2 right-2 h-0.5 rounded-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)] animate-fade-in-simple pointer-events-none z-10" />
+      )}
       <div
         draggable={walletDraggable}
         onDragStart={onWalletDragStart}
         onDragOver={onWalletDragOver}
         onDrop={onWalletDrop}
         onDragEnd={onWalletDragEnd}
-        className={`border rounded-lg bg-card overflow-hidden ${
-          isWalletDragging ? 'opacity-40' : ''
-        } ${isWalletDragOver ? 'border-primary' : ''}`}
+        className={`border rounded-lg bg-card overflow-hidden transition-all duration-200 ease-out ${
+          isWalletDragging ? 'opacity-50 scale-[0.98] shadow-lg ring-1 ring-primary/30 rotate-[0.2deg]' : ''
+        }`}
       >
         <CollapsibleTrigger asChild>
           <button className="w-full flex items-center justify-between p-3 hover:bg-accent/5 transition-colors text-left">
             <div className="flex items-center gap-2 group/wallet">
               {reorderMode && (
-                <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                <GripVertical className="h-4 w-4 text-muted-foreground/60 hover:text-muted-foreground cursor-grab transition-all duration-200 hover:scale-110" />
               )}
               {isOpen ? (
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -253,6 +257,7 @@ export function WalletCard({
             )}
           </div>
         </CollapsibleContent>
+      </div>
       </div>
     </Collapsible>
   );
