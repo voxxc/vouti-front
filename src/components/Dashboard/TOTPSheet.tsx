@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, ShieldCheck, Wallet, Upload, Loader2 } from "lucide-react";
+import { Plus, ShieldCheck, Wallet, Upload, Loader2, Lock, Unlock } from "lucide-react";
 import { generateTOTP, getSecondsRemaining, getTimeStep } from "@/lib/totp";
 import { useServerTime } from "@/hooks/useServerTime";
 import { toast } from "sonner";
@@ -95,7 +95,9 @@ export function TOTPSheet({ open, onOpenChange, isAdmin }: TOTPSheetProps) {
     deleteToken,
     updateToken,
     migrateLocalData,
-    isMigrating
+    isMigrating,
+    reorderWallets,
+    reorderTokens,
   } = useTOTPData(tenantId);
 
   // Converter para formato do frontend
@@ -119,6 +121,42 @@ export function TOTPSheet({ open, onOpenChange, isAdmin }: TOTPSheetProps) {
   const [walletToDelete, setWalletToDelete] = useState<TOTPWallet | null>(null);
   const [tokenToDelete, setTokenToDelete] = useState<TOTPToken | null>(null);
   const [viewersWallet, setViewersWallet] = useState<TOTPWallet | null>(null);
+  const [locked, setLocked] = useState(true);
+  const [draggingWalletId, setDraggingWalletId] = useState<string | null>(null);
+  const [dragOverWalletId, setDragOverWalletId] = useState<string | null>(null);
+
+  const handleWalletDragStart = (id: string) => (e: React.DragEvent) => {
+    setDraggingWalletId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  };
+  const handleWalletDragOver = (id: string) => (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggingWalletId && draggingWalletId !== id) setDragOverWalletId(id);
+  };
+  const handleWalletDrop = (targetId: string) => (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!draggingWalletId || draggingWalletId === targetId) {
+      setDraggingWalletId(null);
+      setDragOverWalletId(null);
+      return;
+    }
+    const ids = wallets.map(w => w.id);
+    const fromIdx = ids.indexOf(draggingWalletId);
+    const toIdx = ids.indexOf(targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const next = [...ids];
+    next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, draggingWalletId);
+    setDraggingWalletId(null);
+    setDragOverWalletId(null);
+    reorderWallets(next);
+  };
+  const handleWalletDragEnd = () => {
+    setDraggingWalletId(null);
+    setDragOverWalletId(null);
+  };
   // Verificar dados locais para migração
   useEffect(() => {
     if (open) {
@@ -226,9 +264,24 @@ export function TOTPSheet({ open, onOpenChange, isAdmin }: TOTPSheetProps) {
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="right" className="w-[400px] sm:w-[450px]">
           <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-primary" />
-              Autenticador 2FA
+            <SheetTitle className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                Autenticador 2FA
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setLocked(l => !l)}
+                title={locked ? 'Destravar para reordenar' : 'Travar ordem'}
+                className="h-8 w-8"
+              >
+                {locked ? (
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Unlock className="h-4 w-4 text-amber-500" />
+                )}
+              </Button>
             </SheetTitle>
           </SheetHeader>
 
@@ -256,12 +309,19 @@ export function TOTPSheet({ open, onOpenChange, isAdmin }: TOTPSheetProps) {
               </div>
             )}
 
+            {!locked && (
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                Modo de reordenação ativo. Arraste carteiras e tokens para reorganizar. Clique no cadeado para travar.
+              </div>
+            )}
+
             <div className="flex gap-2">
               <Button 
                 onClick={() => setAddWalletOpen(true)} 
                 variant="outline"
                 size="sm"
                 className="flex-1 gap-2"
+                disabled={!locked}
               >
                 <Wallet className="h-4 w-4" />
                 Nova Carteira
@@ -271,6 +331,7 @@ export function TOTPSheet({ open, onOpenChange, isAdmin }: TOTPSheetProps) {
                 variant="outline"
                 size="sm"
                 className="flex-1 gap-2"
+                disabled={!locked}
               >
                 <Plus className="h-4 w-4" />
                 Novo Token
@@ -309,6 +370,15 @@ export function TOTPSheet({ open, onOpenChange, isAdmin }: TOTPSheetProps) {
                     onEditToken={handleEditToken}
                     onEditWallet={(newName) => handleEditWallet(wallet, newName)}
                     onManageViewers={() => setViewersWallet(wallet)}
+                    reorderMode={!locked}
+                    onReorderTokens={(orderedIds) => reorderTokens(wallet.id, orderedIds)}
+                    walletDraggable={!locked}
+                    onWalletDragStart={handleWalletDragStart(wallet.id)}
+                    onWalletDragOver={handleWalletDragOver(wallet.id)}
+                    onWalletDrop={handleWalletDrop(wallet.id)}
+                    onWalletDragEnd={handleWalletDragEnd}
+                    isWalletDragging={draggingWalletId === wallet.id}
+                    isWalletDragOver={dragOverWalletId === wallet.id}
                   />
                 ))}
               </div>

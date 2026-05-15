@@ -11,6 +11,7 @@ export interface TOTPWalletDB {
   oab_uf: string | null;
   created_at: string;
   created_by: string | null;
+  sort_order?: number;
 }
 
 export interface TOTPTokenDB {
@@ -21,6 +22,7 @@ export interface TOTPTokenDB {
   secret: string;
   created_at: string;
   created_by: string | null;
+  sort_order?: number;
 }
 
 export function useTOTPData(tenantId: string | null) {
@@ -55,6 +57,7 @@ export function useTOTPData(tenantId: string | null) {
           .from('totp_wallets')
           .select('*')
           .eq('tenant_id', tenantId)
+          .order('sort_order', { ascending: true })
           .order('created_at', { ascending: true });
         if (error) throw error;
         return (data || []) as TOTPWalletDB[];
@@ -74,6 +77,7 @@ export function useTOTPData(tenantId: string | null) {
           .select('*')
           .in('id', walletIds)
           .eq('tenant_id', tenantId)
+          .order('sort_order', { ascending: true })
           .order('created_at', { ascending: true });
         if (error) throw error;
         return (data || []) as TOTPWalletDB[];
@@ -93,6 +97,7 @@ export function useTOTPData(tenantId: string | null) {
           .from('totp_tokens')
           .select('*')
           .eq('tenant_id', tenantId)
+          .order('sort_order', { ascending: true })
           .order('created_at', { ascending: true });
         if (error) throw error;
         return (data || []) as TOTPTokenDB[];
@@ -111,6 +116,7 @@ export function useTOTPData(tenantId: string | null) {
           .select('*')
           .in('wallet_id', walletIds)
           .eq('tenant_id', tenantId)
+          .order('sort_order', { ascending: true })
           .order('created_at', { ascending: true });
         if (error) throw error;
         return (data || []) as TOTPTokenDB[];
@@ -316,6 +322,71 @@ export function useTOTPData(tenantId: string | null) {
     }
   });
 
+  // Reordenar carteiras
+  const reorderWalletsMutation = useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      await Promise.all(
+        orderedIds.map((id, idx) =>
+          supabase.from('totp_wallets').update({ sort_order: idx + 1 }).eq('id', id)
+        )
+      );
+    },
+    onMutate: async (orderedIds: string[]) => {
+      await queryClient.cancelQueries({ queryKey: ['totp-wallets', tenantId] });
+      const prev = queryClient.getQueryData<TOTPWalletDB[]>(['totp-wallets', tenantId, isAdminOrController, user?.id]);
+      if (prev) {
+        const map = new Map(prev.map(w => [w.id, w]));
+        const next = orderedIds
+          .map((id, idx) => {
+            const w = map.get(id);
+            return w ? { ...w, sort_order: idx + 1 } : null;
+          })
+          .filter(Boolean) as TOTPWalletDB[];
+        queryClient.setQueryData(['totp-wallets', tenantId, isAdminOrController, user?.id], next);
+      }
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['totp-wallets', tenantId, isAdminOrController, user?.id], ctx.prev);
+      toast.error('Erro ao reordenar carteiras');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['totp-wallets', tenantId] });
+    }
+  });
+
+  // Reordenar tokens dentro de uma carteira
+  const reorderTokensMutation = useMutation({
+    mutationFn: async ({ walletId, orderedIds }: { walletId: string; orderedIds: string[] }) => {
+      await Promise.all(
+        orderedIds.map((id, idx) =>
+          supabase.from('totp_tokens').update({ sort_order: idx + 1 }).eq('id', id)
+        )
+      );
+      return walletId;
+    },
+    onMutate: async ({ walletId, orderedIds }) => {
+      await queryClient.cancelQueries({ queryKey: ['totp-tokens', tenantId] });
+      const key = ['totp-tokens', tenantId, isAdminOrController, user?.id];
+      const prev = queryClient.getQueryData<TOTPTokenDB[]>(key);
+      if (prev) {
+        const idxMap = new Map(orderedIds.map((id, idx) => [id, idx + 1]));
+        const next = prev
+          .map(t => (t.wallet_id === walletId && idxMap.has(t.id) ? { ...t, sort_order: idxMap.get(t.id)! } : t))
+          .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+        queryClient.setQueryData(key, next);
+      }
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['totp-tokens', tenantId, isAdminOrController, user?.id], ctx.prev);
+      toast.error('Erro ao reordenar tokens');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['totp-tokens', tenantId] });
+    }
+  });
+
   return {
     wallets,
     tokens,
@@ -332,6 +403,8 @@ export function useTOTPData(tenantId: string | null) {
       updateTokenMutation.mutate({ tokenId, name }),
     migrateLocalData: (data: { wallets: any[]; tokens: any[] }) => 
       migrateLocalDataMutation.mutateAsync(data),
-    isMigrating: migrateLocalDataMutation.isPending
+    isMigrating: migrateLocalDataMutation.isPending,
+    reorderWallets: (orderedIds: string[]) => reorderWalletsMutation.mutate(orderedIds),
+    reorderTokens: (walletId: string, orderedIds: string[]) => reorderTokensMutation.mutate({ walletId, orderedIds })
   };
 }

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronDown, ChevronRight, Trash2, Wallet, Pencil, Users } from "lucide-react";
+import { ChevronDown, ChevronRight, Trash2, Wallet, Pencil, Users, GripVertical } from "lucide-react";
 import { TOTPWallet, TOTPToken } from "@/types/totp";
 import { TokenRow } from "./TokenRow";
 
@@ -17,6 +17,16 @@ interface WalletCardProps {
   onEditWallet?: (newName: string) => void;
   onManageViewers?: () => void;
   isAdmin?: boolean;
+  reorderMode?: boolean;
+  onReorderTokens?: (orderedIds: string[]) => void;
+  // Wallet-level drag (provided by parent)
+  walletDraggable?: boolean;
+  onWalletDragStart?: (e: React.DragEvent) => void;
+  onWalletDragOver?: (e: React.DragEvent) => void;
+  onWalletDrop?: (e: React.DragEvent) => void;
+  onWalletDragEnd?: (e: React.DragEvent) => void;
+  isWalletDragging?: boolean;
+  isWalletDragOver?: boolean;
 }
 
 export function WalletCard({ 
@@ -29,13 +39,64 @@ export function WalletCard({
   onEditToken,
   onEditWallet,
   onManageViewers,
-  isAdmin
+  isAdmin,
+  reorderMode,
+  onReorderTokens,
+  walletDraggable,
+  onWalletDragStart,
+  onWalletDragOver,
+  onWalletDrop,
+  onWalletDragEnd,
+  isWalletDragging,
+  isWalletDragOver,
 }: WalletCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(wallet.name);
   const inputRef = useRef<HTMLInputElement>(null);
   const tokenCount = tokens.length;
+
+  // Token drag state (local)
+  const [draggingTokenId, setDraggingTokenId] = useState<string | null>(null);
+  const [dragOverTokenId, setDragOverTokenId] = useState<string | null>(null);
+
+  // Auto-open card while reordering so user can drag tokens
+  useEffect(() => {
+    if (reorderMode) setIsOpen(true);
+  }, [reorderMode]);
+
+  const handleTokenDragStart = (id: string) => (e: React.DragEvent) => {
+    setDraggingTokenId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  };
+  const handleTokenDragOver = (id: string) => (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggingTokenId && draggingTokenId !== id) setDragOverTokenId(id);
+  };
+  const handleTokenDrop = (targetId: string) => (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!draggingTokenId || draggingTokenId === targetId) {
+      setDraggingTokenId(null);
+      setDragOverTokenId(null);
+      return;
+    }
+    const ids = tokens.map(t => t.id);
+    const fromIdx = ids.indexOf(draggingTokenId);
+    const toIdx = ids.indexOf(targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const next = [...ids];
+    next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, draggingTokenId);
+    setDraggingTokenId(null);
+    setDragOverTokenId(null);
+    onReorderTokens?.(next);
+  };
+  const handleTokenDragEnd = () => {
+    setDraggingTokenId(null);
+    setDragOverTokenId(null);
+  };
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -74,10 +135,22 @@ export function WalletCard({
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <div className="border rounded-lg bg-card overflow-hidden">
+      <div
+        draggable={walletDraggable}
+        onDragStart={onWalletDragStart}
+        onDragOver={onWalletDragOver}
+        onDrop={onWalletDrop}
+        onDragEnd={onWalletDragEnd}
+        className={`border rounded-lg bg-card overflow-hidden ${
+          isWalletDragging ? 'opacity-40' : ''
+        } ${isWalletDragOver ? 'border-primary' : ''}`}
+      >
         <CollapsibleTrigger asChild>
           <button className="w-full flex items-center justify-between p-3 hover:bg-accent/5 transition-colors text-left">
             <div className="flex items-center gap-2 group/wallet">
+              {reorderMode && (
+                <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+              )}
               {isOpen ? (
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               ) : (
@@ -97,7 +170,7 @@ export function WalletCard({
               ) : (
                 <>
                   <span className="font-medium text-sm">{formatWalletName()}</span>
-                  {onEditWallet && (
+                  {onEditWallet && !reorderMode && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -120,7 +193,7 @@ export function WalletCard({
                   {tokenCount} {tokenCount === 1 ? 'token' : 'tokens'}
                 </span>
               )}
-              {isAdmin && onManageViewers && (
+              {isAdmin && onManageViewers && !reorderMode && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -134,7 +207,7 @@ export function WalletCard({
                   <Users className="h-4 w-4" />
                 </Button>
               )}
-              <Button
+              {!reorderMode && <Button
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 text-muted-foreground hover:text-destructive"
@@ -144,7 +217,7 @@ export function WalletCard({
                 }}
               >
                 <Trash2 className="h-4 w-4" />
-              </Button>
+              </Button>}
             </div>
           </button>
         </CollapsibleTrigger>
@@ -166,6 +239,14 @@ export function WalletCard({
                     secondsRemaining={secondsRemaining}
                     onDelete={() => onDeleteToken(token)}
                     onEdit={onEditToken ? (newName) => onEditToken(token, newName) : undefined}
+                    reorderMode={reorderMode}
+                    draggable={reorderMode}
+                    onDragStart={handleTokenDragStart(token.id)}
+                    onDragOver={handleTokenDragOver(token.id)}
+                    onDrop={handleTokenDrop(token.id)}
+                    onDragEnd={handleTokenDragEnd}
+                    isDragging={draggingTokenId === token.id}
+                    isDragOver={dragOverTokenId === token.id}
                   />
                 ))}
               </div>

@@ -8872,6 +8872,7 @@ export type Database = {
           id: string
           name: string
           secret: string
+          sort_order: number
           tenant_id: string
           wallet_id: string
         }
@@ -8881,6 +8882,7 @@ export type Database = {
           id?: string
           name: string
           secret: string
+          sort_order?: number
           tenant_id: string
           wallet_id: string
         }
@@ -8890,6 +8892,7 @@ export type Database = {
           id?: string
           name?: string
           secret?: string
+          sort_order?: number
           tenant_id?: string
           wallet_id?: string
         }
@@ -8960,6 +8963,7 @@ export type Database = {
           name: string
           oab_numero: string | null
           oab_uf: string | null
+          sort_order: number
           tenant_id: string
         }
         Insert: {
@@ -8969,6 +8973,7 @@ export type Database = {
           name: string
           oab_numero?: string | null
           oab_uf?: string | null
+          sort_order?: number
           tenant_id: string
         }
         Update: {
@@ -8978,6 +8983,7 @@ export type Database = {
           name?: string
           oab_numero?: string | null
           oab_uf?: string | null
+          sort_order?: number
           tenant_id?: string
         }
         Relationships: [
