@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Copy, Check, Trash2, Pencil } from "lucide-react";
+import { Copy, Check, Trash2, Pencil, GripVertical } from "lucide-react";
 import { CircularTimer } from "./CircularTimer";
 import { toast } from "sonner";
 
@@ -12,9 +12,20 @@ interface TokenRowProps {
   secondsRemaining: number;
   onDelete: () => void;
   onEdit?: (newName: string) => void;
+  reorderMode?: boolean;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
+  isDragging?: boolean;
+  isDragOver?: boolean;
 }
 
-export function TokenRow({ id, name, code, secondsRemaining, onDelete, onEdit }: TokenRowProps) {
+export function TokenRow({
+  id, name, code, secondsRemaining, onDelete, onEdit,
+  reorderMode, draggable, onDragStart, onDragOver, onDrop, onDragEnd, isDragging, isDragOver
+}: TokenRowProps) {
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(name);
@@ -62,7 +73,19 @@ export function TokenRow({ id, name, code, secondsRemaining, onDelete, onEdit }:
   };
 
   return (
-    <div className="flex items-center justify-between py-2 px-3 hover:bg-accent/5 rounded-md group">
+    <div
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+      className={`flex items-center justify-between py-2 px-3 hover:bg-accent/5 rounded-md group ${
+        reorderMode ? 'cursor-grab active:cursor-grabbing' : ''
+      } ${isDragging ? 'opacity-40' : ''} ${isDragOver ? 'border-t-2 border-primary' : ''}`}
+    >
+      {reorderMode && (
+        <GripVertical className="h-4 w-4 text-muted-foreground mr-1 shrink-0" />
+      )}
       {isEditing ? (
         <Input
           ref={inputRef}
@@ -73,9 +96,9 @@ export function TokenRow({ id, name, code, secondsRemaining, onDelete, onEdit }:
           className="h-7 text-sm max-w-[120px]"
         />
       ) : (
-        <div className="flex items-center gap-1 group/name">
+        <div className="flex items-center gap-1 group/name flex-1 min-w-0">
           <span className="text-sm text-muted-foreground truncate max-w-[100px]">{name}</span>
-          {onEdit && (
+          {onEdit && !reorderMode && (
             <Button
               variant="ghost"
               size="icon"
@@ -95,19 +118,20 @@ export function TokenRow({ id, name, code, secondsRemaining, onDelete, onEdit }:
       <div className="flex items-center gap-3">
         <button
           onClick={handleCopy}
+          disabled={reorderMode}
           className="font-mono text-lg font-bold tracking-wider text-foreground hover:text-primary transition-colors flex items-center gap-1"
         >
           {formatCode(code)}
-          {copied ? (
+          {copied && !reorderMode ? (
             <Check className="h-4 w-4 text-primary" />
-          ) : (
+          ) : !reorderMode ? (
             <Copy className="h-4 w-4 opacity-0 group-hover:opacity-50 transition-opacity" />
-          )}
+          ) : null}
         </button>
         
         <CircularTimer secondsRemaining={secondsRemaining} />
         
-        <Button
+        {!reorderMode && <Button
           variant="ghost"
           size="icon"
           className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
@@ -117,7 +141,7 @@ export function TokenRow({ id, name, code, secondsRemaining, onDelete, onEdit }:
           }}
         >
           <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        </Button>}
       </div>
     </div>
   );
