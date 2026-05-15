@@ -73,18 +73,22 @@ export function TokenRow({
   };
 
   return (
-    <div
-      draggable={draggable}
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      onDragEnd={onDragEnd}
-      className={`flex items-center justify-between py-2 px-3 hover:bg-accent/5 rounded-md group ${
-        reorderMode ? 'cursor-grab active:cursor-grabbing' : ''
-      } ${isDragging ? 'opacity-40' : ''} ${isDragOver ? 'border-t-2 border-primary' : ''}`}
-    >
+    <div className="relative">
+      {isDragOver && (
+        <div className="absolute -top-[1px] left-2 right-2 h-0.5 rounded-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)] animate-fade-in-simple pointer-events-none z-10" />
+      )}
+      <div
+        draggable={draggable}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        onDragEnd={onDragEnd}
+        className={`flex items-center justify-between py-2 px-3 rounded-md group transition-all duration-200 ease-out ${
+          reorderMode ? 'cursor-grab active:cursor-grabbing bg-muted/10' : 'hover:bg-accent/5'
+        } ${isDragging ? 'opacity-50 scale-[0.98] shadow-lg ring-1 ring-primary/30 rotate-[0.3deg] bg-card' : ''}`}
+      >
       {reorderMode && (
-        <GripVertical className="h-4 w-4 text-muted-foreground mr-1 shrink-0" />
+        <GripVertical className="h-4 w-4 text-muted-foreground/60 hover:text-muted-foreground mr-1 shrink-0 transition-all duration-200 hover:scale-110" />
       )}
       {isEditing ? (
         <Input
@@ -142,6 +146,7 @@ export function TokenRow({
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>}
+      </div>
       </div>
     </div>
   );
