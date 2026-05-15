@@ -1,32 +1,40 @@
-# Polir animação de arrastar tokens/carteiras
+# Notificar criador do lead em comentários de reunião
 
-Tornar o drag-and-drop dos tokens (e carteiras) mais fluido e elegante, em vez do "salto" atual com borda dura.
+## Causa raiz
 
-## O que muda visualmente
+O comentário foi salvo, mas Fabieli não recebeu notificação porque **os triggers de notificação ainda não existem** nas tabelas `reuniao_comentarios` e `reuniao_cliente_comentarios`. Hoje só existem os triggers de `updated_at`. O plano anterior foi proposto mas não foi executado — sem trigger, ninguém é notificado quando alguém (que não seja o criador) comenta no lead/reunião.
 
-- **Item arrastado**: em vez de só `opacity-40`, ganha leve `scale-[0.98]`, `shadow-lg`, `ring-1 ring-primary/30`, `rotate-[0.3deg]` e cursor `grabbing`. Transição suave (`transition-all duration-200 ease-out`).
-- **Indicador de drop**: substituir a borda superior dura (`border-t-2 border-primary`) por uma **linha-guia animada** — uma faixa fina (`h-0.5`) com `bg-primary` e `shadow-[0_0_8px_hsl(var(--primary)/0.6)]` que aparece com `animate-fade-in` acima do item-alvo, mostrando exatamente onde o token vai cair.
-- **Itens vizinhos**: aplicam `transition-transform duration-200` para deslizarem suavemente quando o alvo muda (efeito "abrir espaço").
-- **Modo reordenar ativo**: `GripVertical` ganha `opacity-60 hover:opacity-100`, e o card inteiro recebe `bg-muted/20` sutil para sinalizar que está em modo edição.
-- **Hover no handle**: micro-scale (`hover:scale-110`) no `GripVertical` com `transition-transform`.
-- **Carteiras**: mesma linguagem — item arrastado encolhe levemente + sombra; linha-guia entre carteiras em vez de borda.
+Além disso, o tipo `'lead_comment'` não está na constraint `notifications_type_check`, então qualquer insert com esse tipo falharia.
+
+## Correção
+
+1. **Estender `notifications_type_check`** para incluir `'lead_comment'`.
+2. **Criar `notify_lead_creator_on_reuniao_comentario()`** (`SECURITY DEFINER`, `search_path = public`) — trigger AFTER INSERT em `reuniao_comentarios`:
+   - Resolver `cliente_id` via `reunioes.id = NEW.reuniao_id`.
+   - Resolver criador via `reuniao_clientes.user_id` onde `id = cliente_id`.
+   - Inserir em `notifications` com `type='lead_comment'`, `user_id=criador`, `triggered_by_user_id=NEW.user_id`, `tenant_id=NEW.tenant_id`, `title='Novo comentário no lead'`, `content` com nome do cliente + trecho do comentário.
+   - **Pular** se `criador IS NULL` ou `criador = NEW.user_id` (não notificar a si mesmo).
+3. **Criar `notify_lead_creator_on_cliente_comentario()`** — análogo, AFTER INSERT em `reuniao_cliente_comentarios`, resolvendo direto via `reuniao_clientes.id = NEW.cliente_id`.
+4. **Anexar triggers** `trg_notify_lead_creator_*` nas duas tabelas.
+
+Não há criação de tabela nem mudança de RLS — `notifications` já tem políticas existentes.
 
 ## Arquivos afetados
 
-- `src/components/Dashboard/TOTP/TokenRow.tsx` — refinar classes do estado `isDragging`/`isDragOver`, adicionar linha-guia.
-- `src/components/Dashboard/TOTP/WalletCard.tsx` — mesma linguagem para carteiras + tokens internos.
-- (Opcional) `tailwind.config.ts` — adicionar keyframe `drop-indicator` (pulse sutil) se necessário.
+- Nova migração SQL (constraint + 2 funções + 2 triggers).
+- Nenhum código frontend muda — `NotificationCenter` já consome `notifications` e renderiza qualquer `type`.
 
 ## Impacto
 
-1. **UX**: arrastar fica fluido, com feedback claro de onde o item vai cair; some o "salto" feio. Modo reordenar fica visualmente distinto do modo normal.
-2. **Dados**: nenhuma mudança — só CSS/classes Tailwind.
-3. **Riscos colaterais**: nenhum (mudança puramente visual, não toca lógica de DnD nem mutações de `sort_order`).
-4. **Quem é afetado**: todos os usuários que abrem o painel 2FA e ativam o cadeado.
+1. **UX**: criador do lead (ex.: Fabieli) recebe sino de notificação sempre que outro usuário comentar na reunião ou ficha do cliente vinculada. Não recebe ao comentar nele mesmo. Mantém `comment_mention` (@) intacto — usuário mencionado E criador podem receber duas notificações distintas, o que é desejado.
+2. **Dados**: insere linhas em `notifications` (volume baixo, 1 por comentário). Nenhuma migração destrutiva, nenhuma RLS alterada. Constraint estendida (compatível — só adiciona valor).
+3. **Riscos colaterais**: leads antigos sem `user_id` (nulos) simplesmente não geram notificação — sem erro. Comentários do próprio criador não disparam (intencional).
+4. **Quem é afetado**: todos os tenants, todos os usuários que cadastram leads. Quem nunca cadastra lead não muda nada.
 
 ## Validação
 
-- Ativar cadeado, arrastar token: item encolhe + sombra, linha-guia aparece sobre o alvo, vizinhos deslizam suavemente.
-- Soltar: animação termina suave, ordem persiste.
-- Mesmo comportamento ao reordenar carteiras.
-- Sair do modo reordenar: visual volta ao normal sem flicker.
+- Comentar como Daniel em reunião de lead criado por Fabieli → Fabieli recebe `lead_comment` no sino.
+- Fabieli comentar no próprio lead → nenhuma notificação para ela.
+- Mencionar `@Daniel` no comentário → Daniel recebe `comment_mention` (existente) + Fabieli recebe `lead_comment` (novo).
+- `select * from notifications where type='lead_comment' order by created_at desc` retorna registros.
+- Lead sem `user_id` → comentário salva normalmente, sem erro de trigger.
