@@ -340,9 +340,19 @@ serve(async (req) => {
         }
 
         if (pollData.error) {
+          const msg = pollData?.error?.message || 'Erro ao processar busca';
+          const isDatalakeDown = msg === 'LOGIN_ERROR_ON_DATALAKE';
           return new Response(
-            JSON.stringify({ error: 'Erro ao processar busca', details: pollData }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({
+              success: false,
+              error: isDatalakeDown
+                ? 'A base de dados cadastrais da Judit está temporariamente indisponível. Tente novamente em alguns minutos.'
+                : msg,
+              code: msg,
+              retryable: true,
+              details: pollData,
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
       }
@@ -353,9 +363,15 @@ serve(async (req) => {
       );
     }
 
+    // v2: nunca devolver 500 para evitar blank-screen no frontend
     return new Response(
-      JSON.stringify({ error: 'Resposta inesperada da API', details: juditData }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        success: false,
+        error: 'Resposta inesperada da API Judit. Tente novamente.',
+        retryable: true,
+        details: juditData,
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
