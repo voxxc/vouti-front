@@ -11,6 +11,8 @@ import { Cloud, Loader2, LogOut } from "lucide-react";
 import { useGoogleDrive } from "@/hooks/useGoogleDrive";
 import { DriveConnectCard } from "./DriveConnectCard";
 import { DriveFileList } from "./DriveFileList";
+import { DriveFilePreview } from "./DriveFilePreview";
+import type { DriveFile } from "@/hooks/useGoogleDrive";
 import { toast } from "sonner";
 
 interface Props {
@@ -24,6 +26,14 @@ export const DriveDrawer = ({ open, onOpenChange }: Props) => {
   const [quota, setQuota] = useState<{ usage: string; limit: string } | null>(
     null,
   );
+  const [previewing, setPreviewing] = useState<DriveFile | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setPreviewing(null);
+      drive.clearPreviewCache();
+    }
+  }, [open, drive.clearPreviewCache]);
 
   useEffect(() => {
     if (open) {
@@ -111,6 +121,7 @@ export const DriveDrawer = ({ open, onOpenChange }: Props) => {
                   remove={drive.remove}
                   download={drive.download}
                   createFolder={drive.createFolder}
+                  onPreview={setPreviewing}
                 />
               </div>
               <div className="pt-4 mt-2 border-t">
@@ -128,6 +139,12 @@ export const DriveDrawer = ({ open, onOpenChange }: Props) => {
           )}
         </div>
       </SheetContent>
+      <DriveFilePreview
+        file={previewing}
+        onClose={() => setPreviewing(null)}
+        previewFile={drive.previewFile}
+        download={drive.download}
+      />
     </Sheet>
   );
 };

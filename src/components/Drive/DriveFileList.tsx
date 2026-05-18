@@ -14,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,9 +43,15 @@ interface Props {
     name: string,
     parentId?: string,
   ) => Promise<{ file: DriveFile }>;
+  onPreview: (file: DriveFile) => void;
 }
 
 const FOLDER_MIME = "application/vnd.google-apps.folder";
+const GOOGLE_NATIVE_PREFIX = "application/vnd.google-apps.";
+
+function isGoogleNative(mime: string) {
+  return mime.startsWith(GOOGLE_NATIVE_PREFIX) && mime !== FOLDER_MIME;
+}
 
 function formatSize(size?: string) {
   if (!size) return "";
@@ -62,6 +70,7 @@ export const DriveFileList = ({
   remove,
   download,
   createFolder,
+  onPreview,
 }: Props) => {
   const [stack, setStack] = useState<{ id: string; name: string }[]>([
     { id: rootFolderId, name: "Vouti" },
@@ -70,6 +79,7 @@ export const DriveFileList = ({
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [deleting, setDeleting] = useState<DriveFile | null>(null);
+  const [showGoogleNative, setShowGoogleNative] = useState(false);
 
   const current = stack[stack.length - 1];
 
@@ -90,6 +100,12 @@ export const DriveFileList = ({
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const visibleFiles = useMemo(
+    () => (showGoogleNative ? files : files.filter((f) => !isGoogleNative(f.mimeType))),
+    [files, showGoogleNative],
+  );
+  const hiddenCount = files.length - visibleFiles.length;
 
   const handleNewFolder = async () => {
     const name = window.prompt("Nome da nova pasta:");
@@ -156,6 +172,21 @@ export const DriveFileList = ({
         ))}
       </div>
 
+      {/* Toggle Google docs */}
+      <div className="flex items-center justify-between mb-2 px-1">
+        <Label htmlFor="show-google-native" className="text-xs text-muted-foreground cursor-pointer">
+          Mostrar Docs/Sheets/Slides
+          {hiddenCount > 0 && !showGoogleNative && (
+            <span className="ml-1">({hiddenCount} oculto{hiddenCount > 1 ? "s" : ""})</span>
+          )}
+        </Label>
+        <Switch
+          id="show-google-native"
+          checked={showGoogleNative}
+          onCheckedChange={setShowGoogleNative}
+        />
+      </div>
+
       {/* List */}
       <ScrollArea className="flex-1 -mx-2">
         <div className="px-2">
@@ -163,14 +194,15 @@ export const DriveFileList = ({
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
-          ) : files.length === 0 ? (
+          ) : visibleFiles.length === 0 ? (
             <div className="text-center text-sm text-muted-foreground py-12">
               Pasta vazia
             </div>
           ) : (
             <ul className="space-y-1">
-              {files.map((f) => {
+              {visibleFiles.map((f) => {
                 const isFolder = f.mimeType === FOLDER_MIME;
+                const googleNative = isGoogleNative(f.mimeType);
                 return (
                   <li
                     key={f.id}
@@ -181,6 +213,12 @@ export const DriveFileList = ({
                       onClick={() => {
                         if (isFolder) {
                           setStack([...stack, { id: f.id, name: f.name }]);
+                        } else if (googleNative) {
+                          if (f.webViewLink) {
+                            window.open(f.webViewLink, "_blank", "noopener,noreferrer");
+                          }
+                        } else {
+                          onPreview(f);
                         }
                       }}
                     >
@@ -197,7 +235,7 @@ export const DriveFileList = ({
                       )}
                     </button>
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {!isFolder && (
+                      {!isFolder && !googleNative && (
                         <Button
                           size="icon"
                           variant="ghost"
