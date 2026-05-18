@@ -5249,6 +5249,7 @@ export type Database = {
           created_at: string | null
           dados_completos: Json | null
           data_movimentacao: string | null
+          dedup_hash: string | null
           descricao: string
           id: string
           lida: boolean | null
@@ -5260,6 +5261,7 @@ export type Database = {
           created_at?: string | null
           dados_completos?: Json | null
           data_movimentacao?: string | null
+          dedup_hash?: string | null
           descricao: string
           id?: string
           lida?: boolean | null
@@ -5271,6 +5273,7 @@ export type Database = {
           created_at?: string | null
           dados_completos?: Json | null
           data_movimentacao?: string | null
+          dedup_hash?: string | null
           descricao?: string
           id?: string
           lida?: boolean | null
@@ -10887,6 +10890,10 @@ export type Database = {
       classify_deadline_category: { Args: { p_title: string }; Returns: string }
       cleanup_landing_lead_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_sync_signals: { Args: never; Returns: undefined }
+      compute_andamento_dedup_hash: {
+        Args: { descricao: string }
+        Returns: string
+      }
       create_default_kanban_columns: {
         Args: { p_agent_id: string; p_tenant_id?: string }
         Returns: undefined
