@@ -1,69 +1,76 @@
-# Redesign — Super-Admin / Clientes (formato lista)
+# Redesign mobile — Super-Admin / Clientes
 
 ## Causa raiz
-Cards com 10+ botões soltos são poluídos e ocupam muito espaço vertical. Em formato de cards é difícil comparar tenants lado a lado (quem tem mais pendências, quem está parado, etc.).
+A tabela densa `TenantsTable` foi desenhada para desktop (7 colunas: chevron, cliente, plano, ativo, pendência, Vouti.CRM, ações). Em 390px ela quebra: colunas espremidas, rolagem horizontal, switches difíceis de tocar, painel expandido fica ilegível.
 
-## Correção — abandonar cards e adotar uma tabela densa com linha expansível
+## Correção — layout mobile dedicado (`<md`)
 
-### Layout principal: tabela "command-center"
+Detectar breakpoint via classes Tailwind (`md:` para desktop, padrão para mobile). Mesmo componente `TenantsTable`, mas:
 
+- **Desktop (`md+`)**: tabela atual, inalterada.
+- **Mobile (`<md`)**: lista vertical de "linhas-cartão" empilháveis, e toolbar reorganizada.
+
+### Toolbar mobile
 ```text
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│ Clientes  ·  12 ativos / 14 total          [🔍 buscar]  [plano ▾]  [+ Novo]      │
-├──┬──────────────────┬────────┬─────┬──────┬────────┬────────┬─────────┬──────────┤
-│  │ Cliente          │ Plano  │ Usr │ Proc │ Parados│ Pend.  │ Vouti.  │ Ações    │
-├──┼──────────────────┼────────┼─────┼──────┼────────┼────────┼─────────┼──────────┤
-│▸ │ ◯ Solvenza       │ Pro    │ 12  │ 840  │  23 ⚠  │  2 💳  │  ●      │ ↗  ⋯     │
-│▸ │ ◯ Oliveira Adv   │ Solo   │  4  │ 312  │   0    │  0     │  ○      │ ↗  ⋯     │
-│▾ │ ◯ Batink         │ Team   │  9  │ 1.2k │  47 ⚠  │  5 💳  │  ●      │ ↗  ⋯     │
-│  │   ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │   │ Auditoria   Estatísticas · Parados · Incompletos · Push-Docs · IDs  │    │
-│  │   │ Integrações Credenciais Judit · Chamadas Judit · Vouti.CRM toggle   │    │
-│  │   │ Acesso      Editar dados · Criar admin · Abrir tenant ↗ · Excluir   │    │
-│  │   └─────────────────────────────────────────────────────────────────────┘    │
-│▸ │ ◯ ...                                                                        │
-└──┴──────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────┐
+│ 12 ativos / 14 total               │
+│ [🔍 Buscar...........] [⚙ filtros] │
+└────────────────────────────────────┘
 ```
+- Contador em linha própria.
+- Busca ocupa quase 100% da largura.
+- Botão `Filtros` abre um `Sheet` (lateral/baixo) com: Plano, Status, Pendência, Densidade.
+- O toggle Densa/Confortável fica dentro do Sheet (no mobile é menos relevante).
 
-### Componentes da linha (colapsada)
-- **Indicador de status**: bolinha verde/cinza (ativo/inativo) + nome + slug pequeno embaixo.
-- **Plano**: badge colorida (`PlanoIndicator`).
-- **KPIs numéricos** (clicáveis individualmente): Usuários, Processos, Parados (com cor de alerta se > 0), Pendências (boletos + incompletos).
-- **Vouti.CRM**: switch compacto inline.
-- **Ações sempre visíveis**: `↗` abrir tenant (novo aba) e `⋯` menu (Editar, Criar admin, Excluir).
-- **Click no chevron `▸`** expande uma faixa horizontal com 3 grupos rotulados: **Auditoria**, **Integrações**, **Acesso** — cada um lista as ações como pílulas/botões de texto. Nada de ícones soltos; tudo nomeado.
+### Linha-cartão mobile (colapsada)
+```text
+┌────────────────────────────────────┐
+│ ● [logo] Nome do Tenant       [▸]  │
+│         slug · dominio.com         │
+│  [Plano Pro]  [● Ativo]  [2 pend⚠] │
+│  ───────────────────────────────── │
+│  [↗ Abrir]  [☁ CRM]  [⋯ Mais]      │
+└────────────────────────────────────┘
+```
+- Cabeçalho com bolinha de status + logo + nome (truncado) + chevron à direita.
+- Linha de meta: plano, switch ativo (com label), badge de pendências (se > 0).
+- Rodapé com 3 botões de toque grandes (44px): Abrir tenant, Toggle Vouti.CRM, kebab Mais.
 
-### Cabeçalho da página
-- Título + contagem ativo/total.
-- Busca por nome/slug/domínio.
-- Filtros: plano, status (ativo/inativo), tem pendência, Vouti.CRM ligado.
-- Botões `[+ Novo cliente]` e `[+ Vouti.CRM standalone]`.
-- Toggle `Densa ↔ Confortável` (altera padding das linhas).
+### Linha-cartão expandida (mobile)
+- Mesma estrutura 3 grupos (Auditoria / Integrações / Acesso), mas:
+  - Cada grupo vira coluna vertical com label acima dos pills.
+  - Pills ocupam largura total (`w-full` ou `flex-1 basis-[calc(50%-0.25rem)]` para 2 colunas).
+  - Espaçamento maior entre grupos.
 
-### Comportamento
-- Ordenação por coluna (clique no header): nome, plano, processos, parados, pendências.
-- Apenas uma linha expandida por vez (estado local).
-- Linha com pendência > 0 ganha leve tint na coluna; linha com parados > N idem.
-- Mobile: a tabela vira lista de "ítens-linha" verticais, mas mantém o mesmo princípio (linha colapsada → toque expande).
+### Touch targets
+- Switches, botões e pills com altura mínima **44px** (`h-11`).
+- Áreas de toque sem sobreposição.
+
+### Filtros em Sheet (mobile)
+- `Sheet` lateral direito ou bottom, com os mesmos controles do desktop.
+- Botão "Aplicar" no rodapé.
+- Indicador de "N filtros ativos" no botão da toolbar.
 
 ## Arquivos afetados
-- `src/pages/SuperAdmin.tsx` — substituir grid de `TenantCard` por novo componente `TenantsTable`.
-- **Novo** `src/components/SuperAdmin/TenantsTable.tsx` — render principal (header, filtros, ordenação, linhas).
-- **Novo** `src/components/SuperAdmin/TenantRow.tsx` — linha colapsada + faixa expansível.
-- `TenantCard.tsx` — mantido temporariamente como fallback, depois removido.
-- Todos os dialogs existentes (`TenantStatsDialog`, `TenantProcessosParadosDialog`, `TenantPushDocsDialog`, `TenantBancoIdsDialog`, `TenantCredenciaisDialog`, `TenantJuditLogsDialog`, `TenantProcessosIncompletosDialog`, `SuperAdminBoletosDialog`, `CreateTenantAdminDialog`, `EditTenantDialog`) — **reaproveitados sem mudanças**.
+- `src/components/SuperAdmin/TenantsTable.tsx`
+  - Toolbar: separar versão mobile (busca + botão Filtros + Sheet) da versão desktop.
+  - Render: `<div className="md:hidden">` lista vertical de `TenantRowMobile`; `<div className="hidden md:block">` tabela atual.
+- **Novo** `src/components/SuperAdmin/TenantRowMobile.tsx` — card colapsável com mesma lógica de dialogs do `TenantRow`. Compartilha sub-componentes (`ActionGroup`, `PillButton`).
+- `src/components/SuperAdmin/TenantRow.tsx` — exportar `ActionGroup` e `PillButton` para reuso pelo card mobile.
+
+Nenhuma mudança em dialogs, RPCs, RLS ou migrations.
 
 ## Impacto
-1. **UX (você, super-admin)**: vê 15-20 tenants na mesma tela sem rolar. Comparações instantâneas (quem tem mais parados, mais pendências). Ações nomeadas em vez de adivinhar ícones. Filtros e ordenação aceleram triagem.
-2. **Dados**: zero alteração. Sem migrations, sem RLS, sem RPC nova. Apenas reorganização do front.
-3. **Riscos colaterais**: baixo. Risco é familiaridade — você está acostumado com o layout em cards. Mitigado mantendo nomes/ícones consistentes nas pílulas expandidas.
-4. **Quem é afetado**: apenas o super-admin (você). Tenants, admins de tenant e demais perfis não acessam essa tela.
+1. **UX mobile**: você consegue auditar tenants a partir do celular com botões tocáveis, filtros acessíveis e leitura clara. Em desktop nada muda.
+2. **Dados**: zero alteração. Apenas reorganização visual condicional ao breakpoint.
+3. **Riscos colaterais**: baixo. Duplicação de markup mitigada por sub-componentes compartilhados. Risco mínimo de divergência entre as duas variantes (mesmos handlers/dialogs).
+4. **Quem é afetado**: apenas o super-admin (você) ao acessar `/super-admin` no celular/tablet pequeno.
 
 ## Validação
-- `/super-admin` mostra tabela com todos os tenants e contadores corretos.
-- Cada KPI (Usuários, Processos, Parados, Pendências) abre o dialog correspondente ao clicar.
-- Chevron expande/colapsa linha; todas as 10+ ações antigas estão presentes nas 3 seções (Auditoria / Integrações / Acesso) e funcionam.
-- Switch Vouti.CRM persiste em `tenants.settings.whatsapp_enabled`.
-- Filtros, busca e ordenação funcionam combinados.
-- Densa ↔ Confortável altera padding sem quebrar layout.
-- Mobile: linhas viram itens verticais navegáveis.
+- Em 390px: lista vertical visível, sem rolagem horizontal.
+- Toolbar mobile mostra busca + botão Filtros; Sheet abre com Plano/Status/Pendência/Densidade.
+- Cada card colapsado mostra nome, plano, status, pendências.
+- Botões "Abrir", "CRM" e "Mais" têm altura ≥ 44px.
+- Expansão revela 3 grupos (Auditoria/Integrações/Acesso) com pills de largura confortável.
+- Em ≥ 768px: tabela desktop atual permanece idêntica.
+- Todos os dialogs (Stats, Parados, Push-Docs, Boletos, etc.) abrem normalmente em ambos os modos.
