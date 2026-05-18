@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface DriveFile {
@@ -33,6 +33,9 @@ async function invoke<T>(action: string, payload: Record<string, unknown> = {}):
 export function useGoogleDrive() {
   const [status, setStatus] = useState<DriveStatus | null>(null);
   const [loading, setLoading] = useState(false);
+  const previewCache = useRef<Map<string, { url: string; contentType: string }>>(
+    new Map(),
+  );
 
   const refreshStatus = useCallback(async () => {
     setLoading(true);
@@ -139,6 +142,31 @@ export function useGoogleDrive() {
     [],
   );
 
+  const previewFile = useCallback(
+    async (file: DriveFile) => {
+      const cached = previewCache.current.get(file.id);
+      if (cached) return cached;
+      const res = await invoke<{ data: string; contentType: string }>(
+        "download",
+        { fileId: file.id },
+      );
+      const bin = atob(res.data);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: res.contentType });
+      const url = URL.createObjectURL(blob);
+      const entry = { url, contentType: res.contentType };
+      previewCache.current.set(file.id, entry);
+      return entry;
+    },
+    [],
+  );
+
+  const clearPreviewCache = useCallback(() => {
+    previewCache.current.forEach((v) => URL.revokeObjectURL(v.url));
+    previewCache.current.clear();
+  }, []);
+
   return {
     status,
     loading,
@@ -151,5 +179,7 @@ export function useGoogleDrive() {
     upload,
     download,
     about,
+    previewFile,
+    clearPreviewCache,
   };
 }
