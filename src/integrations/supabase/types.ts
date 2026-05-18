@@ -10998,6 +10998,20 @@ export type Database = {
           unread_count: number
         }[]
       }
+      get_tenant_processos_parados: {
+        Args: { p_dias?: number; p_tenant_id: string }
+        Returns: {
+          created_at: string
+          dias_sem_movimentacao: number
+          id: string
+          numero_cnj: string
+          oab_id: string
+          parte_ativa: string
+          parte_passiva: string
+          tribunal_sigla: string
+          ultima_movimentacao: string
+        }[]
+      }
       get_total_andamentos_nao_lidos: {
         Args: { p_tenant_id: string }
         Returns: number
