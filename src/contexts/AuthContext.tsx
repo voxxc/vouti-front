@@ -121,7 +121,7 @@ export const AuthProvider = ({ children, urlTenantId }: AuthProviderProps) => {
           .maybeSingle(),
         supabase
           .from('profiles')
-          .select('tenant_id')
+          .select('tenant_id, is_support')
           .eq('user_id', userId)
           .single()
       ]);
@@ -136,6 +136,22 @@ export const AuthProvider = ({ children, urlTenantId }: AuthProviderProps) => {
         setTenantId(urlTenantId);
         setUserRole('admin');
         setUserRoles(['admin']);
+        return;
+      }
+
+      // Conta de suporte global: assume tenant da URL e ganha admin
+      if (profileData?.is_support && urlTenantId) {
+        console.log('[AuthContext] Conta de suporte detectada, assumindo tenant:', urlTenantId);
+        const { error: assumeError } = await supabase.rpc('support_assume_tenant', {
+          p_tenant_id: urlTenantId,
+        });
+        if (assumeError) {
+          console.error('[AuthContext] support_assume_tenant erro:', assumeError);
+        }
+        setTenantId(urlTenantId);
+        setUserRole('admin');
+        setUserRoles(['admin']);
+        lastFetchedUserIdRef.current = userId;
         return;
       }
       
