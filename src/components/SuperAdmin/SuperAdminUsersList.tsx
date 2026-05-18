@@ -62,7 +62,7 @@ export function SuperAdminUsersList({ fixedTenantId, hideSuperAdmins, onChange }
     setLoading(true);
     try {
       const [profilesRes, rolesRes, tenantsRes, superAdminsRes, sessionRes] = await Promise.all([
-        supabase.from('profiles').select('user_id, email, full_name, tenant_id'),
+        supabase.from('profiles').select('user_id, email, full_name, tenant_id, is_support'),
         supabase.from('user_roles').select('user_id, role, tenant_id'),
         supabase.from('tenants').select('id, name').order('name'),
         supabase.from('super_admins').select('user_id'),
@@ -87,6 +87,7 @@ export function SuperAdminUsersList({ fixedTenantId, hideSuperAdmins, onChange }
       const rows: UserRow[] = [];
       for (const p of profilesRes.data ?? []) {
         if (!p.email) continue;
+        if ((p as any).is_support) continue;
         if (RESTRICTED_DOMAINS.some((d) => p.email!.toLowerCase().includes(d))) continue;
         const isSuper = superSet.has(p.user_id);
         if (hideSuperAdmins && isSuper) continue;
