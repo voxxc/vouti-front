@@ -22,6 +22,7 @@ import CloudIcon from '@/components/CloudIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { ActionGroup, PillButton } from './TenantActionPill';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -310,43 +311,3 @@ export function TenantRow({
   );
 }
 
-function ActionGroup({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-start gap-3">
-      <div className="w-28 shrink-0 pt-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className="flex flex-wrap gap-1.5">{children}</div>
-    </div>
-  );
-}
-
-function PillButton({
-  icon: Icon, children, onClick, badge, destructive,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-  onClick: () => void;
-  badge?: number;
-  destructive?: boolean;
-}) {
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={onClick}
-      className={cn(
-        'h-8 gap-1.5 relative',
-        destructive && 'text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive',
-      )}
-    >
-      <Icon className="h-3.5 w-3.5" />
-      <span className="text-xs">{children}</span>
-      {badge !== undefined && badge > 0 && (
-        <Badge variant="destructive" className="ml-1 h-4 min-w-4 px-1 text-[10px]">
-          {badge > 99 ? '99+' : badge}
-        </Badge>
-      )}
-    </Button>
-  );
-}
