@@ -1,73 +1,54 @@
-# Auditoria de processos parados (sem movimentação)
-
-## Ideia
-
-Sinalizar automaticamente processos que estão há X dias sem nenhuma movimentação nova, em uma aba dedicada dentro da Controladoria, para facilitar a auditoria do escritório.
-
-## Como funcionaria
-
-- Nova aba **"Parados"** na Controladoria, ao lado de Central / OABs / Push-Doc / Prazos OF.
-- Critério padrão: processos cuja `ultima_movimentacao` é mais antiga que **15 dias** (ou nunca teve movimentação registrada). O limite fica configurável no topo da aba (15 / 30 / 60 / 90 dias).
-- Lista os processos parados com: número CNJ, cliente/parte, OAB monitorada, dias desde a última movimentação (badge colorido — amarelo 15-30, laranja 30-60, vermelho 60+), e botão para abrir o drawer do processo.
-- Filtros: por OAB, por advogado responsável, por etiqueta.
-- Ações em massa: marcar como "auditado" (some da lista por X dias) ou abrir comentário rápido.
-- Badge com contador na própria aba, igual aos outros tabs da Central.
-
-## Arquivos afetados
-
-- `src/components/Controladoria/ControladoriaContent.tsx` e `src/pages/Controladoria.tsx` — adicionar a nova aba "Parados".
-- `src/components/Controladoria/ProcessosParadosTab.tsx` *(novo)* — lista, filtros, ações.
-- `src/hooks/useProcessosParados.ts` *(novo)* — busca paginada usando `fetchAllPaginated` filtrando `ultima_movimentacao < now() - interval 'X days'`.
-- Reaproveita `ProcessoDetalhesDrawer` e `ProcessoOABCard` existentes — sem duplicar UI.
-- (Opcional) campo `auditado_em` em `processos_oab` para suportar "marcar como auditado".
-
-## Impacto
-
-1. **UX / telas:** nova aba na Controladoria; ninguém perde acesso ao que já existe. Usuários ganham uma visão proativa de processos esquecidos.
-2. **Dados:** se incluirmos "marcar como auditado", precisa de migration adicionando `auditado_em timestamptz` em `processos_oab` (com RLS já herdada da tabela). Sem essa opção, é só leitura — zero migration.
-3. **Performance:** a query usa `ultima_movimentacao` que já é populada pelo sync. Recomendo índice parcial em `processos_oab(tenant_id, ultima_movimentacao)` para tenants grandes.
-4. **Riscos colaterais:** processos que nunca tiveram andamento (novos importados) podem aparecer como "parados" falsos. Tratamos com um filtro padrão "ignorar processos com menos de X dias de cadastro".
-5. **Quem é afetado:** todos os tenants que usam Controladoria; especialmente útil para admin/controller/financeiro que fazem revisão periódica.
-
-## Validação
-
-- Abrir `/solvenza/dashboard` → Controladoria → aba "Parados".
-- Confirmar que processos com `ultima_movimentacao` > 15 dias aparecem, ordenados do mais antigo ao mais recente.
-- Alterar limite para 30/60/90 e confirmar que a lista re-filtra.
-- Clicar em um processo e confirmar que abre o drawer normal.
-- Conferir badge de contador no tab.
-
-## Pontos para você decidir antes de implementar
-
-1. **Limite padrão:** 15 dias é bom ou prefere outro valor (ex.: 30)?
-2. **"Marcar como auditado":** quer essa funcionalidade (requer migration) ou só visualização por enquanto?
-3. **Escopo:** aplica a todos os processos (`processos_oab`) ou também aos protocolos/projetos da advocacia?
-4. **Notificação:** quer alerta automático (sino/whatsapp) quando um processo cruzar o limite, ou só a aba visual?
-# Checkbox de seleção do Geral mais minimalista
+# Auditoria de Processos Parados — por tenant no Super-Admin
 
 ## Causa raiz
-Os checkboxes da tabela (coluna de seleção + header) usam o `Checkbox` padrão do shadcn, que renderiza um círculo/quadrado com borda azul forte (`border-primary`), ficando muito chamativo em cada linha — especialmente quando há muitos processos listados.
+Hoje a auditoria existente no Super-Admin (`SuperAdminAuditoriaAndamentos`) é global e técnica (foco em sync Judit). Não existe uma forma rápida do dono do SaaS abrir um tenant específico e ver "quais processos deste cliente estão sem movimentação real do tribunal há X dias".
 
 ## Correção
-Aplicar um estilo discreto apenas aos checkboxes da tabela do Geral, sem mexer no componente global:
+Adicionar um botão no `TenantCard` (linha de ferramentas) que abre um diálogo dedicado ao tenant com a lista de processos parados.
 
-- Borda fina e cinza (`border-muted-foreground/30`) no estado padrão.
-- Hover sutil (`hover:border-muted-foreground/60`).
-- Estado marcado em tom neutro (`data-[state=checked]:bg-foreground/80 data-[state=checked]:border-foreground/80`) em vez de azul vivo.
-- Tamanho ligeiramente menor (`h-3.5 w-3.5`) e cantos `rounded-[3px]` para parecer mais delicado.
-- Header da coluna com `w-8` (em vez de `w-10`) para reduzir o espaço reservado.
+### Botão
+- Ícone: `Clock` (lucide-react), variant `ghost`, mesmo tamanho dos demais botões da linha de ferramentas.
+- Tooltip: "Auditoria de processos parados".
+- Posição: ao lado do botão Push-Docs / Banco de IDs.
 
-Aplicado via `className` nos dois `<Checkbox>` (header + linha) em `GeralTab.tsx`.
+### Diálogo `TenantProcessosParadosDialog`
+- Cabeçalho com nome do tenant.
+- Seletor de período no topo: 15 / 30 / 60 / 90 dias (default 30).
+- Contador resumo: "X processos sem movimentação há mais de N dias".
+- Tabela paginada (usa `fetchAllPaginated` se necessário) com colunas:
+  - CNJ
+  - Cliente (parte principal)
+  - OAB monitoradora
+  - Última movimentação (data + "há X dias")
+  - Ação: botão "Abrir no tenant" (abre `/{slug}/processos/{cnj}` em nova aba)
+- Filtros: ignora processos com `created_at` mais recente que o período (evita falso positivo de processos recém-importados).
+- Read-only (sem migration, sem "marcar como auditado" nesta fase).
+
+### Query
+```sql
+SELECT id, numero_cnj, ultima_movimentacao, created_at, oab_numero, cliente_nome
+FROM processos_oab
+WHERE tenant_id = :tenant_id
+  AND ultima_movimentacao < now() - interval ':dias days'
+  AND created_at < now() - interval ':dias days'
+ORDER BY ultima_movimentacao ASC NULLS FIRST
+```
+Sem `auth.uid()` — o Super-Admin já tem bypass via RLS por `is_super_admin()`.
 
 ## Arquivos afetados
-- `src/components/Controladoria/GeralTab.tsx` — checkboxes nas linhas ~376-380 (header) e ~401-405 (linha) + largura da coluna ~375.
+- `src/components/SuperAdmin/TenantCard.tsx` — adiciona botão + estado `showParados`.
+- `src/components/SuperAdmin/TenantProcessosParadosDialog.tsx` — novo componente (diálogo + tabela + filtro).
+- `src/hooks/useTenantProcessosParados.ts` — novo hook (query React Query parametrizada por `tenantId` e `dias`).
 
 ## Impacto
-1. **Usuário final (UX):** a coluna de seleção fica visualmente discreta — bolinhas/quadradinhos pequenos em cinza claro. Quando marcados, viram um tom escuro neutro em vez do azul forte. Comportamento idêntico (clicar seleciona, ações em lote continuam funcionando).
-2. **Dados:** nenhum. Sem migrations, RLS ou queries novas.
-3. **Riscos colaterais:** nenhum — apenas classes Tailwind locais. Não afeta outros checkboxes do app (CRM, Agenda, etc.).
-4. **Quem é afetado:** apenas usuários que abrem a aba Geral em Controladoria/Solvenza.
+1. **Usuário final (você, dono do SaaS):** ganha 1 clique no card de cada tenant para ver processos parados, sem sair do Super-Admin. Não afeta o cliente — feature 100% interna.
+2. **Dados:** zero migration nesta fase. Apenas leitura de `processos_oab.ultima_movimentacao` (já existente e populado pelo sync Judit/n8n).
+3. **Riscos colaterais:** baixíssimos. Query indexada por `tenant_id`; se algum tenant tiver >10k processos parados, paginação resolve. Se vier lento, adicionamos índice parcial `(tenant_id, ultima_movimentacao)` em fase 2.
+4. **Quem é afetado:** somente Super-Admins. Nenhum tenant, advogado ou usuário final vê nada.
 
 ## Validação
-- Abrir `/solvenza/dashboard` → aba Geral → confirmar que os checkboxes ficaram pequenos e cinza.
-- Marcar 1 e marcar "todos" no header → confirmar que a barra de "X processo(s) selecionado(s)" aparece e exclusão em lote funciona normal.
+1. `/super-admin` → localizar um tenant com processos antigos.
+2. Clicar no ícone Clock → diálogo abre com seletor em 30 dias.
+3. Trocar para 15/60/90 → contador e lista atualizam.
+4. Clicar "Abrir no tenant" → nova aba abre o processo no contexto do tenant correto.
+5. Confirmar que processos importados nos últimos 30 dias (sem `ultima_movimentacao`) **não** aparecem em "30 dias".
