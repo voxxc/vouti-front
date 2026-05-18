@@ -19,63 +19,81 @@ Falhas:
 Processo `7002603-26.2023.8.22.0003` (tenant Solvenza):
 - Tinha 546 andamentos antes.
 - Em 18/05 às 00:53, foram inseridos +21 andamentos com `lida=false`.
-- Todos com datas de 2023-2026 que **já existiam**: cada data nova tem entre 3 e 13 duplicatas anteriores no banco.
+- Todos com datas de 2023-2026 que **já existiam**: cada data nova tem entre 3 e 13 cópias prévias no banco.
 
 Conclusão: não há novidade real; é o mesmo histórico sendo replicado a cada callback.
 
-## Correção
+## Correção (modo seguro — não apaga novidades)
 
-### 1. Dedup robusto no webhook
-Em `supabase/functions/judit-webhook-oab/index.ts` (e mesma função em `reprocessar-andamentos-monitorados/index.ts`):
-- Trocar a chave por `normalizeTimestamp(data) + "_" + sha256(descricao_normalizada_completa)`.
-- Normalizar descrição: lowercase, trim, colapsar whitespace, **ordenar alfabeticamente os "blocos"** (split por `.`) antes de hashear, para tolerar reordenação da Judit.
+### 1. Dedup robusto no webhook (prevenção)
+Em `supabase/functions/judit-webhook-oab/index.ts` e `supabase/functions/reprocessar-andamentos-monitorados/index.ts`:
+- Trocar a chave por `normalizeTimestamp(data) + "_" + md5(descricao_normalizada_completa)`.
+- Normalizar descrição: lowercase, trim, colapsar whitespace, **ordenar alfabeticamente os blocos separados por `.`** antes de hashear — tolera reordenação da Judit.
+- Manter `lida=false` apenas para o que de fato for inserido (que agora será só novidade real).
 
-### 2. UNIQUE constraint + limpeza
+### 2. UNIQUE constraint (prevenção futura)
 Migration:
-- Adicionar coluna gerada `dedup_hash` (md5 da descrição normalizada-ordenada).
-- Deduplicar registros existentes mantendo o mais antigo (`MIN(created_at)`) e preservando `lida=true` quando qualquer cópia já estava lida.
+- Adicionar coluna gerada `dedup_hash text` (md5 da descrição normalizada-ordenada).
 - Criar `UNIQUE (processo_oab_id, data_movimentacao, dedup_hash)`.
-- Webhook passa a usar `upsert` com `onConflict` (ou `INSERT ... ON CONFLICT DO NOTHING`).
+- Webhook passa a usar `INSERT ... ON CONFLICT DO NOTHING`, então mesmo se o código falhar, o banco bloqueia duplicata.
 
-### 3. Marcar como lidos os duplicados criados pelo bug
-Para o tenant afetado (ou globalmente, conforme escolha): UPDATE em andamentos cuja data_movimentacao tenha duplicata mais antiga já existente, setando `lida=true`. Não apaga histórico, só zera o ruído na aba.
+### 3. Tratamento dos duplicados que já estão no banco (sem apagar nada)
+Decisão importante: **não vou deletar andamentos existentes**. Em vez disso:
+
+- Para cada grupo `(processo_oab_id, data_movimentacao, dedup_hash)` com mais de uma linha:
+  - Mantenho **a mais antiga** (`MIN(created_at)`) como ela está (preserva `lida` original — se estava não lida, continua não lida).
+  - As **cópias mais novas** ficam no banco, mas são marcadas `lida=true` (silencia o ruído sem perder dado).
+
+Isso garante:
+- Nada é apagado. Histórico continua íntegro.
+- Se o andamento original ainda estava não lido, **continua aparecendo na aba Não Lidos** — você não perde nenhuma novidade real.
+- Só some o ruído de cópias duplicadas que apareceram depois do original.
+
+### 4. (Opcional) Limpeza futura por job
+Se mais tarde você quiser de fato remover as cópias para liberar espaço, criamos um job manual separado. Não entra agora.
 
 ## Arquivos afetados
 
-- `supabase/functions/judit-webhook-oab/index.ts` — nova `generateAndamentoKey` + insert com `ON CONFLICT DO NOTHING`.
-- `supabase/functions/reprocessar-andamentos-monitorados/index.ts` — mesma mudança.
-- Nova migration: coluna `dedup_hash`, dedupe de existentes, UNIQUE constraint.
-- (Opcional) script de UPDATE para marcar duplicatas atuais como lidas.
+- `supabase/functions/judit-webhook-oab/index.ts` — nova `generateAndamentoKey` + `ON CONFLICT DO NOTHING`.
+- `supabase/functions/reprocessar-andamentos-monitorados/index.ts` — mesma lógica.
+- Nova migration:
+  - coluna `dedup_hash`,
+  - UPDATE silenciando cópias (`lida=true` só nas cópias mais novas de cada grupo),
+  - UNIQUE constraint.
 
 ## Impacto
 
 **Usuário final (UX, telas, fluxos)**
-- Aba "Controladoria > Não Lidos" volta a refletir apenas movimentações realmente novas.
-- Contadores de não lidos no badge global, OABTab e CentralAndamentosNaoLidos caem para os números reais (estimativa: redução drástica para tenants com tracking ativo há meses).
-- Nenhuma mudança em telas ou fluxos; só corrige o ruído.
+- Aba "Controladoria > Não Lidos" deixa de mostrar duplicatas. O contador cai para o número real de novidades pendentes.
+- Andamentos verdadeiramente não lidos continuam aparecendo (a cópia original é preservada).
+- Nenhuma novidade futura é perdida: o webhook continua inserindo o que for genuinamente novo.
 
 **Dados (migrations, RLS, performance)**
-- Migration cria coluna `dedup_hash` (md5, ~32 bytes) + índice único. Tabela `processos_oab_andamentos` ganha overhead pequeno por linha.
-- Dedupe de existentes é DELETE em massa (potencialmente milhares de linhas no Solvenza). Roda uma vez, em janela controlada.
+- Coluna `dedup_hash` (~32 bytes/linha) + índice único na tabela `processos_oab_andamentos`.
+- UPDATE em massa para silenciar cópias (apenas marca `lida=true`, sem DELETE).
 - RLS inalterada.
-- Performance de leitura melhora (menos linhas + índice).
+- Leitura mais leve (menos linhas retornadas pela RPC de não lidos).
 
 **Riscos colaterais**
-- Se a Judit eventualmente reformatar muito a descrição (não só reordenar blocos), o novo hash ainda pode divergir → ainda melhor que hoje, mas dedup nunca é 100%.
-- O DELETE de duplicatas é destrutivo; precisa de backup/transação. Vou colocar dentro de uma transação com `SELECT count(*)` antes/depois logado para auditoria.
-- Marcar duplicatas antigas como lidas perde a chance do usuário rever um andamento que já chegou — mas como é cópia idêntica do que ele já viu, é benigno.
+- Se a Judit reformatar muito a descrição (não só reordenar blocos), o hash ainda pode divergir e gerar uma "cópia" — mas o pior caso é o de hoje, não pior.
+- Como nada é deletado, zero risco de perda de histórico.
+- UPDATE é grande, mas seguro: roda em transação e só toca cópias além da primeira.
 
 **Quem é afetado**
-- Todos os tenants que usam OABs monitoradas (Controladoria). Mais visível em tenants com volume alto e tempo longo de tracking (ex.: Solvenza).
-- Nenhum impacto em CRM, Agenda, WhatsApp ou Projetos.
+- Todos os tenants com OABs monitoradas via Controladoria. Mais visível no Solvenza (alto volume).
+- Sem efeito em CRM, Agenda, WhatsApp, Projetos, Financeiro.
 
 ## Validação
 
-1. Após migration, rodar:
+1. Após migration:
    ```sql
-   SELECT processo_oab_id, count(*), count(DISTINCT (data_movimentacao, dedup_hash))
-   FROM processos_oab_andamentos GROUP BY 1 HAVING count(*) <> count(DISTINCT (data_movimentacao, dedup_hash));
+   SELECT count(*) FROM (
+     SELECT processo_oab_id, data_movimentacao, dedup_hash, count(*)
+     FROM processos_oab_andamentos GROUP BY 1,2,3 HAVING count(*) > 1
+       AND bool_or(lida=false) AND bool_and(NOT lida)=false
+   ) x;
    ```
-   Esperado: 0 linhas (sem duplicatas remanescentes).
-2. Forçar um reenvio da Judit (resetar processo) e confirmar que `novosAndamentos=0` no log do webhook.
-3. Conferir na aba "Não Lidos" da Controladoria que o total caiu para o esperado e que não cresce sem novas movimentações reais.
+   Esperado: 0 (cada grupo duplicado tem no máximo 1 cópia não lida — a original).
+2. Conferir na aba "Não Lidos" da Controladoria que o total caiu e bate com a contagem real de novidades.
+3. Forçar um reenvio da Judit (resetar um processo) e confirmar no log do webhook: `novosAndamentos=0`.
+4. Aguardar próximo callback real da Judit com movimento novo → deve aparecer normalmente como não lido.
