@@ -1,54 +1,76 @@
-# Auditoria de Processos Parados — por tenant no Super-Admin
+# Conta global de suporte: `suporte@vouti.co`
 
 ## Causa raiz
-Hoje a auditoria existente no Super-Admin (`SuperAdminAuditoriaAndamentos`) é global e técnica (foco em sync Judit). Não existe uma forma rápida do dono do SaaS abrir um tenant específico e ver "quais processos deste cliente estão sem movimentação real do tribunal há X dias".
+Hoje `suporte@vouti.co` é uma conta comum, vinculada a um único tenant em `profiles.tenant_id` e com um único `user_roles(admin, tenant=Solvenza)`. Por isso:
+- Ao logar em `/oliveira/auth` não vira admin do Oliveira (RLS olha `get_user_tenant_id()` que vem do profile).
+- Aparece nas listagens de usuários (Super-Admin global e drawer de cada tenant).
 
 ## Correção
-Adicionar um botão no `TenantCard` (linha de ferramentas) que abre um diálogo dedicado ao tenant com a lista de processos parados.
+Tornar a conta um "ghost support account": invisível nas listagens e que, ao logar via `/{slug}/auth`, ganha papel `admin` automaticamente naquele tenant.
 
-### Botão
-- Ícone: `Clock` (lucide-react), variant `ghost`, mesmo tamanho dos demais botões da linha de ferramentas.
-- Tooltip: "Auditoria de processos parados".
-- Posição: ao lado do botão Push-Docs / Banco de IDs.
+### 1. Marcação da conta
+- Adicionar coluna `is_support boolean not null default false` em `profiles`.
+- Marcar `is_support = true` para o user_id de `suporte@vouti.co`.
+- Não usar `super_admins`: queremos manter o Super-Admin separado (suporte é admin de tenant, não dono do SaaS).
 
-### Diálogo `TenantProcessosParadosDialog`
-- Cabeçalho com nome do tenant.
-- Seletor de período no topo: 15 / 30 / 60 / 90 dias (default 30).
-- Contador resumo: "X processos sem movimentação há mais de N dias".
-- Tabela paginada (usa `fetchAllPaginated` se necessário) com colunas:
-  - CNJ
-  - Cliente (parte principal)
-  - OAB monitoradora
-  - Última movimentação (data + "há X dias")
-  - Ação: botão "Abrir no tenant" (abre `/{slug}/processos/{cnj}` em nova aba)
-- Filtros: ignora processos com `created_at` mais recente que o período (evita falso positivo de processos recém-importados).
-- Read-only (sem migration, sem "marcar como auditado" nesta fase).
+### 2. Acesso automático ao tenant atual (login via `/{slug}/auth`)
+No `AuthContext.fetchUserRoleAndTenant`, quando `profile.is_support === true` e existe `urlTenantId`:
+1. `UPDATE profiles SET tenant_id = urlTenantId WHERE user_id = suporte` (faz `get_user_tenant_id()` retornar o tenant correto para RLS).
+2. `INSERT INTO user_roles (user_id, role, tenant_id) VALUES (suporte, 'admin', urlTenantId) ON CONFLICT DO NOTHING` (garante linha de admin no tenant).
+3. Setar estado local: `userRole='admin'`, `userRoles=['admin']`, `tenantId=urlTenantId`.
 
-### Query
-```sql
-SELECT id, numero_cnj, ultima_movimentacao, created_at, oab_numero, cliente_nome
-FROM processos_oab
-WHERE tenant_id = :tenant_id
-  AND ultima_movimentacao < now() - interval ':dias days'
-  AND created_at < now() - interval ':dias days'
-ORDER BY ultima_movimentacao ASC NULLS FIRST
+Operações 1 e 2 ficam em uma RPC `support_assume_tenant(p_tenant_id uuid)` com `SECURITY DEFINER`, que valida internamente que o caller tem `is_support = true`. Assim o cliente não pode forçar a manobra para outros usuários.
+
+### 3. Invisibilidade
+Filtrar `is_support = true` em todas as listagens:
+- `src/components/SuperAdmin/SuperAdminUsersList.tsx` (já filtra `RESTRICTED_DOMAINS`; adicionar filtro por `is_support`).
+- `src/components/Admin/RoleManagement.tsx`
+- `src/components/Admin/UserManagement.tsx`
+- `src/components/Admin/UserManagementDrawer.tsx`
+- `src/components/SuperAdmin/TenantUsersDrawer.tsx` (usa `SuperAdminUsersList`, herda filtro).
+
+Selects passam a incluir `is_support` no `select` e ignorar a linha.
+
+Também filtrar nos seletores de usuário (mentions, agenda, prazos, etc.) — fazer busca por usos de `from('profiles').select(...full_name...)` e adicionar `.eq('is_support', false)` ou filtro client-side. Lista de arquivos a varrer na implementação:
+```text
+src/hooks/useColaboradores.ts
+src/components/Common/TenantMentionInput.tsx
+src/components/Agenda/UserTagSelector.tsx
+src/components/Planejador/*  (participants)
+src/components/CRM/* (atribuições)
 ```
-Sem `auth.uid()` — o Super-Admin já tem bypass via RLS por `is_super_admin()`.
+Critério: qualquer query que retorne profiles para exibição/seleção humana → filtra.
+
+### 4. Edição e exclusão
+- Mesmo via Super-Admin, a conta não aparece e não pode ser editada pela UI (some das listagens). 
+- Para gerenciar (trocar senha, etc.), usar diretamente o Supabase Auth dashboard.
 
 ## Arquivos afetados
-- `src/components/SuperAdmin/TenantCard.tsx` — adiciona botão + estado `showParados`.
-- `src/components/SuperAdmin/TenantProcessosParadosDialog.tsx` — novo componente (diálogo + tabela + filtro).
-- `src/hooks/useTenantProcessosParados.ts` — novo hook (query React Query parametrizada por `tenantId` e `dias`).
+- Nova migration: coluna `profiles.is_support`, flag no user atual, RPC `support_assume_tenant`.
+- `src/contexts/AuthContext.tsx` — checagem `is_support` + chamada da RPC quando há `urlTenantId`.
+- `src/components/SuperAdmin/SuperAdminUsersList.tsx` — filtro.
+- `src/components/Admin/RoleManagement.tsx`, `UserManagement.tsx`, `UserManagementDrawer.tsx` — filtro.
+- Hooks/componentes de seleção de usuário que listam profiles humanos — filtro.
 
 ## Impacto
-1. **Usuário final (você, dono do SaaS):** ganha 1 clique no card de cada tenant para ver processos parados, sem sair do Super-Admin. Não afeta o cliente — feature 100% interna.
-2. **Dados:** zero migration nesta fase. Apenas leitura de `processos_oab.ultima_movimentacao` (já existente e populado pelo sync Judit/n8n).
-3. **Riscos colaterais:** baixíssimos. Query indexada por `tenant_id`; se algum tenant tiver >10k processos parados, paginação resolve. Se vier lento, adicionamos índice parcial `(tenant_id, ultima_movimentacao)` em fase 2.
-4. **Quem é afetado:** somente Super-Admins. Nenhum tenant, advogado ou usuário final vê nada.
+1. **Usuário final:** você (com `suporte@vouti.co`) consegue logar em qualquer `/{slug}/auth` e cai como admin do tenant daquela URL. Para usuários reais dos tenants, nada muda visualmente — a conta suporte some das listagens, dos seletores de menção, de atribuição de tarefas, etc.
+2. **Dados:**
+   - Migration adiciona 1 coluna boolean em `profiles` (default false → linhas existentes inalteradas).
+   - A cada login da conta suporte em um tenant, 1 UPDATE em `profiles` e 1 INSERT idempotente em `user_roles`. Volume desprezível.
+   - RLS continua usando `get_user_tenant_id()`/`has_role_in_tenant()` — sem mudanças nas policies existentes.
+3. **Riscos colaterais:**
+   - A conta passa a ter linhas `admin` em `user_roles` para cada tenant que você visitar. Aparece em auditorias de role, mas como o profile é `is_support`, filtros do front escondem.
+   - Se algum relatório lista `user_roles` direto (sem join com profiles) ela aparece. Mitigação: nos pontos críticos, fazer join e filtrar.
+   - `get_user_tenant_id()` muda a cada login: se você abrir dois tenants em abas diferentes simultaneamente, a última a logar "ganha" o profile.tenant_id, e a aba antiga passa a renderizar dados errados ao próximo refresh. Aceitável para uso de suporte (1 tenant por vez).
+4. **Quem é afetado:**
+   - Você (dono): ganha login universal.
+   - Admins de tenants: deixam de ver `suporte@vouti.co` em qualquer lista.
+   - Demais usuários: nenhum impacto.
 
 ## Validação
-1. `/super-admin` → localizar um tenant com processos antigos.
-2. Clicar no ícone Clock → diálogo abre com seletor em 30 dias.
-3. Trocar para 15/60/90 → contador e lista atualizam.
-4. Clicar "Abrir no tenant" → nova aba abre o processo no contexto do tenant correto.
-5. Confirmar que processos importados nos últimos 30 dias (sem `ultima_movimentacao`) **não** aparecem em "30 dias".
+1. Marcar `is_support=true`, rodar migration.
+2. Logout, abrir `/solvenza/auth`, logar com suporte → entra como admin do Solvenza.
+3. Logout, abrir `/oliveira/auth`, logar com suporte → entra como admin do Oliveira.
+4. Logado como outro admin do Solvenza, abrir tela de Usuários → `suporte@vouti.co` não aparece.
+5. Logado no Super-Admin, abrir `SuperAdminUsuarios` e o drawer de qualquer tenant → não aparece.
+6. Abrir seletor de menção/atribuição em CRM/Agenda/Planejador → não aparece.
