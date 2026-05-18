@@ -44,26 +44,26 @@ export function SystemTypeSection({
 
   return (
     <Card className="bg-card/50 border-border">
-      <CardHeader className="flex flex-row items-center justify-between pb-4">
-        <div className="flex items-center gap-3">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4">
+        <div className="flex items-center gap-3 min-w-0">
           <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center"
+            className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
             style={{ backgroundColor: `${systemType.color}20` }}
           >
             <Icon className="h-6 w-6" style={{ color: systemType.color || undefined }} />
           </div>
-          <div>
-            <CardTitle className="text-xl">{systemType.name}</CardTitle>
-            <p className="text-sm text-muted-foreground">{systemType.description}</p>
+          <div className="min-w-0">
+            <CardTitle className="text-xl truncate">{systemType.name}</CardTitle>
+            <p className="text-sm text-muted-foreground line-clamp-2">{systemType.description}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
           {isGestaoJuridica && onOpenAvisos && (
             <Button
               onClick={() => onOpenAvisos(systemType.id, systemType.name)}
               variant="outline"
               size="sm"
-              className="gap-2"
+              className="gap-2 h-10 sm:h-9 w-full sm:w-auto"
             >
               <Bell className="h-4 w-4" />
               Avisos
@@ -73,10 +73,11 @@ export function SystemTypeSection({
             onClick={() => onCreateTenant(systemType.id)}
             variant="outline"
             size="sm"
-            className="gap-2"
+            className="gap-2 h-10 sm:h-9 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
-            Criar Novo Cliente
+            <span className="sm:hidden">Novo cliente</span>
+            <span className="hidden sm:inline">Criar Novo Cliente</span>
           </Button>
         </div>
       </CardHeader>
