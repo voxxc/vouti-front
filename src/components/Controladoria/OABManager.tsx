@@ -71,6 +71,7 @@ export const OABManager = () => {
   const [lawsuitBatchDialogOpen, setLawsuitBatchDialogOpen] = useState(false);
   const [importCNJDialogOpen, setImportCNJDialogOpen] = useState(false);
   const [importPlanilhaOpen, setImportPlanilhaOpen] = useState(false);
+  const [importacoesDialogOpen, setImportacoesDialogOpen] = useState(false);
   const [selectedOabForPlanilha, setSelectedOabForPlanilha] = useState<OABCadastrada | null>(null);
   const [oabToDelete, setOabToDelete] = useState<OABCadastrada | null>(null);
   const [selectedOabForBatch, setSelectedOabForBatch] = useState<OABCadastrada | null>(null);
