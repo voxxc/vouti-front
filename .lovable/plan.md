@@ -1,29 +1,23 @@
-# Paginação na aba "Andamentos Não Lidos"
+# Mover "Importações" para botão ao lado de "Cadastrar OAB"
 
-## Causa raiz
-A aba lista todos os processos com andamentos não lidos numa única tabela rolável. Em tenants grandes (ex.: Solvenza) isso gera centenas de linhas e dificulta a navegação. A aba OABs já segue um padrão de 20 itens por página com controle de paginação — adotar o mesmo aqui.
-
-## Correção
-1. Em `CentralAndamentosNaoLidos.tsx`, adicionar estado `currentPage` (default 1) e constante `ITEMS_PER_PAGE = 20`.
-2. Calcular `paginatedProcessos = filteredProcessos.slice((currentPage-1)*20, currentPage*20)` e renderizar somente esse slice na tabela.
-3. Resetar `currentPage` para 1 sempre que `searchTerm` ou `filterOabId` mudarem (via `useEffect`).
-4. Renderizar abaixo da tabela um rodapé com:
-   - texto "Mostrando X–Y de Z processos"
-   - componentes `Pagination` / `PaginationContent` / `PaginationPrevious` / `PaginationNext` / `PaginationLink` (já existentes em `src/components/ui/pagination.tsx`)
-   - lógica de páginas visíveis igual à da aba OABs (primeira, última, atual ± 1, ellipsis).
-5. Esconder o rodapé quando `filteredProcessos.length <= 20`.
+## Mudança
+Remover a aba "Importações" do menu de abas (underline) do `OABManager` e substituir por um botão de ícone (Inbox) ao lado do botão **Cadastrar OAB**, no header. Ao clicar, abre o mesmo conteúdo (`ImportacoesTab`) em um Dialog/Sheet.
 
 ## Arquivos afetados
-- `src/components/Controladoria/CentralAndamentosNaoLidos.tsx` (único arquivo).
+- `src/components/Controladoria/OABManager.tsx`
+  - Remover o `<button>` da aba `importacoes` (linhas ~301–310) e o `<TabsContent value="importacoes">` (linhas ~335–339).
+  - Adicionar um `Button` ghost com ícone `Inbox` (tooltip "Importações") ao lado de "Cadastrar OAB" no header (visível só se `canImportCNJ`).
+  - Adicionar `Dialog` (ou `Sheet`) controlado por `importDialogOpen`, renderizando `<ImportacoesTab />` dentro.
+  - Ajustar o trecho `setActiveTab('importacoes')` (linha ~511) para abrir o novo dialog em vez de trocar de aba.
 
 ## Impacto
-- **Usuário final**: a aba "Não Lidos" passa a exibir 20 processos por página com navegador inferior, igual à aba OABs. Busca e filtro de OAB continuam funcionando e voltam para a página 1 ao mudar. Botões "Ler Todos" (global) e "Marcar como lido" (por processo) continuam idênticos — "Ler Todos" segue afetando todos os processos filtrados, não só a página visível.
-- **Dados**: nenhum. Sem migration, sem RLS, sem nova query. Paginação 100% client-side sobre o array já carregado pelo hook `useAndamentosNaoLidosGlobal`.
-- **Riscos colaterais**: nenhum esperado. O hook e o badge de contagem global no `CentralControladoria` não mudam.
-- **Quem é afetado**: todos os tenants que usam Controladoria → Central → Não Lidos.
+- **UX**: a aba "Importações" some do menu underline; aparece como ícone discreto (Inbox) ao lado de "Cadastrar OAB". Conteúdo idêntico, agora em modal.
+- **Dados**: nenhum. Sem migration, sem RLS, sem novas queries.
+- **Riscos colaterais**: qualquer link/atalho que disparava `setActiveTab('importacoes')` precisa abrir o dialog — já mapeado o ponto na linha 511.
+- **Afetados**: apenas usuários com `canImportCNJ` (admin que importa CNJ). Demais usuários não veem diferença.
 
 ## Validação
-- Abrir Solvenza → Controladoria → Central → Andamentos Não Lidos: ver no máximo 20 linhas, rodapé "Mostrando 1–20 de N", navegar entre páginas.
-- Digitar no campo de busca / trocar filtro de OAB: a paginação volta para página 1.
-- Tenant pequeno (≤20 processos não lidos): rodapé não aparece.
-- Clicar "Ler Todos": continua marcando todos os filtrados (não só a página visível).
+- Abrir Controladoria > OABs: confirmar que a aba "Importações" sumiu do menu underline.
+- Confirmar ícone Inbox visível ao lado de "Cadastrar OAB" (apenas admin com permissão).
+- Clicar no ícone abre o dialog com `ImportacoesTab` funcionando (jobs listados, importar planilha etc.).
+- Conferir que nenhum fluxo que antes chamava `setActiveTab('importacoes')` ficou quebrado.
