@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,15 @@ import { useAndamentosNaoLidosGlobal, ProcessoComNaoLidos } from "@/hooks/useAnd
 import { ProcessoOABDetalhes } from "@/components/Controladoria/ProcessoOABDetalhes";
 import { toast } from "sonner";
 import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -21,6 +30,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+const ITEMS_PER_PAGE = 20;
+
 export const CentralAndamentosNaoLidos = () => {
   const { processos, loading, oabs, totalNaoLidos, marcarTodosComoLidos, marcarTodosGlobalComoLidos, refetch } = useAndamentosNaoLidosGlobal();
   const [searchTerm, setSearchTerm] = useState("");
@@ -29,6 +40,7 @@ export const CentralAndamentosNaoLidos = () => {
   const [confirmMarkAll, setConfirmMarkAll] = useState<string | null>(null);
   const [confirmMarkAllGlobal, setConfirmMarkAllGlobal] = useState(false);
   const [isMarking, setIsMarking] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const filteredProcessos = processos.filter(p => {
     const matchesSearch = 
@@ -40,6 +52,31 @@ export const CentralAndamentosNaoLidos = () => {
     
     return matchesSearch && matchesOab;
   });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterOabId]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProcessos.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIdx = (safePage - 1) * ITEMS_PER_PAGE;
+  const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, filteredProcessos.length);
+  const paginatedProcessos = filteredProcessos.slice(startIdx, endIdx);
+
+  const pageNumbers = useMemo(() => {
+    const pages: (number | "ellipsis")[] = [];
+    const add = (n: number) => { if (!pages.includes(n)) pages.push(n); };
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+      return pages;
+    }
+    add(1);
+    if (safePage > 3) pages.push("ellipsis");
+    for (let i = Math.max(2, safePage - 1); i <= Math.min(totalPages - 1, safePage + 1); i++) add(i);
+    if (safePage < totalPages - 2) pages.push("ellipsis");
+    add(totalPages);
+    return pages;
+  }, [safePage, totalPages]);
 
   const handleMarcarComoLidos = async (processoId: string) => {
     setIsMarking(true);
@@ -158,7 +195,7 @@ export const CentralAndamentosNaoLidos = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProcessos.map(processo => (
+                {paginatedProcessos.map(processo => (
                   <TableRow 
                     key={processo.id} 
                     className="cursor-pointer hover:bg-muted/50"
@@ -242,6 +279,47 @@ export const CentralAndamentosNaoLidos = () => {
           )}
         </CardContent>
       </Card>
+
+      {!loading && filteredProcessos.length > ITEMS_PER_PAGE && (
+        <div className="flex items-center justify-between flex-shrink-0 pt-2">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {startIdx + 1}–{endIdx} de {filteredProcessos.length} processos
+          </p>
+          <Pagination className="mx-0 w-auto justify-end">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); setCurrentPage(p => Math.max(1, p - 1)); }}
+                  className={safePage === 1 ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+              {pageNumbers.map((p, i) => (
+                <PaginationItem key={`${p}-${i}`}>
+                  {p === "ellipsis" ? (
+                    <PaginationEllipsis />
+                  ) : (
+                    <PaginationLink
+                      href="#"
+                      isActive={p === safePage}
+                      onClick={(e) => { e.preventDefault(); setCurrentPage(p); }}
+                    >
+                      {p}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); setCurrentPage(p => Math.min(totalPages, p + 1)); }}
+                  className={safePage === totalPages ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
 
       {/* Modal de confirmação */}
       <AlertDialog open={!!confirmMarkAll} onOpenChange={(open) => !open && setConfirmMarkAll(null)}>
