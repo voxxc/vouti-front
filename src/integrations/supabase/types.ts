@@ -5425,6 +5425,7 @@ export type Database = {
           endereco: string | null
           full_name: string | null
           id: string
+          is_support: boolean
           telefone: string | null
           tenant_id: string | null
           theme_preference: string | null
@@ -5443,6 +5444,7 @@ export type Database = {
           endereco?: string | null
           full_name?: string | null
           id?: string
+          is_support?: boolean
           telefone?: string | null
           tenant_id?: string | null
           theme_preference?: string | null
@@ -5461,6 +5463,7 @@ export type Database = {
           endereco?: string | null
           full_name?: string | null
           id?: string
+          is_support?: boolean
           telefone?: string | null
           tenant_id?: string | null
           theme_preference?: string | null
@@ -11137,6 +11140,10 @@ export type Database = {
       normalize_descricao: { Args: { txt: string }; Returns: string }
       reorder_planejador_task: {
         Args: { p_new_ordem: number; p_task_id: string }
+        Returns: undefined
+      }
+      support_assume_tenant: {
+        Args: { p_tenant_id: string }
         Returns: undefined
       }
       truncate_minute: { Args: { ts: string }; Returns: string }
