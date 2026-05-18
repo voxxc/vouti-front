@@ -2,7 +2,7 @@ import { Scale, Factory, Link, Plus, Bell, MessageSquare, LucideIcon } from 'luc
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SystemType, Tenant } from '@/types/superadmin';
-import { TenantCard } from './TenantCard';
+import { TenantsTable } from './TenantsTable';
 
 const iconMap: Record<string, LucideIcon> = {
   Scale,
@@ -86,21 +86,16 @@ export function SystemTypeSection({
             Nenhum cliente cadastrado neste sistema.
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tenants.map((tenant) => (
-              <TenantCard
-                key={tenant.id}
-                tenant={tenant}
-                systemColor={systemType.color}
-                onEdit={() => onEditTenant(tenant)}
-                onToggleStatus={onToggleStatus}
-                onDelete={onDeleteTenant}
-                pendingPayments={pagamentosPorTenant[tenant.id] || 0}
-                incompleteProcessosCount={incompleteProcessosPorTenant[tenant.id] || 0}
-                onIncompleteRefresh={onIncompleteRefresh}
-              />
-            ))}
-          </div>
+          <TenantsTable
+            tenants={tenants}
+            systemColor={systemType.color}
+            onEditTenant={onEditTenant}
+            onToggleStatus={onToggleStatus}
+            onDeleteTenant={onDeleteTenant}
+            pagamentosPorTenant={pagamentosPorTenant}
+            incompleteProcessosPorTenant={incompleteProcessosPorTenant}
+            onIncompleteRefresh={onIncompleteRefresh}
+          />
         )}
       </CardContent>
     </Card>
