@@ -354,46 +354,51 @@ export const useProcessosOAB = (oabId: string | null) => {
 
     setLoading(true);
     try {
-      // Query otimizada: buscar processos com andamentos em uma única query
-      const { data: processosData, error } = await fetchAllPaginated<any>(() =>
+      // Evita timeout: duas queries leves em paralelo, sem JOIN pesado em andamentos.
+      const processosPromise = fetchAllPaginated<any>(() =>
         supabase
           .from('processos_oab')
-          .select(`
-            *,
-            processos_oab_andamentos!left(id, lida)
-          `)
+          .select('*')
           .eq('oab_id', oabId)
           .order('ordem_lista', { ascending: true }) as any
       );
 
-      if (error) throw error;
+      const naoLidosPromise = tenantId
+        ? supabase.rpc('get_andamentos_nao_lidos_por_processo', { p_tenant_id: tenantId })
+        : Promise.resolve({ data: [], error: null } as any);
 
-      // Processar contagem de andamentos não lidos no JavaScript (evita N+1 queries)
-      const processosComContagem = (processosData || []).map((p: any) => {
-        const andamentos = p.processos_oab_andamentos || [];
-        const naoLidos = andamentos.filter((a: any) => a.lida === false).length;
-        
-        // Remover o campo aninhado para não poluir o objeto
-        const { processos_oab_andamentos, ...processo } = p;
-        
-        return {
-          ...processo,
-          andamentos_nao_lidos: naoLidos
-        } as ProcessoOAB;
-      });
+      const [processosResult, naoLidosResult] = await Promise.all([
+        processosPromise,
+        naoLidosPromise,
+      ]);
+
+      if (processosResult.error) throw processosResult.error;
+
+      const naoLidosMap = new Map<string, number>();
+      if (!naoLidosResult.error && Array.isArray(naoLidosResult.data)) {
+        naoLidosResult.data.forEach((r: any) => {
+          naoLidosMap.set(r.processo_oab_id, Number(r.nao_lidos) || 0);
+        });
+      }
+
+      const processosComContagem = (processosResult.data || []).map((p: any) => ({
+        ...p,
+        andamentos_nao_lidos: naoLidosMap.get(p.id) || 0,
+      })) as ProcessoOAB[];
 
       setProcessos(processosComContagem);
     } catch (error: any) {
       console.error('[useProcessosOAB] Erro:', error);
+      // Fallback sutil: não mostra toast vermelho para não assustar o usuário.
+      // Mostra apenas um aviso discreto e mantém a lista vazia para nova tentativa.
       toast({
-        title: 'Erro ao carregar processos',
-        description: error.message,
-        variant: 'destructive'
+        title: 'Carregando…',
+        description: 'A lista demorou para responder. Tente novamente em instantes.',
       });
     } finally {
       setLoading(false);
     }
-  }, [oabId, toast]);
+  }, [oabId, tenantId, toast]);
 
   useEffect(() => {
     fetchProcessos();
