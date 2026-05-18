@@ -389,15 +389,22 @@ serve(async (req) => {
 
     // Inserir andamentos no processo principal
     if (andamentosParaInserir.length > 0) {
-      const { error: insertError } = await supabase
+      // O trigger trg_prevent_andamento_oab_duplicate descarta silenciosamente
+      // cópias duplicadas (mesma data + descrição normalizada). Usamos .select()
+      // para contar somente as linhas que realmente entraram no banco.
+      const { data: inserted, error: insertError } = await supabase
         .from('processos_oab_andamentos')
-        .insert(andamentosParaInserir);
+        .insert(andamentosParaInserir)
+        .select('id');
 
       if (insertError) {
         if (!insertError.message?.includes('duplicate') && !insertError.message?.includes('unique')) {
           console.error('[Judit Webhook OAB] Erro ao inserir andamentos:', insertError);
         }
       }
+
+      // Ajusta contagem real (trigger pode ter descartado duplicatas)
+      novosAndamentos = inserted?.length ?? 0;
     }
 
     // Atualizar processo com timestamp da ultima atualizacao
