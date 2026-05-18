@@ -88,6 +88,14 @@ const Auth = () => {
               return;
             }
 
+            // Conta de suporte global: libera acesso a qualquer tenant
+            const { data: profileSupport } = await supabase
+              .from('profiles')
+              .select('is_support')
+              .eq('user_id', user.id)
+              .maybeSingle();
+
+            if (!profileSupport?.is_support) {
             const { data: roleData } = await supabase
               .from('user_roles')
               .select('id')
@@ -104,6 +112,7 @@ const Auth = () => {
               });
               setIsLoading(false);
               return;
+            }
             }
           }
         }
