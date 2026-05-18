@@ -59,14 +59,14 @@ export default function RoleManagement() {
       // Buscar perfis de usuários
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, email, full_name')
+        .select('user_id, email, full_name, is_support')
         .order('full_name');
 
       if (profilesError) throw profilesError;
 
-      // Filtrar super admins da lista
+      // Filtrar super admins e contas de suporte da lista
       const filteredProfiles = (profiles || []).filter(
-        p => !superAdminIds.has(p.user_id)
+        p => !superAdminIds.has(p.user_id) && !(p as any).is_support
       );
 
       // Buscar roles de cada usuário
