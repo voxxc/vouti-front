@@ -1,76 +1,44 @@
-# Redesign mobile — Super-Admin / Clientes
+# Ajuste mobile — botões "Avisos" e "Criar Novo Cliente"
 
 ## Causa raiz
-A tabela densa `TenantsTable` foi desenhada para desktop (7 colunas: chevron, cliente, plano, ativo, pendência, Vouti.CRM, ações). Em 390px ela quebra: colunas espremidas, rolagem horizontal, switches difíceis de tocar, painel expandido fica ilegível.
+No `SystemTypeSection`, o cabeçalho usa `flex flex-row items-center justify-between` com os dois botões (`Avisos` e `Criar Novo Cliente`) na linha do título. Em 390px:
+- O título "Gestão Jurídica" + descrição compete por espaço.
+- Os labels "Avisos" e "Criar Novo Cliente" empurram o layout, podendo cortar texto ou estourar largura.
+- Os botões viram alvos pequenos e mal posicionados.
 
-## Correção — layout mobile dedicado (`<md`)
+## Correção
 
-Detectar breakpoint via classes Tailwind (`md:` para desktop, padrão para mobile). Mesmo componente `TenantsTable`, mas:
+### Mobile (`<sm`)
+- Header empilha: ícone+título numa linha; descrição em segunda linha; botões numa **terceira linha** que ocupa largura total.
+- Os dois botões ficam lado a lado em **grid 2 colunas** com `flex-1`, altura `h-10`, ícone + label compacto.
+- "Criar Novo Cliente" vira "Novo cliente" no mobile (label menor).
 
-- **Desktop (`md+`)**: tabela atual, inalterada.
-- **Mobile (`<md`)**: lista vertical de "linhas-cartão" empilháveis, e toolbar reorganizada.
+### Desktop (`sm+`)
+- Mantém o layout atual: título à esquerda, botões à direita.
 
-### Toolbar mobile
 ```text
-┌────────────────────────────────────┐
-│ 12 ativos / 14 total               │
-│ [🔍 Buscar...........] [⚙ filtros] │
-└────────────────────────────────────┘
+Mobile (<sm)
+┌──────────────────────────────────┐
+│ [icon] Gestão Jurídica            │
+│        Descrição curta...         │
+│ ┌──────────────┬───────────────┐  │
+│ │ 🔔 Avisos    │ ＋ Novo cliente│  │
+│ └──────────────┴───────────────┘  │
+└──────────────────────────────────┘
+
+Desktop (sm+)  — inalterado
+[icon] Gestão Jurídica           [🔔 Avisos] [＋ Criar Novo Cliente]
 ```
-- Contador em linha própria.
-- Busca ocupa quase 100% da largura.
-- Botão `Filtros` abre um `Sheet` (lateral/baixo) com: Plano, Status, Pendência, Densidade.
-- O toggle Densa/Confortável fica dentro do Sheet (no mobile é menos relevante).
-
-### Linha-cartão mobile (colapsada)
-```text
-┌────────────────────────────────────┐
-│ ● [logo] Nome do Tenant       [▸]  │
-│         slug · dominio.com         │
-│  [Plano Pro]  [● Ativo]  [2 pend⚠] │
-│  ───────────────────────────────── │
-│  [↗ Abrir]  [☁ CRM]  [⋯ Mais]      │
-└────────────────────────────────────┘
-```
-- Cabeçalho com bolinha de status + logo + nome (truncado) + chevron à direita.
-- Linha de meta: plano, switch ativo (com label), badge de pendências (se > 0).
-- Rodapé com 3 botões de toque grandes (44px): Abrir tenant, Toggle Vouti.CRM, kebab Mais.
-
-### Linha-cartão expandida (mobile)
-- Mesma estrutura 3 grupos (Auditoria / Integrações / Acesso), mas:
-  - Cada grupo vira coluna vertical com label acima dos pills.
-  - Pills ocupam largura total (`w-full` ou `flex-1 basis-[calc(50%-0.25rem)]` para 2 colunas).
-  - Espaçamento maior entre grupos.
-
-### Touch targets
-- Switches, botões e pills com altura mínima **44px** (`h-11`).
-- Áreas de toque sem sobreposição.
-
-### Filtros em Sheet (mobile)
-- `Sheet` lateral direito ou bottom, com os mesmos controles do desktop.
-- Botão "Aplicar" no rodapé.
-- Indicador de "N filtros ativos" no botão da toolbar.
 
 ## Arquivos afetados
-- `src/components/SuperAdmin/TenantsTable.tsx`
-  - Toolbar: separar versão mobile (busca + botão Filtros + Sheet) da versão desktop.
-  - Render: `<div className="md:hidden">` lista vertical de `TenantRowMobile`; `<div className="hidden md:block">` tabela atual.
-- **Novo** `src/components/SuperAdmin/TenantRowMobile.tsx` — card colapsável com mesma lógica de dialogs do `TenantRow`. Compartilha sub-componentes (`ActionGroup`, `PillButton`).
-- `src/components/SuperAdmin/TenantRow.tsx` — exportar `ActionGroup` e `PillButton` para reuso pelo card mobile.
-
-Nenhuma mudança em dialogs, RPCs, RLS ou migrations.
+- `src/components/SuperAdmin/SystemTypeSection.tsx` — só ajuste de classes Tailwind e label condicional via classes responsivas (`hidden sm:inline`).
 
 ## Impacto
-1. **UX mobile**: você consegue auditar tenants a partir do celular com botões tocáveis, filtros acessíveis e leitura clara. Em desktop nada muda.
-2. **Dados**: zero alteração. Apenas reorganização visual condicional ao breakpoint.
-3. **Riscos colaterais**: baixo. Duplicação de markup mitigada por sub-componentes compartilhados. Risco mínimo de divergência entre as duas variantes (mesmos handlers/dialogs).
-4. **Quem é afetado**: apenas o super-admin (você) ao acessar `/super-admin` no celular/tablet pequeno.
+1. **UX mobile**: cabeçalho legível, botões com toque confortável (h-10), sem overflow horizontal.
+2. **Dados**: zero alteração — apenas reorganização visual.
+3. **Riscos colaterais**: nenhum — desktop fica idêntico.
+4. **Quem é afetado**: apenas o super-admin acessando `/super-admin` no celular.
 
 ## Validação
-- Em 390px: lista vertical visível, sem rolagem horizontal.
-- Toolbar mobile mostra busca + botão Filtros; Sheet abre com Plano/Status/Pendência/Densidade.
-- Cada card colapsado mostra nome, plano, status, pendências.
-- Botões "Abrir", "CRM" e "Mais" têm altura ≥ 44px.
-- Expansão revela 3 grupos (Auditoria/Integrações/Acesso) com pills de largura confortável.
-- Em ≥ 768px: tabela desktop atual permanece idêntica.
-- Todos os dialogs (Stats, Parados, Push-Docs, Boletos, etc.) abrem normalmente em ambos os modos.
+- Em 390px: cabeçalho empilhado, sem rolagem horizontal, botões em duas colunas iguais.
+- Em ≥ 640px: layout original preservado (botões à direita, labels completos).
