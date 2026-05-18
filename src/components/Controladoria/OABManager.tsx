@@ -71,6 +71,7 @@ export const OABManager = () => {
   const [lawsuitBatchDialogOpen, setLawsuitBatchDialogOpen] = useState(false);
   const [importCNJDialogOpen, setImportCNJDialogOpen] = useState(false);
   const [importPlanilhaOpen, setImportPlanilhaOpen] = useState(false);
+  const [importacoesDialogOpen, setImportacoesDialogOpen] = useState(false);
   const [selectedOabForPlanilha, setSelectedOabForPlanilha] = useState<OABCadastrada | null>(null);
   const [oabToDelete, setOabToDelete] = useState<OABCadastrada | null>(null);
   const [selectedOabForBatch, setSelectedOabForBatch] = useState<OABCadastrada | null>(null);
@@ -199,6 +200,16 @@ export const OABManager = () => {
         </div>
         
         <div className="flex items-center gap-2">
+          {isAdmin && canImportCNJ && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setImportacoesDialogOpen(true)}
+              title="Importações"
+            >
+              <Inbox className="w-4 h-4" />
+            </Button>
+          )}
           {isAdmin && podeAdicionarOAB() && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
@@ -298,16 +309,6 @@ export const OABManager = () => {
             >
               <span>Geral</span>
             </button>
-            {canImportCNJ && (
-              <button
-                onClick={() => setActiveTab('importacoes')}
-                data-active={activeTab === 'importacoes'}
-                className="apple-tab whitespace-nowrap"
-              >
-                <Inbox className="w-3.5 h-3.5 mr-1 inline" />
-                <span>Importações</span>
-              </button>
-            )}
             {oabs.map((oab) => {
               const isActive = activeTab === oab.id;
               return (
@@ -331,12 +332,6 @@ export const OABManager = () => {
           <TabsContent value="geral" className="mt-4 flex-1">
             <GeralTab />
           </TabsContent>
-
-          {canImportCNJ && (
-            <TabsContent value="importacoes" className="mt-4 flex-1">
-              <ImportacoesTab />
-            </TabsContent>
-          )}
 
           {oabs.map((oab) => (
             <TabsContent key={oab.id} value={oab.id} className="mt-4 flex-1">
@@ -508,10 +503,25 @@ export const OABManager = () => {
           oabId={selectedOabForPlanilha.id}
           oabLabel={`OAB ${selectedOabForPlanilha.oab_numero}/${selectedOabForPlanilha.oab_uf}`}
           onSuccess={() => {
-            setActiveTab('importacoes');
+            setImportacoesDialogOpen(true);
             fetchOABs();
           }}
         />
+      )}
+
+      {/* Importações Dialog */}
+      {canImportCNJ && (
+        <Dialog open={importacoesDialogOpen} onOpenChange={setImportacoesDialogOpen}>
+          <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Inbox className="w-5 h-5" />
+                Importações
+              </DialogTitle>
+            </DialogHeader>
+            <ImportacoesTab />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
