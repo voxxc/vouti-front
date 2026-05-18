@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus, FileStack, Loader2, FileWarning } from 'lucide-react';
+import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus, FileStack, Loader2, FileWarning, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import { TenantBancoIdsDialog } from './TenantBancoIdsDialog';
 import { CreateTenantAdminDialog } from './CreateTenantAdminDialog';
 import { TenantPushDocsDialog } from './TenantPushDocsDialog';
 import { TenantProcessosIncompletosDialog } from './TenantProcessosIncompletosDialog';
+import { TenantProcessosParadosDialog } from './TenantProcessosParadosDialog';
 import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
 import CloudIcon from '@/components/CloudIcon';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,6 +57,7 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
   const [showPushDocs, setShowPushDocs] = useState(false);
   const [showProcessosIncompletos, setShowProcessosIncompletos] = useState(false);
+  const [showParados, setShowParados] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [whatsAppLoading, setWhatsAppLoading] = useState(false);
@@ -293,6 +295,15 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
                 </Badge>
               )}
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setShowParados(true)}
+              title="Auditoria de processos parados"
+            >
+              <Clock className="h-4 w-4" />
+            </Button>
             <Button 
               variant="ghost" 
               size="icon"
@@ -384,6 +395,12 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
         onOpenChange={setShowProcessosIncompletos}
         tenant={tenant}
         onComplete={onIncompleteRefresh}
+      />
+
+      <TenantProcessosParadosDialog
+        open={showParados}
+        onOpenChange={setShowParados}
+        tenant={tenant}
       />
     </>
   );
