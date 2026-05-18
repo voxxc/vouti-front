@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2, RefreshCw, FileWarning } from 'lucide-react';
+import { Loader2, RefreshCw, FileWarning, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -42,6 +42,8 @@ export function TenantProcessosIncompletosDialog({ open, onOpenChange, tenant, o
   const [loading, setLoading] = useState(false);
   const [reloadingId, setReloadingId] = useState<string | null>(null);
   const [reloadingAll, setReloadingAll] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingAll, setDeletingAll] = useState(false);
 
   const fetchProcessos = async () => {
     setLoading(true);
@@ -81,8 +83,7 @@ export function TenantProcessosIncompletosDialog({ open, onOpenChange, tenant, o
       });
       if (error) throw error;
       toast.success(`Detalhes solicitados para ${processo.numero_cnj}`);
-      // Aguarda um pouco e recarrega lista
-      setTimeout(fetchProcessos, 1500);
+      await fetchProcessos();
       onComplete?.();
     } catch (err) {
       console.error('Erro ao recarregar:', err);
@@ -103,13 +104,61 @@ export function TenantProcessosIncompletosDialog({ open, onOpenChange, tenant, o
       toast.success(
         `Processados: ${data.success_count} sucesso, ${data.failed_count} falhas (de ${data.processed})`,
       );
-      setTimeout(fetchProcessos, 2000);
+      await fetchProcessos();
       onComplete?.();
     } catch (err) {
       console.error('Erro no backfill:', err);
       toast.error('Erro ao recarregar em lote');
     } finally {
       setReloadingAll(false);
+    }
+  };
+
+  const deleteProcessoCascade = async (id: string) => {
+    // Desativa monitoramento (caso haja triggers que dependam) e apaga andamentos + processo
+    await supabase.from('processos_oab').update({ monitoramento_ativo: false }).eq('id', id);
+    await supabase.from('processos_oab_andamentos').delete().eq('processo_oab_id', id);
+    const { error } = await supabase.from('processos_oab').delete().eq('id', id);
+    if (error) throw error;
+  };
+
+  const handleDeleteOne = async (processo: ProcessoIncompleto) => {
+    if (!confirm(`Excluir definitivamente o processo ${processo.numero_cnj}?`)) return;
+    setDeletingId(processo.id);
+    try {
+      await deleteProcessoCascade(processo.id);
+      toast.success(`Processo ${processo.numero_cnj} excluído`);
+      setProcessos((prev) => prev.filter((p) => p.id !== processo.id));
+      onComplete?.();
+    } catch (err: any) {
+      console.error('Erro ao excluir:', err);
+      toast.error(err.message || 'Erro ao excluir processo');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    if (processos.length === 0) return;
+    if (!confirm(`Excluir TODOS os ${processos.length} processos incompletos deste tenant? Esta ação é irreversível.`)) return;
+    setDeletingAll(true);
+    let ok = 0;
+    let fail = 0;
+    try {
+      for (const p of processos) {
+        try {
+          await deleteProcessoCascade(p.id);
+          ok++;
+        } catch (e) {
+          console.error('Falha ao excluir', p.numero_cnj, e);
+          fail++;
+        }
+      }
+      toast.success(`Exclusão concluída: ${ok} sucesso${fail ? `, ${fail} falhas` : ''}`);
+      await fetchProcessos();
+      onComplete?.();
+    } finally {
+      setDeletingAll(false);
     }
   };
 
@@ -128,10 +177,20 @@ export function TenantProcessosIncompletosDialog({ open, onOpenChange, tenant, o
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2 flex-wrap">
+          <Button
+            onClick={handleDeleteAll}
+            disabled={deletingAll || processos.length === 0 || reloadingAll}
+            variant="destructive"
+            size="sm"
+            className="gap-2"
+          >
+            {deletingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Excluir todos
+          </Button>
           <Button
             onClick={handleReloadAll}
-            disabled={reloadingAll || processos.length === 0}
+            disabled={reloadingAll || processos.length === 0 || deletingAll}
             variant="default"
             size="sm"
             className="gap-2"
@@ -181,20 +240,36 @@ export function TenantProcessosIncompletosDialog({ open, onOpenChange, tenant, o
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleReloadOne(p)}
-                        disabled={reloadingId === p.id || reloadingAll}
-                        className="gap-2"
-                      >
-                        {reloadingId === p.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-3 w-3" />
-                        )}
-                        Recarregar
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleReloadOne(p)}
+                          disabled={reloadingId === p.id || reloadingAll || deletingAll || deletingId === p.id}
+                          className="gap-2"
+                        >
+                          {reloadingId === p.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3 w-3" />
+                          )}
+                          Recarregar
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteOne(p)}
+                          disabled={deletingId === p.id || deletingAll || reloadingAll}
+                          className="gap-2 text-destructive hover:text-destructive"
+                        >
+                          {deletingId === p.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3" />
+                          )}
+                          Excluir
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
