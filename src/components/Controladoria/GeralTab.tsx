@@ -372,11 +372,12 @@ export const GeralTab = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-10">
+                  <TableHead className="w-8">
                     <Checkbox
                       checked={allVisibleSelected ? true : (someVisibleSelected ? 'indeterminate' : false)}
                       onCheckedChange={() => toggleAll()}
                       aria-label="Selecionar todos"
+                      className="h-3.5 w-3.5 rounded-[3px] border-muted-foreground/30 hover:border-muted-foreground/60 data-[state=checked]:bg-foreground/80 data-[state=checked]:border-foreground/80 data-[state=checked]:text-background data-[state=indeterminate]:bg-foreground/80 data-[state=indeterminate]:border-foreground/80 data-[state=indeterminate]:text-background"
                     />
                   </TableHead>
                   <TableHead>Processo</TableHead>
@@ -397,11 +398,12 @@ export const GeralTab = () => {
                       onClick={() => handleVerDetalhes(processo)}
                       data-state={selectedIds.has(processo.id) ? 'selected' : undefined}
                     >
-                      <TableCell onClick={(e) => e.stopPropagation()} className="w-10">
+                      <TableCell onClick={(e) => e.stopPropagation()} className="w-8">
                         <Checkbox
                           checked={selectedIds.has(processo.id)}
                           onCheckedChange={() => toggleOne(processo.id)}
                           aria-label={`Selecionar ${processo.numero_cnj}`}
+                          className="h-3.5 w-3.5 rounded-[3px] border-muted-foreground/30 hover:border-muted-foreground/60 data-[state=checked]:bg-foreground/80 data-[state=checked]:border-foreground/80 data-[state=checked]:text-background"
                         />
                       </TableCell>
                       <TableCell>
