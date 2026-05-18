@@ -1,49 +1,53 @@
-# Sincronizar "Processos Incompletos" com a lista real
+# Drive: preview interno no Vouti (sem sair da plataforma)
 
 ## Causa raiz
 
-O diálogo "Processos Incompletos — SOLVENZA" mostra exatamente o que está no banco. Consulta direta confirma que os 6 CNJs ainda existem em `processos_oab` com `detalhes_request_id IS NULL`. Eles **não foram apagados** — a função `excluirProcesso` em `src/hooks/useOABs.ts` bloqueia a exclusão quando `monitoramento_ativo = true`, e todos os 6 estão monitorados. O usuário provavelmente viu o toast "Exclusão bloqueada" e o item sumiu da tela local, mas continua no DB.
+`drive.google.com` envia o header `X-Frame-Options: DENY`, então o Google bloqueia qualquer tentativa de carregar a interface dele dentro de um iframe — daí o erro 403. Não é problema do Vouti e não há configuração que contorne isso (é política de segurança do Google, vale para todo site).
 
-CNJs ainda presentes:
-- 0049328-72.2024.8.16.0021
-- 0007995-47.2025.8.16.0170
-- 1001916-10.2023.8.26.0111
-- 7005383-36.2023.8.22.0003
-- 0041397-47.2025.8.16.0000
-- 2372688-76.2025.8.26.0000
+A solução é não depender da UI do Google: usar a API do Drive (que já está integrada) para listar, baixar e **renderizar o conteúdo do arquivo dentro do próprio Vouti**.
 
-## Correção proposta (duas frentes)
+## Correção
 
-### 1. UX — destravar a exclusão a partir do diálogo de Incompletos
-No `TenantProcessosIncompletosDialog`, adicionar uma ação "Excluir" ao lado de "Recarregar" que:
-- Desativa o monitoramento (`monitoramento_ativo = false`).
-- Apaga andamentos vinculados.
-- Apaga o registro em `processos_oab`.
-- Atualiza a lista local + dispara `onComplete()`.
+1. **Filtrar tipos não-renderizáveis**
+   Em `DriveFileList`, esconder por padrão arquivos Google Docs/Sheets/Slides/Forms (mimeType `application/vnd.google-apps.*` exceto `folder`), já que só funcionam dentro do editor do Google. Adicionar um toggle "Mostrar arquivos do Google" para quem quiser ver e abrir em nova aba conscientemente.
 
-Botão extra "Excluir todos" no header do diálogo para limpar em lote (com confirmação).
+2. **Novo componente `DriveFilePreview`** (modal sobre o drawer)
+   Ao clicar num arquivo, abre um modal cheio-de-tela com o preview adequado ao tipo:
+   - **PDF**: `<iframe>` apontando para um blob URL (gerado a partir do download via API → blob → `URL.createObjectURL`). Não usa o viewer do Google, é o PDF nativo do browser.
+   - **Imagens** (`image/*`): `<img>` com o blob URL.
+   - **Vídeo** (`video/*`): `<video controls>` com o blob URL.
+   - **Áudio** (`audio/*`): `<audio controls>` com o blob URL.
+   - **Texto/JSON/CSV** (`text/*`, `application/json`): lê o blob como texto e mostra num `<pre>` com scroll.
+   - **Demais tipos**: card "Preview não disponível" com botões Download e (se for Google-doc e o toggle estiver ligado) "Abrir no Google".
 
-### 2. Confiabilidade — refresh forte
-- Trocar o `setTimeout(fetchProcessos, 1500)` por refetch imediato + invalidação do hook `useIncompleteProcessosCount` (passar `refetch` por prop ou via callback `onComplete`).
-- Garantir que ao fechar/reabrir o diálogo a lista seja sempre recarregada (já é, mas validar).
+3. **Cache de blob por sessão**
+   O hook `useGoogleDrive` ganha `previewFile(file)` que retorna um blob URL e armazena num `Map` em memória, evitando re-download ao reabrir o mesmo arquivo. Revoga as URLs ao desmontar o drawer.
+
+4. **Ajuste no clique do item**
+   `DriveFileList` hoje provavelmente abre `webViewLink`. Trocar o comportamento padrão do clique do nome do arquivo para `onPreview(file)`; manter "Abrir no Google" como ação secundária no menu (só aparece se toggle ligado).
 
 ## Arquivos afetados
 
-- `src/components/SuperAdmin/TenantProcessosIncompletosDialog.tsx` — adicionar ações de exclusão (singular e em lote).
-- `src/components/SuperAdmin/TenantRow.tsx` / `TenantRowMobile.tsx` — passar `refetch` do contador para o `onComplete` do diálogo.
-- (opcional) `src/hooks/useIncompleteProcessosCount.ts` — já expõe `refetch`, só plugar.
-
-Nenhuma migração SQL necessária — a permissão de DELETE já existe via RLS para super_admin/tenant owner.
+- `src/components/Drive/DriveFilePreview.tsx` (novo)
+- `src/components/Drive/DriveFileList.tsx` (filtro de tipos + click → preview + toggle)
+- `src/components/Drive/DriveDrawer.tsx` (montar o preview, limpar blobs no close)
+- `src/hooks/useGoogleDrive.ts` (`previewFile`, cache de blob URLs)
 
 ## Impacto
 
-1. **Usuário final (Super-Admin):** ganha botão "Excluir" e "Excluir todos" diretamente no diálogo de incompletos, sem precisar desativar monitoramento manualmente em cada OAB. Contador no card do tenant cai imediatamente após a ação.
-2. **Dados:** DELETE real em `processos_oab` + `processos_oab_andamentos` dos registros listados. Operação irreversível — exige diálogo de confirmação.
-3. **Riscos colaterais:** processos excluídos somem também das telas de OAB do tenant (CRM/Controladoria). Como o usuário declarou que quer descartá-los, é o comportamento desejado. Sem efeito em outros tenants.
-4. **Quem é afetado:** apenas super-admin (o diálogo só aparece lá). Tenant comum não vê mudança de UI.
+**Usuário final:** clicar num PDF, foto ou vídeo do Drive abre direto dentro do Vouti, em tela cheia, sem redirecionar pro Google nem dar 403. A experiência fica parecida com um visualizador nativo. Arquivos do tipo Google Docs/Sheets/Slides ficam ocultos por padrão (com toggle pra mostrar), evitando frustração com cliques que não funcionam embutidos.
+
+**Dados:** zero. Nenhuma migration, nenhuma alteração de RLS, nenhum dado novo persistido. Tudo é leitura via API já autorizada por OAuth do usuário e blobs efêmeros na memória do browser.
+
+**Riscos colaterais:** arquivos grandes (>50 MB) baixados pra preview podem consumir RAM — mitigado com aviso "Arquivo grande, fazendo download…" e botão de cancelar. Blob URLs precisam ser revogados ao fechar o modal pra não vazar memória.
+
+**Quem é afetado:** todos os usuários que usam o botão "Drive" no header do CRM/Controladoria. Não afeta nenhum outro módulo (CRM, agenda, financeiro continuam iguais).
 
 ## Validação
 
-- Abrir o diálogo na SOLVENZA → confirmar lista com 6 itens.
-- Clicar "Excluir todos" → confirmar → lista zera, badge no card vai a 0.
-- Query: `SELECT count(*) FROM processos_oab WHERE tenant_id=<solvenza> AND detalhes_request_id IS NULL` deve retornar 0.
+1. Conectar Drive, abrir drawer, clicar num PDF → renderiza inline.
+2. Clicar numa imagem .jpg/.png → preview imediato.
+3. Clicar num .mp4 → player de vídeo funciona.
+4. Verificar que Google Docs/Sheets não aparecem na lista por padrão.
+5. Ligar o toggle "Mostrar arquivos do Google" → eles aparecem e abrem em nova aba.
+6. Fechar o modal e o drawer → console sem warnings de memória; reabrir o mesmo arquivo é instantâneo (cache).
