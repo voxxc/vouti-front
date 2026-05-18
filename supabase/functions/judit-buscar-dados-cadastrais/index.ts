@@ -250,9 +250,22 @@ serve(async (req) => {
 
     if (!juditResponse.ok) {
       console.error('[Busca Cadastral] Erro Judit:', juditData);
+      const upstreamMsg =
+        juditData?.error?.message || juditData?.message || 'Erro na API Judit';
+      const isDatalakeDown =
+        upstreamMsg === 'LOGIN_ERROR_ON_DATALAKE' || juditResponse.status >= 500;
+      // Devolve 200 com flag de erro para o frontend não quebrar (blank screen)
       return new Response(
-        JSON.stringify({ error: juditData.message || 'Erro na API Judit', details: juditData }),
-        { status: juditResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          success: false,
+          error: isDatalakeDown
+            ? 'A base de dados cadastrais da Judit está temporariamente indisponível. Tente novamente em alguns minutos.'
+            : upstreamMsg,
+          code: upstreamMsg,
+          retryable: isDatalakeDown,
+          details: juditData,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -348,8 +361,8 @@ serve(async (req) => {
   } catch (error) {
     console.error('[Busca Cadastral] Erro:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Erro interno' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: false, error: error.message || 'Erro interno', retryable: true }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
