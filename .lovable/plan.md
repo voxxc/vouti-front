@@ -1,39 +1,49 @@
-# Corrigir timeout ao carregar processos da OAB
+# Sincronizar "Processos Incompletos" com a lista real
 
 ## Causa raiz
 
-O hook `useProcessosOAB` (em `src/hooks/useOABs.ts`, linhas ~349-396) carrega TODOS os processos de uma OAB com um LEFT JOIN pesado em `processos_oab_andamentos`, paginando via `fetchAllPaginated`. Para OABs com 170+ processos e milhares de andamentos cada, o Postgres aborta a consulta com:
+O diálogo "Processos Incompletos — SOLVENZA" mostra exatamente o que está no banco. Consulta direta confirma que os 6 CNJs ainda existem em `processos_oab` com `detalhes_request_id IS NULL`. Eles **não foram apagados** — a função `excluirProcesso` em `src/hooks/useOABs.ts` bloqueia a exclusão quando `monitoramento_ativo = true`, e todos os 6 estão monitorados. O usuário provavelmente viu o toast "Exclusão bloqueada" e o item sumiu da tela local, mas continua no DB.
 
-> canceling statement due to statement timeout
+CNJs ainda presentes:
+- 0049328-72.2024.8.16.0021
+- 0007995-47.2025.8.16.0170
+- 1001916-10.2023.8.26.0111
+- 7005383-36.2023.8.22.0003
+- 0041397-47.2025.8.16.0000
+- 2372688-76.2025.8.26.0000
 
-Esse hook é usado nas abas de OAB da Controladoria (a aba `111056/PR` no screenshot).
+## Correção proposta (duas frentes)
 
-## Correção
+### 1. UX — destravar a exclusão a partir do diálogo de Incompletos
+No `TenantProcessosIncompletosDialog`, adicionar uma ação "Excluir" ao lado de "Recarregar" que:
+- Desativa o monitoramento (`monitoramento_ativo = false`).
+- Apaga andamentos vinculados.
+- Apaga o registro em `processos_oab`.
+- Atualiza a lista local + dispara `onComplete()`.
 
-Quebrar a consulta única em duas consultas leves e paralelas, eliminando o JOIN:
+Botão extra "Excluir todos" no header do diálogo para limpar em lote (com confirmação).
 
-1. **Lista de processos** — `SELECT * FROM processos_oab WHERE oab_id = ?` (sem join, com `fetchAllPaginated`).
-2. **Contagem de não lidos** — reaproveitar o RPC já existente `get_andamentos_nao_lidos_por_processo(p_tenant_id)` (usado em `useAllProcessosOAB`) e filtrar no cliente pelos `processo_oab_id` da OAB atual.
-
-Executar as duas em `Promise.all`, depois fazer o merge em memória (mapa por `processo_id`).
-
-Fallback sutil: se o RPC falhar, ainda exibimos a lista de processos com `andamentos_nao_lidos = 0` em vez de mostrar toast de erro vermelho — o usuário consegue trabalhar.
+### 2. Confiabilidade — refresh forte
+- Trocar o `setTimeout(fetchProcessos, 1500)` por refetch imediato + invalidação do hook `useIncompleteProcessosCount` (passar `refetch` por prop ou via callback `onComplete`).
+- Garantir que ao fechar/reabrir o diálogo a lista seja sempre recarregada (já é, mas validar).
 
 ## Arquivos afetados
 
-- `src/hooks/useOABs.ts` — refatorar `useProcessosOAB.fetchProcessos` (única mudança).
+- `src/components/SuperAdmin/TenantProcessosIncompletosDialog.tsx` — adicionar ações de exclusão (singular e em lote).
+- `src/components/SuperAdmin/TenantRow.tsx` / `TenantRowMobile.tsx` — passar `refetch` do contador para o `onComplete` do diálogo.
+- (opcional) `src/hooks/useIncompleteProcessosCount.ts` — já expõe `refetch`, só plugar.
 
-Nenhuma migração SQL, nenhum componente de UI, nenhuma alteração de RLS — o RPC já existe e respeita tenant.
+Nenhuma migração SQL necessária — a permissão de DELETE já existe via RLS para super_admin/tenant owner.
 
 ## Impacto
 
-1. **Usuário final (UX):** aba da OAB carrega rápido e sem o toast vermelho "canceling statement…". Visualmente idêntico (mesma tabela, mesmos badges de não-lidos).
-2. **Dados:** nenhuma mudança de schema, migration ou RLS. Apenas troca o padrão de leitura (1 query pesada → 2 queries leves).
-3. **Riscos colaterais:** baixo. O RPC `get_andamentos_nao_lidos_por_processo` já é usado em produção pelo `useAllProcessosOAB`, então sabemos que é performático.
-4. **Quem é afetado:** qualquer tenant que abra a aba de uma OAB na Controladoria — principal beneficiado: Alan (OAB 111056/PR com 172 processos).
+1. **Usuário final (Super-Admin):** ganha botão "Excluir" e "Excluir todos" diretamente no diálogo de incompletos, sem precisar desativar monitoramento manualmente em cada OAB. Contador no card do tenant cai imediatamente após a ação.
+2. **Dados:** DELETE real em `processos_oab` + `processos_oab_andamentos` dos registros listados. Operação irreversível — exige diálogo de confirmação.
+3. **Riscos colaterais:** processos excluídos somem também das telas de OAB do tenant (CRM/Controladoria). Como o usuário declarou que quer descartá-los, é o comportamento desejado. Sem efeito em outros tenants.
+4. **Quem é afetado:** apenas super-admin (o diálogo só aparece lá). Tenant comum não vê mudança de UI.
 
 ## Validação
 
-1. Abrir Controladoria → aba `111056/PR` no tenant do Alan: deve carregar sem toast vermelho.
-2. Confirmar que o badge de "andamentos não lidos" continua aparecendo nos processos certos.
-3. Testar uma OAB pequena (ex.: 92124/PR com 101 processos) para garantir que não houve regressão.
+- Abrir o diálogo na SOLVENZA → confirmar lista com 6 itens.
+- Clicar "Excluir todos" → confirmar → lista zera, badge no card vai a 0.
+- Query: `SELECT count(*) FROM processos_oab WHERE tenant_id=<solvenza> AND detalhes_request_id IS NULL` deve retornar 0.
