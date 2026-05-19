@@ -150,7 +150,7 @@ export function ProjectWorkspaceTabs({
                         : "border-transparent hover:border-muted-foreground/30"
                     )}
                   >
-                    <span className="max-w-[120px] truncate">{workspace.nome}</span>
+                    <span className="whitespace-nowrap max-w-[260px] truncate">{workspace.nome}</span>
                   </Button>
                   
                   <DropdownMenu>

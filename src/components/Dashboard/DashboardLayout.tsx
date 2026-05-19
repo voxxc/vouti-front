@@ -336,6 +336,7 @@ const DashboardLayout = ({
   const handleQuickProjectSelect = (projectId: string) => {
     setSelectedProjectId(projectId);
     setProjectDrawerOpen(true);
+    setActiveDrawer(null);
   };
 
   // Handler para mudança de drawer do sidebar
@@ -424,6 +425,7 @@ const DashboardLayout = ({
                   setSelectedProjectId(projectId);
                   setPendingProtocoloId(protocoloId);
                   setProjectDrawerOpen(true);
+                  setActiveDrawer(null);
                 }}
                 borderless={tenantSlug === 'demorais'}
               />
