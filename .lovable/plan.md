@@ -1,3 +1,51 @@
+# Correções: Drawers sobrepostos e nomes de workspaces truncados
+
+## 1) Quick Search abre projeto por baixo do Planejador
+
+### Causa raiz
+No `DashboardLayout.tsx`, ao selecionar um projeto/protocolo na Busca Rápida, abrimos o `ProjectDrawer` (estado independente `projectDrawerOpen`) sem fechar o `activeDrawer` corrente. Como Planejador, Agenda, CRM etc. são renderizados via `activeDrawer`, eles continuam abertos e o `ProjectDrawer` aparece sobreposto/embaixo.
+
+### Correção
+- Em `handleQuickProjectSelect` (e no callback `onSelectProtocolo` da `ProjectQuickSearch`), além de setar `selectedProjectId` e abrir o `ProjectDrawer`, chamar `setActiveDrawer(null)` para fechar qualquer drawer principal aberto (Planejador, Agenda, CRM, etc.).
+
+### Arquivos afetados
+- `src/components/Dashboard/DashboardLayout.tsx`
+
+### Impacto
+- UX: ao clicar num resultado da Busca Rápida, o drawer ativo (Planejador) fecha e o projeto abre limpo, sem sobreposição.
+- Dados: nenhuma alteração.
+- Risco colateral: se o usuário estava editando algo no Planejador sem salvar, o drawer fecha — comportamento esperado e consistente com a navegação por sidebar.
+- Afetados: todos os usuários que usam Busca Rápida com algum drawer aberto.
+
+### Validação
+- Abrir Planejador → digitar na Busca Rápida → clicar num projeto: Planejador fecha, ProjectDrawer abre sozinho.
+- Mesmo teste partindo de Agenda/CRM/WhatsApp drawers.
+
+---
+
+## 2) Nomes dos workspaces (abas) aparecem truncados
+
+### Causa raiz
+Em `ProjectWorkspaceTabs.tsx` (linha 153), cada aba tem `max-w-[120px] truncate`, cortando nomes como "DE BASTIANI COMÉRCIO ATACADISTA DE MADEIRAS LTDA" para "DE BASTIANI C...". Isso dificulta diferenciar workspaces de mesmo cliente.
+
+### Correção
+- Remover o `max-w-[120px] truncate` do `<span>` do nome da aba e usar `whitespace-nowrap` para que o nome apareça completo.
+- O `ScrollArea` horizontal já existente cuida do overflow quando há muitas abas — abas largas passam a poder rolar lateralmente em vez de truncar.
+- Opcional: aumentar `max-w` para algo generoso (ex.: `max-w-[260px]`) mantendo `truncate` como fallback apenas para nomes absurdamente longos (>30 chars já é o limite imposto na criação).
+
+### Arquivos afetados
+- `src/components/Project/ProjectWorkspaceTabs.tsx`
+
+### Impacto
+- UX: usuário consegue ler o nome completo de cada workspace, facilitando localizar o desejado.
+- Dados: nenhuma alteração.
+- Risco colateral: em projetos com muitos workspaces, a barra de abas precisará de scroll horizontal (já suportado pelo `ScrollArea`). Em telas muito estreitas, pode exigir mais rolagem.
+- Afetados: todos os usuários que usam múltiplos workspaces dentro de um projeto.
+
+### Validação
+- Abrir um projeto com workspaces de nomes longos: nomes aparecem inteiros.
+- Criar várias abas e validar que a barra rola lateralmente sem quebrar layout.
+
 # Drive: preview interno no Vouti (sem sair da plataforma)
 
 ## Causa raiz
