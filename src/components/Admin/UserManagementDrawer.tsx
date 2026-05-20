@@ -417,9 +417,7 @@ export function UserManagementDrawer({
     }
   };
 
-  const createAvailablePermissions = ADDITIONAL_PERMISSIONS.filter(
-    p => p.role !== createFormData.role
-  );
+  const createAvailablePermissions = ADDITIONAL_PERMISSIONS;
 
   const getRoleBadgeVariant = (role: string) => {
     return role === 'admin' ? 'default' : 'secondary';
@@ -440,10 +438,8 @@ export function UserManagementDrawer({
     return labels[role] || role;
   };
 
-  // Filtra permissões adicionais para não mostrar a role principal
-  const availablePermissions = ADDITIONAL_PERMISSIONS.filter(
-    p => p.role !== editFormData.role
-  );
+  // Mostra todas as permissões adicionais (sem filtrar pela role principal)
+  const availablePermissions = ADDITIONAL_PERMISSIONS;
 
   const selectedPermissionsLabels = editFormData.additionalPermissions
     .map(role => ADDITIONAL_PERMISSIONS.find(p => p.role === role)?.label)
@@ -601,12 +597,10 @@ export function UserManagementDrawer({
               <Label>Perfil</Label>
               <Select
                 value={editFormData.role}
-                onValueChange={(value) => setEditFormData(prev => ({ 
-                  ...prev, 
-                  role: value as User['role'],
-                  // Remove a nova role principal das permissões adicionais
-                  additionalPermissions: prev.additionalPermissions.filter(p => p !== value)
-                }))}
+                 onValueChange={(value) => setEditFormData(prev => ({
+                   ...prev,
+                   role: value as User['role'],
+                 }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o perfil" />
@@ -770,11 +764,10 @@ export function UserManagementDrawer({
               <Label>Perfil</Label>
               <Select
                 value={createFormData.role}
-                onValueChange={(value) => setCreateFormData(prev => ({
-                  ...prev,
-                  role: value as User['role'],
-                  additionalPermissions: prev.additionalPermissions.filter(p => p !== value)
-                }))}
+                 onValueChange={(value) => setCreateFormData(prev => ({
+                   ...prev,
+                   role: value as User['role'],
+                 }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o perfil" />
