@@ -178,12 +178,14 @@ serve(async (req) => {
       .select('customer_key, system_name')
       .eq('tenant_id', tenantId)
       .eq('status', 'active');
-    if (credenciais && credenciais.length > 0) {
+    if (credenciais && credenciais.length > 0 && tribunalSigla) {
       const matched = credenciais.find((c) => {
         const sn = (c.system_name || '').toLowerCase();
         return sn.includes(tribunalSigla) || tribunalSigla.includes(sn);
       });
-      customerKey = matched?.customer_key || credenciais[0].customer_key;
+      // Só envia customer_key se houver credencial específica do tribunal.
+      // Enviar credencial de outro tribunal causa 401 USER_NOT_FOUND na Judit.
+      customerKey = matched?.customer_key || null;
     }
 
     // 4. POST novo (forçando on_demand, ignorando cache)
@@ -207,11 +209,32 @@ serve(async (req) => {
       .select('id')
       .single();
 
-    const postRes = await fetch(`${REQUESTS_API_URL}/requests`, {
+    let postRes = await fetch(`${REQUESTS_API_URL}/requests`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'api-key': juditApiKey.trim() },
       body: JSON.stringify(requestPayload),
     });
+
+    // Retry sem credential se USER_NOT_FOUND (credencial inválida p/ tribunal)
+    if (!postRes.ok && customerKey) {
+      const errText = await postRes.text();
+      if (errText.includes('USER_NOT_FOUND') || postRes.status === 401) {
+        console.warn('[Judit Reset] Credencial inválida, tentando sem customer_key');
+        delete (requestPayload as any).credential;
+        postRes = await fetch(`${REQUESTS_API_URL}/requests`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'api-key': juditApiKey.trim() },
+          body: JSON.stringify(requestPayload),
+        });
+      } else {
+        if (postLog?.id) {
+          await supabase.from('judit_api_logs').update({
+            sucesso: false, resposta_status: postRes.status, erro_mensagem: errText,
+          }).eq('id', postLog.id);
+        }
+        throw new Error(`Erro POST Judit: ${postRes.status} ${errText.substring(0, 200)}`);
+      }
+    }
 
     if (!postRes.ok) {
       const errText = await postRes.text();
