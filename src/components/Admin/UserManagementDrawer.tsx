@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantId } from "@/hooks/useTenantId";
 import { usePlanoLimites } from "@/hooks/usePlanoLimites";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface UserManagementDrawerProps {
   open: boolean;
@@ -91,6 +92,7 @@ export function UserManagementDrawer({
   const { toast } = useToast();
   const { tenantId } = useTenantId();
   const { podeAdicionarUsuario } = usePlanoLimites();
+  const { user: currentUser } = useAuth();
 
   // State for 2FA wallet management
   const [tenantWallets, setTenantWallets] = useState<Array<{ id: string; name: string }>>([]);
