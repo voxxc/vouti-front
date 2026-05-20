@@ -1,101 +1,44 @@
-# Correções: Drawers sobrepostos e nomes de workspaces truncados
-
-## 1) Quick Search abre projeto por baixo do Planejador
-
-### Causa raiz
-No `DashboardLayout.tsx`, ao selecionar um projeto/protocolo na Busca Rápida, abrimos o `ProjectDrawer` (estado independente `projectDrawerOpen`) sem fechar o `activeDrawer` corrente. Como Planejador, Agenda, CRM etc. são renderizados via `activeDrawer`, eles continuam abertos e o `ProjectDrawer` aparece sobreposto/embaixo.
-
-### Correção
-- Em `handleQuickProjectSelect` (e no callback `onSelectProtocolo` da `ProjectQuickSearch`), além de setar `selectedProjectId` e abrir o `ProjectDrawer`, chamar `setActiveDrawer(null)` para fechar qualquer drawer principal aberto (Planejador, Agenda, CRM, etc.).
-
-### Arquivos afetados
-- `src/components/Dashboard/DashboardLayout.tsx`
-
-### Impacto
-- UX: ao clicar num resultado da Busca Rápida, o drawer ativo (Planejador) fecha e o projeto abre limpo, sem sobreposição.
-- Dados: nenhuma alteração.
-- Risco colateral: se o usuário estava editando algo no Planejador sem salvar, o drawer fecha — comportamento esperado e consistente com a navegação por sidebar.
-- Afetados: todos os usuários que usam Busca Rápida com algum drawer aberto.
-
-### Validação
-- Abrir Planejador → digitar na Busca Rápida → clicar num projeto: Planejador fecha, ProjectDrawer abre sozinho.
-- Mesmo teste partindo de Agenda/CRM/WhatsApp drawers.
-
----
-
-## 2) Nomes dos workspaces (abas) aparecem truncados
-
-### Causa raiz
-Em `ProjectWorkspaceTabs.tsx` (linha 153), cada aba tem `max-w-[120px] truncate`, cortando nomes como "DE BASTIANI COMÉRCIO ATACADISTA DE MADEIRAS LTDA" para "DE BASTIANI C...". Isso dificulta diferenciar workspaces de mesmo cliente.
-
-### Correção
-- Remover o `max-w-[120px] truncate` do `<span>` do nome da aba e usar `whitespace-nowrap` para que o nome apareça completo.
-- O `ScrollArea` horizontal já existente cuida do overflow quando há muitas abas — abas largas passam a poder rolar lateralmente em vez de truncar.
-- Opcional: aumentar `max-w` para algo generoso (ex.: `max-w-[260px]`) mantendo `truncate` como fallback apenas para nomes absurdamente longos (>30 chars já é o limite imposto na criação).
-
-### Arquivos afetados
-- `src/components/Project/ProjectWorkspaceTabs.tsx`
-
-### Impacto
-- UX: usuário consegue ler o nome completo de cada workspace, facilitando localizar o desejado.
-- Dados: nenhuma alteração.
-- Risco colateral: em projetos com muitos workspaces, a barra de abas precisará de scroll horizontal (já suportado pelo `ScrollArea`). Em telas muito estreitas, pode exigir mais rolagem.
-- Afetados: todos os usuários que usam múltiplos workspaces dentro de um projeto.
-
-### Validação
-- Abrir um projeto com workspaces de nomes longos: nomes aparecem inteiros.
-- Criar várias abas e validar que a barra rola lateralmente sem quebrar layout.
-
-# Drive: preview interno no Vouti (sem sair da plataforma)
+# Botão "Carregar Andamentos" — disparar importação CNJ real sem recarregar a página
 
 ## Causa raiz
 
-`drive.google.com` envia o header `X-Frame-Options: DENY`, então o Google bloqueia qualquer tentativa de carregar a interface dele dentro de um iframe — daí o erro 403. Não é problema do Vouti e não há configuração que contorne isso (é política de segurança do Google, vale para todo site).
+Hoje o botão "Carregar Andamentos" (exibido no drawer do processo quando ele está sem `detalhes_request_id` e sem andamentos) é um **no-op**: a função `carregarDetalhes` em `src/hooks/useOABs.ts` apenas marca `detalhes_carregados: true` no estado local e não chama nenhuma Edge Function. Por isso processos importados pela OAB que ficaram sem andamentos (caso do tenant Vargas) nunca recebem dados, mesmo após o usuário clicar no botão.
 
-A solução é não depender da UI do Google: usar a API do Drive (que já está integrada) para listar, baixar e **renderizar o conteúdo do arquivo dentro do próprio Vouti**.
+Além disso, qualquer recarga atual chama `fetchProcessos()` da lista inteira, o que dá a sensação de "a página inteira atualizou".
 
 ## Correção
 
-1. **Filtrar tipos não-renderizáveis**
-   Em `DriveFileList`, esconder por padrão arquivos Google Docs/Sheets/Slides/Forms (mimeType `application/vnd.google-apps.*` exceto `folder`), já que só funcionam dentro do editor do Google. Adicionar um toggle "Mostrar arquivos do Google" para quem quiser ver e abrir em nova aba conscientemente.
+1. **`carregarDetalhes` passa a chamar de verdade a Judit**
+   - Em `src/hooks/useOABs.ts`, substituir o no-op por uma invocação real à Edge Function `judit-resetar-processo` (ela já faz consulta on-demand, baixa andamentos e atualiza `detalhes_request_id`, `ultima_movimentacao`, etc.).
+   - Por que `judit-resetar-processo` e não `judit-buscar-processo-cnj`: o segundo bloqueia com `duplicado: true` quando o processo já existe na OAB. O primeiro foi feito exatamente para "atualizar processo já cadastrado".
+   - Em processos sem andamentos o monitoramento normalmente ainda não está ativo, então o efeito colateral de "desativar monitoramento" não acontece. Se estiver ativo, mantemos o aviso existente.
 
-2. **Novo componente `DriveFilePreview`** (modal sobre o drawer)
-   Ao clicar num arquivo, abre um modal cheio-de-tela com o preview adequado ao tipo:
-   - **PDF**: `<iframe>` apontando para um blob URL (gerado a partir do download via API → blob → `URL.createObjectURL`). Não usa o viewer do Google, é o PDF nativo do browser.
-   - **Imagens** (`image/*`): `<img>` com o blob URL.
-   - **Vídeo** (`video/*`): `<video controls>` com o blob URL.
-   - **Áudio** (`audio/*`): `<audio controls>` com o blob URL.
-   - **Texto/JSON/CSV** (`text/*`, `application/json`): lê o blob como texto e mostra num `<pre>` com scroll.
-   - **Demais tipos**: card "Preview não disponível" com botões Download e (se for Google-doc e o toggle estiver ligado) "Abrir no Google".
+2. **Feedback claro sem fechar o drawer**
+   - O drawer já mostra spinner + "Carregando..." durante `handleCarregarAndamentos`. Adicionar um toast informativo no início ("Buscando andamentos no tribunal, isso pode levar alguns segundos") e um toast de sucesso/erro ao fim.
+   - Em caso de timeout/falha da Judit, mostrar mensagem amigável e manter o botão habilitado para nova tentativa.
 
-3. **Cache de blob por sessão**
-   O hook `useGoogleDrive` ganha `previewFile(file)` que retorna um blob URL e armazena num `Map` em memória, evitando re-download ao reabrir o mesmo arquivo. Revoga as URLs ao desmontar o drawer.
-
-4. **Ajuste no clique do item**
-   `DriveFileList` hoje provavelmente abre `webViewLink`. Trocar o comportamento padrão do clique do nome do arquivo para `onPreview(file)`; manter "Abrir no Google" como ação secundária no menu (só aparece se toggle ligado).
+3. **Atualizar somente o drawer (sem recarregar a lista)**
+   - `carregarDetalhes` deixa de chamar `fetchProcessos()` global. Em vez disso, atualiza **apenas o registro alterado** no array `processos` local (merge com os campos retornados: `detalhes_request_id`, `ultima_movimentacao`, contadores).
+   - O drawer continua chamando `fetchAndamentos()` (que é local ao próprio drawer) para listar os novos itens. O `useEffect` que sincroniza `selectedProcesso` com a lista local já cuida do resto.
+   - Resultado: a tela atrás do drawer não pisca nem rola para o topo.
 
 ## Arquivos afetados
 
-- `src/components/Drive/DriveFilePreview.tsx` (novo)
-- `src/components/Drive/DriveFileList.tsx` (filtro de tipos + click → preview + toggle)
-- `src/components/Drive/DriveDrawer.tsx` (montar o preview, limpar blobs no close)
-- `src/hooks/useGoogleDrive.ts` (`previewFile`, cache de blob URLs)
+- `src/hooks/useOABs.ts` — reescrever `carregarDetalhes` para invocar `judit-resetar-processo` e fazer merge local do processo.
+- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — pequenos ajustes no `handleCarregarAndamentos` (toasts informativos + tratamento de erro) e garantir que não dispare refetch global.
+- `src/components/Controladoria/OABTab.tsx` — verificar que `carregarDetalhes` repassado ao drawer não força `fetchProcessos()` após o retorno.
+
+Nenhuma migração de banco. Nenhuma alteração em Edge Functions.
 
 ## Impacto
 
-**Usuário final:** clicar num PDF, foto ou vídeo do Drive abre direto dentro do Vouti, em tela cheia, sem redirecionar pro Google nem dar 403. A experiência fica parecida com um visualizador nativo. Arquivos do tipo Google Docs/Sheets/Slides ficam ocultos por padrão (com toggle pra mostrar), evitando frustração com cliques que não funcionam embutidos.
-
-**Dados:** zero. Nenhuma migration, nenhuma alteração de RLS, nenhum dado novo persistido. Tudo é leitura via API já autorizada por OAuth do usuário e blobs efêmeros na memória do browser.
-
-**Riscos colaterais:** arquivos grandes (>50 MB) baixados pra preview podem consumir RAM — mitigado com aviso "Arquivo grande, fazendo download…" e botão de cancelar. Blob URLs precisam ser revogados ao fechar o modal pra não vazar memória.
-
-**Quem é afetado:** todos os usuários que usam o botão "Drive" no header do CRM/Controladoria. Não afeta nenhum outro módulo (CRM, agenda, financeiro continuam iguais).
+- **UX**: usuário clica em "Carregar Andamentos" em qualquer tenant → vê spinner + toast "Buscando andamentos no tribunal" → andamentos aparecem dentro do próprio drawer, sem a página atrás recarregar. Funciona igual para Vargas, Solvenza e todos os demais.
+- **Dados**: chamadas adicionais à API Judit (consumo on-demand) apenas quando o usuário clica explicitamente — comportamento idêntico ao botão de "atualizar andamentos" que já existe ao lado. Sem mudança de schema, RLS ou performance global.
+- **Riscos colaterais**: se o processo tiver monitoramento ativo, a consulta on-demand pode desativá-lo (regra existente da Judit, já tratada por `judit-resetar-processo`). O usuário recebe o toast informando para reativar. Casos sigilosos sem credencial continuam falhando com mensagem amigável.
+- **Quem é afetado**: todos os tenants com processos sem andamentos. Sem mudança para super-admin.
 
 ## Validação
 
-1. Conectar Drive, abrir drawer, clicar num PDF → renderiza inline.
-2. Clicar numa imagem .jpg/.png → preview imediato.
-3. Clicar num .mp4 → player de vídeo funciona.
-4. Verificar que Google Docs/Sheets não aparecem na lista por padrão.
-5. Ligar o toggle "Mostrar arquivos do Google" → eles aparecem e abrem em nova aba.
-6. Fechar o modal e o drawer → console sem warnings de memória; reabrir o mesmo arquivo é instantâneo (cache).
+1. Tenant Vargas: abrir processo OAB sem andamentos → clicar "Carregar Andamentos" → confirmar que o drawer mostra spinner, a página atrás não recarrega, andamentos aparecem ao final.
+2. Repetir em Solvenza com processo já com andamentos parados → comportamento equivalente ao botão "atualizar".
+3. Testar caso de erro (CNJ inválido / Datalake fora) → toast de erro e botão volta a habilitar.
