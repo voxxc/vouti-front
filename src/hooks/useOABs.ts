@@ -453,15 +453,38 @@ export const useProcessosOAB = (oabId: string | null) => {
 
   // Simplificado: dados já estão no banco via sincronização inicial + monitoramento
   const carregarDetalhes = async (processoId: string, _numeroCnj: string, _oabId?: string) => {
-    // Não precisa chamar Edge Function — andamentos já foram carregados na sincronização
-    // e novos chegam via monitoramento + sincronização do super-admin
-    setProcessos(prev => 
-      prev.map(p => p.id === processoId 
-        ? { ...p, detalhes_carregados: true }
-        : p
-      )
-    );
-    return { success: true };
+    // Dispara consulta on-demand à Judit para processos sem andamentos.
+    // Atualiza apenas o registro alterado no estado local (sem refetch global),
+    // para não recarregar a página atrás do drawer.
+    try {
+      const { data, error } = await supabase.functions.invoke('judit-resetar-processo', {
+        body: { processoOabId: processoId, userId: user?.id }
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Falha ao carregar andamentos');
+
+      // Buscar os campos atualizados do processo (apenas esta linha)
+      const { data: atualizado } = await supabase
+        .from('processos_oab')
+        .select('*')
+        .eq('id', processoId)
+        .maybeSingle();
+
+      if (atualizado) {
+        setProcessos(prev =>
+          prev.map(p => (p.id === processoId ? { ...p, ...(atualizado as any), detalhes_carregados: true } : p))
+        );
+      } else {
+        setProcessos(prev =>
+          prev.map(p => (p.id === processoId ? { ...p, detalhes_carregados: true } : p))
+        );
+      }
+
+      return { success: true, ...data };
+    } catch (err: any) {
+      console.error('[useProcessosOAB] Erro ao carregar andamentos:', err);
+      return { success: false, error: err.message };
+    }
   };
 
   const atualizarOrdem = async (processosOrdenados: ProcessoOAB[]) => {

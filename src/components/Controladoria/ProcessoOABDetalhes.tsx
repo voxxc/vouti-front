@@ -346,9 +346,25 @@ export const ProcessoOABDetalhes = ({
     
     setConfirmacaoFinalOpen(false);
     setCarregandoAndamentos(true);
+    const { toast } = await import('sonner');
+    const loadingId = toast.loading('Buscando andamentos no tribunal...', {
+      description: 'Isso pode levar alguns segundos.',
+    });
     try {
-      await onCarregarDetalhes(processo.id, processo.numero_cnj);
+      const result: any = await onCarregarDetalhes(processo.id, processo.numero_cnj);
       await fetchAndamentos();
+      toast.dismiss(loadingId);
+      if (result?.success === false) {
+        toast.error('Não foi possível carregar os andamentos', {
+          description: result?.error || 'Tente novamente em instantes.',
+        });
+      } else {
+        const novos = result?.andamentosNovos ?? 0;
+        toast.success(novos > 0 ? `${novos} andamento(s) carregado(s)` : 'Andamentos atualizados');
+      }
+    } catch (err: any) {
+      toast.dismiss(loadingId);
+      toast.error('Erro ao carregar andamentos', { description: err?.message });
     } finally {
       setCarregandoAndamentos(false);
     }
