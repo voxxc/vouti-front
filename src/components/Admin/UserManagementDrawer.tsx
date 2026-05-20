@@ -259,6 +259,7 @@ export function UserManagementDrawer({
 
       const emailChanged = editFormData.email !== editingUser.email;
       const isSelf = currentUser?.id === editingUser.id;
+      const passwordChanged = !!(editFormData.password && editFormData.password.length >= 6);
 
       // 1. Atualizar nome no profile
       if (editFormData.name !== editingUser.name) {
@@ -328,11 +329,11 @@ export function UserManagementDrawer({
       setIsEditOpen(false);
       setEditingUser(null);
 
-      // Se admin mudou o próprio email, a sessão foi revogada → logout + redirect
-      if (emailChanged && isSelf) {
+      // Se admin mudou o próprio email OU a própria senha, a sessão foi revogada
+      if ((emailChanged || passwordChanged) && isSelf) {
         toast({
-          title: "Email alterado",
-          description: "Faça login novamente com o novo endereço.",
+          title: emailChanged ? "Email alterado" : "Senha alterada",
+          description: "Faça login novamente para continuar.",
         });
         await supabase.auth.signOut();
         const slug = window.location.pathname.split('/')[1] || '';

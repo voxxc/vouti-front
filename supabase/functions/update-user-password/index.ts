@@ -77,8 +77,8 @@ Deno.serve(async (req) => {
       throw new Error('ID do usuario e nova senha sao obrigatorios')
     }
 
-    if (new_password.length < 6) {
-      throw new Error('Senha deve ter no minimo 6 caracteres')
+    if (new_password.length < 8) {
+      throw new Error('Senha deve ter no minimo 8 caracteres')
     }
 
     // Buscar tenant do usuario alvo

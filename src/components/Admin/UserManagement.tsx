@@ -308,6 +308,7 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
       console.log('handleEditSubmit - permissões adicionais:', editFormData.additionalPermissions);
 
       const emailChanged = editFormData.email !== editingUser.email;
+      const passwordChanged = !!(editFormData.password && editFormData.password.trim() !== '');
 
       // Update profile (name only)
       const { error: profileError } = await supabase
@@ -413,11 +414,11 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
       setEditingUser(null);
       setEditUserTenantId(null);
 
-      // Se admin trocou o próprio email, sessão foi revogada → logout + redirect
-      if (emailChanged && isEditingSelf) {
+      // Se admin trocou o próprio email OU a própria senha, sessão foi revogada
+      if ((emailChanged || passwordChanged) && isEditingSelf) {
         toast({
-          title: "Email alterado",
-          description: "Faça login novamente com o novo endereço.",
+          title: emailChanged ? "Email alterado" : "Senha alterada",
+          description: "Faça login novamente para continuar.",
         });
         await supabase.auth.signOut();
         const slug = window.location.pathname.split('/')[1] || '';
