@@ -266,6 +266,10 @@ const HomePage = () => {
         await supabase.auth.signOut();
         sessionStorage.setItem('selectedTenant', 'advams');
         navigate('/advams/auth');
+      } else if (code === 'vargas') {
+        await supabase.auth.signOut();
+        sessionStorage.setItem('selectedTenant', 'vargas');
+        navigate('/vargas/auth');
       } else if (code === 'metal') {
         await supabase.auth.signOut();
         navigate('/metal-auth');
