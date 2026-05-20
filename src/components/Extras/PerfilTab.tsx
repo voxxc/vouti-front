@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Save, Loader2 } from "lucide-react";
+import { Save, Loader2, KeyRound } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface EditableRowProps {
   label: string;
@@ -74,6 +75,8 @@ export const PerfilTab = () => {
   const { user } = useAuth();
   const { profile, loading, updateProfile } = useUserProfile();
   const [saving, setSaving] = useState(false);
+  const [pwdData, setPwdData] = useState({ current: '', next: '', confirm: '' });
+  const [pwdSaving, setPwdSaving] = useState(false);
   
   const [formData, setFormData] = useState({
     full_name: "",
@@ -103,6 +106,37 @@ export const PerfilTab = () => {
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pwdData.next.length < 8) {
+      toast.error("A nova senha deve ter ao menos 8 caracteres");
+      return;
+    }
+    if (pwdData.next !== pwdData.confirm) {
+      toast.error("A confirmação não confere com a nova senha");
+      return;
+    }
+    setPwdSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('update-own-password', {
+        body: { current_password: pwdData.current, new_password: pwdData.next },
+      });
+      const errMsg = (data as { error?: string } | null)?.error || error?.message;
+      if (errMsg) {
+        toast.error(errMsg);
+        return;
+      }
+      toast.success("Senha alterada. Faça login novamente.");
+      await supabase.auth.signOut();
+      const slug = window.location.pathname.split('/')[1] || '';
+      window.location.href = slug ? `/${slug}/auth` : '/auth';
+    } catch (err: any) {
+      toast.error(err?.message || "Erro ao alterar senha");
+    } finally {
+      setPwdSaving(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -250,6 +284,61 @@ export const PerfilTab = () => {
             </>
           )}
         </Button>
+      </div>
+
+      {/* Segurança — alterar senha */}
+      <div className="pt-8">
+        <Separator />
+      </div>
+      <div onSubmit={handlePasswordSubmit} className="space-y-4 max-w-3xl">
+        <div className="flex items-center gap-2 pt-2">
+          <KeyRound className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">Segurança — Alterar senha</h3>
+        </div>
+        <div className="space-y-1">
+          <EditableRow
+            label="Senha atual"
+            value={pwdData.current}
+            onChange={(v) => setPwdData((p) => ({ ...p, current: v }))}
+            type="password"
+            placeholder="Sua senha atual"
+          />
+          <EditableRow
+            label="Nova senha"
+            value={pwdData.next}
+            onChange={(v) => setPwdData((p) => ({ ...p, next: v }))}
+            type="password"
+            placeholder="Mínimo 8 caracteres"
+          />
+          <EditableRow
+            label="Confirmar nova senha"
+            value={pwdData.confirm}
+            onChange={(v) => setPwdData((p) => ({ ...p, confirm: v }))}
+            type="password"
+            placeholder="Repita a nova senha"
+          />
+        </div>
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            onClick={handlePasswordSubmit}
+            disabled={pwdSaving || !pwdData.current || !pwdData.next || !pwdData.confirm}
+            size="sm"
+            variant="secondary"
+          >
+            {pwdSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Atualizando...
+              </>
+            ) : (
+              <>
+                <KeyRound className="mr-2 h-4 w-4" />
+                Alterar senha
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </form>
   );
