@@ -249,43 +249,56 @@ const HomePage = () => {
   const handleEasterEggSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       const code = easterEggCode.toLowerCase().trim();
-      
-      if (code === 'jusvouti' || code === 'solvenza') {
-        await supabase.auth.signOut();
-        sessionStorage.setItem('selectedTenant', 'solvenza');
-        navigate('/solvenza/auth');
-      } else if (code === 'cordeiro') {
-        await supabase.auth.signOut();
-        sessionStorage.setItem('selectedTenant', 'cordeiro');
-        navigate('/cordeiro/auth');
-      } else if (code === 'teste') {
-        await supabase.auth.signOut();
-        sessionStorage.setItem('selectedTenant', 'teste');
-        navigate('/teste/auth');
-      } else if (code === 'advams') {
-        await supabase.auth.signOut();
-        sessionStorage.setItem('selectedTenant', 'advams');
-        navigate('/advams/auth');
-      } else if (code === 'vargas') {
-        await supabase.auth.signOut();
-        sessionStorage.setItem('selectedTenant', 'vargas');
-        navigate('/vargas/auth');
-      } else if (code === 'metal') {
-        await supabase.auth.signOut();
-        navigate('/metal-auth');
-      } else if (code === 'vlink') {
-        await supabase.auth.signOut();
-        navigate('/linkbio');
-      } else if (code === 'adm1nvouti') {
-        await supabase.auth.signOut();
-        navigate('/super-admin');
-      } else if (code === 'batink') {
-        navigate('/batink');
-      } else if (code === 'spn') {
-        await supabase.auth.signOut();
-        navigate('/spn/auth');
+
+      if (!code) return;
+
+      // Códigos especiais (rotas não-tenant) — alias para slugs específicos
+      const aliases: Record<string, string> = { jusvouti: 'solvenza' };
+      const specialRoutes: Record<string, { path: string; signOut?: boolean }> = {
+        metal: { path: '/metal-auth', signOut: true },
+        vlink: { path: '/linkbio', signOut: true },
+        adm1nvouti: { path: '/super-admin', signOut: true },
+        batink: { path: '/batink' },
+        spn: { path: '/spn/auth', signOut: true },
+      };
+
+      if (specialRoutes[code]) {
+        const { path, signOut } = specialRoutes[code];
+        if (signOut) await supabase.auth.signOut();
+        navigate(path);
+        setEasterEggCode('');
+        setShowEasterEgg(false);
+        return;
       }
-      
+
+      // Qualquer outro código: tenta como slug de tenant
+      const slug = aliases[code] || code;
+      try {
+        const { data, error } = await supabase.rpc('get_tenant_by_slug', { p_slug: slug });
+        const tenant = Array.isArray(data) ? data[0] : data;
+
+        if (error || !tenant || !tenant.is_active) {
+          toast({
+            title: 'Código inválido',
+            description: 'Nenhum tenant ativo encontrado para esse código.',
+            variant: 'destructive',
+          });
+          setEasterEggCode('');
+          return;
+        }
+
+        await supabase.auth.signOut();
+        sessionStorage.setItem('selectedTenant', tenant.slug);
+        navigate(`/${tenant.slug}/auth`);
+      } catch (err) {
+        console.error('Easter egg tenant lookup error:', err);
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível validar o código. Tente novamente.',
+          variant: 'destructive',
+        });
+      }
+
       setEasterEggCode('');
       setShowEasterEgg(false);
     }
