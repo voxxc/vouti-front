@@ -167,7 +167,8 @@ export const PerfilTab = () => {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
+    <div className="space-y-6 max-w-3xl">
+    <form onSubmit={handleSubmit} className="space-y-6">
       {/* Header com Avatar */}
       <div className="flex items-center gap-4 pb-4">
         <Avatar className="h-16 w-16">
@@ -285,12 +286,13 @@ export const PerfilTab = () => {
           )}
         </Button>
       </div>
+    </form>
 
       {/* Segurança — alterar senha */}
       <div className="pt-8">
         <Separator />
       </div>
-      <div onSubmit={handlePasswordSubmit} className="space-y-4 max-w-3xl">
+      <form onSubmit={handlePasswordSubmit} className="space-y-4">
         <div className="flex items-center gap-2 pt-2">
           <KeyRound className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold">Segurança — Alterar senha</h3>
@@ -320,8 +322,7 @@ export const PerfilTab = () => {
         </div>
         <div className="flex justify-end">
           <Button
-            type="button"
-            onClick={handlePasswordSubmit}
+            type="submit"
             disabled={pwdSaving || !pwdData.current || !pwdData.next || !pwdData.confirm}
             size="sm"
             variant="secondary"
@@ -339,7 +340,7 @@ export const PerfilTab = () => {
             )}
           </Button>
         </div>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 };
