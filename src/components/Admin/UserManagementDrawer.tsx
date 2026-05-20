@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantId } from "@/hooks/useTenantId";
 import { usePlanoLimites } from "@/hooks/usePlanoLimites";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface UserManagementDrawerProps {
   open: boolean;
@@ -91,6 +92,7 @@ export function UserManagementDrawer({
   const { toast } = useToast();
   const { tenantId } = useTenantId();
   const { podeAdicionarUsuario } = usePlanoLimites();
+  const { user: currentUser } = useAuth();
 
   // State for 2FA wallet management
   const [tenantWallets, setTenantWallets] = useState<Array<{ id: string; name: string }>>([]);
@@ -255,19 +257,10 @@ export function UserManagementDrawer({
       const { data: { session: refreshedSession } } = await supabase.auth.getSession();
       const token = refreshedSession?.access_token;
 
-      // 1. Atualizar email se mudou
-      if (editFormData.email !== editingUser.email) {
-        const emailResponse = await supabase.functions.invoke('update-user-email', {
-          body: { user_id: editingUser.id, new_email: editFormData.email },
-          headers: { Authorization: `Bearer ${token}` }
-        });
+      const emailChanged = editFormData.email !== editingUser.email;
+      const isSelf = currentUser?.id === editingUser.id;
 
-        if (emailResponse.error) {
-          throw new Error(emailResponse.error.message || 'Erro ao atualizar email');
-        }
-      }
-
-      // 2. Atualizar nome no profile
+      // 1. Atualizar nome no profile
       if (editFormData.name !== editingUser.name) {
         const { error: profileError } = await supabase
           .from('profiles')
@@ -279,23 +272,29 @@ export function UserManagementDrawer({
         }
       }
 
-      // 3. Atualizar roles via Edge Function
-      const rolesResponse = await supabase.functions.invoke('admin-set-user-roles', {
-        body: {
-          target_user_id: editingUser.id,
-          tenant_id: editUserTenantId,
-          primary_role: editFormData.role,
-          additional_roles: editFormData.additionalPermissions
-        },
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      // 2. Atualizar roles via Edge Function — só se mudou algo
+      const originalAdditional = [...((editingUser as any).additionalPermissions || [])].sort().join(',');
+      const newAdditional = [...editFormData.additionalPermissions].sort().join(',');
+      const rolesChanged = editFormData.role !== editingUser.role || originalAdditional !== newAdditional;
 
-      if (rolesResponse.error) {
-        const errorMsg = rolesResponse.data?.error || rolesResponse.error.message;
-        throw new Error(errorMsg);
+      if (rolesChanged) {
+        const rolesResponse = await supabase.functions.invoke('admin-set-user-roles', {
+          body: {
+            target_user_id: editingUser.id,
+            tenant_id: editUserTenantId,
+            primary_role: editFormData.role,
+            additional_roles: editFormData.additionalPermissions
+          },
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (rolesResponse.error) {
+          const errorMsg = rolesResponse.data?.error || rolesResponse.error.message;
+          throw new Error(errorMsg);
+        }
       }
 
-      // 4. Atualizar senha se fornecida
+      // 3. Atualizar senha se fornecida
       if (editFormData.password && editFormData.password.length >= 6) {
         const passwordResponse = await supabase.functions.invoke('update-user-password', {
           body: { user_id: editingUser.id, new_password: editFormData.password },
@@ -307,6 +306,18 @@ export function UserManagementDrawer({
         }
       }
 
+      // 4. Atualizar email POR ÚLTIMO (revoga o token se for o próprio usuário)
+      if (emailChanged) {
+        const emailResponse = await supabase.functions.invoke('update-user-email', {
+          body: { user_id: editingUser.id, new_email: editFormData.email },
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (emailResponse.error) {
+          throw new Error(emailResponse.error.message || 'Erro ao atualizar email');
+        }
+      }
+
       // 5. Chamar callback de edição
       onEditUser(editingUser.id, {
         name: editFormData.name,
@@ -314,9 +325,22 @@ export function UserManagementDrawer({
         role: editFormData.role
       });
 
-      toast({ title: "Sucesso", description: "Usuário atualizado com sucesso" });
       setIsEditOpen(false);
       setEditingUser(null);
+
+      // Se admin mudou o próprio email, a sessão foi revogada → logout + redirect
+      if (emailChanged && isSelf) {
+        toast({
+          title: "Email alterado",
+          description: "Faça login novamente com o novo endereço.",
+        });
+        await supabase.auth.signOut();
+        const slug = window.location.pathname.split('/')[1] || '';
+        window.location.href = slug ? `/${slug}/auth` : '/auth';
+        return;
+      }
+
+      toast({ title: "Sucesso", description: "Usuário atualizado com sucesso" });
 
     } catch (error: any) {
       console.error('Error updating user:', error);

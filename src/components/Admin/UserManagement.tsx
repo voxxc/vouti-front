@@ -306,19 +306,8 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
       console.log('handleEditSubmit - tenant_id:', editUserTenantId);
       console.log('handleEditSubmit - role principal:', editFormData.role);
       console.log('handleEditSubmit - permissões adicionais:', editFormData.additionalPermissions);
-      
-      // Se email foi alterado, atualizar via Edge Function
-      if (editFormData.email !== editingUser.email) {
-        const { data: emailData, error: emailError } = await supabase.functions.invoke('update-user-email', {
-          body: {
-            user_id: editingUser.id,
-            new_email: editFormData.email
-          }
-        });
 
-        if (emailError) throw emailError;
-        if (emailData?.error) throw new Error(emailData.error);
-      }
+      const emailChanged = editFormData.email !== editingUser.email;
 
       // Update profile (name only)
       const { error: profileError } = await supabase
@@ -401,20 +390,45 @@ const UserManagement = ({ users, onAddUser, onEditUser, onDeleteUser }: UserMana
         if (data?.error) throw new Error(data.error);
       }
 
+      // Se email foi alterado, fazer POR ÚLTIMO (revoga sessão do próprio usuário)
+      if (emailChanged) {
+        const { data: emailData, error: emailError } = await supabase.functions.invoke('update-user-email', {
+          body: {
+            user_id: editingUser.id,
+            new_email: editFormData.email
+          }
+        });
+
+        if (emailError) throw emailError;
+        if (emailData?.error) throw new Error(emailData.error);
+      }
+
       onEditUser(editingUser.id, {
         name: editFormData.name,
         email: editFormData.email,
         role: editFormData.role
       });
 
+      setIsEditOpen(false);
+      setEditingUser(null);
+      setEditUserTenantId(null);
+
+      // Se admin trocou o próprio email, sessão foi revogada → logout + redirect
+      if (emailChanged && isEditingSelf) {
+        toast({
+          title: "Email alterado",
+          description: "Faça login novamente com o novo endereço.",
+        });
+        await supabase.auth.signOut();
+        const slug = window.location.pathname.split('/')[1] || '';
+        window.location.href = slug ? `/${slug}/auth` : '/auth';
+        return;
+      }
+
       toast({
         title: "Sucesso",
         description: `Usuário atualizado! Perfil: ${editFormData.role}${uniqueAdditionalRoles.length > 0 ? ` + ${uniqueAdditionalRoles.length} permissão(ões) adicional(is)` : ''}`,
       });
-
-      setIsEditOpen(false);
-      setEditingUser(null);
-      setEditUserTenantId(null);
     } catch (error: any) {
       console.error('handleEditSubmit error:', error);
       
