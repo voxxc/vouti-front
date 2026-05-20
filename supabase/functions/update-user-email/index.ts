@@ -34,10 +34,22 @@ Deno.serve(async (req) => {
       throw new Error('Nao autenticado')
     }
 
-    // Verificar se o usuario solicitante e admin
-    const { data: isAdmin } = await supabaseAdmin.rpc('has_role', {
+    // Buscar tenant do admin PRIMEIRO (para checar role dentro do tenant)
+    const { data: adminProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('tenant_id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (!adminProfile?.tenant_id) {
+      throw new Error('Perfil do administrador nao encontrado')
+    }
+
+    // Verificar se o usuario solicitante e admin NO MESMO TENANT
+    const { data: isAdmin } = await supabaseAdmin.rpc('has_role_in_tenant', {
       _user_id: user.id,
-      _role: 'admin'
+      _role: 'admin',
+      _tenant_id: adminProfile.tenant_id
     })
 
     if (!isAdmin) {
@@ -56,13 +68,6 @@ Deno.serve(async (req) => {
       throw new Error('Formato de email invalido')
     }
 
-    // Buscar tenant do admin
-    const { data: adminProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('tenant_id')
-      .eq('user_id', user.id)
-      .single()
-
     // Buscar tenant do usuario alvo
     const { data: targetProfile } = await supabaseAdmin
       .from('profiles')
@@ -70,9 +75,8 @@ Deno.serve(async (req) => {
       .eq('user_id', user_id)
       .single()
 
-    // Validar mesmo tenant
-    if (!adminProfile?.tenant_id || !targetProfile?.tenant_id) {
-      throw new Error('Erro ao verificar tenant dos usuarios')
+    if (!targetProfile?.tenant_id) {
+      throw new Error('Usuario alvo nao encontrado')
     }
 
     if (adminProfile.tenant_id !== targetProfile.tenant_id) {
