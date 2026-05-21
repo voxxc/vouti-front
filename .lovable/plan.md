@@ -1,54 +1,55 @@
-# Backfill real de Publicações via Judit — Demorais (one-shot)
+# Teste visual de Publicação via Request CNJ — one-shot
 
-Sem inventar nada. Vamos consultar a Judit usando os `tracking_id` que já temos cadastrados, varrer o histórico real de respostas, identificar decisões com anexos e criar as publicações com PDF baixado.
+Você fornece um CNJ, eu disparo um Request CNJ com `with_attachments: true` na Judit, pego **somente o último documento anexado** do response, baixo o PDF, salvo no storage e crio **uma única publicação** no tenant Demorais para você ver o visual real.
 
 ## Causa raiz
 
-A auto-alimentação de publicações só roda em sincronizações novas (`judit-sync-monitorados`). Decisões já existentes no histórico dos processos monitorados nunca foram processadas — então a aba Publicações do Demorais está vazia mesmo havendo dados reais na Judit.
+Aba Publicações nunca foi exposta com decisões reais (PDF baixado). Sem material para julgar o layout final.
 
 ## Correção
 
-Edge Function one-shot `judit-backfill-publicacoes-demorais` (invocação manual, sem cron):
+Edge Function one-shot `judit-test-publicacao-cnj`:
 
-1. Busca todos os `processos_oab` do tenant `demorais` com `tracking_id IS NOT NULL`.
-2. Para cada processo:
-   a. `GET https://tracking.prod.judit.io/tracking/{tracking_id}` para obter o histórico de `request_id` (todos os checks que a Judit já fez).
-   b. Para cada `request_id` retornado: `GET https://requests.prod.judit.io/responses?request_id=...&page_size=100`.
-   c. Varre `response_data.steps[]` procurando steps cujo `content` bata com as palavras-chave de decisão (sentença, defiro, indefiro, liminar, homologo, julgo, despacho decisório, decisão monocrática etc.) **E** que tenham `attachments` não vazio.
-3. Para cada step qualificado:
-   - Faz upsert em `processos_oab_anexos` (chaves: `processo_oab_id` + `step_id` + `attachment_id`).
-   - Baixa o PDF real via `GET https://requests.prod.judit.io/responses/{response_id}/attachments/{attachment_id}`.
-   - Salva no bucket `processo-documentos` em `{tenant_id}/{processo_oab_id}/{anexo_id}.{ext}`.
-   - Extrai texto com `pdfjs-dist` (até 50 KB).
-   - Insere em `publicacoes` (`origem='monitoramento_processo'`, `tipo='Decisão'`, com `processo_oab_id`, `andamento_id` quando existir, `anexo_id`, `storage_path`, `conteudo_completo`, `data_disponibilizacao = step.step_date`).
-   - O índice único anti-duplicidade já criado garante idempotência — pode rodar várias vezes sem duplicar.
-4. Restrição dura: só executa se o slug do tenant resolvido for `demorais`. Outros tenants são rejeitados com 403.
-5. Retorna JSON com totais: processos varridos, requests consultados, decisões encontradas, anexos baixados, publicações criadas, erros por processo.
+1. Recebe `{ numero_cnj }` via POST. Restrita a Super-Admin.
+2. `POST https://requests.prod.judit.io/requests` com:
+   ```json
+   { "search": { "search_type": "lawsuit_cnj", "search_key": "<cnj>", "on_demand": true }, "with_attachments": true }
+   ```
+3. Polling em `GET /responses?request_id=...` até `status` final (até ~30s).
+4. Extrai `response_data.steps[]` ordenados por `step_date` desc. Pega o **primeiro step com `attachments` não vazio** (= último documento publicado).
+5. Pega o **último attachment** desse step.
+6. Vincula a um `processos_oab` do tenant Demorais quando o CNJ existir lá (senão `processo_oab_id = NULL`, ainda assim cria a publicação só para visualização).
+7. Upsert em `processos_oab_anexos` (se houver processo vinculado).
+8. Baixa o binário do anexo via `GET /responses/{response_id}/attachments/{attachment_id}` (header `api-key`).
+9. Salva em `processo-documentos/<tenant_demorais>/<processo_oab_id ou "_avulso">/<anexo_id>.<ext>`.
+10. Extrai texto com `pdfjs-dist` (até 50 KB).
+11. Insere **uma linha** em `publicacoes` (`origem='monitoramento_processo'`, `tipo='Decisão (teste)'`, `numero_processo=<cnj>`, `data_disponibilizacao=step.step_date`, `conteudo_completo=<texto>`, `storage_path=<caminho>`, `tenant_id=<demorais>`).
+12. Retorna JSON com `publicacao_id`, `storage_path`, `attachment_name`, prévia do texto.
 
-Disparo: botão **"Backfill Publicações (real)"** no card do tenant Demorais no Super-Admin, com confirmação. Mostra contadores no fim.
+Disparo: novo card no Super-Admin (ao lado do "Teste de Importação CNJ") chamado **"Teste Publicação CNJ"** com input do CNJ e botão "Criar publicação de teste". Toast com link "Abrir aba Publicações".
 
 ## Arquivos afetados
 
-- `supabase/functions/judit-backfill-publicacoes-demorais/index.ts` (nova)
-- `src/components/SuperAdmin/TenantCard.tsx` ou linha expandida da tabela: novo botão visível só para `slug='demorais'`
-- Sem migration. Schema já está pronto (`publicacoes.origem/storage_path/anexo_id/...`, índice único, bucket `processo-documentos`).
+- `supabase/functions/judit-test-publicacao-cnj/index.ts` (nova).
+- `src/components/SuperAdmin/SuperAdminTestPublicacaoCNJ.tsx` (nova, espelha o padrão de `SuperAdminImportCNJTest.tsx`).
+- Registro do componente na aba de testes existente do Super-Admin.
+- Sem migration. Schema, índice único e bucket já existem.
 
 ## Impacto
 
-- **Usuário final (Demorais):** Aba Publicações passa a listar decisões reais com PDF clicável ("Abrir documento"). Conteúdo extraído de PDF real, não inferido.
-- **Dados:** Linhas novas em `publicacoes`, `processos_oab_anexos`, arquivos novos em `processo-documentos/{tenant_demorais}/...`. Sem `UPDATE` em dados existentes. Sem alteração de schema.
-- **Performance / custo Judit:** Consome chamadas à API Judit proporcional a (nº de processos monitorados) × (média de requests no histórico). Execução serial com pequeno delay entre processos, em background (`EdgeRuntime.waitUntil`). Estimado em poucos minutos para o Demorais.
-- **Riscos colaterais:** Nenhum em outros tenants — função recusa qualquer tenant ≠ `demorais`. Risco residual: falsos positivos por palavra-chave ampla ("decisão"); você pode descartar pelo próprio drawer (status "descartada"). Se um PDF falhar no download, a função registra erro no retorno e segue para o próximo (não cria publicação sem `storage_path` válido).
-- **Quem é afetado:** Apenas Super-Admin (dispara) e usuários do tenant Demorais (veem o resultado).
+- **Usuário final:** Você vê uma publicação real no Demorais com PDF clicável ("Abrir documento"). Nenhuma alteração para outros usuários ou tenants.
+- **Dados:** 1 linha em `publicacoes`, até 1 em `processos_oab_anexos`, 1 arquivo no bucket. Sem `UPDATE` em nada existente. Sem mudança de schema.
+- **Custo / API:** 1 request Judit com attachments + 1 download de PDF. Custo desprezível.
+- **Riscos colaterais:** Nulos em outros tenants — função recusa qualquer destino diferente de Demorais. Se rodar com mesmo CNJ várias vezes, o índice único anti-duplicidade evita publicações duplicadas (retorna a existente).
+- **Quem é afetado:** Apenas Super-Admin (dispara) e usuários do Demorais (veem a publicação na aba).
 
 ## Validação
 
-- Antes: `SELECT count(*) FROM publicacoes WHERE tenant_id=<demorais> AND origem='monitoramento_processo'` → atual.
-- Disparar a função pelo botão; ler o JSON de retorno.
-- Depois: rodar a mesma contagem + abrir a aba Publicações no Demorais.
-- Spot-check: pegar 2-3 publicações, clicar "Abrir documento" e confirmar que o PDF da Judit abre.
-- Reversão limpa, se quiser: `DELETE FROM publicacoes WHERE tenant_id=<demorais> AND origem='monitoramento_processo'` + `DELETE FROM storage.objects WHERE bucket_id='processo-documentos' AND name LIKE '<tenant_demorais>/%'` (cuidado — só faça se quiser refazer do zero).
+1. Você me passa um CNJ que sabe ter movimento com PDF (idealmente uma decisão recente).
+2. Disparar pelo botão; aguardar toast de sucesso.
+3. Abrir aba Publicações no Demorais → conferir badge "Monitoramento", o número do processo e clicar em "Abrir documento" para ver o PDF original.
+4. Se o visual agradar, evoluímos para o backfill em lote ou ligamos a auto-alimentação. Se não, ajustamos só a UI sem precisar refazer a parte de integração.
 
-## Próximo passo (depois do teste)
+## Reversão
 
-Se gostar do resultado, ligamos a auto-alimentação em produção (já implementada em `judit-sync-monitorados`) e replicamos para outros tenants quando você autorizar.
+`DELETE FROM publicacoes WHERE id = '<retornado>'` + remover o objeto correspondente do bucket. Trivial.
