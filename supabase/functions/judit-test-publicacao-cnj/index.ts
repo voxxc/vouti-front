@@ -37,9 +37,8 @@ function htmlToText(html: string): string {
 async function extractPdfText(buffer: ArrayBuffer): Promise<string> {
   try {
     // @ts-ignore
-    const pdfjs: any = await import('https://esm.sh/pdfjs-dist@4.0.379/legacy/build/pdf.mjs');
-    if (pdfjs.GlobalWorkerOptions) pdfjs.GlobalWorkerOptions.workerSrc = '';
-    const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer), useWorker: false, isEvalSupported: false, disableFontFace: true }).promise;
+    const pdfjs: any = await import('https://esm.sh/pdfjs-dist@3.11.174/legacy/build/pdf.mjs');
+    const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer), disableWorker: true, isEvalSupported: false }).promise;
     let out = '';
     const pages = Math.min(doc.numPages, 20);
     for (let p = 1; p <= pages; p++) {
