@@ -174,6 +174,9 @@ async function processarJob(
 
   // 3. Localiza TODOS os steps com anexo
   const steps: any[] = responseData.steps || responseData.movimentacoes || [];
+  const attachmentsTop: any[] = Array.isArray(responseData.attachments)
+    ? responseData.attachments
+    : [];
   const cnjResolvido = (numeroCnj && numeroCnj.length > 0)
     ? numeroCnj
     : String(responseData.code || responseData.numero_processo || '').trim();
@@ -181,21 +184,49 @@ async function processarJob(
     throw new Error('Não foi possível determinar o CNJ a partir do response');
   }
 
-  const sortedSteps = [...steps].sort((a, b) => {
-    const da = new Date(a.step_date || a.data || 0).getTime();
-    const db = new Date(b.step_date || b.data || 0).getTime();
-    return db - da;
-  });
-
-  const stepsComAnexo = sortedSteps.filter(
-    (s) => Array.isArray(s.attachments) && s.attachments.length > 0,
-  ).slice(0, 10); // limite de segurança
-
-  if (stepsComAnexo.length === 0) {
-    throw new Error('Nenhum andamento com anexo encontrado para este CNJ');
+  // Lookup step por step_id (Judit envia attachments no nível top-level)
+  const stepById = new Map<string, any>();
+  for (const s of steps) {
+    if (s.step_id) stepById.set(String(s.step_id), s);
   }
 
-  console.log(`[test-publicacao-cnj] ${stepsComAnexo.length} step(s) com anexo`);
+  // Junta: attachments top-level OU dentro de cada step (fallback)
+  const allAttachments: Array<{ att: any; step: any }> = [];
+  for (const att of attachmentsTop) {
+    const stepRef = att.step_id ? stepById.get(String(att.step_id)) : null;
+    allAttachments.push({ att, step: stepRef || {} });
+  }
+  for (const s of steps) {
+    if (Array.isArray(s.attachments)) {
+      for (const att of s.attachments) allAttachments.push({ att, step: s });
+    }
+  }
+
+  // Filtra válidos e ordena por attachment_date desc
+  const validAttachments = allAttachments
+    .filter(({ att }) => {
+      const status = String(att.status || '').toLowerCase();
+      const corrupted = att.corrupted === true;
+      if (corrupted) return false;
+      if (status && status !== 'done' && status !== 'completed') return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const da = new Date(a.att.attachment_date || a.step.step_date || 0).getTime();
+      const db = new Date(b.att.attachment_date || b.step.step_date || 0).getTime();
+      return db - da;
+    })
+    .slice(0, 10);
+
+  console.log(
+    `[test-publicacao-cnj] steps=${steps.length} attachments_top=${attachmentsTop.length} validos=${validAttachments.length}`,
+  );
+
+  if (validAttachments.length === 0) {
+    throw new Error(
+      `Nenhum anexo válido (top=${attachmentsTop.length}, steps=${steps.length})`,
+    );
+  }
 
   // Vincula a um processos_oab existente, se houver
   const { data: processo } = await supabase
@@ -214,38 +245,41 @@ async function processarJob(
   let countOk = 0;
   const errors: string[] = [];
 
-  for (const step of stepsComAnexo) {
-    for (const att of step.attachments) {
-      const attachmentId = att.attachment_id || att.id;
-      const attachmentName = att.name || att.nome || `${attachmentId}.pdf`;
-      if (!attachmentId) continue;
+  for (const { att, step } of validAttachments) {
+    const attachmentId = att.attachment_id || att.id;
+    const attachmentName =
+      att.attachment_name || att.name || att.nome || `${attachmentId}.pdf`;
+    const extension = String(att.extension || attachmentName.split('.').pop() || 'pdf').toLowerCase();
+    if (!attachmentId) continue;
 
-      try {
-        const downloadUrl = `https://lawsuits.production.judit.io/lawsuits/${numeroLimpoDigits}/${instancia}/attachments/${attachmentId}`;
-        const fileResp = await fetch(downloadUrl, { headers: { 'api-key': juditApiKey } });
-        if (!fileResp.ok) {
-          errors.push(`${attachmentName}: download ${fileResp.status}`);
-          continue;
-        }
-        const arrayBuffer = await fileResp.arrayBuffer();
-        const contentType = fileResp.headers.get('content-type') || 'application/pdf';
-        const ext = attachmentName.split('.').pop() || 'pdf';
-        const storagePath = `${DEMORAIS_TENANT_ID}/_teste_publicacao/${attachmentId}.${ext}`;
+    try {
+      const downloadUrl = `https://lawsuits.production.judit.io/lawsuits/${numeroLimpoDigits}/${instancia}/attachments/${attachmentId}`;
+      const fileResp = await fetch(downloadUrl, { headers: { 'api-key': juditApiKey } });
+      if (!fileResp.ok) {
+        errors.push(`${attachmentName}: download ${fileResp.status}`);
+        continue;
+      }
+      const arrayBuffer = await fileResp.arrayBuffer();
+      const contentType =
+        fileResp.headers.get('content-type') ||
+        (extension === 'pdf' ? 'application/pdf' : extension === 'html' ? 'text/html' : 'application/octet-stream');
+      const storagePath = `${DEMORAIS_TENANT_ID}/_teste_publicacao/${attachmentId}.${extension}`;
 
-        const { error: upErr } = await supabase.storage
-          .from('processo-documentos')
-          .upload(storagePath, new Uint8Array(arrayBuffer), { contentType, upsert: true });
-        if (upErr) {
-          errors.push(`${attachmentName}: storage ${upErr.message}`);
-          continue;
-        }
+      const { error: upErr } = await supabase.storage
+        .from('processo-documentos')
+        .upload(storagePath, new Uint8Array(arrayBuffer), { contentType, upsert: true });
+      if (upErr) {
+        errors.push(`${attachmentName}: storage ${upErr.message}`);
+        continue;
+      }
 
-        const stepText = String(step.content || step.description || '').toLowerCase();
-        const ehDecisao = DECISAO_KEYWORDS.some((k) => stepText.includes(k));
-        const dataStep = step.step_date || step.data || new Date().toISOString();
-        const dataDisp = String(dataStep).slice(0, 10);
+      const stepText = String(step.content || step.description || attachmentName).toLowerCase();
+      const ehDecisao = DECISAO_KEYWORDS.some((k) => stepText.includes(k));
+      const dataStep =
+        att.attachment_date || step.step_date || step.data || new Date().toISOString();
+      const dataDisp = String(dataStep).slice(0, 10);
 
-        const { data: pub, error: pubErr } = await supabase
+      const { data: pub, error: pubErr } = await supabase
           .from('publicacoes')
           .insert({
             tenant_id: DEMORAIS_TENANT_ID,
@@ -261,26 +295,26 @@ async function processarJob(
               teste: true,
               attachment_id: attachmentId,
               attachment_name: attachmentName,
+              extension,
               request_id,
               reused_request: !!reuseRequestId,
             },
           })
           .select('id')
           .single();
-        if (pubErr) {
-          errors.push(`${attachmentName}: insert ${pubErr.message}`);
-          continue;
-        }
-
-        countOk += 1;
-        if (!firstStoragePath) {
-          firstStoragePath = storagePath;
-          firstAttachmentName = attachmentName;
-          firstPubId = pub.id;
-        }
-      } catch (err: any) {
-        errors.push(`${attachmentName}: ${err.message}`);
+      if (pubErr) {
+        errors.push(`${attachmentName}: insert ${pubErr.message}`);
+        continue;
       }
+
+      countOk += 1;
+      if (!firstStoragePath) {
+        firstStoragePath = storagePath;
+        firstAttachmentName = attachmentName;
+        firstPubId = pub.id;
+      }
+    } catch (err: any) {
+      errors.push(`${attachmentName}: ${err.message}`);
     }
   }
 
