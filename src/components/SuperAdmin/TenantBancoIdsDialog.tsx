@@ -7,7 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, Copy, Check, Scale, FileText, Radio, Database, Download } from 'lucide-react';
+import {
+  Search, Copy, Check, Scale, FileText, Radio, Database, Download,
+  ChevronLeft, ChevronRight, BellRing,
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -36,7 +39,6 @@ interface ProcessoAgg {
   numero_cnj: string | null;
   tribunal: string | null;
   request_id: string | null;
-  request_created_at: string | null;
   tracking_id: string | null;
   tracking_ativo: boolean;
   tracking_created_at: string | null;
@@ -50,33 +52,65 @@ interface OabAgg {
   created_at: string;
 }
 
-type TabKey = 'processos' | 'requests' | 'trackings' | 'oabs' | 'historico';
+interface PushDocRow {
+  id: string;
+  tipo_documento: 'cpf' | 'cnpj' | 'oab';
+  documento: string;
+  descricao: string | null;
+  tracking_id: string | null;
+  tracking_status: string;
+  total_processos_recebidos: number;
+  created_at: string;
+}
+
+type TabKey = 'trackings_on' | 'trackings_off' | 'oabs' | 'push_docs';
+
+const PAGE_SIZE = 20;
 
 export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName }: TenantBancoIdsDialogProps) {
   const [bancoIds, setBancoIds] = useState<BancoId[]>([]);
+  const [pushDocs, setPushDocs] = useState<PushDocRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>('processos');
+  const [activeTab, setActiveTab] = useState<TabKey>('trackings_on');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     if (open && tenantId) fetchAll();
   }, [open, tenantId]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, searchTerm]);
+
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const { data, error } = await fetchAllPaginated<BancoId>(
-        () =>
-          supabase
-            .from('tenant_banco_ids')
-            .select('id, tipo, referencia_id, external_id, descricao, metadata, created_at')
-            .eq('tenant_id', tenantId)
-            .order('created_at', { ascending: false }),
-        { hardCap: 200 }
-      );
-      if (error) throw error;
-      setBancoIds(data || []);
+      const [bancoRes, pushRes] = await Promise.all([
+        fetchAllPaginated<BancoId>(
+          () =>
+            supabase
+              .from('tenant_banco_ids')
+              .select('id, tipo, referencia_id, external_id, descricao, metadata, created_at')
+              .eq('tenant_id', tenantId)
+              .order('created_at', { ascending: false }),
+          { hardCap: 200 }
+        ),
+        fetchAllPaginated<PushDocRow>(
+          () =>
+            supabase
+              .from('push_docs_cadastrados')
+              .select('id, tipo_documento, documento, descricao, tracking_id, tracking_status, total_processos_recebidos, created_at')
+              .eq('tenant_id', tenantId)
+              .neq('tracking_status', 'deletado')
+              .order('created_at', { ascending: false })
+        ),
+      ]);
+      if (bancoRes.error) throw bancoRes.error;
+      if (pushRes.error) throw pushRes.error;
+      setBancoIds(bancoRes.data || []);
+      setPushDocs(pushRes.data || []);
     } catch (error) {
       console.error('Erro ao buscar banco de IDs:', error);
       toast({ title: 'Erro', description: 'Não foi possível carregar os IDs', variant: 'destructive' });
@@ -100,28 +134,10 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
   const matches = (...vals: (string | null | undefined)[]) =>
     !term || vals.some((v) => v?.toLowerCase().includes(term));
 
-  // Derive aggregates from tenant_banco_ids
+  // Aggregate processos w/ tracking from tenant_banco_ids
   const processosAgg = useMemo<ProcessoAgg[]>(() => {
     const byProcId = new Map<string, ProcessoAgg>();
-    // seed from tipo=processo
-    for (const b of bancoIds) {
-      if (b.tipo !== 'processo' || !b.referencia_id) continue;
-      if (!byProcId.has(b.referencia_id)) {
-        byProcId.set(b.referencia_id, {
-          processo_id: b.referencia_id,
-          numero_cnj: (b.metadata?.numero_cnj as string) || null,
-          tribunal: (b.metadata?.tribunal as string) || null,
-          request_id: null,
-          request_created_at: null,
-          tracking_id: null,
-          tracking_ativo: false,
-          tracking_created_at: null,
-          created_at: b.created_at,
-        });
-      }
-    }
-    // ensure entries exist for orphan request_detalhes / tracking (no tipo=processo row)
-    const ensure = (refId: string | null, cnj: string | null) => {
+    const ensure = (refId: string | null, cnj: string | null, createdAt: string) => {
       if (!refId) return null;
       let p = byProcId.get(refId);
       if (!p) {
@@ -130,84 +146,94 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
           numero_cnj: cnj,
           tribunal: null,
           request_id: null,
-          request_created_at: null,
           tracking_id: null,
           tracking_ativo: false,
           tracking_created_at: null,
-          created_at: '',
+          created_at: createdAt,
         };
         byProcId.set(refId, p);
       }
       if (!p.numero_cnj && cnj) p.numero_cnj = cnj;
       return p;
     };
-    // attach most recent request_detalhes
     for (const b of bancoIds) {
-      if (b.tipo !== 'request_detalhes') continue;
-      const p = ensure(b.referencia_id, (b.metadata?.numero_cnj as string) || null);
-      if (!p) continue;
-      if (!p.request_id || (b.created_at > (p.request_created_at || ''))) {
-        p.request_id = b.external_id;
-        p.request_created_at = b.created_at;
+      if (b.tipo === 'processo' && b.referencia_id) {
+        const p = ensure(b.referencia_id, (b.metadata?.numero_cnj as string) || null, b.created_at);
+        if (p && b.metadata?.tribunal) p.tribunal = b.metadata.tribunal as string;
       }
     }
-    // attach most recent tracking (active wins)
+    for (const b of bancoIds) {
+      if (b.tipo !== 'request_detalhes') continue;
+      const p = ensure(b.referencia_id, (b.metadata?.numero_cnj as string) || null, b.created_at);
+      if (p && !p.request_id) p.request_id = b.external_id;
+    }
     for (const b of bancoIds) {
       if (b.tipo !== 'tracking' && b.tipo !== 'tracking_desativado') continue;
-      const p = ensure(b.referencia_id, (b.metadata?.numero_cnj as string) || null);
+      const p = ensure(b.referencia_id, (b.metadata?.numero_cnj as string) || null, b.created_at);
       if (!p) continue;
-      const ativo = b.tipo === 'tracking' && (b.metadata?.monitoramento_ativo !== false);
-      if (!p.tracking_id || (b.created_at > (p.tracking_created_at || ''))) {
+      const ativo = b.tipo === 'tracking' && b.metadata?.monitoramento_ativo !== false;
+      if (!p.tracking_id || b.created_at > (p.tracking_created_at || '')) {
         p.tracking_id = b.external_id;
         p.tracking_ativo = ativo;
         p.tracking_created_at = b.created_at;
       }
     }
-    return Array.from(byProcId.values()).sort((a, b) =>
-      (b.created_at || '').localeCompare(a.created_at || '')
-    );
+    return Array.from(byProcId.values());
   }, [bancoIds]);
 
-  const oabsAgg = useMemo<OabAgg[]>(() => {
-    return bancoIds
-      .filter((b) => b.tipo === 'oab')
-      .map((b) => ({
-        id: b.id,
-        oab: b.descricao || (b.external_id || ''),
-        external_id: b.external_id,
-        created_at: b.created_at,
-      }));
-  }, [bancoIds]);
+  const oabsAgg = useMemo<OabAgg[]>(
+    () =>
+      bancoIds
+        .filter((b) => b.tipo === 'oab')
+        .map((b) => ({
+          id: b.id,
+          oab: b.descricao || b.external_id || '',
+          external_id: b.external_id,
+          created_at: b.created_at,
+        })),
+    [bancoIds]
+  );
 
-  const processosFiltered = useMemo(
-    () => processosAgg.filter((p) => matches(p.numero_cnj, p.request_id, p.tracking_id, p.tribunal)),
+  const trackingsOn = useMemo(
+    () =>
+      processosAgg
+        .filter((p) => p.tracking_id && p.tracking_ativo && matches(p.numero_cnj, p.tracking_id))
+        .sort((a, b) => (b.tracking_created_at || '').localeCompare(a.tracking_created_at || '')),
     [processosAgg, term]
   );
-  const requestsCnj = useMemo(
-    () => processosAgg.filter((p) => p.request_id && matches(p.numero_cnj, p.request_id)),
-    [processosAgg, term]
-  );
-  const trackings = useMemo(
-    () => processosAgg.filter((p) => p.tracking_id && matches(p.numero_cnj, p.tracking_id)),
+  const trackingsOff = useMemo(
+    () =>
+      processosAgg
+        .filter((p) => p.tracking_id && !p.tracking_ativo && matches(p.numero_cnj, p.tracking_id))
+        .sort((a, b) => (b.tracking_created_at || '').localeCompare(a.tracking_created_at || '')),
     [processosAgg, term]
   );
   const oabsFiltered = useMemo(
     () => oabsAgg.filter((o) => matches(o.oab, o.external_id)),
     [oabsAgg, term]
   );
-  const historicoFiltered = useMemo(
-    () => bancoIds.filter((b) => matches(b.descricao, b.external_id, b.referencia_id, b.tipo)),
-    [bancoIds, term]
+  const pushDocsFiltered = useMemo(
+    () => pushDocs.filter((d) => matches(d.documento, d.descricao, d.tracking_id)),
+    [pushDocs, term]
   );
 
   const counts = {
-    processos: processosAgg.length,
-    requests: processosAgg.filter((p) => p.request_id).length,
-    trackings: processosAgg.filter((p) => p.tracking_id).length,
-    trackingsAtivos: processosAgg.filter((p) => p.tracking_id && p.tracking_ativo).length,
-    oabs: oabsAgg.length,
-    historico: bancoIds.length,
+    on: trackingsOn.length,
+    off: trackingsOff.length,
+    oabs: oabsFiltered.length,
+    pushDocs: pushDocsFiltered.length,
   };
+
+  const currentList: any[] =
+    activeTab === 'trackings_on' ? trackingsOn
+    : activeTab === 'trackings_off' ? trackingsOff
+    : activeTab === 'oabs' ? oabsFiltered
+    : pushDocsFiltered;
+
+  const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const pageItems = currentList.slice(pageStart, pageStart + PAGE_SIZE);
 
   const copyBtn = (val: string, label: string) => (
     <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0" onClick={() => handleCopy(val, label)}>
@@ -270,6 +296,35 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
     toast({ title: 'Relatório gerado', description: `${processosAgg.length} processos exportados.` });
   };
 
+  const renderTrackingItem = (p: ProcessoAgg, ativo: boolean) => (
+    <div key={p.processo_id} className="p-3 bg-muted/40 rounded-lg border border-border">
+      <div className="flex items-center gap-2 mb-1.5">
+        <Radio className="h-4 w-4 text-primary shrink-0" />
+        <span className="font-mono text-sm font-medium truncate">{p.numero_cnj || 'Sem CNJ'}</span>
+        {p.tribunal && <Badge variant="secondary" className="text-xs">{p.tribunal}</Badge>}
+        {ativo ? (
+          <Badge className="text-xs bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
+            🟢 Ativo
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-xs">Desativado</Badge>
+        )}
+      </div>
+      <div className="text-[11px] text-muted-foreground mb-0.5">Tracking ID</div>
+      {codeCell(p.tracking_id, 'Tracking ID')}
+    </div>
+  );
+
+  const statusBadge = (s: string) => {
+    const map: Record<string, string> = {
+      ativo: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30',
+      pausado: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
+      pendente: 'bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30',
+      erro: 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30',
+    };
+    return <Badge className={`text-xs border ${map[s] || 'bg-muted text-muted-foreground'}`}>{s}</Badge>;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh]">
@@ -283,7 +338,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por CNJ, Request ID, Tracking ID, OAB..."
+            placeholder="Buscar por CNJ, Tracking ID, OAB ou documento..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9"
@@ -291,123 +346,41 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="processos" className="text-xs">
-              <Scale className="h-3 w-3 mr-1" />
-              Processos ({counts.processos})
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="trackings_on" className="text-xs">
+              <Radio className="h-3 w-3 mr-1" /> Trackings ON ({counts.on})
             </TabsTrigger>
-            <TabsTrigger value="requests" className="text-xs">
-              <FileText className="h-3 w-3 mr-1" />
-              Requests CNJ ({counts.requests})
+            <TabsTrigger value="trackings_off" className="text-xs">
+              <Radio className="h-3 w-3 mr-1" /> Trackings OFF ({counts.off})
             </TabsTrigger>
-            <TabsTrigger value="trackings" className="text-xs">
-              <Radio className="h-3 w-3 mr-1" />
-              Trackings ({counts.trackingsAtivos}/{counts.trackings})
+            <TabsTrigger value="oabs" className="text-xs">
+              <Scale className="h-3 w-3 mr-1" /> OABs ({counts.oabs})
             </TabsTrigger>
-            <TabsTrigger value="oabs" className="text-xs">OABs ({counts.oabs})</TabsTrigger>
-            <TabsTrigger value="historico" className="text-xs">Histórico ({counts.historico})</TabsTrigger>
+            <TabsTrigger value="push_docs" className="text-xs">
+              <BellRing className="h-3 w-3 mr-1" /> Push-docs ({counts.pushDocs})
+            </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="h-[480px] mt-4">
+          <ScrollArea className="h-[460px] mt-4">
             {loading ? (
               <div className="flex items-center justify-center h-32">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
               </div>
             ) : (
               <div className="pr-3 space-y-2">
-                {/* TAB: Processos (visão consolidada) */}
-                <TabsContent value="processos" className="m-0 space-y-2">
-                  {processosFiltered.length === 0 ? (
-                    <Empty />
-                  ) : (
-                    processosFiltered.map((p) => (
-                      <div key={p.processo_id} className="p-3 bg-muted/40 rounded-lg border border-border">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Scale className="h-4 w-4 text-primary shrink-0" />
-                            <span className="font-mono text-sm font-medium truncate">
-                              {p.numero_cnj || 'Sem CNJ'}
-                            </span>
-                            {p.tribunal && (
-                              <Badge variant="secondary" className="text-xs">{p.tribunal}</Badge>
-                            )}
-                            {p.tracking_ativo ? (
-                              <Badge className="text-xs bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
-                                🟢 Monitorando
-                              </Badge>
-                            ) : p.tracking_id ? (
-                              <Badge variant="outline" className="text-xs">Desativado</Badge>
-                            ) : null}
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <div className="text-muted-foreground mb-0.5">Request ID (importação CNJ)</div>
-                            {codeCell(p.request_id, 'Request ID')}
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground mb-0.5">Tracking ID (monitoramento)</div>
-                            {codeCell(p.tracking_id, 'Tracking ID')}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
+                <TabsContent value="trackings_on" className="m-0 space-y-2">
+                  {pageItems.length === 0 ? <Empty /> : (pageItems as ProcessoAgg[]).map((p) => renderTrackingItem(p, true))}
                 </TabsContent>
 
-                {/* TAB: Requests CNJ */}
-                <TabsContent value="requests" className="m-0 space-y-2">
-                  {requestsCnj.length === 0 ? (
-                    <Empty />
-                  ) : (
-                    requestsCnj.map((p) => (
-                      <div key={p.processo_id} className="p-3 bg-muted/40 rounded-lg border border-border">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <FileText className="h-4 w-4 text-primary shrink-0" />
-                          <span className="font-mono text-sm font-medium truncate">
-                            {p.numero_cnj || 'Sem CNJ'}
-                          </span>
-                          {p.tribunal && <Badge variant="secondary" className="text-xs">{p.tribunal}</Badge>}
-                        </div>
-                        {codeCell(p.request_id, 'Request ID')}
-                      </div>
-                    ))
-                  )}
+                <TabsContent value="trackings_off" className="m-0 space-y-2">
+                  {pageItems.length === 0 ? <Empty /> : (pageItems as ProcessoAgg[]).map((p) => renderTrackingItem(p, false))}
                 </TabsContent>
 
-                {/* TAB: Trackings */}
-                <TabsContent value="trackings" className="m-0 space-y-2">
-                  {trackings.length === 0 ? (
-                    <Empty />
-                  ) : (
-                    trackings.map((p) => (
-                      <div key={p.processo_id} className="p-3 bg-muted/40 rounded-lg border border-border">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <Radio className="h-4 w-4 text-primary shrink-0" />
-                          <span className="font-mono text-sm font-medium truncate">
-                            {p.numero_cnj || 'Sem CNJ'}
-                          </span>
-                          {p.tracking_ativo ? (
-                            <Badge className="text-xs bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
-                              🟢 Ativo
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-xs">Desativado</Badge>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground mb-0.5">Tracking ID</div>
-                        {codeCell(p.tracking_id, 'Tracking ID')}
-                      </div>
-                    ))
-                  )}
-                </TabsContent>
-
-                {/* TAB: OABs */}
                 <TabsContent value="oabs" className="m-0 space-y-2">
-                  {oabsFiltered.length === 0 ? (
+                  {pageItems.length === 0 ? (
                     <Empty />
                   ) : (
-                    oabsFiltered.map((o) => (
+                    (pageItems as OabAgg[]).map((o) => (
                       <div key={o.id} className="p-3 bg-muted/40 rounded-lg border border-border">
                         <div className="flex items-center gap-2 mb-1.5">
                           <FileText className="h-4 w-4 text-primary shrink-0" />
@@ -419,23 +392,26 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
                   )}
                 </TabsContent>
 
-                {/* TAB: Histórico */}
-                <TabsContent value="historico" className="m-0 space-y-2">
-                  {historicoFiltered.length === 0 ? (
+                <TabsContent value="push_docs" className="m-0 space-y-2">
+                  {pageItems.length === 0 ? (
                     <Empty />
                   ) : (
-                    historicoFiltered.map((item) => (
-                      <div key={item.id} className="p-3 bg-muted/40 rounded-lg border border-border">
-                        <div className="flex items-start justify-between gap-2 mb-1.5">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Badge variant="outline" className="text-[10px] uppercase">{item.tipo}</Badge>
-                            <span className="text-sm truncate">{item.descricao}</span>
-                          </div>
-                          <span className="text-[10px] text-muted-foreground shrink-0">
-                            {format(new Date(item.created_at), 'dd/MM/yy HH:mm', { locale: ptBR })}
+                    (pageItems as PushDocRow[]).map((d) => (
+                      <div key={d.id} className="p-3 bg-muted/40 rounded-lg border border-border">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          <BellRing className="h-4 w-4 text-primary shrink-0" />
+                          <Badge variant="outline" className="text-[10px] uppercase">{d.tipo_documento}</Badge>
+                          <span className="font-mono text-sm font-medium truncate">{d.documento}</span>
+                          {statusBadge(d.tracking_status)}
+                          <span className="text-[11px] text-muted-foreground ml-auto">
+                            {d.total_processos_recebidos} processos
                           </span>
                         </div>
-                        {item.external_id && codeCell(item.external_id, 'ID')}
+                        {d.descricao && (
+                          <div className="text-xs text-muted-foreground mb-1.5">{d.descricao}</div>
+                        )}
+                        <div className="text-[11px] text-muted-foreground mb-0.5">Tracking ID</div>
+                        {codeCell(d.tracking_id, 'Tracking ID')}
                       </div>
                     ))
                   )}
@@ -445,13 +421,34 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
           </ScrollArea>
         </Tabs>
 
-        <div className="flex justify-between items-center pt-4 border-t border-border text-sm text-muted-foreground">
+        <div className="flex flex-wrap justify-between items-center gap-2 pt-4 border-t border-border text-sm text-muted-foreground">
           <span>
-            {counts.processos} processos · {counts.requests} requests · {counts.trackingsAtivos} monitorando
+            {currentList.length === 0
+              ? 'Nenhum registro'
+              : `${pageStart + 1}–${Math.min(pageStart + PAGE_SIZE, currentList.length)} de ${currentList.length}`}
           </span>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={safePage <= 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-xs tabular-nums">
+              Página {safePage} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safePage >= totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
             <Button variant="outline" size="sm" onClick={handleDownloadReport} disabled={loading || processosAgg.length === 0}>
-              <Download className="h-4 w-4 mr-1" /> Baixar PDF
+              <Download className="h-4 w-4 mr-1" /> PDF
             </Button>
             <Button variant="outline" size="sm" onClick={fetchAll}>Atualizar</Button>
           </div>
