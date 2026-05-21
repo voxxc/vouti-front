@@ -485,7 +485,84 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
               <p className="text-sm text-muted-foreground text-center py-8">Nenhuma publicação encontrada.</p>
             ) : (
               <div className="space-y-2">
-                {filtered.map(pub => (
+                {filtered.map(pub => {
+                  const isMonit = pub.origem === 'monitoramento_processo';
+                  const normStatus = getNormalizedStatus(pub.status);
+                  if (isMonit) {
+                    const { name, ext, sizeKb } = attachmentInfo(pub);
+                    const snippet = pub.conteudo_completo
+                      ? pub.conteudo_completo.replace(/\s+/g, ' ').trim().slice(0, 180)
+                      : null;
+                    const isDecisao = (pub.tipo || '').toLowerCase().includes('decis');
+                    return (
+                      <div
+                        key={pub.id}
+                        className="border rounded-lg p-3 hover:bg-muted/30 transition-colors cursor-pointer space-y-2 border-l-4 border-l-primary/60"
+                        onClick={() => setSelectedPub(pub)}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge className="h-5 px-1.5 text-[10px]" variant={isDecisao ? 'default' : 'secondary'}>
+                              {pub.tipo || 'Publicação'}
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-primary/40 text-primary">
+                              Monitoramento
+                            </Badge>
+                            {ext && (
+                              <Badge variant="outline" className="text-[10px] h-5 px-1.5 uppercase">
+                                {ext}
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            {pub.data_disponibilizacao
+                              ? new Date(pub.data_disponibilizacao + 'T12:00:00').toLocaleDateString('pt-BR')
+                              : ''}
+                          </span>
+                        </div>
+                        {pub.numero_processo && (
+                          <p className="text-sm font-mono font-medium truncate">{pub.numero_processo}</p>
+                        )}
+                        {name && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {name}{sizeKb ? ` · ${sizeKb} KB` : ''}
+                          </p>
+                        )}
+                        {snippet && (
+                          <p className="text-xs leading-relaxed text-foreground/80 line-clamp-2">
+                            "{snippet}{snippet.length >= 180 ? '…' : ''}"
+                          </p>
+                        )}
+                        <div className="flex items-center gap-1 pt-1 border-t">
+                          {normStatus === 'nao_tratada' ? (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs text-green-600"
+                                onClick={e => { e.stopPropagation(); updateStatus(pub.id, 'tratada'); }}
+                              >
+                                <Check className="h-3 w-3 mr-1" />Tratar
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs text-muted-foreground"
+                                onClick={e => { e.stopPropagation(); updateStatus(pub.id, 'descartada'); }}
+                              >
+                                <X className="h-3 w-3 mr-1" />Descartar
+                              </Button>
+                            </>
+                          ) : (
+                            <Badge className={`text-[10px] h-5 px-1.5 ${statusColors[pub.status]}`}>
+                              {statusLabels[pub.status]}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
                   <div
                     key={pub.id}
                     className="border rounded-lg p-3 hover:bg-muted/30 transition-colors cursor-pointer space-y-1.5"
@@ -498,11 +575,6 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
                             <span className="text-xs text-muted-foreground">{new Date(pub.data_disponibilizacao + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
                           )}
                           {pub.tipo && <span className="text-xs font-medium text-primary">{pub.tipo}</span>}
-                          {pub.origem === 'monitoramento_processo' && (
-                            <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-primary/40 text-primary">
-                              Monitoramento
-                            </Badge>
-                          )}
                         </div>
                         {pub.numero_processo && (
                           <p className="text-sm font-medium truncate">{pub.numero_processo}</p>
@@ -521,7 +593,7 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
                       </Badge>
                     </div>
                     <div className="flex items-center gap-1 pt-1">
-                      {pub.status === 'nao_tratada' && (
+                      {normStatus === 'nao_tratada' && (
                         <>
                           <Button
                             variant="ghost"
@@ -553,7 +625,8 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
