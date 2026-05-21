@@ -43,15 +43,29 @@ interface Publicacao {
 
 const statusColors: Record<string, string> = {
   nao_tratada: 'bg-yellow-500/10 text-yellow-700 border-yellow-500/20',
+  nao_lida: 'bg-yellow-500/10 text-yellow-700 border-yellow-500/20',
   tratada: 'bg-green-500/10 text-green-700 border-green-500/20',
   descartada: 'bg-muted text-muted-foreground border-border',
 };
 
 const statusLabels: Record<string, string> = {
   nao_tratada: 'Não tratada',
+  nao_lida: 'Não tratada',
   tratada: 'Tratada',
   descartada: 'Descartada',
 };
+
+function getNormalizedStatus(s: string): string {
+  return s === 'nao_lida' ? 'nao_tratada' : s;
+}
+
+function attachmentInfo(pub: Publicacao & { metadata?: any }): { name: string | null; ext: string | null; sizeKb: number | null } {
+  const meta = (pub as any).metadata || {};
+  const name = meta.attachment_name || (pub.storage_path ? pub.storage_path.split('/').pop() || null : null);
+  const ext = (meta.extension || (name ? name.split('.').pop() : null) || '').toLowerCase() || null;
+  const sizeKb = meta.size ? Math.round(meta.size / 1024) : null;
+  return { name, ext, sizeKb };
+}
 
 function formatRelativeTime(iso: string | null): string | null {
   if (!iso) return null;
