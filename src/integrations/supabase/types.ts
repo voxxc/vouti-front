@@ -6487,6 +6487,8 @@ export type Database = {
       }
       publicacoes: {
         Row: {
+          andamento_id: string | null
+          anexo_id: string | null
           comarca: string | null
           conteudo_completo: string | null
           created_at: string
@@ -6496,18 +6498,24 @@ export type Database = {
           diario_sigla: string | null
           id: string
           link_acesso: string | null
+          metadata: Json | null
           monitoramento_id: string | null
           nome_pesquisado: string | null
           numero_processo: string | null
           orgao: string | null
+          origem: string
           partes: string | null
+          processo_oab_id: string | null
           responsavel: string | null
           status: string
+          storage_path: string | null
           tenant_id: string | null
           tipo: string | null
           updated_at: string
         }
         Insert: {
+          andamento_id?: string | null
+          anexo_id?: string | null
           comarca?: string | null
           conteudo_completo?: string | null
           created_at?: string
@@ -6517,18 +6525,24 @@ export type Database = {
           diario_sigla?: string | null
           id?: string
           link_acesso?: string | null
+          metadata?: Json | null
           monitoramento_id?: string | null
           nome_pesquisado?: string | null
           numero_processo?: string | null
           orgao?: string | null
+          origem?: string
           partes?: string | null
+          processo_oab_id?: string | null
           responsavel?: string | null
           status?: string
+          storage_path?: string | null
           tenant_id?: string | null
           tipo?: string | null
           updated_at?: string
         }
         Update: {
+          andamento_id?: string | null
+          anexo_id?: string | null
           comarca?: string | null
           conteudo_completo?: string | null
           created_at?: string
@@ -6538,13 +6552,17 @@ export type Database = {
           diario_sigla?: string | null
           id?: string
           link_acesso?: string | null
+          metadata?: Json | null
           monitoramento_id?: string | null
           nome_pesquisado?: string | null
           numero_processo?: string | null
           orgao?: string | null
+          origem?: string
           partes?: string | null
+          processo_oab_id?: string | null
           responsavel?: string | null
           status?: string
+          storage_path?: string | null
           tenant_id?: string | null
           tipo?: string | null
           updated_at?: string
