@@ -527,10 +527,13 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
                               </Badge>
                             )}
                           </div>
-                          <span className="text-[10px] text-muted-foreground shrink-0">
-                            {pub.data_disponibilizacao
-                              ? new Date(pub.data_disponibilizacao + 'T12:00:00').toLocaleDateString('pt-BR')
-                              : ''}
+                          <span className="text-[10px] text-muted-foreground shrink-0 flex flex-col items-end leading-tight">
+                            {pub.data_disponibilizacao && (
+                              <span>{new Date(pub.data_disponibilizacao + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                            )}
+                            {pub.created_at && (
+                              <span className="text-[9px] opacity-70">{formatRelativeTime(pub.created_at)}</span>
+                            )}
                           </span>
                         </div>
                         {pub.numero_processo && (
