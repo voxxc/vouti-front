@@ -19,6 +19,7 @@ import { SuperAdminJuditDocs } from '@/components/SuperAdmin/SuperAdminJuditDocs
 import { SuperAdminMonitoramento } from '@/components/SuperAdmin/SuperAdminMonitoramento';
 import { SuperAdminDiagnosticoJudit } from '@/components/SuperAdmin/SuperAdminDiagnosticoJudit';
 import { SuperAdminImportCNJTest } from '@/components/SuperAdmin/SuperAdminImportCNJTest';
+import { SuperAdminTestPublicacaoCNJ } from '@/components/SuperAdmin/SuperAdminTestPublicacaoCNJ';
 import { SuperAdminPixConfig } from '@/components/SuperAdmin/SuperAdminPixConfig';
 import { SuperAdminAuthenticator } from '@/components/SuperAdmin/SuperAdminAuthenticator';
 import { SuperAdminWebhookTest } from '@/components/SuperAdmin/SuperAdminWebhookTest';
@@ -334,7 +335,7 @@ export default function SuperAdmin() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant={['busca-geral', 'teste-webhook', 'teste-cnj', 'busca-cpf-processos'].includes(mainTab) ? 'default' : 'ghost'}
+                  variant={['busca-geral', 'teste-webhook', 'teste-cnj', 'teste-publicacao-cnj', 'busca-cpf-processos'].includes(mainTab) ? 'default' : 'ghost'}
                   size="sm"
                   className="gap-2"
                 >
@@ -350,6 +351,9 @@ export default function SuperAdmin() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setMainTab('teste-cnj')} className="gap-2">
                   <FlaskConical className="h-4 w-4" /> Teste CNJ
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMainTab('teste-publicacao-cnj')} className="gap-2">
+                  <FlaskConical className="h-4 w-4" /> Teste Publicação CNJ
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setMainTab('busca-cpf-processos')} className="gap-2">
                   <Users className="h-4 w-4" /> Busca CPF (Processos)
@@ -471,6 +475,10 @@ export default function SuperAdmin() {
 
           <TabsContent value="teste-cnj">
             <SuperAdminImportCNJTest />
+          </TabsContent>
+
+          <TabsContent value="teste-publicacao-cnj">
+            <SuperAdminTestPublicacaoCNJ />
           </TabsContent>
 
           <TabsContent value="busca-geral">
