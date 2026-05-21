@@ -93,7 +93,6 @@ export function SubscriptionDrawer({ open, onOpenChange, initialTab = 'perfil' }
   const [credencialForm, setCredencialForm] = useState({
     oab_numero: '', oab_uf: '', cpf: '', senha: '', secret: '', system_name: '',
   });
-  const [documento, setDocumento] = useState<File | null>(null);
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteConfirmStep, setDeleteConfirmStep] = useState<1 | 2>(1);
@@ -153,11 +152,9 @@ export function SubscriptionDrawer({ open, onOpenChange, initialTab = 'perfil' }
         cpf: credencialForm.cpf,
         senha: credencialForm.senha,
         secret: credencialForm.secret || undefined,
-        documento: documento || undefined,
         system_name: credencialForm.system_name,
       });
       setCredencialForm({ oab_numero: '', oab_uf: '', cpf: '', senha: '', secret: '', system_name: '' });
-      setDocumento(null);
       setShowCredencialForm(false);
     } catch (e) {
       console.error('Erro ao enviar credencial:', e);
@@ -425,7 +422,6 @@ export function SubscriptionDrawer({ open, onOpenChange, initialTab = 'perfil' }
                           onClick={() => {
                             setShowCredencialForm(false);
                             setCredencialForm({ oab_numero: '', oab_uf: '', cpf: '', senha: '', secret: '', system_name: '' });
-                            setDocumento(null);
                           }}>
                           Cancelar
                         </Button>
@@ -503,18 +499,6 @@ export function SubscriptionDrawer({ open, onOpenChange, initialTab = 'perfil' }
                         </div>
                       </div>
 
-                      <div className="space-y-1.5">
-                        <Label htmlFor="cred-doc" className={fieldLabel}>Documento (PDF/PFX)</Label>
-                        <div className="flex items-center gap-2">
-                          <Input id="cred-doc" type="file" accept=".pdf,.pfx,.p12"
-                            onChange={(e) => setDocumento(e.target.files?.[0] || null)}
-                            className={`flex-1 ${inputCls} file:text-xs`} />
-                          {documento && (
-                            <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{documento.name}</Badge>
-                          )}
-                        </div>
-                      </div>
-
                       <Button size="sm" onClick={handleEnviarCredencial}
                         disabled={!credencialForm.oab_numero || !credencialForm.oab_uf || !credencialForm.cpf || !credencialForm.senha || !credencialForm.system_name || createCredencial.isPending || uploading}
                         className="w-full">
@@ -554,12 +538,6 @@ export function SubscriptionDrawer({ open, onOpenChange, initialTab = 'perfil' }
                             )}
                           </div>
                           <div className="flex items-center gap-1">
-                            {cred.documento_url && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7"
-                                onClick={() => window.open(cred.documento_url!, '_blank')}>
-                                <Download className="w-3.5 h-3.5" />
-                              </Button>
-                            )}
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                               onClick={() => handleDeleteClick(cred.id)}>
                               <Trash2 className="w-3.5 h-3.5" />
