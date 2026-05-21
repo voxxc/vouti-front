@@ -15,19 +15,59 @@ const DECISAO_KEYWORDS = [
 ];
 
 // --- Extração de texto dos anexos ---
+const ENTITIES: Record<string, string> = {
+  nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
+  aacute: 'á', eacute: 'é', iacute: 'í', oacute: 'ó', uacute: 'ú',
+  Aacute: 'Á', Eacute: 'É', Iacute: 'Í', Oacute: 'Ó', Uacute: 'Ú',
+  atilde: 'ã', otilde: 'õ', Atilde: 'Ã', Otilde: 'Õ',
+  acirc: 'â', ecirc: 'ê', icirc: 'î', ocirc: 'ô', ucirc: 'û',
+  Acirc: 'Â', Ecirc: 'Ê', Icirc: 'Î', Ocirc: 'Ô', Ucirc: 'Û',
+  ccedil: 'ç', Ccedil: 'Ç', agrave: 'à', Agrave: 'À',
+  ordf: 'ª', ordm: 'º', deg: '°', sect: '§', middot: '·',
+  hellip: '…', mdash: '—', ndash: '–', rsquo: '\u2019', lsquo: '\u2018',
+  rdquo: '\u201D', ldquo: '\u201C', laquo: '«', raquo: '»', euro: '€', copy: '©',
+};
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => { try { return String.fromCodePoint(parseInt(h, 16)); } catch { return ''; } })
+    .replace(/&#(\d+);/g, (_, d) => { try { return String.fromCodePoint(parseInt(d, 10)); } catch { return ''; } })
+    .replace(/&([a-zA-Z]+);/g, (m, name) => ENTITIES[name] ?? m);
+}
+function detectCharsetFromBytes(bytes: Uint8Array): string {
+  const head = new TextDecoder('latin1').decode(bytes.subarray(0, Math.min(bytes.length, 2048)));
+  const m = head.match(/<meta[^>]+charset\s*=\s*['"]?([\w-]+)/i) || head.match(/charset\s*=\s*['"]?([\w-]+)/i);
+  return (m?.[1] || '').toLowerCase();
+}
+function decodeBytes(bytes: Uint8Array, hinted?: string): string {
+  const declared = (hinted || detectCharsetFromBytes(bytes)).toLowerCase();
+  const cands: string[] = [];
+  if (declared) cands.push(declared);
+  for (const c of ['utf-8', 'windows-1252', 'iso-8859-1']) if (!cands.includes(c)) cands.push(c);
+  let best = ''; let bestScore = -Infinity;
+  for (const enc of cands) {
+    try {
+      const decoded = new TextDecoder(enc as any, { fatal: false }).decode(bytes);
+      const repl = (decoded.match(/\uFFFD/g) || []).length;
+      const moji = (decoded.match(/Ã[\u0080-\u00BF]|Â[\u0080-\u00BF]/g) || []).length;
+      const score = -repl * 5 - moji * 3;
+      if (score > bestScore) { bestScore = score; best = decoded; }
+    } catch { /* skip */ }
+  }
+  return best;
+}
 function htmlToText(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<head[\s\S]*?<\/head>/gi, ' ')
     .replace(/<br\s*\/?\s*>/gi, '\n')
-    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+    .replace(/<\/(p|div|li|tr|h[1-6])>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
+    .replace(/&nbsp;/gi, ' ');
+}
+function cleanHtml(decoded: string): string {
+  return decodeEntities(htmlToText(decoded))
+    .replace(/\u00A0/g, ' ')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/[ \t]{2,}/g, ' ')
@@ -48,7 +88,10 @@ async function extractAttachmentText(buffer: ArrayBuffer, extension: string, con
   }
   if (ext === 'html' || ext === 'htm' || contentType.includes('html')) {
     try {
-      return htmlToText(new TextDecoder('utf-8').decode(buffer)).slice(0, 50000);
+      const ctCharset = (contentType.match(/charset=([\w-]+)/i)?.[1] || '').toLowerCase();
+      const bytes = new Uint8Array(buffer);
+      const decoded = decodeBytes(bytes, ctCharset);
+      return cleanHtml(decoded).slice(0, 50000);
     } catch {
       return '';
     }
