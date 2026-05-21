@@ -1,47 +1,23 @@
-# Teste visual de Publicação via CNJ — assíncrono (sem travar o loading)
-
-Você digita o CNJ num campo no Super-Admin, clica e o card aparece em alguns segundos sem barra de loading travada. O trabalho pesado roda em background.
+# Corrigir erro ao gerar publicação de teste
 
 ## Causa raiz
-
-A função `judit-test-publicacao-cnj` faz polling síncrono na Judit (POST `/requests` → aguardar → GET `/responses` → baixar PDF → extrair texto). Isso ultrapassa o timeout do Edge Function, então o botão fica em "loading" eterno e o usuário nunca vê o resultado.
+A Edge Function `judit-test-publicacao-cnj` foi criada como arquivo no repositório, mas nunca foi efetivamente deployada. Ao clicar em "Gerar publicação de teste", o cliente recebe **404 NOT_FOUND** porque o endpoint não existe no Supabase. Por isso também não há nenhum registro em `publicacao_test_jobs` nem logs da função.
 
 ## Correção
-
-Dividir em **iniciar** + **trabalho em background** + **status visível na tela**.
-
-1. Nova tabela `publicacao_test_jobs` (id, tenant_id, numero_cnj, status `pending|processing|completed|failed`, publicacao_id, error_message, created_by, timestamps). RLS: só Super-Admin.
-2. Refatorar `judit-test-publicacao-cnj`:
-   - Recebe `{ numero_cnj }`, valida Super-Admin, cria linha em `publicacao_test_jobs` com status `pending`.
-   - Dispara `EdgeRuntime.waitUntil(processarJob(jobId))` e responde **imediatamente** `202 { jobId }`.
-   - `processarJob` faz POST Judit, polling do response, download do PDF, upload no bucket, extração de texto, insert em `publicacoes` (origem `monitoramento_processo`, tenant Demorais) e atualiza o job para `completed` com o `publicacao_id` (ou `failed` com mensagem).
-3. Substituir o componente `SuperAdminTestPublicacaoCNJ.tsx`:
-   - Campo de input do CNJ + botão "Gerar publicação de teste".
-   - Lista abaixo dos últimos jobs do Super-Admin com badge de status (Pendente / Processando / Concluído / Falhou) e botão "Abrir publicação" quando concluído.
-   - Realtime na tabela `publicacao_test_jobs` para atualizar o card sem refresh.
+1. Deployar manualmente a função `judit-test-publicacao-cnj` via ferramenta de deploy.
+2. Disparar uma chamada de teste com o CNJ `0000927-04.2025.8.27.2704` para validar que ela responde 202 e cria o job.
+3. Acompanhar logs da função para garantir que o processamento em background completa (request Judit → download → upload → insert em `publicacoes`).
 
 ## Arquivos afetados
-
-- Migration: cria `publicacao_test_jobs` + RLS Super-Admin + habilita realtime.
-- `supabase/functions/judit-test-publicacao-cnj/index.ts` (refatorada para async com `EdgeRuntime.waitUntil`).
-- `src/components/SuperAdmin/SuperAdminTestPublicacaoCNJ.tsx` (campo + lista de jobs com realtime).
-- Sem mudança em `publicacoes` nem no bucket — schema já existe.
+Nenhum arquivo de código. Apenas operação de deploy + validação.
 
 ## Impacto
-
-- **Usuário final (Super-Admin):** Botão responde em <1s, card aparece na lista como "Processando" e vira "Concluído" em ~10–30s sem loading travado. Tenant Demorais vê a publicação na aba Publicações como antes.
-- **Dados:** Nova tabela `publicacao_test_jobs` (pequena, só registros de teste). `publicacoes` continua recebendo 1 linha por teste bem-sucedido. Sem mudança em RLS de outras tabelas.
-- **Custo / API:** Igual ao atual — 1 request Judit + 1 download de PDF por CNJ testado.
-- **Riscos colaterais:** Nulos para outros tenants — a função continua restrita ao Demorais. Realtime adiciona uma assinatura leve só enquanto o Super-Admin tem o painel aberto.
-- **Quem é afetado:** Só Super-Admin (dispara/vê jobs) e usuários do Demorais (veem a publicação resultante).
+- **Usuário final (Super-Admin):** o botão "Gerar publicação de teste" passa a funcionar; o card aparece no histórico e atualiza em tempo real via Realtime.
+- **Dados:** começarão a ser criados registros em `publicacao_test_jobs` e, quando bem-sucedidos, em `publicacoes` do tenant Demorais (com flag `metadata.teste=true`).
+- **Riscos colaterais:** baixo. A função roda apenas para Super-Admins e insere exclusivamente no tenant Demorais.
+- **Quem é afetado:** apenas Super-Admins usando a aba "Ferramentas".
 
 ## Validação
-
-1. Digitar um CNJ com decisão recente e clicar em gerar.
-2. Confirmar que o botão volta ao normal imediatamente e o card aparece como "Processando".
-3. Em ~30s o card vira "Concluído" sozinho (realtime). Clicar em "Abrir publicação" e ver o PDF no Demorais.
-4. Testar um CNJ inválido para ver o card virar "Falhou" com mensagem clara.
-
-## Reversão
-
-`DROP TABLE publicacao_test_jobs;` + reverter a função para a versão síncrona anterior. Nenhum dado de produção é afetado.
+- `curl` na função deve retornar `202` com `jobId`.
+- Logs devem mostrar `processarJob` finalizando com `completed`.
+- UI deve exibir card com status atualizando de `pending` → `processing` → `completed`.
