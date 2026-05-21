@@ -78,7 +78,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
             .order('created_at', { ascending: false })
         ),
         supabase
-          .from('processos_oab_pesquisa' as any)
+          .from('oabs_cadastradas')
           .select('id, oab_numero, oab_uf, nome_advogado, ultimo_request_id')
           .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false }),
