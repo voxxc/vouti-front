@@ -1,23 +1,22 @@
-# Remover tribunal Global e upload de documento
+# Exibir data/hora em Trackings e Requests CNJ
+
+## Causa raiz
+No `TenantBancoIdsDialog`, o timestamp só aparece quando há registro correspondente em `monitor_audit` (toggle) ou na tabela de imports. Trackings/Requests criados antes do log de auditoria — a maioria — não exibem nada.
 
 ## Correção
-1. `src/constants/tribunaisCredenciais.ts` — remover entrada `{ value: '*', label: 'Todos os tribunais (global)', category: 'Global' }` (e comentário).
-2. `src/components/Support/SubscriptionDrawer.tsx` — remover:
-   - estado `documento` / `setDocumento`
-   - bloco do campo "Documento (PDF/PFX)" no formulário de nova credencial
-   - referências a `documento` no payload de criação e no reset
-   - botão de download `cred.documento_url` na listagem (campo deixa de ser preenchido)
+`src/components/SuperAdmin/TenantBancoIdsDialog.tsx`:
+- **Trackings ON/OFF** (`renderTrackingItem`): usar `lastToggleByCnj` quando existir; senão, fallback para `p.tracking_created_at` com rótulo "Registrado".
+- **Requests CNJ**: usar `importByCnj` quando existir; senão, fallback para `p.created_at` (data de criação no banco_ids) com rótulo "Registrado".
+- Formato mantido: `dd/MM/yyyy HH:mm` (ampliar de `dd/MM HH:mm` para incluir ano, conforme pedido "hora e data").
 
 ## Arquivos afetados
-- src/constants/tribunaisCredenciais.ts
-- src/components/Support/SubscriptionDrawer.tsx
+- src/components/SuperAdmin/TenantBancoIdsDialog.tsx
 
 ## Impacto
-- UX: dropdown de tribunal não mostra mais "Todos os tribunais (global)". Formulário de nova credencial fica mais curto, sem o input de arquivo. Drawer mais limpo.
-- Dados: nenhuma migration. Coluna `documento_url` permanece no banco mas deixa de receber novos uploads pelo drawer (registros antigos continuam acessíveis via outras telas, se houver).
-- Riscos: se algum fluxo dependia de credencial global (`tribunal = '*'`), novas credenciais não poderão ser criadas assim pelo drawer — usuário confirmou que removeu intencionalmente.
-- Afetados: clientes finais que abrem o drawer "Minha Assinatura" → aba Credenciais.
+- UX: super-admin passa a ver data+hora de cada tracking (ativo ou pausado) e de cada request CNJ no diálogo Banco de IDs, mesmo para registros antigos sem auditoria.
+- Dados: nenhuma migration; usa colunas `created_at` já existentes em `tenant_banco_ids`.
+- Riscos: para registros pré-auditoria, a data exibida será a de criação no banco_ids (não a do toggle real) — aceitável como fallback.
+- Afetados: apenas super-admins na tela `/super-admin` ao abrir o diálogo Banco de IDs.
 
 ## Validação
-- Abrir drawer → aba Credenciais → "Nova credencial": dropdown sem opção Global, sem campo Documento.
-- Criar credencial e confirmar que salva normalmente sem documento.
+- Abrir Banco de IDs de um tenant: cada item nas abas Trackings ON, Trackings OFF e Requests CNJ deve mostrar data/hora no canto direito.
