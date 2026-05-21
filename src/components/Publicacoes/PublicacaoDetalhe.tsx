@@ -46,7 +46,6 @@ export function PublicacaoDetalhe({ publicacao, onStatusChange }: PublicacaoDeta
     return () => { cancelled = true; };
   }, [p.id, p.storage_path, p.origem]);
 
-  const ext = (p.storage_path?.split('.').pop() || '').toLowerCase();
 
   const abrirDocumento = async () => {
     if (!p.storage_path) return;
