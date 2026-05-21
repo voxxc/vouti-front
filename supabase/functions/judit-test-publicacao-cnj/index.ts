@@ -35,23 +35,10 @@ function htmlToText(html: string): string {
 }
 
 async function extractPdfText(buffer: ArrayBuffer): Promise<string> {
-  try {
-    // @ts-ignore
-    const pdfjs: any = await import('https://esm.sh/pdfjs-dist@3.11.174/legacy/build/pdf.mjs');
-    const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer), disableWorker: true, isEvalSupported: false }).promise;
-    let out = '';
-    const pages = Math.min(doc.numPages, 20);
-    for (let p = 1; p <= pages; p++) {
-      const page = await doc.getPage(p);
-      const content = await page.getTextContent();
-      out += content.items.map((i: any) => i.str).join(' ') + '\n\n';
-      if (out.length > 50000) break;
-    }
-    return out.trim();
-  } catch (e: any) {
-    console.warn('[test-publicacao-cnj] falha extrair PDF:', e?.message);
-    return '';
-  }
+  // Extração de PDF desabilitada nesta função de teste para evitar pesar o deploy.
+  // O conteúdo do step (movimentação) é usado como fallback, e o PDF segue acessível
+  // via signed URL no card de Publicações.
+  return '';
 }
 
 async function extractAttachmentText(buffer: ArrayBuffer, extension: string, contentType: string): Promise<string> {
