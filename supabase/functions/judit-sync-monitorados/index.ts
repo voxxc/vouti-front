@@ -597,7 +597,7 @@ serve(async (req) => {
             }
 
             // Insert new andamento
-            const { error: insertError } = await supabase
+            const { data: insertedAndamento, error: insertError } = await supabase
               .from('processos_oab_andamentos')
               .insert({
                 processo_oab_id: processo.id,
@@ -606,7 +606,9 @@ serve(async (req) => {
                 dados_completos: step,
                 lida: false,
                 tenant_id: processo.tenant_id,
-              });
+              })
+              .select('id')
+              .single();
 
             if (insertError) {
               console.error(`[SYNC] Insert error:`, insertError);
@@ -620,6 +622,27 @@ serve(async (req) => {
               const normalizedDate = normalizeTimestamp(stepDate);
               if (normalizedDate && (!latestAndamentoDate || normalizedDate > latestAndamentoDate)) {
                 latestAndamentoDate = normalizedDate;
+              }
+
+              // Demorais piloto: detectar decisão e auto-alimentar Publicações
+              if (
+                processo.tenant_id === DEMORAIS_TENANT_ID &&
+                insertedAndamento?.id &&
+                isDecisao(stepContent)
+              ) {
+                try {
+                  await processarAnexosDeDecisao({
+                    supabase,
+                    juditApiKey,
+                    tenantId: processo.tenant_id,
+                    processo: { id: processo.id, numero_cnj: processo.numero_cnj },
+                    andamentoId: insertedAndamento.id,
+                    step,
+                    responseData,
+                  });
+                } catch (e) {
+                  console.error('[SYNC][publicacao] erro:', (e as Error).message);
+                }
               }
             }
           }
