@@ -1,0 +1,1 @@
+ALTER TABLE public.publicacao_test_jobs ADD COLUMN IF NOT EXISTS request_id text;
