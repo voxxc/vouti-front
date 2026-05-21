@@ -39,6 +39,7 @@ interface Publicacao {
   origem?: string | null;
   storage_path?: string | null;
   processo_oab_id?: string | null;
+  created_at?: string | null;
 }
 
 const statusColors: Record<string, string> = {
