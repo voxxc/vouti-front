@@ -247,7 +247,7 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
   };
 
   const filtered = publicacoes.filter(p => {
-    if (statusFilter !== 'todos' && p.status !== statusFilter) return false;
+    if (statusFilter !== 'todos' && getNormalizedStatus(p.status) !== statusFilter) return false;
     if (periodoFilter !== 'tudo' && p.data_disponibilizacao) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -274,10 +274,10 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
   const today = new Date().toISOString().split('T')[0];
   const todayPubs = publicacoes.filter(p => p.data_disponibilizacao === today);
   const counts = {
-    naoTratadasHoje: todayPubs.filter(p => p.status === 'nao_tratada').length,
+    naoTratadasHoje: todayPubs.filter(p => getNormalizedStatus(p.status) === 'nao_tratada').length,
     tratadasHoje: todayPubs.filter(p => p.status === 'tratada').length,
     descartadasHoje: todayPubs.filter(p => p.status === 'descartada').length,
-    naoTratadasTotal: publicacoes.filter(p => p.status === 'nao_tratada').length,
+    naoTratadasTotal: publicacoes.filter(p => getNormalizedStatus(p.status) === 'nao_tratada').length,
   };
 
   if (selectedPub) {
