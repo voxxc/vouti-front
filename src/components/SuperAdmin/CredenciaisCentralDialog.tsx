@@ -1,6 +1,6 @@
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Building2, User, Calendar, KeyRound, RefreshCw, Scale } from 'lucide-react';
+import { KeyRound, RefreshCw } from 'lucide-react';
 import { useAllCredenciaisPendentes } from '@/hooks/useAllCredenciaisPendentes';
 import {
   Dialog,
@@ -9,7 +9,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -26,121 +25,88 @@ export function CredenciaisCentralDialog({ open, onOpenChange }: CredenciaisCent
     return cleaned.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   };
 
+  // Achata e ordena por data desc para uma lista única, minimalista.
+  const flat = credenciaisAgrupadas.flatMap((g) =>
+    g.credenciais.map((c) => ({ ...c, tenant_name: g.tenant_name }))
+  );
+  flat.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh]">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <KeyRound className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <DialogTitle className="text-xl">Central de Credenciais</DialogTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Credenciais pendentes de todos os tenants
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-base px-3 py-1">
-                {totalPendentes} pendente{totalPendentes !== 1 ? 's' : ''}
-              </Badge>
+      <DialogContent className="max-w-lg max-h-[72vh] p-6 rounded-2xl">
+        <DialogHeader className="space-y-1">
+          <div className="flex items-baseline justify-between gap-3">
+            <DialogTitle className="text-base font-medium tracking-tight">
+              Credenciais pendentes
+            </DialogTitle>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="tabular-nums">
+                {totalPendentes} {totalPendentes === 1 ? 'item' : 'itens'}
+              </span>
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-7 w-7"
                 onClick={() => refetch()}
                 disabled={isLoading}
+                aria-label="Atualizar"
               >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               </Button>
             </div>
           </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[60vh] pr-4">
+        <ScrollArea className="max-h-[56vh] -mx-2 px-2">
           {isLoading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="space-y-2">
-                  <Skeleton className="h-6 w-48" />
-                  <Skeleton className="h-20 w-full" />
-                </div>
+            <div className="space-y-2 py-2">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-lg" />
               ))}
             </div>
-          ) : credenciaisAgrupadas.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="p-4 rounded-full bg-muted/50 mb-4">
-                <KeyRound className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="font-medium text-lg">Nenhuma credencial pendente</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Todas as credenciais foram processadas
+          ) : flat.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <KeyRound className="h-6 w-6 text-muted-foreground/60 mb-3" strokeWidth={1.5} />
+              <p className="text-sm text-muted-foreground">
+                Nenhuma credencial pendente
               </p>
             </div>
           ) : (
-            <div className="space-y-6">
-              {credenciaisAgrupadas.map((grupo) => (
-                <div key={grupo.tenant_id} className="space-y-3">
-                  {/* Header do Tenant */}
-                  <div className="flex items-center gap-2 pb-2 border-b border-border">
-                    <Building2 className="h-4 w-4 text-primary" />
-                    <span className="font-semibold text-foreground">
-                      {grupo.tenant_name}
-                    </span>
-                    <Badge variant="outline" className="ml-auto">
-                      {grupo.credenciais.length} credencia{grupo.credenciais.length !== 1 ? 'is' : 'l'}
-                    </Badge>
-                  </div>
-
-                  {/* Lista de Credenciais */}
-                  <div className="space-y-2 pl-4">
-                    {grupo.credenciais.map((cred) => (
-                      <div
-                        key={cred.id}
-                        className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="flex flex-col gap-1">
-                            {cred.oab_numero && cred.oab_uf && (
-                              <div className="flex items-center gap-2">
-                                <Badge variant="secondary" className="font-mono">
-                                  OAB {cred.oab_numero}/{cred.oab_uf}
-                                </Badge>
-                                {cred.nome_advogado && (
-                                  <span className="text-sm text-muted-foreground">
-                                    {cred.nome_advogado}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2 text-sm">
-                              <User className="h-3 w-3 text-muted-foreground" />
-                              <span className="font-mono text-muted-foreground">
-                                CPF: {formatCPF(cred.cpf)}
-                              </span>
-                            </div>
-                            {cred.system_name && (
-                              <div className="flex items-center gap-2 text-sm">
-                                <Scale className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-muted-foreground">
-                                  {cred.system_name}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          {cred.created_at && format(new Date(cred.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </div>
+            <ul className="divide-y divide-border/60">
+              {flat.map((cred) => {
+                const oabLabel = cred.oab_numero && cred.oab_uf
+                  ? `OAB ${cred.oab_numero}/${cred.oab_uf}`
+                  : null;
+                const primary = [oabLabel, cred.nome_advogado].filter(Boolean).join(' · ');
+                const secondary = [
+                  cred.cpf ? formatCPF(cred.cpf) : null,
+                  cred.system_name,
+                  cred.tenant_name,
+                ].filter(Boolean).join(' · ');
+                return (
+                  <li key={cred.id} className="py-3 first:pt-2 last:pb-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {primary || cred.nome_advogado || 'Credencial'}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                          {secondary}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+                      <span
+                        className="text-[11px] text-muted-foreground/80 whitespace-nowrap shrink-0"
+                        title={cred.created_at ? format(new Date(cred.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : ''}
+                      >
+                        {cred.created_at
+                          ? formatDistanceToNow(new Date(cred.created_at), { locale: ptBR, addSuffix: true })
+                          : '—'}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </ScrollArea>
       </DialogContent>
