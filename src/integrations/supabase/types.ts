@@ -6494,6 +6494,7 @@ export type Database = {
           id: string
           numero_cnj: string
           publicacao_id: string | null
+          request_id: string | null
           status: string
           storage_path: string | null
           tenant_id: string
@@ -6507,6 +6508,7 @@ export type Database = {
           id?: string
           numero_cnj: string
           publicacao_id?: string | null
+          request_id?: string | null
           status?: string
           storage_path?: string | null
           tenant_id: string
@@ -6520,6 +6522,7 @@ export type Database = {
           id?: string
           numero_cnj?: string
           publicacao_id?: string | null
+          request_id?: string | null
           status?: string
           storage_path?: string | null
           tenant_id?: string

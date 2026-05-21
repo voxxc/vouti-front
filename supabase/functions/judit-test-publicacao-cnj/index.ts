@@ -39,7 +39,10 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const numeroCnj = String(body?.numero_cnj || body?.numeroCnj || '').trim();
-    if (!numeroCnj) return json({ error: 'numero_cnj é obrigatório' }, 400);
+    const requestIdInput = String(body?.request_id || body?.requestId || '').trim();
+    if (!numeroCnj && !requestIdInput) {
+      return json({ error: 'Informe numero_cnj ou request_id' }, 400);
+    }
 
     const numeroLimpo = numeroCnj.replace(/[^\d.-]/g, '');
 
@@ -48,7 +51,8 @@ Deno.serve(async (req) => {
       .from('publicacao_test_jobs')
       .insert({
         tenant_id: DEMORAIS_TENANT_ID,
-        numero_cnj: numeroLimpo,
+        numero_cnj: numeroLimpo || '(via request_id)',
+        request_id: requestIdInput || null,
         status: 'pending',
         created_by: user.id,
       })
@@ -62,7 +66,7 @@ Deno.serve(async (req) => {
     // Dispara processamento em background
     // @ts-ignore - EdgeRuntime existe no Deno deploy
     EdgeRuntime.waitUntil(
-      processarJob(supabaseAdmin, juditApiKey, job.id, numeroLimpo).catch(async (err) => {
+      processarJob(supabaseAdmin, juditApiKey, job.id, numeroLimpo, requestIdInput).catch(async (err) => {
         console.error('[test-publicacao-cnj] background error', err);
         await supabaseAdmin
           .from('publicacao_test_jobs')
@@ -90,33 +94,44 @@ async function processarJob(
   juditApiKey: string,
   jobId: string,
   numeroCnj: string,
+  reuseRequestId?: string,
 ) {
   await supabase.from('publicacao_test_jobs')
     .update({ status: 'processing' }).eq('id', jobId);
 
-  // 1. Cria request com attachments
-  const reqResp = await fetch(`${JUDIT_API_URL}/requests`, {
-    method: 'POST',
-    headers: { 'api-key': juditApiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      search: { search_type: 'lawsuit_cnj', search_key: numeroCnj, on_demand: true },
-      with_attachments: true,
-    }),
-  });
-
-  if (!reqResp.ok) {
-    const text = await reqResp.text();
-    throw new Error(`Judit POST /requests ${reqResp.status}: ${text}`);
+  // 1. Obter request_id (reaproveitando ou criando)
+  let request_id: string;
+  if (reuseRequestId) {
+    request_id = reuseRequestId;
+    console.log('[test-publicacao-cnj] reusando request_id', request_id);
+  } else {
+    const reqResp = await fetch(`${JUDIT_API_URL}/requests`, {
+      method: 'POST',
+      headers: { 'api-key': juditApiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        search: { search_type: 'lawsuit_cnj', search_key: numeroCnj, on_demand: true },
+        with_attachments: true,
+      }),
+    });
+    if (!reqResp.ok) {
+      const text = await reqResp.text();
+      throw new Error(`Judit POST /requests ${reqResp.status}: ${text}`);
+    }
+    const parsed = await reqResp.json();
+    request_id = parsed.request_id;
+    if (!request_id) throw new Error('request_id não retornado pela Judit');
   }
-  const { request_id } = await reqResp.json();
-  if (!request_id) throw new Error('request_id não retornado pela Judit');
 
   // 2. Polling do response (até ~5 min: 60 × 5s)
   let responseData: any = null;
   let lastStatus: string | null = null;
   let lastShape: string | null = null;
-  for (let i = 0; i < 60; i++) {
-    await new Promise((r) => setTimeout(r, 5000));
+  const maxAttempts = reuseRequestId ? 30 : 60;
+  for (let i = 0; i < maxAttempts; i++) {
+    // Para request_id reaproveitado, pode já estar pronto — começa rápido
+    if (i > 0 || !reuseRequestId) {
+      await new Promise((r) => setTimeout(r, reuseRequestId ? 2000 : 5000));
+    }
     const r = await fetch(`${JUDIT_API_URL}/responses?request_id=${request_id}`, {
       headers: { 'api-key': juditApiKey },
     });
@@ -157,95 +172,127 @@ async function processarJob(
     );
   }
 
-  // 3. Localiza último step com anexo
+  // 3. Localiza TODOS os steps com anexo
   const steps: any[] = responseData.steps || responseData.movimentacoes || [];
+  const cnjResolvido = (numeroCnj && numeroCnj.length > 0)
+    ? numeroCnj
+    : String(responseData.code || responseData.numero_processo || '').trim();
+  if (!cnjResolvido) {
+    throw new Error('Não foi possível determinar o CNJ a partir do response');
+  }
+
   const sortedSteps = [...steps].sort((a, b) => {
     const da = new Date(a.step_date || a.data || 0).getTime();
     const db = new Date(b.step_date || b.data || 0).getTime();
     return db - da;
   });
 
-  const stepComAnexo = sortedSteps.find(
+  const stepsComAnexo = sortedSteps.filter(
     (s) => Array.isArray(s.attachments) && s.attachments.length > 0,
-  );
+  ).slice(0, 10); // limite de segurança
 
-  if (!stepComAnexo) {
+  if (stepsComAnexo.length === 0) {
     throw new Error('Nenhum andamento com anexo encontrado para este CNJ');
   }
 
-  const attachment = stepComAnexo.attachments[stepComAnexo.attachments.length - 1];
-  const attachmentId = attachment.attachment_id || attachment.id;
-  const attachmentName = attachment.name || attachment.nome || `${attachmentId}.pdf`;
-  if (!attachmentId) throw new Error('attachment_id ausente');
+  console.log(`[test-publicacao-cnj] ${stepsComAnexo.length} step(s) com anexo`);
 
-  // 4. Baixa o binário
-  const numeroLimpoDigits = numeroCnj.replace(/\D/g, '');
-  const instancia = responseData.instance || responseData.instancia || 1;
-  const downloadUrl = `https://lawsuits.production.judit.io/lawsuits/${numeroLimpoDigits}/${instancia}/attachments/${attachmentId}`;
-
-  const fileResp = await fetch(downloadUrl, { headers: { 'api-key': juditApiKey } });
-  if (!fileResp.ok) {
-    throw new Error(`Falha ao baixar anexo (${fileResp.status})`);
-  }
-  const arrayBuffer = await fileResp.arrayBuffer();
-  const contentType = fileResp.headers.get('content-type') || 'application/pdf';
-
-  // 5. Upload no bucket
-  const ext = attachmentName.split('.').pop() || 'pdf';
-  const storagePath = `${DEMORAIS_TENANT_ID}/_teste_publicacao/${attachmentId}.${ext}`;
-
-  const { error: upErr } = await supabase.storage
-    .from('processo-documentos')
-    .upload(storagePath, new Uint8Array(arrayBuffer), {
-      contentType,
-      upsert: true,
-    });
-  if (upErr) throw new Error(`Storage: ${upErr.message}`);
-
-  // 6. Vincula a um processos_oab existente, se houver
+  // Vincula a um processos_oab existente, se houver
   const { data: processo } = await supabase
     .from('processos_oab')
     .select('id')
     .eq('tenant_id', DEMORAIS_TENANT_ID)
-    .eq('numero_processo', numeroCnj)
+    .eq('numero_processo', cnjResolvido)
     .maybeSingle();
 
-  // 7. Determina tipo (decisão se contiver keyword)
-  const stepText = String(stepComAnexo.content || stepComAnexo.description || '').toLowerCase();
-  const ehDecisao = DECISAO_KEYWORDS.some((k) => stepText.includes(k));
+  const numeroLimpoDigits = cnjResolvido.replace(/\D/g, '');
+  const instancia = responseData.instance || responseData.instancia || 1;
 
-  const dataStep = stepComAnexo.step_date || stepComAnexo.data || new Date().toISOString();
-  const dataDisp = String(dataStep).slice(0, 10);
+  let firstStoragePath: string | null = null;
+  let firstAttachmentName: string | null = null;
+  let firstPubId: string | null = null;
+  let countOk = 0;
+  const errors: string[] = [];
 
-  // 8. Insere publicação
-  const { data: pub, error: pubErr } = await supabase
-    .from('publicacoes')
-    .insert({
-      tenant_id: DEMORAIS_TENANT_ID,
-      origem: 'monitoramento_processo',
-      tipo: ehDecisao ? 'Decisão (teste)' : 'Publicação (teste)',
-      numero_processo: numeroCnj,
-      data_disponibilizacao: dataDisp,
-      conteudo_completo: String(stepComAnexo.content || stepComAnexo.description || '').slice(0, 50000),
-      storage_path: storagePath,
-      processo_oab_id: processo?.id || null,
-      status: 'nao_lida',
-      metadata: {
-        teste: true,
-        attachment_id: attachmentId,
-        attachment_name: attachmentName,
-        request_id,
-      },
-    })
-    .select('id')
-    .single();
+  for (const step of stepsComAnexo) {
+    for (const att of step.attachments) {
+      const attachmentId = att.attachment_id || att.id;
+      const attachmentName = att.name || att.nome || `${attachmentId}.pdf`;
+      if (!attachmentId) continue;
 
-  if (pubErr) throw new Error(`Insert publicacao: ${pubErr.message}`);
+      try {
+        const downloadUrl = `https://lawsuits.production.judit.io/lawsuits/${numeroLimpoDigits}/${instancia}/attachments/${attachmentId}`;
+        const fileResp = await fetch(downloadUrl, { headers: { 'api-key': juditApiKey } });
+        if (!fileResp.ok) {
+          errors.push(`${attachmentName}: download ${fileResp.status}`);
+          continue;
+        }
+        const arrayBuffer = await fileResp.arrayBuffer();
+        const contentType = fileResp.headers.get('content-type') || 'application/pdf';
+        const ext = attachmentName.split('.').pop() || 'pdf';
+        const storagePath = `${DEMORAIS_TENANT_ID}/_teste_publicacao/${attachmentId}.${ext}`;
+
+        const { error: upErr } = await supabase.storage
+          .from('processo-documentos')
+          .upload(storagePath, new Uint8Array(arrayBuffer), { contentType, upsert: true });
+        if (upErr) {
+          errors.push(`${attachmentName}: storage ${upErr.message}`);
+          continue;
+        }
+
+        const stepText = String(step.content || step.description || '').toLowerCase();
+        const ehDecisao = DECISAO_KEYWORDS.some((k) => stepText.includes(k));
+        const dataStep = step.step_date || step.data || new Date().toISOString();
+        const dataDisp = String(dataStep).slice(0, 10);
+
+        const { data: pub, error: pubErr } = await supabase
+          .from('publicacoes')
+          .insert({
+            tenant_id: DEMORAIS_TENANT_ID,
+            origem: 'monitoramento_processo',
+            tipo: ehDecisao ? 'Decisão (teste)' : 'Publicação (teste)',
+            numero_processo: cnjResolvido,
+            data_disponibilizacao: dataDisp,
+            conteudo_completo: String(step.content || step.description || '').slice(0, 50000),
+            storage_path: storagePath,
+            processo_oab_id: processo?.id || null,
+            status: 'nao_lida',
+            metadata: {
+              teste: true,
+              attachment_id: attachmentId,
+              attachment_name: attachmentName,
+              request_id,
+              reused_request: !!reuseRequestId,
+            },
+          })
+          .select('id')
+          .single();
+        if (pubErr) {
+          errors.push(`${attachmentName}: insert ${pubErr.message}`);
+          continue;
+        }
+
+        countOk += 1;
+        if (!firstStoragePath) {
+          firstStoragePath = storagePath;
+          firstAttachmentName = attachmentName;
+          firstPubId = pub.id;
+        }
+      } catch (err: any) {
+        errors.push(`${attachmentName}: ${err.message}`);
+      }
+    }
+  }
+
+  if (countOk === 0) {
+    throw new Error(`Nenhuma publicação criada. ${errors.slice(0, 3).join(' | ')}`);
+  }
 
   await supabase.from('publicacao_test_jobs').update({
     status: 'completed',
-    publicacao_id: pub.id,
-    storage_path: storagePath,
-    attachment_name: attachmentName,
+    publicacao_id: firstPubId,
+    storage_path: firstStoragePath,
+    attachment_name: countOk > 1 ? `${countOk} anexos (1º: ${firstAttachmentName})` : firstAttachmentName,
+    error_message: errors.length > 0 ? `Parcial: ${errors.length} falha(s)` : null,
   }).eq('id', jobId);
 }
