@@ -1,81 +1,69 @@
-# Corrigir leitura de anexos da Judit (array top-level)
+# Modelo de card na seção Publicações (resultado dos anexos)
 
-## Causa raiz
-A Judit não devolve `attachments` dentro de cada `step`. Devolve um **array top-level** `response_data.attachments`, e cada item carrega `step_id`, `attachment_id`, `attachment_name`, `extension`, `status` e `attachment_date`. O vínculo step↔anexo é feito pelo `step_id`.
+Hoje a edge `judit-test-publicacao-cnj` já cria 10 publicações em Demorais a partir do request `0e27516b…`, mas elas **não aparecem** no drawer de Publicações porque:
 
-Hoje a edge function `judit-test-publicacao-cnj` procura `step.attachments`, que nunca existe nesse shape — por isso devolve "Nenhum andamento com anexo encontrado", mesmo quando o request tem PDFs.
+- `status = 'nao_lida'` → o filtro do drawer só conhece `nao_tratada / tratada / descartada`.
+- Filtro de período padrão = últimos 7 dias (publicações estão entre 2025-12 e 2026-03).
+- `conteudo_completo` vazio → card fica sem preview, sem texto pra busca.
+- `nome_pesquisado / comarca / diario_*` nulos → linha do card aparece "vazia".
+- O documento abre só em nova aba (signed URL); não há preview embutido.
 
 ## Correção
-Em `supabase/functions/judit-test-publicacao-cnj/index.ts`, no `processarJob`:
 
-1. Após obter `responseData`, ler `responseData.attachments` (top-level). Fallback para `response_data.attachments` se vier aninhado.
-2. Filtrar anexos válidos:
-   - `status === 'done'`
-   - `corrupted !== true`
-   - `extension` ∈ aceitos (pdf, html — descarta `html` se quisermos só PDF visualizável; manter ambos por enquanto).
-3. Para cada anexo, encontrar o step correspondente via `step_id` (lookup no array `steps`) para extrair `content`/`step_date` e classificar como Decisão.
-4. Limitar a 10 anexos mais recentes (ordenar por `attachment_date desc`).
-5. Manter a lógica atual de download → upload no bucket → insert em `publicacoes`.
-6. Atualizar a mesma lógica em `judit-sync-monitorados` para consistência (hoje também lê `step.attachments` — silenciosamente não cria nada).
+### 1. Edge `judit-test-publicacao-cnj` (e depois replicar em `judit-sync-monitorados`)
+- Gravar `status = 'nao_tratada'` (compatível com filtros).
+- Extrair texto do anexo:
+  - PDF → `pdfjs-dist` (já usado em sync).
+  - HTML → strip de tags + decode entities → `conteudo_completo`.
+- Preencher campos derivados do processo / step:
+  - `nome_pesquisado` = nome do cliente vinculado (ou parte autora do `processos_oab`).
+  - `comarca`, `orgao`, `diario_sigla` = vindos do step (tribunal/órgão) / fallback "Monitoramento Judit".
+  - `tipo` = "Decisão" (sem o sufixo "(teste)" em produção; manter "(teste)" só pra jobs disparados pelo Super-Admin).
+  - `responsavel` = magistrado quando detectável no texto, senão null.
+- Manter `origem = 'monitoramento_processo'`, `processo_oab_id`, `andamento_id`, `anexo_id`, `storage_path`.
 
-## Arquivos afetados
-- `supabase/functions/judit-test-publicacao-cnj/index.ts` (leitura do array top-level + lookup por step_id)
-- `supabase/functions/judit-sync-monitorados/index.ts` (mesma correção no fluxo automático de publicações)
+### 2. Card da lista (`PublicacoesDrawer.tsx`)
+Novo "modelo" visual quando `origem === 'monitoramento_processo'`:
 
-## Impacto
-- **Usuário (Super-Admin):** o teste com request_id `0e27516b…` agora encontra os 3+ anexos (DESPACHO/DECISÃO em HTML, custas em PDF, guias em PDF) e cria 1 publicação por anexo no tenant Demorais.
-- **Usuário (tenant Demorais):** o monitoramento passa a alimentar a aba Publicações automaticamente — antes não criava nada por causa do mesmo bug. Pode aparecer um volume grande na primeira sincronização pós-deploy.
-- **Dados:** sem migration. Inserts adicionais em `publicacoes` com `origem='monitoramento_processo'`. Storage recebe os PDFs em `{tenant_id}/_teste_publicacao/…` (teste) ou no path padrão (sync).
-- **Riscos colaterais:** anexos com `extension='html'` ficam como blob HTML no bucket — abrem como página, não como PDF. Vou manter classificação correta no `metadata.extension`. Anexos `corrupted=true` ou `status!='done'` são ignorados.
-- **Quem é afetado:** Super-Admin (ferramenta de teste) e usuários do tenant Demorais (publicações automáticas). Outros tenants só serão afetados quando o piloto for liberado.
+```text
+┌────────────────────────────────────────────────────────────┐
+│ [Decisão] [Monitoramento]            há 2h · 19/03/2026    │
+│ 4000436-45.2025.8.26.0411                                  │
+│ DESPACHO/DECISÃO 1 — 70 KB · PDF                           │
+│ "Vistos. Defiro o pedido de…" (trecho do conteúdo)         │
+│ [Abrir documento] [Marcar tratada] [Descartar]             │
+└────────────────────────────────────────────────────────────┘
+```
 
-## Validação
-1. Reexecutar o teste com `request_id = 0e27516b-43aa-48af-a7af-9f1194236afb`.
-2. Logs devem mostrar `N anexo(s) válidos` (N>0).
-3. Histórico do card: "Concluído" com `3 anexos (1º: DESPACHO/DECISÃO…)`.
-4. Aba Publicações do Demorais: 3 registros novos com badge "Monitoramento", abrindo o documento via signed URL.
+- Badge primária "Decisão" + badge outline "Monitoramento" (sem ícone de jornal).
+- Nome do anexo + tamanho extraídos de `processos_oab_anexos` (join leve por `anexo_id` ou parse do `attachment_name`).
+- Trecho de 180 chars do `conteudo_completo`.
+- Ações inline (não precisa abrir detalhe pra tratar/descartar).
 
-## Causa / Necessidade
-Quando um Request CNJ já foi disparado na Judit (e ficou registrado o `request_id`), faz sentido pular o POST `/requests` e ir direto consultar `/responses?request_id=...`. Isso evita gastar uma nova consulta on-demand e é mais rápido (a resposta já está pronta).
+### 3. Detalhe (`PublicacaoDetalhe.tsx`)
+- Quando `origem = monitoramento_processo` e existe `storage_path`:
+  - Bloco "Documento" no topo com preview embutido (`<iframe>` para PDF, `<iframe srcdoc>` para HTML) usando signed URL.
+  - Botão "Abrir em nova aba" como secundário.
+- Esconder campos irrelevantes (Diário, Comarca quando nulos) e mostrar bloco "Processo vinculado" com link para abrir o drawer do processo (`processo_oab_id`).
 
-Caso atual: `request_id = 0e27516b-43aa-48af-a7af-9f1194236afb` — queremos puxar os anexos desse request e materializar uma Publicação no tenant Demorais.
-
-## Correção / Implementação
-
-### 1. Edge Function: aceitar `request_id` direto
-Em `supabase/functions/judit-test-publicacao-cnj/index.ts`:
-
-- Aceitar no body: `{ request_id?: string, numero_cnj?: string }`. Pelo menos um obrigatório.
-- Se vier `request_id`, pular o POST `/requests` e ir direto ao polling do `/responses`.
-- Se só vier `numero_cnj`, manter o fluxo atual (POST → polling).
-- Quando vier `request_id`, derivar `numero_cnj` do próprio `response_data.code` (a Judit retorna o CNJ).
-- Em vez de pegar **só** o último step com anexo, processar **todos os steps com anexos** (cada um vira uma publicação). Hoje o teste só cria 1.
-- Cada publicação herda: classificação "Decisão" se o texto bater nas keywords, senão "Publicação".
-
-### 2. UI Super-Admin
-Em `src/components/SuperAdmin/SuperAdminTestPublicacaoCNJ.tsx`:
-
-- Adicionar um segundo input opcional: "Request ID Judit (opcional)".
-- Quando preenchido, envia `request_id` no body e ignora CNJ.
-- Label do card de histórico mostra o `request_id` quando aplicável.
-- Botão "Gerar publicação de teste" passa a aceitar qualquer um dos dois preenchido.
-
-### 3. Tabela `publicacao_test_jobs`
-Adicionar coluna `request_id text null` para registrar a origem. Migration simples.
+### 4. Filtro do drawer
+- Aceitar `nao_lida` como alias de `nao_tratada` (migration backfill `update publicacoes set status='nao_tratada' where status='nao_lida'`).
+- Quando há publicações com `origem='monitoramento_processo'`, adicionar chip rápido "Decisões monitoradas" no topo dos filtros.
 
 ## Arquivos afetados
-- `supabase/functions/judit-test-publicacao-cnj/index.ts` (refatorar fluxo)
-- `src/components/SuperAdmin/SuperAdminTestPublicacaoCNJ.tsx` (novo input + exibição)
-- Migration: adicionar `request_id` em `publicacao_test_jobs`
+- `supabase/functions/judit-test-publicacao-cnj/index.ts` (extração de texto + campos).
+- `supabase/migrations/<novo>.sql` (backfill `nao_lida → nao_tratada`).
+- `src/components/Publicacoes/PublicacoesDrawer.tsx` (card "modelo" + filtro).
+- `src/components/Publicacoes/PublicacaoDetalhe.tsx` (preview embutido + link processo).
 
 ## Impacto
-- **Usuário (Super-Admin):** ganha um atalho para reaproveitar requests Judit já existentes. Pode gerar múltiplas publicações de teste de uma vez (uma por step com anexo).
-- **Dados:** nova coluna `request_id` em `publicacao_test_jobs`. Continua restrito ao tenant Demorais. Publicações criadas mantêm flag `teste: true` em `metadata`.
-- **Riscos colaterais:** se o `request_id` tiver muitos steps com anexos, o job demora mais (cada anexo é um download + upload). Mantemos `EdgeRuntime.waitUntil` (5 min limite). Para mitigar, limitar a, ex.: 10 anexos mais recentes por job.
-- **Quem é afetado:** somente Super-Admins na aba Ferramentas.
+- **Usuário final (Demorais):** passa a ver na aba Publicações um card distinto para cada decisão capturada por monitoramento, com preview do documento e trecho do conteúdo — sem precisar abrir o processo. Workflow `nao_tratada → tratada` funciona igual ao DJEN.
+- **Dados:** backfill troca status `nao_lida → nao_tratada` (idempotente, só afeta 10 linhas de teste hoje). Nenhuma alteração de schema. PDFs continuam no bucket `processo-documentos` sob `{tenant_id}/_teste_publicacao/…`.
+- **Riscos colaterais:** extração de texto pesada em HTMLs grandes pode aumentar o tempo de processamento do job (mitigado: limite 50KB de texto, parsing assíncrono). Iframe inline exige signed URL renovável — gerar sob demanda no detalhe (TTL 10min, como hoje).
+- **Quem é afetado:** apenas tenant Demorais (origem do teste). Quando replicarmos em `judit-sync-monitorados`, afeta todos os tenants com tracking ativo — fica fora deste plano.
 
 ## Validação
-1. Disparar teste com `request_id = 0e27516b-43aa-48af-a7af-9f1194236afb`.
-2. Logs devem mostrar quantos steps com anexos foram encontrados.
-3. Histórico deve listar N cards "Concluído" (um por anexo), todos com botão "Abrir PDF".
-4. Aba Publicações do tenant Demorais deve exibir os registros novos com badge "Monitoramento".
+1. Disparar novo job no Super-Admin reusando `request_id 0e27516b…`.
+2. Abrir Publicações do Demorais → filtro "tudo" → card "Decisão · Monitoramento" deve aparecer com preview de texto.
+3. Abrir detalhe → iframe do PDF deve renderizar inline.
+4. Marcar como tratada → status persiste e o card sai da contagem "Não tratadas".
