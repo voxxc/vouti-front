@@ -1,55 +1,47 @@
-# Teste visual de Publicação via Request CNJ — one-shot
+# Teste visual de Publicação via CNJ — assíncrono (sem travar o loading)
 
-Você fornece um CNJ, eu disparo um Request CNJ com `with_attachments: true` na Judit, pego **somente o último documento anexado** do response, baixo o PDF, salvo no storage e crio **uma única publicação** no tenant Demorais para você ver o visual real.
+Você digita o CNJ num campo no Super-Admin, clica e o card aparece em alguns segundos sem barra de loading travada. O trabalho pesado roda em background.
 
 ## Causa raiz
 
-Aba Publicações nunca foi exposta com decisões reais (PDF baixado). Sem material para julgar o layout final.
+A função `judit-test-publicacao-cnj` faz polling síncrono na Judit (POST `/requests` → aguardar → GET `/responses` → baixar PDF → extrair texto). Isso ultrapassa o timeout do Edge Function, então o botão fica em "loading" eterno e o usuário nunca vê o resultado.
 
 ## Correção
 
-Edge Function one-shot `judit-test-publicacao-cnj`:
+Dividir em **iniciar** + **trabalho em background** + **status visível na tela**.
 
-1. Recebe `{ numero_cnj }` via POST. Restrita a Super-Admin.
-2. `POST https://requests.prod.judit.io/requests` com:
-   ```json
-   { "search": { "search_type": "lawsuit_cnj", "search_key": "<cnj>", "on_demand": true }, "with_attachments": true }
-   ```
-3. Polling em `GET /responses?request_id=...` até `status` final (até ~30s).
-4. Extrai `response_data.steps[]` ordenados por `step_date` desc. Pega o **primeiro step com `attachments` não vazio** (= último documento publicado).
-5. Pega o **último attachment** desse step.
-6. Vincula a um `processos_oab` do tenant Demorais quando o CNJ existir lá (senão `processo_oab_id = NULL`, ainda assim cria a publicação só para visualização).
-7. Upsert em `processos_oab_anexos` (se houver processo vinculado).
-8. Baixa o binário do anexo via `GET /responses/{response_id}/attachments/{attachment_id}` (header `api-key`).
-9. Salva em `processo-documentos/<tenant_demorais>/<processo_oab_id ou "_avulso">/<anexo_id>.<ext>`.
-10. Extrai texto com `pdfjs-dist` (até 50 KB).
-11. Insere **uma linha** em `publicacoes` (`origem='monitoramento_processo'`, `tipo='Decisão (teste)'`, `numero_processo=<cnj>`, `data_disponibilizacao=step.step_date`, `conteudo_completo=<texto>`, `storage_path=<caminho>`, `tenant_id=<demorais>`).
-12. Retorna JSON com `publicacao_id`, `storage_path`, `attachment_name`, prévia do texto.
-
-Disparo: novo card no Super-Admin (ao lado do "Teste de Importação CNJ") chamado **"Teste Publicação CNJ"** com input do CNJ e botão "Criar publicação de teste". Toast com link "Abrir aba Publicações".
+1. Nova tabela `publicacao_test_jobs` (id, tenant_id, numero_cnj, status `pending|processing|completed|failed`, publicacao_id, error_message, created_by, timestamps). RLS: só Super-Admin.
+2. Refatorar `judit-test-publicacao-cnj`:
+   - Recebe `{ numero_cnj }`, valida Super-Admin, cria linha em `publicacao_test_jobs` com status `pending`.
+   - Dispara `EdgeRuntime.waitUntil(processarJob(jobId))` e responde **imediatamente** `202 { jobId }`.
+   - `processarJob` faz POST Judit, polling do response, download do PDF, upload no bucket, extração de texto, insert em `publicacoes` (origem `monitoramento_processo`, tenant Demorais) e atualiza o job para `completed` com o `publicacao_id` (ou `failed` com mensagem).
+3. Substituir o componente `SuperAdminTestPublicacaoCNJ.tsx`:
+   - Campo de input do CNJ + botão "Gerar publicação de teste".
+   - Lista abaixo dos últimos jobs do Super-Admin com badge de status (Pendente / Processando / Concluído / Falhou) e botão "Abrir publicação" quando concluído.
+   - Realtime na tabela `publicacao_test_jobs` para atualizar o card sem refresh.
 
 ## Arquivos afetados
 
-- `supabase/functions/judit-test-publicacao-cnj/index.ts` (nova).
-- `src/components/SuperAdmin/SuperAdminTestPublicacaoCNJ.tsx` (nova, espelha o padrão de `SuperAdminImportCNJTest.tsx`).
-- Registro do componente na aba de testes existente do Super-Admin.
-- Sem migration. Schema, índice único e bucket já existem.
+- Migration: cria `publicacao_test_jobs` + RLS Super-Admin + habilita realtime.
+- `supabase/functions/judit-test-publicacao-cnj/index.ts` (refatorada para async com `EdgeRuntime.waitUntil`).
+- `src/components/SuperAdmin/SuperAdminTestPublicacaoCNJ.tsx` (campo + lista de jobs com realtime).
+- Sem mudança em `publicacoes` nem no bucket — schema já existe.
 
 ## Impacto
 
-- **Usuário final:** Você vê uma publicação real no Demorais com PDF clicável ("Abrir documento"). Nenhuma alteração para outros usuários ou tenants.
-- **Dados:** 1 linha em `publicacoes`, até 1 em `processos_oab_anexos`, 1 arquivo no bucket. Sem `UPDATE` em nada existente. Sem mudança de schema.
-- **Custo / API:** 1 request Judit com attachments + 1 download de PDF. Custo desprezível.
-- **Riscos colaterais:** Nulos em outros tenants — função recusa qualquer destino diferente de Demorais. Se rodar com mesmo CNJ várias vezes, o índice único anti-duplicidade evita publicações duplicadas (retorna a existente).
-- **Quem é afetado:** Apenas Super-Admin (dispara) e usuários do Demorais (veem a publicação na aba).
+- **Usuário final (Super-Admin):** Botão responde em <1s, card aparece na lista como "Processando" e vira "Concluído" em ~10–30s sem loading travado. Tenant Demorais vê a publicação na aba Publicações como antes.
+- **Dados:** Nova tabela `publicacao_test_jobs` (pequena, só registros de teste). `publicacoes` continua recebendo 1 linha por teste bem-sucedido. Sem mudança em RLS de outras tabelas.
+- **Custo / API:** Igual ao atual — 1 request Judit + 1 download de PDF por CNJ testado.
+- **Riscos colaterais:** Nulos para outros tenants — a função continua restrita ao Demorais. Realtime adiciona uma assinatura leve só enquanto o Super-Admin tem o painel aberto.
+- **Quem é afetado:** Só Super-Admin (dispara/vê jobs) e usuários do Demorais (veem a publicação resultante).
 
 ## Validação
 
-1. Você me passa um CNJ que sabe ter movimento com PDF (idealmente uma decisão recente).
-2. Disparar pelo botão; aguardar toast de sucesso.
-3. Abrir aba Publicações no Demorais → conferir badge "Monitoramento", o número do processo e clicar em "Abrir documento" para ver o PDF original.
-4. Se o visual agradar, evoluímos para o backfill em lote ou ligamos a auto-alimentação. Se não, ajustamos só a UI sem precisar refazer a parte de integração.
+1. Digitar um CNJ com decisão recente e clicar em gerar.
+2. Confirmar que o botão volta ao normal imediatamente e o card aparece como "Processando".
+3. Em ~30s o card vira "Concluído" sozinho (realtime). Clicar em "Abrir publicação" e ver o PDF no Demorais.
+4. Testar um CNJ inválido para ver o card virar "Falhou" com mensagem clara.
 
 ## Reversão
 
-`DELETE FROM publicacoes WHERE id = '<retornado>'` + remover o objeto correspondente do bucket. Trivial.
+`DROP TABLE publicacao_test_jobs;` + reverter a função para a versão síncrona anterior. Nenhum dado de produção é afetado.
