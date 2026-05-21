@@ -394,13 +394,20 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
         ) : (
           <Badge variant="outline" className="text-xs">Desativado</Badge>
         )}
-        {p.numero_cnj && lastToggleByCnj.get(p.numero_cnj) && (
-          <span className="text-[10px] text-muted-foreground ml-auto whitespace-nowrap">
-            {lastToggleByCnj.get(p.numero_cnj)!.acao === 'ativado' ? 'Ativado' : 'Pausado'}{' '}
-            {format(new Date(lastToggleByCnj.get(p.numero_cnj)!.created_at), "dd/MM HH:mm", { locale: ptBR })}
-            {lastToggleByCnj.get(p.numero_cnj)!.email ? ` · ${lastToggleByCnj.get(p.numero_cnj)!.email}` : ''}
-          </span>
-        )}
+        {(() => {
+          const toggle = p.numero_cnj ? lastToggleByCnj.get(p.numero_cnj) : null;
+          const ts = toggle?.created_at || p.tracking_created_at;
+          if (!ts) return null;
+          const label = toggle
+            ? (toggle.acao === 'ativado' ? 'Ativado' : 'Pausado')
+            : 'Registrado';
+          return (
+            <span className="text-[10px] text-muted-foreground ml-auto whitespace-nowrap">
+              {label} {format(new Date(ts), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+              {toggle?.email ? ` · ${toggle.email}` : ''}
+            </span>
+          );
+        })()}
       </div>
       <div className="text-[11px] text-muted-foreground mb-0.5">Tracking ID</div>
       {codeCell(p.tracking_id, 'Tracking ID')}
@@ -484,12 +491,18 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
                           <FileText className="h-4 w-4 text-primary shrink-0" />
                           <span className="font-mono text-sm font-medium truncate">{p.numero_cnj || 'Sem CNJ'}</span>
                           {p.tribunal && <Badge variant="secondary" className="text-xs">{p.tribunal}</Badge>}
-                          {p.numero_cnj && importByCnj.get(p.numero_cnj) && (
-                            <span className="text-[10px] text-muted-foreground ml-auto whitespace-nowrap">
-                              Importado {format(new Date(importByCnj.get(p.numero_cnj)!.created_at), "dd/MM HH:mm", { locale: ptBR })}
-                              {importByCnj.get(p.numero_cnj)!.email ? ` · ${importByCnj.get(p.numero_cnj)!.email}` : ''}
-                            </span>
-                          )}
+                          {(() => {
+                            const imp = p.numero_cnj ? importByCnj.get(p.numero_cnj) : null;
+                            const ts = imp?.created_at || p.created_at;
+                            if (!ts) return null;
+                            const label = imp ? 'Importado' : 'Registrado';
+                            return (
+                              <span className="text-[10px] text-muted-foreground ml-auto whitespace-nowrap">
+                                {label} {format(new Date(ts), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                                {imp?.email ? ` · ${imp.email}` : ''}
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="text-[11px] text-muted-foreground mb-0.5">Request ID</div>
                         {codeCell(p.request_id, 'Request ID')}
