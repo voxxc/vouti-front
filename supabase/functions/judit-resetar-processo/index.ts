@@ -81,96 +81,9 @@ serve(async (req) => {
       .update({ detalhes_request_data: new Date().toISOString() })
       .eq('id', processoOabId);
 
-    // 2. Desativar monitoramento atual (se ativo)
-    let trackingDesativado: string | null = null;
-    if (processo.tracking_id && processo.monitoramento_ativo) {
-      console.log('[Judit Reset] Pausando tracking:', processo.tracking_id);
-
-      const pauseRes = await fetch(
-        `${TRACKING_API_URL}/tracking/${processo.tracking_id}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', 'api-key': juditApiKey },
-          body: JSON.stringify({ status: 'paused' }),
-        }
-      );
-
-      const pauseOk = pauseRes.ok;
-      const pauseText = pauseOk ? 'ok' : await pauseRes.text();
-
-      await supabase.from('judit_api_logs').insert({
-        tenant_id: tenantId,
-        user_id: userId || null,
-        oab_id: oabId,
-        tipo_chamada: 'reset_processo_pause',
-        endpoint: `${TRACKING_API_URL}/tracking/${processo.tracking_id}`,
-        metodo: 'PATCH',
-        request_payload: { status: 'paused', tracking_id: processo.tracking_id, processo_oab_id: processoOabId },
-        sucesso: pauseOk,
-        resposta_status: pauseRes.status,
-        erro_mensagem: pauseOk ? null : pauseText,
-      });
-
-      if (pauseOk) {
-        trackingDesativado = processo.tracking_id;
-
-        // Atualizar processo + monitoramento
-        await supabase
-          .from('processos_oab')
-          .update({
-            monitoramento_ativo: false,
-            tracking_id: null,
-            tracking_request_id: null,
-          })
-          .eq('id', processoOabId);
-
-        await supabase
-          .from('processo_monitoramento_judit')
-          .update({ monitoramento_ativo: false, updated_at: new Date().toISOString() })
-          .eq('processo_id', processoOabId);
-
-        // tenant_banco_ids: marcar tracking_desativado (UPSERT manual)
-        const { data: existingDesat } = await supabase
-          .from('tenant_banco_ids')
-          .select('id')
-          .eq('tenant_id', tenantId)
-          .eq('tipo', 'tracking_desativado')
-          .eq('external_id', processo.tracking_id)
-          .maybeSingle();
-
-        const desatPayload = {
-          tenant_id: tenantId,
-          tipo: 'tracking_desativado',
-          referencia_id: processoOabId,
-          external_id: processo.tracking_id,
-          descricao: `Tracking desativado - CNJ ${numeroCnj} (reset manual)`,
-          metadata: {
-            tracking_id: processo.tracking_id,
-            processo_oab_id: processoOabId,
-            numero_cnj: numeroCnj,
-            desativado_em: new Date().toISOString(),
-            motivo: 'reset_manual',
-            usuario_id: userId || null,
-          },
-        };
-
-        if (existingDesat) {
-          await supabase.from('tenant_banco_ids').update(desatPayload).eq('id', existingDesat.id);
-        } else {
-          await supabase.from('tenant_banco_ids').insert(desatPayload);
-        }
-
-        // Remover entry de tracking ativo (se existir)
-        await supabase
-          .from('tenant_banco_ids')
-          .delete()
-          .eq('tenant_id', tenantId)
-          .eq('tipo', 'tracking')
-          .eq('external_id', processo.tracking_id);
-      }
-    }
-
-    // 3. Buscar credencial sigilosa
+    // 2. Buscar credencial sigilosa
+    // Nota: o tracking permanece ativo durante o reset. Request on_demand e
+    // tracking são serviços independentes na Judit (faturados separadamente).
     let customerKey: string | null = null;
     const tribunalSigla = tribunalSiglaFromCnj(numeroCnj).toLowerCase();
     const { data: credenciais } = await supabase
@@ -378,7 +291,6 @@ serve(async (req) => {
         origem: 'reset_manual',
         usuario_id: userId || null,
         andamentos_novos: andamentosNovos,
-        tracking_desativado: trackingDesativado,
       },
     });
 
@@ -387,8 +299,6 @@ serve(async (req) => {
         success: true,
         requestId: newRequestId,
         andamentosNovos,
-        trackingDesativado,
-        monitoramentoDesativado: !!trackingDesativado,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
