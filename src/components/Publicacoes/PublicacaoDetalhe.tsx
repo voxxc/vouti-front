@@ -1,6 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, ExternalLink } from "lucide-react";
+import { Check, X, ExternalLink, FileText, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface PublicacaoDetalheProps {
   publicacao: {
@@ -19,15 +22,48 @@ interface PublicacaoDetalheProps {
     orgao: string | null;
     responsavel: string | null;
     partes: string | null;
+    origem?: string | null;
+    storage_path?: string | null;
   };
   onStatusChange: (status: string) => void;
 }
 
 export function PublicacaoDetalhe({ publicacao, onStatusChange }: PublicacaoDetalheProps) {
   const p = publicacao;
+  const [openingDoc, setOpeningDoc] = useState(false);
+
+  const abrirDocumento = async () => {
+    if (!p.storage_path) return;
+    setOpeningDoc(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from('processo-documentos')
+        .createSignedUrl(p.storage_path, 60 * 10);
+      if (error || !data?.signedUrl) throw error || new Error('URL inválida');
+      window.open(data.signedUrl, '_blank');
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao abrir documento');
+    } finally {
+      setOpeningDoc(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
+      {p.origem === 'monitoramento_processo' && (
+        <div className="flex items-center gap-2 -mt-2">
+          <Badge variant="outline" className="text-xs border-primary/40 text-primary">
+            Decisão · Monitoramento de processo
+          </Badge>
+          {p.storage_path && (
+            <Button size="sm" variant="outline" className="h-7 gap-1.5 ml-auto" onClick={abrirDocumento} disabled={openingDoc}>
+              {openingDoc ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+              Abrir documento
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Info grid */}
       <div className="grid grid-cols-2 gap-4">
         <InfoItem label="Nº Processo" value={p.numero_processo} />
