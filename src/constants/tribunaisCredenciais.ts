@@ -8,9 +8,6 @@ export interface TribunalOption {
 }
 
 export const TRIBUNAIS_CREDENCIAIS: TribunalOption[] = [
-  // Opção Global
-  { value: '*', label: 'Todos os tribunais (global)', category: 'Global' },
-  
   // PJE - Tribunais Estaduais 1º Grau
   { value: 'PJE TJAC - 1º grau', label: 'PJE TJAC - 1º grau', category: 'PJE Estadual 1º Grau' },
   { value: 'PJE TJAL - 1º grau', label: 'PJE TJAL - 1º grau', category: 'PJE Estadual 1º Grau' },
