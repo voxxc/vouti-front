@@ -39,6 +39,7 @@ interface Publicacao {
   origem?: string | null;
   storage_path?: string | null;
   processo_oab_id?: string | null;
+  created_at?: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -248,15 +249,27 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
 
   const filtered = publicacoes.filter(p => {
     if (statusFilter !== 'todos' && getNormalizedStatus(p.status) !== statusFilter) return false;
-    if (periodoFilter !== 'tudo' && p.data_disponibilizacao) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const pubDate = new Date(p.data_disponibilizacao + 'T12:00:00');
-      const diffDias = Math.floor((today.getTime() - pubDate.getTime()) / (1000 * 60 * 60 * 24));
-      if (periodoFilter === 'hoje' && diffDias !== 0) return false;
-      if (periodoFilter === '7' && diffDias > 7) return false;
-      if (periodoFilter === '15' && diffDias > 15) return false;
-      if (periodoFilter === '30' && diffDias > 30) return false;
+    if (periodoFilter !== 'tudo') {
+      // Para monitoramento, usamos created_at (quando entrou no Vouti).
+      // Para DJEN/scraper, usamos data_disponibilizacao (data do diário).
+      const isMonit = p.origem === 'monitoramento_processo';
+      let refDate: Date | null = null;
+      if (isMonit && p.created_at) {
+        refDate = new Date(p.created_at);
+      } else if (p.data_disponibilizacao) {
+        refDate = new Date(p.data_disponibilizacao + 'T12:00:00');
+      }
+      if (refDate) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const ref = new Date(refDate);
+        ref.setHours(0, 0, 0, 0);
+        const diffDias = Math.floor((today.getTime() - ref.getTime()) / (1000 * 60 * 60 * 24));
+        if (periodoFilter === 'hoje' && diffDias !== 0) return false;
+        if (periodoFilter === '7' && diffDias > 7) return false;
+        if (periodoFilter === '15' && diffDias > 15) return false;
+        if (periodoFilter === '30' && diffDias > 30) return false;
+      }
     }
     if (search) {
       const s = search.toLowerCase();
@@ -514,10 +527,13 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
                               </Badge>
                             )}
                           </div>
-                          <span className="text-[10px] text-muted-foreground shrink-0">
-                            {pub.data_disponibilizacao
-                              ? new Date(pub.data_disponibilizacao + 'T12:00:00').toLocaleDateString('pt-BR')
-                              : ''}
+                          <span className="text-[10px] text-muted-foreground shrink-0 flex flex-col items-end leading-tight">
+                            {pub.data_disponibilizacao && (
+                              <span>{new Date(pub.data_disponibilizacao + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                            )}
+                            {pub.created_at && (
+                              <span className="text-[9px] opacity-70">{formatRelativeTime(pub.created_at)}</span>
+                            )}
                           </span>
                         </div>
                         {pub.numero_processo && (
