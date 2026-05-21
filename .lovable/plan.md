@@ -1,3 +1,40 @@
+# Banco de IDs — corrigir contagens zeradas e cap de 1000
+
+## Causa raiz
+
+Dois bugs distintos na mesma tela (`TenantBancoIdsDialog`):
+
+1. **Histórico travado em 1000**: o select usa `.limit(2000)`, mas o PostgREST do Supabase aplica um teto de servidor (`db-max-rows = 1000`) que sobrepõe qualquer `.limit()` maior. SOLVENZA tem **14.623** registros em `tenant_banco_ids`; a tela mostra só 1.000.
+
+2. **Processos / Requests / Trackings zerados** (mesmo SOLVENZA tendo 382 processos e 504 entradas tipo `processo` no banco de IDs): essas abas leem direto de `processos_oab`, cuja RLS exige `has_role_in_tenant()`. O usuário Super-Admin **não tem** esse papel nos tenants do cliente, então o select volta vazio silenciosamente. O banco já tem a fonte de verdade espelhada em `tenant_banco_ids` (tipos `processo`, `request_detalhes`, `tracking`, `tracking_desativado`, `request_tracking`, `oab`).
+
+## Correção
+
+1. Criar RPC `get_tenant_banco_ids_completo(p_tenant_id uuid)` `SECURITY DEFINER`, restrita a `is_super_admin(auth.uid())`, retornando todas as linhas de `tenant_banco_ids` do tenant (sem cap de 1000, pois o limite só vale para PostgREST direto — chamadas RPC paginadas via `fetchAllPaginated` resolvem por completo).
+2. Refatorar `TenantBancoIdsDialog.tsx` para:
+   - Buscar tudo via `fetchAllPaginated` sobre `tenant_banco_ids` (com `hardCap: 200` para cobrir tenants grandes).
+   - Derivar as abas Processos / Requests CNJ / Trackings / OABs a partir dos registros em memória, agrupando por `referencia_id` quando aplicável. Manter aba Histórico como a lista bruta.
+   - Remover a dependência de `processos_oab` e `oabs_cadastradas` (RLS-blocked). Os dados visíveis ao Super-Admin passam a vir 100% de `tenant_banco_ids`.
+3. Ajustar o PDF para iterar sobre os registros agrupados.
+
+## Arquivos afetados
+
+- `src/components/SuperAdmin/TenantBancoIdsDialog.tsx` (refatoração)
+- Nova migration: função `get_tenant_banco_ids_completo` (não estritamente necessária se `tenant_banco_ids` já tem policy permissiva para super-admin — confirmar; se sim, basta paginar).
+
+## Impacto
+
+1. **UX**: contadores passam a refletir a realidade (Processos ~504, Requests ~403, Trackings 356 ativos + 15 desativados, Histórico 14.623 para SOLVENZA). Busca passa a varrer tudo.
+2. **Dados**: nenhuma alteração de schema; só leitura paginada. Pequena migration apenas se a RLS de `tenant_banco_ids` exigir RPC.
+3. **Riscos colaterais**: tempo de carregamento sobe (~14k linhas em SOLVENZA → 15 páginas de 1k). Mitigado por: (a) carregamento único ao abrir o diálogo, (b) ScrollArea já virtualizada, (c) busca client-side instantânea depois de carregar.
+4. **Quem é afetado**: apenas o Super-Admin (dono do SaaS). Nada muda para clientes finais.
+
+## Validação
+
+- Reabrir o diálogo na SOLVENZA: confirmar contadores ≈ 504 / 403 / 356 / 14623.
+- Buscar por um `request_id` antigo (>1000 posições atrás) e confirmar que aparece.
+- Conferir Vargas / Oliveira (tenants menores) para ver que não há regressão.
+- Gerar PDF e verificar que lista todos os processos, não só os 1000 primeiros.
 # Banco de IDs completo — Request IDs (CNJ) e Tracking IDs
 
 ## Causa raiz
