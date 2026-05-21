@@ -4516,6 +4516,42 @@ export type Database = {
           },
         ]
       }
+      processo_monitoramento_audit: {
+        Row: {
+          acao: string
+          created_at: string
+          id: string
+          numero_cnj: string | null
+          processo_oab_id: string | null
+          tenant_id: string
+          tracking_id: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          acao: string
+          created_at?: string
+          id?: string
+          numero_cnj?: string | null
+          processo_oab_id?: string | null
+          tenant_id: string
+          tracking_id?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          acao?: string
+          created_at?: string
+          id?: string
+          numero_cnj?: string | null
+          processo_oab_id?: string | null
+          tenant_id?: string
+          tracking_id?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       processo_monitoramento_escavador: {
         Row: {
           area: string | null
@@ -5118,6 +5154,8 @@ export type Database = {
           fase_processual: string | null
           id: string
           importado_manualmente: boolean | null
+          importado_por: string | null
+          importado_por_email: string | null
           juizo: string | null
           link_tribunal: string | null
           monitoramento_ativo: boolean | null
@@ -5157,6 +5195,8 @@ export type Database = {
           fase_processual?: string | null
           id?: string
           importado_manualmente?: boolean | null
+          importado_por?: string | null
+          importado_por_email?: string | null
           juizo?: string | null
           link_tribunal?: string | null
           monitoramento_ativo?: boolean | null
@@ -5196,6 +5236,8 @@ export type Database = {
           fase_processual?: string | null
           id?: string
           importado_manualmente?: boolean | null
+          importado_por?: string | null
+          importado_por_email?: string | null
           juizo?: string | null
           link_tribunal?: string | null
           monitoramento_ativo?: boolean | null

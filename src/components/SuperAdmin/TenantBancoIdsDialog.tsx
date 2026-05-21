@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Search, Copy, Check, Scale, FileText, Radio, Database, Download,
-  ChevronLeft, ChevronRight, BellRing,
+  ChevronLeft, ChevronRight, BellRing, Activity, Upload, Play, Pause,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -63,13 +63,23 @@ interface PushDocRow {
   created_at: string;
 }
 
-type TabKey = 'trackings_on' | 'trackings_off' | 'requests_cnj' | 'oabs' | 'push_docs';
+interface AtividadeEvent {
+  id: string;
+  kind: 'import' | 'monitor_on' | 'monitor_off';
+  numero_cnj: string | null;
+  user_email: string | null;
+  created_at: string;
+}
+
+type TabKey = 'trackings_on' | 'trackings_off' | 'requests_cnj' | 'oabs' | 'push_docs' | 'atividade';
 
 const PAGE_SIZE = 20;
 
 export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName }: TenantBancoIdsDialogProps) {
   const [bancoIds, setBancoIds] = useState<BancoId[]>([]);
   const [pushDocs, setPushDocs] = useState<PushDocRow[]>([]);
+  const [processosImport, setProcessosImport] = useState<Array<{ id: string; numero_cnj: string | null; created_at: string; importado_por_email: string | null }>>([]);
+  const [monitorAudit, setMonitorAudit] = useState<Array<{ id: string; numero_cnj: string | null; acao: string; user_email: string | null; created_at: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -87,7 +97,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [bancoRes, pushRes] = await Promise.all([
+      const [bancoRes, pushRes, procRes, auditRes] = await Promise.all([
         fetchAllPaginated<BancoId>(
           () =>
             supabase
@@ -106,11 +116,31 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
               .neq('tracking_status', 'deletado')
               .order('created_at', { ascending: false })
         ),
+        fetchAllPaginated<{ id: string; numero_cnj: string | null; created_at: string; importado_por_email: string | null }>(
+          () =>
+            supabase
+              .from('processos_oab')
+              .select('id, numero_cnj, created_at, importado_por_email')
+              .eq('tenant_id', tenantId)
+              .order('created_at', { ascending: false }),
+          { hardCap: 500 }
+        ),
+        fetchAllPaginated<{ id: string; numero_cnj: string | null; acao: string; user_email: string | null; created_at: string }>(
+          () =>
+            supabase
+              .from('processo_monitoramento_audit')
+              .select('id, numero_cnj, acao, user_email, created_at')
+              .eq('tenant_id', tenantId)
+              .order('created_at', { ascending: false }),
+          { hardCap: 500 }
+        ),
       ]);
       if (bancoRes.error) throw bancoRes.error;
       if (pushRes.error) throw pushRes.error;
       setBancoIds(bancoRes.data || []);
       setPushDocs(pushRes.data || []);
+      setProcessosImport(procRes.data || []);
+      setMonitorAudit(auditRes.data || []);
     } catch (error) {
       console.error('Erro ao buscar banco de IDs:', error);
       toast({ title: 'Erro', description: 'Não foi possível carregar os IDs', variant: 'destructive' });
@@ -224,12 +254,57 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
     [pushDocs, term]
   );
 
+  // Atividade unificada: importações + toggles
+  const atividadeEvents = useMemo<AtividadeEvent[]>(() => {
+    const events: AtividadeEvent[] = [];
+    for (const p of processosImport) {
+      events.push({
+        id: `imp-${p.id}`,
+        kind: 'import',
+        numero_cnj: p.numero_cnj,
+        user_email: p.importado_por_email,
+        created_at: p.created_at,
+      });
+    }
+    for (const a of monitorAudit) {
+      events.push({
+        id: `mon-${a.id}`,
+        kind: a.acao === 'ativado' ? 'monitor_on' : 'monitor_off',
+        numero_cnj: a.numero_cnj,
+        user_email: a.user_email,
+        created_at: a.created_at,
+      });
+    }
+    events.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return events.filter((e) => matches(e.numero_cnj, e.user_email));
+  }, [processosImport, monitorAudit, term]);
+
+  // Lookup mapas para enriquecer abas existentes
+  const importByCnj = useMemo(() => {
+    const m = new Map<string, { created_at: string; email: string | null }>();
+    for (const p of processosImport) {
+      if (p.numero_cnj) m.set(p.numero_cnj, { created_at: p.created_at, email: p.importado_por_email });
+    }
+    return m;
+  }, [processosImport]);
+
+  const lastToggleByCnj = useMemo(() => {
+    const m = new Map<string, { acao: string; created_at: string; email: string | null }>();
+    for (const a of monitorAudit) {
+      if (a.numero_cnj && !m.has(a.numero_cnj)) {
+        m.set(a.numero_cnj, { acao: a.acao, created_at: a.created_at, email: a.user_email });
+      }
+    }
+    return m;
+  }, [monitorAudit]);
+
   const counts = {
     on: trackingsOn.length,
     off: trackingsOff.length,
     requests: requestsCnj.length,
     oabs: oabsFiltered.length,
     pushDocs: pushDocsFiltered.length,
+    atividade: atividadeEvents.length,
   };
 
   const currentList: any[] =
@@ -237,7 +312,8 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
     : activeTab === 'trackings_off' ? trackingsOff
     : activeTab === 'requests_cnj' ? requestsCnj
     : activeTab === 'oabs' ? oabsFiltered
-    : pushDocsFiltered;
+    : activeTab === 'push_docs' ? pushDocsFiltered
+    : atividadeEvents;
 
   const totalPages = Math.max(1, Math.ceil(currentList.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -318,6 +394,13 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
         ) : (
           <Badge variant="outline" className="text-xs">Desativado</Badge>
         )}
+        {p.numero_cnj && lastToggleByCnj.get(p.numero_cnj) && (
+          <span className="text-[10px] text-muted-foreground ml-auto whitespace-nowrap">
+            {lastToggleByCnj.get(p.numero_cnj)!.acao === 'ativado' ? 'Ativado' : 'Pausado'}{' '}
+            {format(new Date(lastToggleByCnj.get(p.numero_cnj)!.created_at), "dd/MM HH:mm", { locale: ptBR })}
+            {lastToggleByCnj.get(p.numero_cnj)!.email ? ` · ${lastToggleByCnj.get(p.numero_cnj)!.email}` : ''}
+          </span>
+        )}
       </div>
       <div className="text-[11px] text-muted-foreground mb-0.5">Tracking ID</div>
       {codeCell(p.tracking_id, 'Tracking ID')}
@@ -355,7 +438,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="trackings_on" className="text-xs">
               <Radio className="h-3 w-3 mr-1" /> Trackings ON ({counts.on})
             </TabsTrigger>
@@ -370,6 +453,9 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
             </TabsTrigger>
             <TabsTrigger value="push_docs" className="text-xs">
               <BellRing className="h-3 w-3 mr-1" /> Push-docs ({counts.pushDocs})
+            </TabsTrigger>
+            <TabsTrigger value="atividade" className="text-xs">
+              <Activity className="h-3 w-3 mr-1" /> Atividade ({counts.atividade})
             </TabsTrigger>
           </TabsList>
 
@@ -398,6 +484,12 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
                           <FileText className="h-4 w-4 text-primary shrink-0" />
                           <span className="font-mono text-sm font-medium truncate">{p.numero_cnj || 'Sem CNJ'}</span>
                           {p.tribunal && <Badge variant="secondary" className="text-xs">{p.tribunal}</Badge>}
+                          {p.numero_cnj && importByCnj.get(p.numero_cnj) && (
+                            <span className="text-[10px] text-muted-foreground ml-auto whitespace-nowrap">
+                              Importado {format(new Date(importByCnj.get(p.numero_cnj)!.created_at), "dd/MM HH:mm", { locale: ptBR })}
+                              {importByCnj.get(p.numero_cnj)!.email ? ` · ${importByCnj.get(p.numero_cnj)!.email}` : ''}
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11px] text-muted-foreground mb-0.5">Request ID</div>
                         {codeCell(p.request_id, 'Request ID')}
@@ -444,6 +536,47 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
                         {codeCell(d.tracking_id, 'Tracking ID')}
                       </div>
                     ))
+                  )}
+                </TabsContent>
+
+                <TabsContent value="atividade" className="m-0 space-y-1.5">
+                  {pageItems.length === 0 ? (
+                    <Empty />
+                  ) : (
+                    (pageItems as AtividadeEvent[]).map((e) => {
+                      const Icon = e.kind === 'import' ? Upload : e.kind === 'monitor_on' ? Play : Pause;
+                      const color =
+                        e.kind === 'import'
+                          ? 'text-sky-600 dark:text-sky-400'
+                          : e.kind === 'monitor_on'
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-amber-600 dark:text-amber-400';
+                      const label =
+                        e.kind === 'import'
+                          ? 'CNJ importado'
+                          : e.kind === 'monitor_on'
+                          ? 'Monitoramento ativado'
+                          : 'Monitoramento pausado';
+                      return (
+                        <div key={e.id} className="flex items-center gap-3 px-3 py-2 bg-muted/30 hover:bg-muted/50 rounded-lg border border-border/60">
+                          <Icon className={`h-3.5 w-3.5 shrink-0 ${color}`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-foreground">{label}</span>
+                              <code className="text-[11px] font-mono text-muted-foreground truncate">
+                                {e.numero_cnj || '—'}
+                              </code>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5">
+                              {e.user_email || 'Sistema'}
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground tabular-nums whitespace-nowrap">
+                            {format(new Date(e.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                          </span>
+                        </div>
+                      );
+                    })
                   )}
                 </TabsContent>
               </div>
