@@ -1,4 +1,39 @@
-# Teste de publicação a partir de request_id Judit existente
+# Corrigir leitura de anexos da Judit (array top-level)
+
+## Causa raiz
+A Judit não devolve `attachments` dentro de cada `step`. Devolve um **array top-level** `response_data.attachments`, e cada item carrega `step_id`, `attachment_id`, `attachment_name`, `extension`, `status` e `attachment_date`. O vínculo step↔anexo é feito pelo `step_id`.
+
+Hoje a edge function `judit-test-publicacao-cnj` procura `step.attachments`, que nunca existe nesse shape — por isso devolve "Nenhum andamento com anexo encontrado", mesmo quando o request tem PDFs.
+
+## Correção
+Em `supabase/functions/judit-test-publicacao-cnj/index.ts`, no `processarJob`:
+
+1. Após obter `responseData`, ler `responseData.attachments` (top-level). Fallback para `response_data.attachments` se vier aninhado.
+2. Filtrar anexos válidos:
+   - `status === 'done'`
+   - `corrupted !== true`
+   - `extension` ∈ aceitos (pdf, html — descarta `html` se quisermos só PDF visualizável; manter ambos por enquanto).
+3. Para cada anexo, encontrar o step correspondente via `step_id` (lookup no array `steps`) para extrair `content`/`step_date` e classificar como Decisão.
+4. Limitar a 10 anexos mais recentes (ordenar por `attachment_date desc`).
+5. Manter a lógica atual de download → upload no bucket → insert em `publicacoes`.
+6. Atualizar a mesma lógica em `judit-sync-monitorados` para consistência (hoje também lê `step.attachments` — silenciosamente não cria nada).
+
+## Arquivos afetados
+- `supabase/functions/judit-test-publicacao-cnj/index.ts` (leitura do array top-level + lookup por step_id)
+- `supabase/functions/judit-sync-monitorados/index.ts` (mesma correção no fluxo automático de publicações)
+
+## Impacto
+- **Usuário (Super-Admin):** o teste com request_id `0e27516b…` agora encontra os 3+ anexos (DESPACHO/DECISÃO em HTML, custas em PDF, guias em PDF) e cria 1 publicação por anexo no tenant Demorais.
+- **Usuário (tenant Demorais):** o monitoramento passa a alimentar a aba Publicações automaticamente — antes não criava nada por causa do mesmo bug. Pode aparecer um volume grande na primeira sincronização pós-deploy.
+- **Dados:** sem migration. Inserts adicionais em `publicacoes` com `origem='monitoramento_processo'`. Storage recebe os PDFs em `{tenant_id}/_teste_publicacao/…` (teste) ou no path padrão (sync).
+- **Riscos colaterais:** anexos com `extension='html'` ficam como blob HTML no bucket — abrem como página, não como PDF. Vou manter classificação correta no `metadata.extension`. Anexos `corrupted=true` ou `status!='done'` são ignorados.
+- **Quem é afetado:** Super-Admin (ferramenta de teste) e usuários do tenant Demorais (publicações automáticas). Outros tenants só serão afetados quando o piloto for liberado.
+
+## Validação
+1. Reexecutar o teste com `request_id = 0e27516b-43aa-48af-a7af-9f1194236afb`.
+2. Logs devem mostrar `N anexo(s) válidos` (N>0).
+3. Histórico do card: "Concluído" com `3 anexos (1º: DESPACHO/DECISÃO…)`.
+4. Aba Publicações do Demorais: 3 registros novos com badge "Monitoramento", abrindo o documento via signed URL.
 
 ## Causa / Necessidade
 Quando um Request CNJ já foi disparado na Judit (e ficou registrado o `request_id`), faz sentido pular o POST `/requests` e ir direto consultar `/responses?request_id=...`. Isso evita gastar uma nova consulta on-demand e é mais rápido (a resposta já está pronta).
