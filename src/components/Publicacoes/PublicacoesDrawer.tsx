@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { toast } from "sonner";
 import { PublicacaoDetalhe } from "./PublicacaoDetalhe";
+import { htmlToText, looksMojibake } from "@/lib/htmlAttachment";
 
 interface PublicacoesDrawerProps {
   open: boolean;
@@ -503,8 +504,12 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
                   const normStatus = getNormalizedStatus(pub.status);
                   if (isMonit) {
                     const { name, ext, sizeKb } = attachmentInfo(pub);
-                    const snippet = pub.conteudo_completo
-                      ? pub.conteudo_completo.replace(/\s+/g, ' ').trim().slice(0, 180)
+                    const rawSnippet = pub.conteudo_completo || '';
+                    const cleaned = /<[a-z][\s\S]*>/i.test(rawSnippet)
+                      ? htmlToText(rawSnippet)
+                      : rawSnippet;
+                    const snippet = cleaned && !looksMojibake(cleaned)
+                      ? cleaned.replace(/\s+/g, ' ').trim().slice(0, 180)
                       : null;
                     const isDecisao = (pub.tipo || '').toLowerCase().includes('decis');
                     return (
