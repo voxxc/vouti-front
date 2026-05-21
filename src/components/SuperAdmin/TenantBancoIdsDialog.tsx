@@ -63,7 +63,7 @@ interface PushDocRow {
   created_at: string;
 }
 
-type TabKey = 'trackings_on' | 'trackings_off' | 'oabs' | 'push_docs';
+type TabKey = 'trackings_on' | 'trackings_off' | 'requests_cnj' | 'oabs' | 'push_docs';
 
 const PAGE_SIZE = 20;
 
@@ -208,6 +208,13 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
         .sort((a, b) => (b.tracking_created_at || '').localeCompare(a.tracking_created_at || '')),
     [processosAgg, term]
   );
+  const requestsCnj = useMemo(
+    () =>
+      processosAgg
+        .filter((p) => p.request_id && matches(p.numero_cnj, p.request_id))
+        .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')),
+    [processosAgg, term]
+  );
   const oabsFiltered = useMemo(
     () => oabsAgg.filter((o) => matches(o.oab, o.external_id)),
     [oabsAgg, term]
@@ -220,6 +227,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
   const counts = {
     on: trackingsOn.length,
     off: trackingsOff.length,
+    requests: requestsCnj.length,
     oabs: oabsFiltered.length,
     pushDocs: pushDocsFiltered.length,
   };
@@ -227,6 +235,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
   const currentList: any[] =
     activeTab === 'trackings_on' ? trackingsOn
     : activeTab === 'trackings_off' ? trackingsOff
+    : activeTab === 'requests_cnj' ? requestsCnj
     : activeTab === 'oabs' ? oabsFiltered
     : pushDocsFiltered;
 
@@ -346,12 +355,15 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="trackings_on" className="text-xs">
               <Radio className="h-3 w-3 mr-1" /> Trackings ON ({counts.on})
             </TabsTrigger>
             <TabsTrigger value="trackings_off" className="text-xs">
               <Radio className="h-3 w-3 mr-1" /> Trackings OFF ({counts.off})
+            </TabsTrigger>
+            <TabsTrigger value="requests_cnj" className="text-xs">
+              <FileText className="h-3 w-3 mr-1" /> Requests CNJ ({counts.requests})
             </TabsTrigger>
             <TabsTrigger value="oabs" className="text-xs">
               <Scale className="h-3 w-3 mr-1" /> OABs ({counts.oabs})
@@ -374,6 +386,24 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
 
                 <TabsContent value="trackings_off" className="m-0 space-y-2">
                   {pageItems.length === 0 ? <Empty /> : (pageItems as ProcessoAgg[]).map((p) => renderTrackingItem(p, false))}
+                </TabsContent>
+
+                <TabsContent value="requests_cnj" className="m-0 space-y-2">
+                  {pageItems.length === 0 ? (
+                    <Empty />
+                  ) : (
+                    (pageItems as ProcessoAgg[]).map((p) => (
+                      <div key={p.processo_id} className="p-3 bg-muted/40 rounded-lg border border-border">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <FileText className="h-4 w-4 text-primary shrink-0" />
+                          <span className="font-mono text-sm font-medium truncate">{p.numero_cnj || 'Sem CNJ'}</span>
+                          {p.tribunal && <Badge variant="secondary" className="text-xs">{p.tribunal}</Badge>}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground mb-0.5">Request ID</div>
+                        {codeCell(p.request_id, 'Request ID')}
+                      </div>
+                    ))
+                  )}
                 </TabsContent>
 
                 <TabsContent value="oabs" className="m-0 space-y-2">
