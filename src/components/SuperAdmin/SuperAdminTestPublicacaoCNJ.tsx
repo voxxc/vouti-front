@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 interface TestJob {
   id: string;
   numero_cnj: string;
+  request_id: string | null;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   publicacao_id: string | null;
   storage_path: string | null;
@@ -30,6 +31,7 @@ const STATUS_LABEL: Record<TestJob['status'], string> = {
 
 export function SuperAdminTestPublicacaoCNJ() {
   const [numeroCnj, setNumeroCnj] = useState('');
+  const [requestId, setRequestId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [jobs, setJobs] = useState<TestJob[]>([]);
 
@@ -58,14 +60,17 @@ export function SuperAdminTestPublicacaoCNJ() {
   }, []);
 
   const handleSubmit = async () => {
-    if (!numeroCnj.trim()) {
-      toast({ title: 'Informe o CNJ', variant: 'destructive' });
+    if (!numeroCnj.trim() && !requestId.trim()) {
+      toast({ title: 'Informe o CNJ ou o Request ID', variant: 'destructive' });
       return;
     }
     setSubmitting(true);
     try {
       const { data, error } = await supabase.functions.invoke('judit-test-publicacao-cnj', {
-        body: { numero_cnj: numeroCnj.trim() },
+        body: {
+          numero_cnj: numeroCnj.trim() || undefined,
+          request_id: requestId.trim() || undefined,
+        },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -74,6 +79,7 @@ export function SuperAdminTestPublicacaoCNJ() {
         description: 'O card aparecerá abaixo e será atualizado em tempo real.',
       });
       setNumeroCnj('');
+      setRequestId('');
       loadJobs();
     } catch (e: any) {
       toast({ title: 'Erro', description: e.message, variant: 'destructive' });
@@ -118,7 +124,7 @@ export function SuperAdminTestPublicacaoCNJ() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Novo teste</CardTitle>
-          <CardDescription>Cole o CNJ e dispare. Você pode rodar vários em sequência.</CardDescription>
+          <CardDescription>Cole o CNJ <strong>ou</strong> um Request ID já existente da Judit (reaproveita resposta).</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -133,7 +139,23 @@ export function SuperAdminTestPublicacaoCNJ() {
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
             />
           </div>
-          <Button onClick={handleSubmit} disabled={submitting || !numeroCnj.trim()} className="w-full">
+          <div className="space-y-2">
+            <Label htmlFor="req-pub">Request ID Judit (opcional, reaproveita request existente)</Label>
+            <Input
+              id="req-pub"
+              placeholder="0e27516b-43aa-48af-a7af-9f1194236afb"
+              value={requestId}
+              onChange={(e) => setRequestId(e.target.value)}
+              disabled={submitting}
+              className="font-mono text-xs"
+              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+            />
+          </div>
+          <Button
+            onClick={handleSubmit}
+            disabled={submitting || (!numeroCnj.trim() && !requestId.trim())}
+            className="w-full"
+          >
             {submitting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Disparando…
@@ -163,6 +185,7 @@ export function SuperAdminTestPublicacaoCNJ() {
                       <p className="font-mono text-sm truncate">{job.numero_cnj}</p>
                       <p className="text-xs text-muted-foreground">
                         {format(new Date(job.created_at), 'dd/MM/yyyy HH:mm')}
+                        {job.request_id && ` • req: ${job.request_id.slice(0, 8)}…`}
                         {job.attachment_name && ` • ${job.attachment_name}`}
                         {job.error_message && ` • ${job.error_message}`}
                       </p>
