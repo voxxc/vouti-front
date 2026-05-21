@@ -1,62 +1,45 @@
-# Plano: Redesign Credenciais + Histórico de Importações/Monitoramento
+# Redesign — Minha Assinatura (modal central minimalista)
 
-## Parte 1 — Redesign do diálogo "Credenciais"
+## Causa raiz
+O componente `SubscriptionDrawer` usa o `Drawer` (gaveta inferior em largura total), com campos de altura padrão (`h-10`), grid 2 colunas espaçada e botão "Salvar Perfil" em `w-full` grande. Em telas wide isso vira uma faixa horizontal enorme com muito espaço vazio e CTAs visualmente pesados. O mesmo padrão se repete nas abas Vencimentos e Credenciais.
 
-### Causa raiz
-O `CredenciaisCentralDialog` ocupa quase a tela inteira (`max-w-2xl max-h-[85vh]`) com cards densos, badges grandes e ícones repetidos. A hierarquia visual está pesada: cada credencial repete OAB + nome + CPF + sistema em 4 linhas com ícones, e o agrupamento por tenant usa headers fortes que competem com o conteúdo.
+## Correção
+Migrar de `Drawer` (bottom) para `Dialog` (modal centrado) e aplicar uma linguagem minimalista consistente nas 3 abas.
 
-### Correção (refinar o atual, não redesenhar do zero)
-- Reduzir o diálogo para um bloco centralizado e compacto: `max-w-lg`, altura adaptativa (`max-h-[70vh]`), sombra suave e padding generoso.
-- Header minimalista: título "Credenciais pendentes" + contador discreto à direita; remover o card com ícone roxo.
-- Lista única (sem agrupamento por tenant repetindo header pesado) — tenant vira um chip pequeno ao lado de cada item.
-- Cada item: 1 linha principal (OAB · Nome) + 1 linha secundária pequena em `text-muted-foreground` (CPF · Sistema · Tenant · "há 2 dias").
-- Estado vazio: ícone fino, frase curta, sem caixa cinza.
-- Tipografia: pesos mais leves, cores via tokens semânticos (`text-foreground`, `text-muted-foreground`).
+### Estrutura visual nova
+- **Container**: `Dialog` centralizado, `max-w-xl` (~576px), `max-h-[85vh]`, cantos `rounded-2xl`, padding interno reduzido (`p-5`).
+- **Header**: título "Minha Assinatura" em `text-base font-semibold`, badge do plano inline discreto. Sem borda inferior pesada — apenas espaçamento.
+- **Tabs**: estilo "pill" minimalista (sem borda inferior full-width). Ícones `w-3.5 h-3.5`, label em `text-xs`.
+- **Inputs**: altura compacta (`h-9`), `text-sm`, labels em `text-xs text-muted-foreground` acima. Campos curtos (CPF, CEP, UF, Telefone) ocupam meia largura; Nome, E-mail, Endereço em largura total. Removida a moldura/cartão em volta — apenas `space-y-3`.
+- **Botão "Salvar Perfil"**: deixa de ser `w-full` gigante. Vira `size="sm"` alinhado à direita no rodapé do conteúdo, com label "Salvar". Fechar vira `variant="ghost" size="sm"` ao lado.
+- **Termos**: bloco discreto com `text-xs`, checkbox + link inline. Quando aceito, vira uma linha única `CheckCircle2 + "Termos aceitos em ..."`.
 
-### Arquivos afetados
-- `src/components/SuperAdmin/CredenciaisCentralDialog.tsx`
+### Aba Vencimentos
+- Lista compacta (uma linha por boleto): mês de referência + valor à esquerda, status badge + ação (`Pagar`/`Baixar`) à direita. Sem cartões grandes empilhados.
+- Tipografia reduzida (`text-sm` valor, `text-xs` referência).
 
-### Impacto
-1. **Usuário final (você no Super-Admin)**: diálogo menor, centralizado, leitura mais rápida da fila de credenciais pendentes. Mesmas ações, mesmos dados.
-2. **Dados**: nenhuma mudança. Só apresentação.
-3. **Riscos colaterais**: nenhum — componente isolado.
-4. **Afetados**: somente Super-Admin (suporte@vouti.co).
+### Aba Credenciais
+- Lista enxuta: cada credencial em uma linha (Tribunal + OAB à esquerda, status + lixeira à direita).
+- Formulário de nova credencial colapsável (já era), agora com inputs `h-9` e grid 2 colunas mais apertado.
+- Botões "+ Nova credencial" como `size="sm" variant="outline"` no topo direito da aba.
 
----
+### Comportamento preservado
+- Toda a lógica (`useSubscription`, `useCredenciaisCliente`, aceite de termos, upload de documento, exclusão com dupla confirmação, BoletoPaymentDialog) permanece intacta. Apenas markup/classes mudam.
 
-## Parte 2 — Histórico no Banco de IDs (importações + monitoramento ON/OFF)
+## Arquivos afetados
+- `src/components/Support/SubscriptionDrawer.tsx` — refatorar markup: trocar `Drawer*` por `Dialog*`, reduzir grid/tipografia, recolocar CTAs. Manter o nome do arquivo e a exportação `SubscriptionDrawer` para não quebrar imports em `SupportSheet` e demais consumidores.
 
-### Causa raiz
-Hoje `tenant_banco_ids` registra `created_at` de cada request, e `processos_oab` registra `created_at` da importação. Mas **não há registro de quando o monitoramento foi ativado/pausado**, nem **quem fez** (importação ou toggle). Sem isso, não dá para auditar a linha do tempo do tenant.
+## Impacto
+1. **Usuário final (UX)**: a tela "Minha Assinatura" deixa de abrir como gaveta inferior e passa a abrir como modal central compacto (~576px). Campos menores, leitura mais rápida, CTA "Salvar" discreto. Mesmo visual nas 3 abas (Perfil, Vencimentos, Credenciais).
+2. **Dados**: zero impacto — nenhuma migration, nenhuma alteração de RLS, mesmas chamadas ao Supabase.
+3. **Riscos colaterais**: o componente é chamado de fora via `<SubscriptionDrawer open onOpenChange initialTab/>`. Como mantemos a assinatura do componente e o nome do arquivo, nenhum consumidor quebra. Único ponto de atenção: telas muito pequenas (mobile <380px) — o `Dialog` ficará `w-[95vw]` para não estourar.
+4. **Quem é afetado**: todos os tenants — qualquer usuário que abra "Minha Assinatura" pelo `SupportSheet` verá o novo modal. Não muda permissões nem fluxo de aceite de termos.
 
-### Correção
-1. **Nova tabela `processo_monitoramento_audit`** (apenas eventos ON/OFF):
-   - `id`, `tenant_id`, `processo_oab_id`, `numero_cnj`, `acao` ('ativado' | 'pausado'), `tracking_id`, `user_id` (quem clicou), `user_email` (snapshot), `created_at`.
-   - RLS: super-admin lê tudo; usuários do tenant leem só seu tenant.
-2. **Trigger em `processos_oab`**: quando `monitoramento_ativo` muda, insere linha em `processo_monitoramento_audit` capturando `auth.uid()`. Também `tracking_id` atual.
-3. **Trigger/coluna em `processos_oab`** já tem `created_at` = data de importação; adicionar coluna `importado_por` (uuid) e `importado_por_email` (text) preenchidos no insert via trigger usando `auth.uid()` (quando disponível; fallback NULL para imports de sistema).
-4. **UI**: adicionar no `TenantBancoIdsDialog` os timestamps já existentes em cada aba (Trackings ON/OFF, Requests CNJ) — coluna "Quando" com data/hora local. Para a aba **Trackings ON/OFF**, mostrar também último evento de ativação/pausa (do novo audit).
-5. **Nova mini-aba "Atividade" dentro do mesmo diálogo Banco de IDs** — linha do tempo unificada (últimos 50 eventos): "📥 CNJ 0001234… importado por Alan em 21/05 14:32", "🟢 Monitoramento ativado em 0005678… por Jari em 22/05 09:10", "⚪ Monitoramento pausado em 0009999… por Alan em 23/05 11:00". Paginação 20/página, busca por CNJ.
-
-### Arquivos afetados
-- Migration nova: tabela `processo_monitoramento_audit` + colunas em `processos_oab` + triggers + RLS.
-- `src/components/SuperAdmin/TenantBancoIdsDialog.tsx` — adicionar coluna "Quando/Quem" nas abas existentes e nova aba "Atividade".
-- `src/hooks/useTenantBancoIds.ts` (ou hook equivalente) — incluir join/consulta ao audit.
-
-### Impacto
-1. **Usuário final**: Super-Admin passa a ver linha do tempo completa por tenant — quando cada CNJ foi importado, por quem, e cada ON/OFF de monitoramento com autor e horário. Cliente final não é afetado (mudança restrita ao Super-Admin).
-2. **Dados**:
-   - +1 tabela `processo_monitoramento_audit` (cresce ~1 linha por toggle, baixo volume).
-   - +2 colunas em `processos_oab` (`importado_por`, `importado_por_email`) — nullable, sem migração de dados retroativa obrigatória (registros antigos ficam NULL e a UI mostra "—").
-   - 2 triggers novos (insert + update on `monitoramento_ativo`).
-3. **Riscos colaterais**:
-   - Trigger de update em `processos_oab` deve filtrar **somente** mudança real de `monitoramento_ativo` (`OLD.monitoramento_ativo IS DISTINCT FROM NEW.monitoramento_ativo`) para não gerar ruído.
-   - `auth.uid()` pode ser NULL em chamadas de Edge Function com service role — capturar como "Sistema".
-   - Sem retroatividade: importações antigas continuam sem autor (esperado).
-4. **Afetados**: Super-Admin (visualização). Indiretamente, qualquer usuário que ative/pause monitoramento terá o ato registrado (sem mudança de UX para ele).
-
-### Validação
-- Importar um CNJ novo → conferir entrada na aba Atividade com seu nome.
-- Ativar e pausar monitoramento → 2 linhas no audit, visíveis na aba Atividade.
-- Conferir que registros antigos aparecem com autor "—" mas com data correta (de `created_at`).
-- Conferir que cliente comum não vê o audit (RLS bloqueia fora do tenant; admin do tenant pode ver os seus, super-admin vê tudo).
+## Validação
+- Abrir o sheet de Suporte → "Minha Assinatura" e conferir abertura como modal central em ~576px.
+- Navegar pelas 3 abas (Perfil, Vencimentos, Credenciais) e validar densidade consistente.
+- Editar e salvar o perfil; confirmar toast e persistência.
+- Aceitar termos (se ainda não aceitos) e validar o estado "Termos aceitos em…".
+- Em Credenciais: abrir formulário, criar uma credencial dummy, validar listagem e exclusão (dupla confirmação).
+- Em Vencimentos: validar listagem, abrir `BoletoPaymentDialog` e baixar boleto.
+- Testar em viewport 1492px (atual) e em mobile 375px.
