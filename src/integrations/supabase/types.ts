@@ -6485,6 +6485,48 @@ export type Database = {
           },
         ]
       }
+      publicacao_test_jobs: {
+        Row: {
+          attachment_name: string | null
+          created_at: string
+          created_by: string
+          error_message: string | null
+          id: string
+          numero_cnj: string
+          publicacao_id: string | null
+          status: string
+          storage_path: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          attachment_name?: string | null
+          created_at?: string
+          created_by: string
+          error_message?: string | null
+          id?: string
+          numero_cnj: string
+          publicacao_id?: string | null
+          status?: string
+          storage_path?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          attachment_name?: string | null
+          created_at?: string
+          created_by?: string
+          error_message?: string | null
+          id?: string
+          numero_cnj?: string
+          publicacao_id?: string | null
+          status?: string
+          storage_path?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       publicacoes: {
         Row: {
           andamento_id: string | null
