@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, X, ExternalLink, FileText, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -31,6 +31,22 @@ interface PublicacaoDetalheProps {
 export function PublicacaoDetalhe({ publicacao, onStatusChange }: PublicacaoDetalheProps) {
   const p = publicacao;
   const [openingDoc, setOpeningDoc] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPreviewUrl(null);
+    if (!p.storage_path || p.origem !== 'monitoramento_processo') return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.storage
+        .from('processo-documentos')
+        .createSignedUrl(p.storage_path!, 60 * 10);
+      if (!cancelled && !error && data?.signedUrl) setPreviewUrl(data.signedUrl);
+    })();
+    return () => { cancelled = true; };
+  }, [p.id, p.storage_path, p.origem]);
+
+  const ext = (p.storage_path?.split('.').pop() || '').toLowerCase();
 
   const abrirDocumento = async () => {
     if (!p.storage_path) return;
