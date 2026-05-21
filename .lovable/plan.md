@@ -1,53 +1,62 @@
-# Remover pausa de monitoramento no botão "Atualizar"
+# Plano: Redesign Credenciais + Histórico de Importações/Monitoramento
 
-## Causa raiz
-A Edge Function `judit-resetar-processo` foi escrita assumindo que disparar um novo `request on_demand` poderia gerar conflito ou cobrança duplicada com o tracking ativo. Por isso, no passo 3 ela faz `PATCH /tracking/{id} {status: 'paused'}`, limpa `tracking_id`/`tracking_request_id` em `processos_oab`, marca `monitoramento_ativo = false` em `processo_monitoramento_judit` e registra `tracking_desativado` em `tenant_banco_ids`.
+## Parte 1 — Redesign do diálogo "Credenciais"
 
-Na prática, **request sob demanda e tracking são serviços independentes na Judit**: o tracking continua monitorando o tribunal em background mesmo quando você dispara um POST avulso. Pausar o tracking só cria trabalho manual (reativar depois) e gera a sensação de que o processo "saiu" do monitoramento.
+### Causa raiz
+O `CredenciaisCentralDialog` ocupa quase a tela inteira (`max-w-2xl max-h-[85vh]`) com cards densos, badges grandes e ícones repetidos. A hierarquia visual está pesada: cada credencial repete OAB + nome + CPF + sistema em 4 linhas com ícones, e o agrupamento por tenant usa headers fortes que competem com o conteúdo.
 
-## Correção
-Na função `judit-resetar-processo`:
-1. Remover por completo o bloco de pausa (PATCH na Judit + updates em `processos_oab`, `processo_monitoramento_judit`, `tenant_banco_ids`).
-2. Manter intactos: a trava `detalhes_request_data = now()` (passo 2, anti-race com o cron), a busca de credencial, o POST `on_demand`, o polling, a deduplicação de andamentos e o registro em `tenant_banco_ids` tipo `request_detalhes`.
-3. Remover do response os campos `trackingDesativado` e `monitoramentoDesativado` (sempre serão `null`/`false`). Manter `success`, `requestId`, `andamentosNovos` para compatibilidade.
-4. Remover do metadata do `tenant_banco_ids` (passo 9) o campo `tracking_desativado`.
+### Correção (refinar o atual, não redesenhar do zero)
+- Reduzir o diálogo para um bloco centralizado e compacto: `max-w-lg`, altura adaptativa (`max-h-[70vh]`), sombra suave e padding generoso.
+- Header minimalista: título "Credenciais pendentes" + contador discreto à direita; remover o card com ícone roxo.
+- Lista única (sem agrupamento por tenant repetindo header pesado) — tenant vira um chip pequeno ao lado de cada item.
+- Cada item: 1 linha principal (OAB · Nome) + 1 linha secundária pequena em `text-muted-foreground` (CPF · Sistema · Tenant · "há 2 dias").
+- Estado vazio: ícone fino, frase curta, sem caixa cinza.
+- Tipografia: pesos mais leves, cores via tokens semânticos (`text-foreground`, `text-muted-foreground`).
 
-Front-end: o hook/handler que chama o reset já consome só `andamentosNovos` para o toast — não precisa alteração. Se algum componente lê `monitoramentoDesativado` para avisar o usuário, remover esse aviso.
+### Arquivos afetados
+- `src/components/SuperAdmin/CredenciaisCentralDialog.tsx`
 
-## Arquivos afetados
-- `supabase/functions/judit-resetar-processo/index.ts` — remover passo 3 e ajustar response/metadata.
-- `src/hooks/useOABs.ts` (e `useAllProcessosOAB.ts` se aplicável) — varrer uso de `monitoramentoDesativado`/`trackingDesativado` no retorno e remover toasts/alertas relacionados.
-- `src/components/Controladoria/OABTab.tsx` e demais consumidores do reset — mesma varredura.
+### Impacto
+1. **Usuário final (você no Super-Admin)**: diálogo menor, centralizado, leitura mais rápida da fila de credenciais pendentes. Mesmas ações, mesmos dados.
+2. **Dados**: nenhuma mudança. Só apresentação.
+3. **Riscos colaterais**: nenhum — componente isolado.
+4. **Afetados**: somente Super-Admin (suporte@vouti.co).
 
-Nenhuma migration. Nenhuma mudança em RLS. Nenhum dado existente é tocado retroativamente (processos cujo tracking foi pausado no passado continuam pausados — tratamento desses fica como item separado, se quiser).
+---
 
-## Impacto
+## Parte 2 — Histórico no Banco de IDs (importações + monitoramento ON/OFF)
 
-**1. Usuário final (UX)**
-- Clicar "Atualizar" passa a ser uma operação puramente aditiva: traz andamentos novos e mantém o monitoramento como estava.
-- Some o estado confuso em que o ícone de monitoramento "apagava" depois de atualizar.
-- Toasts ficam mais limpos: só "X novos andamentos" sem o aviso de "monitoramento desativado".
+### Causa raiz
+Hoje `tenant_banco_ids` registra `created_at` de cada request, e `processos_oab` registra `created_at` da importação. Mas **não há registro de quando o monitoramento foi ativado/pausado**, nem **quem fez** (importação ou toggle). Sem isso, não dá para auditar a linha do tempo do tenant.
 
-**2. Dados**
-- Sem migration. Sem alteração de schema.
-- Para de inserir registros tipo `tracking_desativado` com motivo `reset_manual` em `tenant_banco_ids`.
-- Para de chamar `PATCH /tracking/{id}` na Judit (uma chamada externa a menos por reset — ligeiramente mais rápido).
-- Processos que já tiveram o tracking pausado por resets anteriores continuam pausados; precisam ser reativados manualmente ou por uma rotina separada (não escopo deste plano).
+### Correção
+1. **Nova tabela `processo_monitoramento_audit`** (apenas eventos ON/OFF):
+   - `id`, `tenant_id`, `processo_oab_id`, `numero_cnj`, `acao` ('ativado' | 'pausado'), `tracking_id`, `user_id` (quem clicou), `user_email` (snapshot), `created_at`.
+   - RLS: super-admin lê tudo; usuários do tenant leem só seu tenant.
+2. **Trigger em `processos_oab`**: quando `monitoramento_ativo` muda, insere linha em `processo_monitoramento_audit` capturando `auth.uid()`. Também `tracking_id` atual.
+3. **Trigger/coluna em `processos_oab`** já tem `created_at` = data de importação; adicionar coluna `importado_por` (uuid) e `importado_por_email` (text) preenchidos no insert via trigger usando `auth.uid()` (quando disponível; fallback NULL para imports de sistema).
+4. **UI**: adicionar no `TenantBancoIdsDialog` os timestamps já existentes em cada aba (Trackings ON/OFF, Requests CNJ) — coluna "Quando" com data/hora local. Para a aba **Trackings ON/OFF**, mostrar também último evento de ativação/pausa (do novo audit).
+5. **Nova mini-aba "Atividade" dentro do mesmo diálogo Banco de IDs** — linha do tempo unificada (últimos 50 eventos): "📥 CNJ 0001234… importado por Alan em 21/05 14:32", "🟢 Monitoramento ativado em 0005678… por Jari em 22/05 09:10", "⚪ Monitoramento pausado em 0009999… por Alan em 23/05 11:00". Paginação 20/página, busca por CNJ.
 
-**3. Riscos colaterais**
-- Risco baixo de duplicidade de andamento no momento do reset: o cron `judit-sync-monitorados` pode pegar o mesmo step que o reset acabou de inserir. **Mitigado pela trava `detalhes_request_data = now()`** já existente (sync ignora processos atualizados recentemente) e pela deduplicação por chave `data+descrição`.
-- Sem risco de cobrança duplicada na Judit: tracking e request on_demand são faturados separadamente; rodar os dois em paralelo já era o comportamento esperado pela API.
+### Arquivos afetados
+- Migration nova: tabela `processo_monitoramento_audit` + colunas em `processos_oab` + triggers + RLS.
+- `src/components/SuperAdmin/TenantBancoIdsDialog.tsx` — adicionar coluna "Quando/Quem" nas abas existentes e nova aba "Atividade".
+- `src/hooks/useTenantBancoIds.ts` (ou hook equivalente) — incluir join/consulta ao audit.
 
-**4. Quem é afetado**
-- Todos os tenants com processos OAB monitorados.
-- Usuários com acesso ao drawer de detalhes do processo (`advogado` em diante).
-- Super-Admin: a aba "Trackings OFF" do Banco de IDs para de receber novas entradas com motivo `reset_manual` (continua recebendo desativações manuais reais).
+### Impacto
+1. **Usuário final**: Super-Admin passa a ver linha do tempo completa por tenant — quando cada CNJ foi importado, por quem, e cada ON/OFF de monitoramento com autor e horário. Cliente final não é afetado (mudança restrita ao Super-Admin).
+2. **Dados**:
+   - +1 tabela `processo_monitoramento_audit` (cresce ~1 linha por toggle, baixo volume).
+   - +2 colunas em `processos_oab` (`importado_por`, `importado_por_email`) — nullable, sem migração de dados retroativa obrigatória (registros antigos ficam NULL e a UI mostra "—").
+   - 2 triggers novos (insert + update on `monitoramento_ativo`).
+3. **Riscos colaterais**:
+   - Trigger de update em `processos_oab` deve filtrar **somente** mudança real de `monitoramento_ativo` (`OLD.monitoramento_ativo IS DISTINCT FROM NEW.monitoramento_ativo`) para não gerar ruído.
+   - `auth.uid()` pode ser NULL em chamadas de Edge Function com service role — capturar como "Sistema".
+   - Sem retroatividade: importações antigas continuam sem autor (esperado).
+4. **Afetados**: Super-Admin (visualização). Indiretamente, qualquer usuário que ative/pause monitoramento terá o ato registrado (sem mudança de UX para ele).
 
-## Validação
-1. Em ambiente de teste, abrir um processo OAB com `monitoramento_ativo = true` e `tracking_id` preenchido.
-2. Clicar "Atualizar".
-3. Confirmar via SQL: `tracking_id` e `monitoramento_ativo` permanecem inalterados após o reset.
-4. Confirmar que `detalhes_request_id` e `detalhes_request_data` foram atualizados.
-5. Confirmar que andamentos novos apareceram (se houver) sem duplicar antigos.
-6. Conferir `judit_api_logs`: deve existir `reset_processo_post` (sucesso), e **não** deve existir `reset_processo_pause`.
-7. Conferir `tenant_banco_ids`: novo registro `request_detalhes` criado, **nenhum** novo `tracking_desativado`.
+### Validação
+- Importar um CNJ novo → conferir entrada na aba Atividade com seu nome.
+- Ativar e pausar monitoramento → 2 linhas no audit, visíveis na aba Atividade.
+- Conferir que registros antigos aparecem com autor "—" mas com data correta (de `created_at`).
+- Conferir que cliente comum não vê o audit (RLS bloqueia fora do tenant; admin do tenant pode ver os seus, super-admin vê tudo).
