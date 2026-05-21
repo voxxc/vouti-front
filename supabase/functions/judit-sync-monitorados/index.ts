@@ -6,6 +6,234 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Tenant piloto para auto-publicação de decisões a partir do monitoramento
+const DEMORAIS_TENANT_ID = 'd395b3a1-1ea1-4710-bcc1-ff5f6a279750';
+const ANEXOS_BUCKET = 'processo-documentos';
+
+// Palavras-chave de decisão judicial (case-insensitive, sem acento opcional)
+const DECISAO_KEYWORDS = [
+  'decisão', 'decisao', 'decido',
+  'sentença', 'sentenca',
+  'despacho decisório', 'despacho decisorio',
+  'julgo', 'homologo', 'defiro', 'indefiro',
+  'condeno', 'extingo', 'profiro decisão', 'profiro decisao',
+  'antecipação de tutela', 'antecipacao de tutela',
+  'liminar', 'tutela provisória', 'tutela provisoria',
+];
+
+function isDecisao(text: string | null | undefined): boolean {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return DECISAO_KEYWORDS.some(k => t.includes(k));
+}
+
+// Coleta attachments de um payload Judit (top-level ou por step)
+function collectAttachmentsForStep(responseData: any, step: any): any[] {
+  const stepId = step?.step_id || step?.id || null;
+  const inline = step?.attachments || [];
+  const topLevel = responseData?.attachments || [];
+  const matched = topLevel.filter((a: any) =>
+    stepId && (a.step_id === stepId || a.stepId === stepId)
+  );
+  return [...inline, ...matched];
+}
+
+// Baixa anexo da Judit e devolve Uint8Array + mime
+async function downloadJuditAttachment(params: {
+  numeroCnj: string;
+  instancia: number;
+  attachmentId: string;
+  stepId?: string | null;
+  apiKey: string;
+}): Promise<{ bytes: Uint8Array; mime: string } | null> {
+  const numeroLimpo = (params.numeroCnj || '').replace(/\D/g, '');
+  const inst = params.instancia || 1;
+  const urls = [
+    `https://lawsuits.production.judit.io/lawsuits/${numeroLimpo}/${inst}/attachments/${params.attachmentId}`,
+  ];
+  if (params.stepId) {
+    urls.push(`https://lawsuits.production.judit.io/lawsuits/${numeroLimpo}/${inst}/steps/${params.stepId}/attachments/${params.attachmentId}`);
+  }
+  for (const url of urls) {
+    try {
+      const r = await fetch(url, { headers: { 'api-key': params.apiKey.trim() } });
+      if (!r.ok) continue;
+      const ct = r.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const j = await r.json();
+        if (j.url || j.download_url) {
+          const r2 = await fetch(j.url || j.download_url);
+          if (!r2.ok) continue;
+          const ab = await r2.arrayBuffer();
+          return { bytes: new Uint8Array(ab), mime: r2.headers.get('content-type') || 'application/pdf' };
+        }
+        if (j.content) {
+          const bin = atob(j.content);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          return { bytes, mime: j.mime_type || 'application/pdf' };
+        }
+        continue;
+      }
+      const ab = await r.arrayBuffer();
+      return { bytes: new Uint8Array(ab), mime: ct || 'application/pdf' };
+    } catch (e) {
+      console.error('[SYNC][anexo] download error', url, e);
+    }
+  }
+  return null;
+}
+
+// Extração best-effort de texto de PDF via pdfjs-dist
+async function extractPdfText(bytes: Uint8Array, maxChars = 50000): Promise<string | null> {
+  try {
+    // @ts-ignore
+    const pdfjs: any = await import('https://esm.sh/pdfjs-dist@3.11.174/legacy/build/pdf.mjs');
+    const loadingTask = pdfjs.getDocument({ data: bytes, disableWorker: true, isEvalSupported: false });
+    const pdf = await loadingTask.promise;
+    let out = '';
+    const maxPages = Math.min(pdf.numPages, 50);
+    for (let i = 1; i <= maxPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items.map((it: any) => it.str || '').join(' ');
+      out += pageText + '\n\n';
+      if (out.length >= maxChars) break;
+    }
+    return out.slice(0, maxChars);
+  } catch (e) {
+    console.error('[SYNC][pdf] extract error:', (e as Error).message);
+    return null;
+  }
+}
+
+// Processa anexos de decisão para um andamento recém-inserido
+async function processarAnexosDeDecisao(params: {
+  supabase: any;
+  juditApiKey: string;
+  tenantId: string;
+  processo: { id: string; numero_cnj: string };
+  andamentoId: string;
+  step: any;
+  responseData: any;
+}) {
+  const { supabase, juditApiKey, tenantId, processo, andamentoId, step, responseData } = params;
+  const attachments = collectAttachmentsForStep(responseData, step);
+  if (!attachments.length) return;
+
+  for (const att of attachments) {
+    try {
+      const attachmentId = att.attachment_id || att.id;
+      if (!attachmentId) continue;
+      const fileName = att.attachment_name || att.name || 'documento';
+      const extension = (att.extension || att.file_extension || (fileName.includes('.') ? fileName.split('.').pop() : 'pdf'))?.toLowerCase() || 'pdf';
+      const stepId = att.step_id || step?.step_id || step?.id || null;
+
+      // Upsert metadata (mesma lógica usada em judit-buscar-detalhes-processo)
+      const { data: anexoRow, error: upsertErr } = await supabase
+        .from('processos_oab_anexos')
+        .upsert({
+          processo_oab_id: processo.id,
+          attachment_id: attachmentId,
+          attachment_name: fileName,
+          extension,
+          status: att.status || 'done',
+          content_description: att.content || att.description,
+          is_private: att.is_private || false,
+          step_id: stepId,
+          tenant_id: tenantId,
+        }, { onConflict: 'processo_oab_id,attachment_id' })
+        .select('id')
+        .single();
+
+      if (upsertErr || !anexoRow?.id) {
+        console.error('[SYNC][anexo] upsert error:', upsertErr);
+        continue;
+      }
+      const anexoId = anexoRow.id;
+
+      // Dedup: se já existe publicação para este (processo, andamento, anexo), pula
+      const { data: existingPub } = await supabase
+        .from('publicacoes')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('origem', 'monitoramento_processo')
+        .eq('processo_oab_id', processo.id)
+        .eq('andamento_id', andamentoId)
+        .eq('anexo_id', anexoId)
+        .maybeSingle();
+      if (existingPub?.id) continue;
+
+      // Baixar arquivo da Judit
+      const downloaded = await downloadJuditAttachment({
+        numeroCnj: processo.numero_cnj,
+        instancia: 1,
+        attachmentId,
+        stepId,
+        apiKey: juditApiKey,
+      });
+
+      let storagePath: string | null = null;
+      let conteudoTexto: string | null = null;
+
+      if (downloaded) {
+        storagePath = `${tenantId}/${processo.id}/${anexoId}.${extension}`;
+        const { error: upErr } = await supabase.storage
+          .from(ANEXOS_BUCKET)
+          .upload(storagePath, downloaded.bytes, {
+            contentType: downloaded.mime,
+            upsert: true,
+          });
+        if (upErr) {
+          console.error('[SYNC][anexo] storage upload error:', upErr);
+          storagePath = null;
+        }
+        if (extension === 'pdf' || downloaded.mime.includes('pdf')) {
+          conteudoTexto = await extractPdfText(downloaded.bytes);
+        }
+      }
+
+      const stepDate = step?.step_date || step?.date || step?.data || step?.data_movimentacao || null;
+      const stepDateOnly = stepDate ? new Date(stepDate).toISOString().slice(0, 10) : null;
+      const orgao = step?.court || step?.tribunal || step?.organ || null;
+      const responsavel = step?.judge || step?.magistrado || null;
+
+      const { error: pubErr } = await supabase
+        .from('publicacoes')
+        .insert({
+          tenant_id: tenantId,
+          origem: 'monitoramento_processo',
+          processo_oab_id: processo.id,
+          andamento_id: andamentoId,
+          anexo_id: anexoId,
+          tipo: 'Decisão',
+          numero_processo: processo.numero_cnj,
+          data_disponibilizacao: stepDateOnly,
+          data_publicacao: stepDateOnly,
+          conteudo_completo: conteudoTexto,
+          storage_path: storagePath,
+          status: 'nao_tratada',
+          orgao,
+          responsavel,
+          metadata: {
+            attachment_id: attachmentId,
+            attachment_name: fileName,
+            extension,
+            download_ok: !!downloaded,
+            text_extracted: !!conteudoTexto,
+          },
+        });
+      if (pubErr) {
+        console.error('[SYNC][pub] insert error:', pubErr);
+      } else {
+        console.log(`[SYNC][pub] Publicação criada para ${processo.numero_cnj} (anexo ${fileName})`);
+      }
+    } catch (e) {
+      console.error('[SYNC][anexo] erro inesperado:', (e as Error).message);
+    }
+  }
+}
+
 // Helper to normalize timestamps for deduplication
 function normalizeTimestamp(timestamp: string | null | undefined): string | null {
   if (!timestamp) return null;
@@ -369,7 +597,7 @@ serve(async (req) => {
             }
 
             // Insert new andamento
-            const { error: insertError } = await supabase
+            const { data: insertedAndamento, error: insertError } = await supabase
               .from('processos_oab_andamentos')
               .insert({
                 processo_oab_id: processo.id,
@@ -378,7 +606,9 @@ serve(async (req) => {
                 dados_completos: step,
                 lida: false,
                 tenant_id: processo.tenant_id,
-              });
+              })
+              .select('id')
+              .single();
 
             if (insertError) {
               console.error(`[SYNC] Insert error:`, insertError);
@@ -392,6 +622,27 @@ serve(async (req) => {
               const normalizedDate = normalizeTimestamp(stepDate);
               if (normalizedDate && (!latestAndamentoDate || normalizedDate > latestAndamentoDate)) {
                 latestAndamentoDate = normalizedDate;
+              }
+
+              // Demorais piloto: detectar decisão e auto-alimentar Publicações
+              if (
+                processo.tenant_id === DEMORAIS_TENANT_ID &&
+                insertedAndamento?.id &&
+                isDecisao(stepContent)
+              ) {
+                try {
+                  await processarAnexosDeDecisao({
+                    supabase,
+                    juditApiKey: juditApiKey!,
+                    tenantId: processo.tenant_id,
+                    processo: { id: processo.id, numero_cnj: processo.numero_cnj },
+                    andamentoId: insertedAndamento.id,
+                    step,
+                    responseData,
+                  });
+                } catch (e) {
+                  console.error('[SYNC][publicacao] erro:', (e as Error).message);
+                }
               }
             }
           }

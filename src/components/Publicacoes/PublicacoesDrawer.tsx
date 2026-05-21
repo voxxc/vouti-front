@@ -36,6 +36,9 @@ interface Publicacao {
   orgao: string | null;
   responsavel: string | null;
   partes: string | null;
+  origem?: string | null;
+  storage_path?: string | null;
+  processo_oab_id?: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -481,6 +484,11 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
                             <span className="text-xs text-muted-foreground">{new Date(pub.data_disponibilizacao + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
                           )}
                           {pub.tipo && <span className="text-xs font-medium text-primary">{pub.tipo}</span>}
+                          {pub.origem === 'monitoramento_processo' && (
+                            <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-primary/40 text-primary">
+                              Monitoramento
+                            </Badge>
+                          )}
                         </div>
                         {pub.numero_processo && (
                           <p className="text-sm font-medium truncate">{pub.numero_processo}</p>
