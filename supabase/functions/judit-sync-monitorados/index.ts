@@ -633,7 +633,7 @@ serve(async (req) => {
                 try {
                   await processarAnexosDeDecisao({
                     supabase,
-                    juditApiKey,
+                    juditApiKey: juditApiKey!,
                     tenantId: processo.tenant_id,
                     processo: { id: processo.id, numero_cnj: processo.numero_cnj },
                     andamentoId: insertedAndamento.id,
