@@ -89,7 +89,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
           .order('created_at', { ascending: false })
           .limit(2000),
       ]);
-      setProcessos(procRes || []);
+      setProcessos(((procRes as { data?: ProcessoRow[] })?.data) || []);
       setOabs(((oabRes.data as unknown) as OabRow[]) || []);
       setBancoIds((bidRes.data as BancoId[]) || []);
     } catch (error) {
