@@ -1,23 +1,29 @@
-# Corrigir erro ao gerar publicação de teste
+# Corrigir timeout no teste de publicação via CNJ
 
 ## Causa raiz
-A Edge Function `judit-test-publicacao-cnj` foi criada como arquivo no repositório, mas nunca foi efetivamente deployada. Ao clicar em "Gerar publicação de teste", o cliente recebe **404 NOT_FOUND** porque o endpoint não existe no Supabase. Por isso também não há nenhum registro em `publicacao_test_jobs` nem logs da função.
+O job falhou com `"Timeout aguardando resposta Judit"`. Dois fatores combinados:
+
+1. **Janela de polling curta:** 30 tentativas × 3s = 90s. Busca `on_demand` com `with_attachments: true` no TJTO leva mais que isso.
+2. **Critério de "pronto" frágil:** o código aceita apenas `status === 'completed' | 'done'`. No `/responses` da Judit, o item normalmente já vem com `response_data` preenchido sem esse campo (ou com outro valor como `created`), então o loop não reconhece a conclusão e estoura o tempo.
 
 ## Correção
-1. Deployar manualmente a função `judit-test-publicacao-cnj` via ferramenta de deploy.
-2. Disparar uma chamada de teste com o CNJ `0000927-04.2025.8.27.2704` para validar que ela responde 202 e cria o job.
-3. Acompanhar logs da função para garantir que o processamento em background completa (request Judit → download → upload → insert em `publicacoes`).
+Em `supabase/functions/judit-test-publicacao-cnj/index.ts`, no bloco `processarJob`:
+
+- Aumentar polling para ~5 min (60 × 5s).
+- Considerar pronto quando houver `response_data` com `steps` ou `code` preenchidos (não depender só do campo `status`).
+- Logar o shape do primeiro retorno para diagnóstico em logs.
+- Em caso de timeout, gravar no `error_message` o último status visto para facilitar debug.
 
 ## Arquivos afetados
-Nenhum arquivo de código. Apenas operação de deploy + validação.
+- `supabase/functions/judit-test-publicacao-cnj/index.ts`
 
 ## Impacto
-- **Usuário final (Super-Admin):** o botão "Gerar publicação de teste" passa a funcionar; o card aparece no histórico e atualiza em tempo real via Realtime.
-- **Dados:** começarão a ser criados registros em `publicacao_test_jobs` e, quando bem-sucedidos, em `publicacoes` do tenant Demorais (com flag `metadata.teste=true`).
-- **Riscos colaterais:** baixo. A função roda apenas para Super-Admins e insere exclusivamente no tenant Demorais.
-- **Quem é afetado:** apenas Super-Admins usando a aba "Ferramentas".
+- **Usuário (Super-Admin):** o card passa a aguardar até 5 min, refletindo o tempo real da Judit em CNJs com anexos. Erros ficam mais informativos.
+- **Dados:** nenhuma mudança de schema. Apenas mais jobs em `publicacao_test_jobs` chegarão a `completed`.
+- **Riscos colaterais:** baixos. `EdgeRuntime.waitUntil` suporta 5 min sem problemas; o POST inicial continua respondendo em ~1s (202).
+- **Quem é afetado:** somente Super-Admins na aba Ferramentas. Restrito ao tenant Demorais.
 
 ## Validação
-- `curl` na função deve retornar `202` com `jobId`.
-- Logs devem mostrar `processarJob` finalizando com `completed`.
-- UI deve exibir card com status atualizando de `pending` → `processing` → `completed`.
+1. Reexecutar com `0000927-04.2025.8.27.2704`.
+2. Logs devem mostrar o shape do response e finalizar com `completed`.
+3. Card deve aparecer como "Concluído" com botão "Abrir PDF".
