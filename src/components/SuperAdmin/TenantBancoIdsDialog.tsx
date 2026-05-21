@@ -450,7 +450,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
             {counts.processos} processos · {counts.requests} requests · {counts.trackingsAtivos} monitorando
           </span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleDownloadReport} disabled={loading || processos.length === 0}>
+            <Button variant="outline" size="sm" onClick={handleDownloadReport} disabled={loading || processosAgg.length === 0}>
               <Download className="h-4 w-4 mr-1" /> Baixar PDF
             </Button>
             <Button variant="outline" size="sm" onClick={fetchAll}>Atualizar</Button>
