@@ -27,36 +27,33 @@ interface BancoId {
   referencia_id: string | null;
   external_id: string | null;
   descricao: string;
-  metadata: Record<string, unknown>;
+  metadata: Record<string, any> | null;
   created_at: string;
 }
 
-interface ProcessoRow {
-  id: string;
+interface ProcessoAgg {
+  processo_id: string;
   numero_cnj: string | null;
   tribunal: string | null;
-  detalhes_request_id: string | null;
+  request_id: string | null;
+  request_created_at: string | null;
   tracking_id: string | null;
-  tracking_request_id: string | null;
-  monitoramento_ativo: boolean | null;
+  tracking_ativo: boolean;
+  tracking_created_at: string | null;
   created_at: string;
-  updated_at: string;
 }
 
-interface OabRow {
+interface OabAgg {
   id: string;
-  oab_numero: string | null;
-  oab_uf: string | null;
-  nome_advogado: string | null;
-  ultimo_request_id: string | null;
+  oab: string;
+  external_id: string | null;
+  created_at: string;
 }
 
 type TabKey = 'processos' | 'requests' | 'trackings' | 'oabs' | 'historico';
 
 export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName }: TenantBancoIdsDialogProps) {
   const [bancoIds, setBancoIds] = useState<BancoId[]>([]);
-  const [processos, setProcessos] = useState<ProcessoRow[]>([]);
-  const [oabs, setOabs] = useState<OabRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -69,29 +66,17 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [procRes, oabRes, bidRes] = await Promise.all([
-        fetchAllPaginated<ProcessoRow>(() =>
+      const { data, error } = await fetchAllPaginated<BancoId>(
+        () =>
           supabase
-            .from('processos_oab')
-            .select('id, numero_cnj, tribunal, detalhes_request_id, tracking_id, tracking_request_id, monitoramento_ativo, created_at, updated_at')
+            .from('tenant_banco_ids')
+            .select('id, tipo, referencia_id, external_id, descricao, metadata, created_at')
             .eq('tenant_id', tenantId)
-            .order('created_at', { ascending: false })
-        ),
-        supabase
-          .from('oabs_cadastradas')
-          .select('id, oab_numero, oab_uf, nome_advogado, ultimo_request_id')
-          .eq('tenant_id', tenantId)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('tenant_banco_ids')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .order('created_at', { ascending: false })
-          .limit(2000),
-      ]);
-      setProcessos(((procRes as { data?: ProcessoRow[] })?.data) || []);
-      setOabs(((oabRes.data as unknown) as OabRow[]) || []);
-      setBancoIds((bidRes.data as BancoId[]) || []);
+            .order('created_at', { ascending: false }),
+        { hardCap: 200 }
+      );
+      if (error) throw error;
+      setBancoIds(data || []);
     } catch (error) {
       console.error('Erro ao buscar banco de IDs:', error);
       toast({ title: 'Erro', description: 'Não foi possível carregar os IDs', variant: 'destructive' });
@@ -115,34 +100,112 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
   const matches = (...vals: (string | null | undefined)[]) =>
     !term || vals.some((v) => v?.toLowerCase().includes(term));
 
-  // Aggregates
+  // Derive aggregates from tenant_banco_ids
+  const processosAgg = useMemo<ProcessoAgg[]>(() => {
+    const byProcId = new Map<string, ProcessoAgg>();
+    // seed from tipo=processo
+    for (const b of bancoIds) {
+      if (b.tipo !== 'processo' || !b.referencia_id) continue;
+      if (!byProcId.has(b.referencia_id)) {
+        byProcId.set(b.referencia_id, {
+          processo_id: b.referencia_id,
+          numero_cnj: (b.metadata?.numero_cnj as string) || null,
+          tribunal: (b.metadata?.tribunal as string) || null,
+          request_id: null,
+          request_created_at: null,
+          tracking_id: null,
+          tracking_ativo: false,
+          tracking_created_at: null,
+          created_at: b.created_at,
+        });
+      }
+    }
+    // ensure entries exist for orphan request_detalhes / tracking (no tipo=processo row)
+    const ensure = (refId: string | null, cnj: string | null) => {
+      if (!refId) return null;
+      let p = byProcId.get(refId);
+      if (!p) {
+        p = {
+          processo_id: refId,
+          numero_cnj: cnj,
+          tribunal: null,
+          request_id: null,
+          request_created_at: null,
+          tracking_id: null,
+          tracking_ativo: false,
+          tracking_created_at: null,
+          created_at: '',
+        };
+        byProcId.set(refId, p);
+      }
+      if (!p.numero_cnj && cnj) p.numero_cnj = cnj;
+      return p;
+    };
+    // attach most recent request_detalhes
+    for (const b of bancoIds) {
+      if (b.tipo !== 'request_detalhes') continue;
+      const p = ensure(b.referencia_id, (b.metadata?.numero_cnj as string) || null);
+      if (!p) continue;
+      if (!p.request_id || (b.created_at > (p.request_created_at || ''))) {
+        p.request_id = b.external_id;
+        p.request_created_at = b.created_at;
+      }
+    }
+    // attach most recent tracking (active wins)
+    for (const b of bancoIds) {
+      if (b.tipo !== 'tracking' && b.tipo !== 'tracking_desativado') continue;
+      const p = ensure(b.referencia_id, (b.metadata?.numero_cnj as string) || null);
+      if (!p) continue;
+      const ativo = b.tipo === 'tracking' && (b.metadata?.monitoramento_ativo !== false);
+      if (!p.tracking_id || (b.created_at > (p.tracking_created_at || ''))) {
+        p.tracking_id = b.external_id;
+        p.tracking_ativo = ativo;
+        p.tracking_created_at = b.created_at;
+      }
+    }
+    return Array.from(byProcId.values()).sort((a, b) =>
+      (b.created_at || '').localeCompare(a.created_at || '')
+    );
+  }, [bancoIds]);
+
+  const oabsAgg = useMemo<OabAgg[]>(() => {
+    return bancoIds
+      .filter((b) => b.tipo === 'oab')
+      .map((b) => ({
+        id: b.id,
+        oab: b.descricao || (b.external_id || ''),
+        external_id: b.external_id,
+        created_at: b.created_at,
+      }));
+  }, [bancoIds]);
+
   const processosFiltered = useMemo(
-    () => processos.filter((p) => matches(p.numero_cnj, p.detalhes_request_id, p.tracking_id, p.tribunal)),
-    [processos, term]
+    () => processosAgg.filter((p) => matches(p.numero_cnj, p.request_id, p.tracking_id, p.tribunal)),
+    [processosAgg, term]
   );
   const requestsCnj = useMemo(
-    () => processos.filter((p) => p.detalhes_request_id && matches(p.numero_cnj, p.detalhes_request_id)),
-    [processos, term]
+    () => processosAgg.filter((p) => p.request_id && matches(p.numero_cnj, p.request_id)),
+    [processosAgg, term]
   );
   const trackings = useMemo(
-    () => processos.filter((p) => p.tracking_id && matches(p.numero_cnj, p.tracking_id)),
-    [processos, term]
+    () => processosAgg.filter((p) => p.tracking_id && matches(p.numero_cnj, p.tracking_id)),
+    [processosAgg, term]
   );
   const oabsFiltered = useMemo(
-    () => oabs.filter((o) => matches(o.oab_numero, o.oab_uf, o.nome_advogado, o.ultimo_request_id)),
-    [oabs, term]
+    () => oabsAgg.filter((o) => matches(o.oab, o.external_id)),
+    [oabsAgg, term]
   );
   const historicoFiltered = useMemo(
-    () => bancoIds.filter((b) => matches(b.descricao, b.external_id, b.referencia_id)),
+    () => bancoIds.filter((b) => matches(b.descricao, b.external_id, b.referencia_id, b.tipo)),
     [bancoIds, term]
   );
 
   const counts = {
-    processos: processos.length,
-    requests: processos.filter((p) => p.detalhes_request_id).length,
-    trackings: trackings.length,
-    trackingsAtivos: processos.filter((p) => p.tracking_id && p.monitoramento_ativo).length,
-    oabs: oabs.length,
+    processos: processosAgg.length,
+    requests: processosAgg.filter((p) => p.request_id).length,
+    trackings: processosAgg.filter((p) => p.tracking_id).length,
+    trackingsAtivos: processosAgg.filter((p) => p.tracking_id && p.tracking_ativo).length,
+    oabs: oabsAgg.length,
     historico: bancoIds.length,
   };
 
@@ -174,18 +237,17 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
     doc.setFontSize(9);
     doc.text(`Gerado em ${generatedAt}`, pageWidth / 2, 20, { align: 'center' });
 
-    // Tabela 1: Processos (CNJ → request_id → tracking_id)
     autoTable(doc, {
       startY: 26,
       head: [['CNJ', 'Request ID (CNJ)', 'Tracking ID', 'Monit.']],
-      body: processos
-        .filter((p) => p.detalhes_request_id || p.tracking_id)
+      body: processosAgg
+        .filter((p) => p.request_id || p.tracking_id)
         .sort((a, b) => (a.numero_cnj || '').localeCompare(b.numero_cnj || ''))
         .map((p) => [
           p.numero_cnj || '—',
-          p.detalhes_request_id || '—',
+          p.request_id || '—',
           p.tracking_id || '—',
-          p.monitoramento_ativo ? 'Ativo' : '—',
+          p.tracking_ativo ? 'Ativo' : '—',
         ]),
       styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak', font: 'courier' },
       headStyles: { fillColor: [37, 99, 235], textColor: 255, fontSize: 9, fontStyle: 'bold', font: 'helvetica' },
@@ -205,7 +267,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
 
     const safeName = tenantName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     doc.save(`banco-ids-${safeName}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-    toast({ title: 'Relatório gerado', description: `${processos.length} processos exportados.` });
+    toast({ title: 'Relatório gerado', description: `${processosAgg.length} processos exportados.` });
   };
 
   return (
@@ -259,7 +321,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
                     <Empty />
                   ) : (
                     processosFiltered.map((p) => (
-                      <div key={p.id} className="p-3 bg-muted/40 rounded-lg border border-border">
+                      <div key={p.processo_id} className="p-3 bg-muted/40 rounded-lg border border-border">
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 min-w-0">
                             <Scale className="h-4 w-4 text-primary shrink-0" />
@@ -269,7 +331,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
                             {p.tribunal && (
                               <Badge variant="secondary" className="text-xs">{p.tribunal}</Badge>
                             )}
-                            {p.monitoramento_ativo ? (
+                            {p.tracking_ativo ? (
                               <Badge className="text-xs bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
                                 🟢 Monitorando
                               </Badge>
@@ -281,7 +343,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                           <div>
                             <div className="text-muted-foreground mb-0.5">Request ID (importação CNJ)</div>
-                            {codeCell(p.detalhes_request_id, 'Request ID')}
+                            {codeCell(p.request_id, 'Request ID')}
                           </div>
                           <div>
                             <div className="text-muted-foreground mb-0.5">Tracking ID (monitoramento)</div>
@@ -299,7 +361,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
                     <Empty />
                   ) : (
                     requestsCnj.map((p) => (
-                      <div key={p.id} className="p-3 bg-muted/40 rounded-lg border border-border">
+                      <div key={p.processo_id} className="p-3 bg-muted/40 rounded-lg border border-border">
                         <div className="flex items-center gap-2 mb-1.5">
                           <FileText className="h-4 w-4 text-primary shrink-0" />
                           <span className="font-mono text-sm font-medium truncate">
@@ -307,7 +369,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
                           </span>
                           {p.tribunal && <Badge variant="secondary" className="text-xs">{p.tribunal}</Badge>}
                         </div>
-                        {codeCell(p.detalhes_request_id, 'Request ID')}
+                        {codeCell(p.request_id, 'Request ID')}
                       </div>
                     ))
                   )}
@@ -319,13 +381,13 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
                     <Empty />
                   ) : (
                     trackings.map((p) => (
-                      <div key={p.id} className="p-3 bg-muted/40 rounded-lg border border-border">
+                      <div key={p.processo_id} className="p-3 bg-muted/40 rounded-lg border border-border">
                         <div className="flex items-center gap-2 mb-1.5">
                           <Radio className="h-4 w-4 text-primary shrink-0" />
                           <span className="font-mono text-sm font-medium truncate">
                             {p.numero_cnj || 'Sem CNJ'}
                           </span>
-                          {p.monitoramento_ativo ? (
+                          {p.tracking_ativo ? (
                             <Badge className="text-xs bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
                               🟢 Ativo
                             </Badge>
@@ -333,16 +395,8 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
                             <Badge variant="outline" className="text-xs">Desativado</Badge>
                           )}
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          <div>
-                            <div className="text-[11px] text-muted-foreground mb-0.5">Tracking ID</div>
-                            {codeCell(p.tracking_id, 'Tracking ID')}
-                          </div>
-                          <div>
-                            <div className="text-[11px] text-muted-foreground mb-0.5">Último Request Tracking</div>
-                            {codeCell(p.tracking_request_id, 'Request Tracking')}
-                          </div>
-                        </div>
+                        <div className="text-[11px] text-muted-foreground mb-0.5">Tracking ID</div>
+                        {codeCell(p.tracking_id, 'Tracking ID')}
                       </div>
                     ))
                   )}
@@ -357,13 +411,9 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
                       <div key={o.id} className="p-3 bg-muted/40 rounded-lg border border-border">
                         <div className="flex items-center gap-2 mb-1.5">
                           <FileText className="h-4 w-4 text-primary shrink-0" />
-                          <span className="text-sm font-medium">
-                            OAB {o.oab_numero}/{o.oab_uf}
-                            {o.nome_advogado ? ` — ${o.nome_advogado}` : ''}
-                          </span>
+                          <span className="text-sm font-medium">{o.oab}</span>
                         </div>
-                        <div className="text-[11px] text-muted-foreground mb-0.5">Último Request de busca</div>
-                        {codeCell(o.ultimo_request_id, 'Request OAB')}
+                        {codeCell(o.external_id, 'OAB ID')}
                       </div>
                     ))
                   )}
