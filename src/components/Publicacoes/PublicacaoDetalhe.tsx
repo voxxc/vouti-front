@@ -4,6 +4,7 @@ import { Check, X, ExternalLink, FileText, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { htmlBytesToText, looksMojibake } from "@/lib/htmlAttachment";
 
 interface PublicacaoDetalheProps {
   publicacao: {
@@ -24,6 +25,7 @@ interface PublicacaoDetalheProps {
     partes: string | null;
     origem?: string | null;
     storage_path?: string | null;
+    metadata?: any;
   };
   onStatusChange: (status: string) => void;
 }
@@ -32,10 +34,19 @@ export function PublicacaoDetalhe({ publicacao, onStatusChange }: PublicacaoDeta
   const p = publicacao;
   const [openingDoc, setOpeningDoc] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [cleanText, setCleanText] = useState<string | null>(null);
+  const [loadingText, setLoadingText] = useState(false);
+
+  const ext = String(
+    p.metadata?.extension || (p.storage_path ? p.storage_path.split('.').pop() : '') || ''
+  ).toLowerCase();
+  const isHtml = ext === 'html' || ext === 'htm';
+  const isPdf = ext === 'pdf';
+  const isMonit = p.origem === 'monitoramento_processo';
 
   useEffect(() => {
     setPreviewUrl(null);
-    if (!p.storage_path || p.origem !== 'monitoramento_processo') return;
+    if (!p.storage_path || !isMonit || !isPdf) return;
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase.storage
@@ -44,7 +55,37 @@ export function PublicacaoDetalhe({ publicacao, onStatusChange }: PublicacaoDeta
       if (!cancelled && !error && data?.signedUrl) setPreviewUrl(data.signedUrl);
     })();
     return () => { cancelled = true; };
-  }, [p.id, p.storage_path, p.origem]);
+  }, [p.id, p.storage_path, isMonit, isPdf]);
+
+  // Para anexos HTML: baixar do storage, decodificar charset e gerar texto limpo
+  useEffect(() => {
+    setCleanText(null);
+    if (!isMonit || !isHtml || !p.storage_path) {
+      // Se já temos texto razoável em conteudo_completo, usa direto
+      if (p.conteudo_completo && !looksMojibake(p.conteudo_completo)) {
+        setCleanText(p.conteudo_completo);
+      }
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoadingText(true);
+      try {
+        const { data, error } = await supabase.storage
+          .from('processo-documentos')
+          .download(p.storage_path!);
+        if (error || !data) throw error || new Error('Falha ao baixar anexo');
+        const buf = new Uint8Array(await data.arrayBuffer());
+        const text = htmlBytesToText(buf, (data as any).type);
+        if (!cancelled) setCleanText(text.slice(0, 80000));
+      } catch {
+        if (!cancelled && p.conteudo_completo) setCleanText(p.conteudo_completo);
+      } finally {
+        if (!cancelled) setLoadingText(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [p.id, p.storage_path, isMonit, isHtml, p.conteudo_completo]);
 
 
   const abrirDocumento = async () => {
@@ -65,7 +106,7 @@ export function PublicacaoDetalhe({ publicacao, onStatusChange }: PublicacaoDeta
 
   return (
     <div className="p-6 space-y-6">
-      {p.origem === 'monitoramento_processo' && (
+      {isMonit && (
         <div className="space-y-3 -mt-2">
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-xs border-primary/40 text-primary">
@@ -78,7 +119,7 @@ export function PublicacaoDetalhe({ publicacao, onStatusChange }: PublicacaoDeta
               </Button>
             )}
           </div>
-          {previewUrl && (
+          {isPdf && previewUrl && (
             <div className="border rounded-lg overflow-hidden bg-muted/30">
               <iframe
                 src={previewUrl}
@@ -87,7 +128,7 @@ export function PublicacaoDetalhe({ publicacao, onStatusChange }: PublicacaoDeta
               />
             </div>
           )}
-          {!previewUrl && p.storage_path && (
+          {isPdf && !previewUrl && p.storage_path && (
             <div className="border rounded-lg p-6 flex items-center justify-center text-xs text-muted-foreground gap-2">
               <Loader2 className="h-3 w-3 animate-spin" /> Carregando documento…
             </div>
@@ -139,12 +180,20 @@ export function PublicacaoDetalhe({ publicacao, onStatusChange }: PublicacaoDeta
       </div>
 
       {/* Content */}
-      {p.conteudo_completo && (
+      {(isMonit ? cleanText : p.conteudo_completo) && (
         <div className="border-t pt-4">
-          <h4 className="text-sm font-medium mb-2">Conteúdo da Publicação</h4>
+          <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+            {isMonit && isHtml ? 'Resultado dos anexos' : 'Conteúdo da Publicação'}
+            {loadingText && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+          </h4>
           <div className="bg-muted/50 rounded-lg p-4 text-sm leading-relaxed whitespace-pre-wrap max-h-[50vh] overflow-y-auto">
-            {p.conteudo_completo}
+            {(isMonit ? cleanText : p.conteudo_completo) || ''}
           </div>
+        </div>
+      )}
+      {isMonit && isHtml && !cleanText && loadingText && (
+        <div className="border-t pt-4 flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" /> Lendo anexo…
         </div>
       )}
     </div>
