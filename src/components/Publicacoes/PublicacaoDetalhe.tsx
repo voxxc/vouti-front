@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, X, ExternalLink, FileText, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -31,6 +31,21 @@ interface PublicacaoDetalheProps {
 export function PublicacaoDetalhe({ publicacao, onStatusChange }: PublicacaoDetalheProps) {
   const p = publicacao;
   const [openingDoc, setOpeningDoc] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPreviewUrl(null);
+    if (!p.storage_path || p.origem !== 'monitoramento_processo') return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.storage
+        .from('processo-documentos')
+        .createSignedUrl(p.storage_path!, 60 * 10);
+      if (!cancelled && !error && data?.signedUrl) setPreviewUrl(data.signedUrl);
+    })();
+    return () => { cancelled = true; };
+  }, [p.id, p.storage_path, p.origem]);
+
 
   const abrirDocumento = async () => {
     if (!p.storage_path) return;
@@ -51,15 +66,31 @@ export function PublicacaoDetalhe({ publicacao, onStatusChange }: PublicacaoDeta
   return (
     <div className="p-6 space-y-6">
       {p.origem === 'monitoramento_processo' && (
-        <div className="flex items-center gap-2 -mt-2">
-          <Badge variant="outline" className="text-xs border-primary/40 text-primary">
-            Decisão · Monitoramento de processo
-          </Badge>
-          {p.storage_path && (
-            <Button size="sm" variant="outline" className="h-7 gap-1.5 ml-auto" onClick={abrirDocumento} disabled={openingDoc}>
-              {openingDoc ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
-              Abrir documento
-            </Button>
+        <div className="space-y-3 -mt-2">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs border-primary/40 text-primary">
+              {p.tipo || 'Publicação'} · Monitoramento
+            </Badge>
+            {p.storage_path && (
+              <Button size="sm" variant="outline" className="h-7 gap-1.5 ml-auto" onClick={abrirDocumento} disabled={openingDoc}>
+                {openingDoc ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                Abrir em nova aba
+              </Button>
+            )}
+          </div>
+          {previewUrl && (
+            <div className="border rounded-lg overflow-hidden bg-muted/30">
+              <iframe
+                src={previewUrl}
+                title="Documento"
+                className="w-full h-[60vh] bg-background"
+              />
+            </div>
+          )}
+          {!previewUrl && p.storage_path && (
+            <div className="border rounded-lg p-6 flex items-center justify-center text-xs text-muted-foreground gap-2">
+              <Loader2 className="h-3 w-3 animate-spin" /> Carregando documento…
+            </div>
           )}
         </div>
       )}

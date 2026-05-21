@@ -14,6 +14,48 @@ const DECISAO_KEYWORDS = [
   'homologo', 'acórdão', 'acordao'
 ];
 
+// --- Extração de texto dos anexos ---
+function htmlToText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+async function extractPdfText(buffer: ArrayBuffer): Promise<string> {
+  // Extração de PDF desabilitada nesta função de teste para evitar pesar o deploy.
+  // O conteúdo do step (movimentação) é usado como fallback, e o PDF segue acessível
+  // via signed URL no card de Publicações.
+  return '';
+}
+
+async function extractAttachmentText(buffer: ArrayBuffer, extension: string, contentType: string): Promise<string> {
+  const ext = extension.toLowerCase();
+  if (ext === 'pdf' || contentType.includes('pdf')) {
+    return await extractPdfText(buffer);
+  }
+  if (ext === 'html' || ext === 'htm' || contentType.includes('html')) {
+    try {
+      return htmlToText(new TextDecoder('utf-8').decode(buffer)).slice(0, 50000);
+    } catch {
+      return '';
+    }
+  }
+  return '';
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -284,18 +326,25 @@ async function processarJob(
           .insert({
             tenant_id: DEMORAIS_TENANT_ID,
             origem: 'monitoramento_processo',
-            tipo: ehDecisao ? 'Decisão (teste)' : 'Publicação (teste)',
+            tipo: ehDecisao ? 'Decisão' : 'Publicação',
             numero_processo: cnjResolvido,
             data_disponibilizacao: dataDisp,
-            conteudo_completo: String(step.content || step.description || '').slice(0, 50000),
+            conteudo_completo: (
+              (await extractAttachmentText(arrayBuffer, extension, contentType)) ||
+              String(step.content || step.description || '')
+            ).slice(0, 50000),
             storage_path: storagePath,
             processo_oab_id: processo?.id || null,
-            status: 'nao_lida',
+            status: 'nao_tratada',
+            nome_pesquisado: attachmentName,
+            diario_sigla: 'JUDIT',
+            diario_nome: 'Monitoramento Judit',
             metadata: {
               teste: true,
               attachment_id: attachmentId,
               attachment_name: attachmentName,
               extension,
+              size: arrayBuffer.byteLength,
               request_id,
               reused_request: !!reuseRequestId,
             },
