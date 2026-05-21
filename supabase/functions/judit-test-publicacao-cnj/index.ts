@@ -111,28 +111,51 @@ async function processarJob(
   const { request_id } = await reqResp.json();
   if (!request_id) throw new Error('request_id não retornado pela Judit');
 
-  // 2. Polling do response (até ~90s)
+  // 2. Polling do response (até ~5 min: 60 × 5s)
   let responseData: any = null;
-  for (let i = 0; i < 30; i++) {
-    await new Promise((r) => setTimeout(r, 3000));
+  let lastStatus: string | null = null;
+  let lastShape: string | null = null;
+  for (let i = 0; i < 60; i++) {
+    await new Promise((r) => setTimeout(r, 5000));
     const r = await fetch(`${JUDIT_API_URL}/responses?request_id=${request_id}`, {
       headers: { 'api-key': juditApiKey },
     });
-    if (!r.ok) continue;
+    if (!r.ok) {
+      lastStatus = `http_${r.status}`;
+      continue;
+    }
     const data = await r.json();
     const items = data.page_data || data.items || (Array.isArray(data) ? data : []);
     const first = Array.isArray(items) ? items[0] : data;
-    const status = first?.status || data?.status;
-    if (status === 'completed' || status === 'done') {
-      responseData = first?.response_data || first || data;
-      break;
+    const status = first?.status || data?.status || null;
+    lastStatus = status;
+    if (i === 0) {
+      lastShape = JSON.stringify({
+        keys_top: Object.keys(data || {}),
+        items_len: Array.isArray(items) ? items.length : null,
+        first_keys: first ? Object.keys(first) : null,
+        first_status: status,
+      });
+      console.log('[test-publicacao-cnj] primeira resposta', lastShape);
     }
     if (status === 'failed' || status === 'error') {
       throw new Error(`Judit retornou status ${status}`);
     }
+    // Considera pronto se vier response_data com steps/code, OU se status indicar conclusão
+    const candidate = first?.response_data || first || data;
+    const hasData =
+      candidate && (Array.isArray(candidate.steps) || candidate.code || candidate.numero_processo);
+    if (status === 'completed' || status === 'done' || hasData) {
+      responseData = candidate;
+      break;
+    }
   }
 
-  if (!responseData) throw new Error('Timeout aguardando resposta Judit');
+  if (!responseData) {
+    throw new Error(
+      `Timeout aguardando resposta Judit (últ. status: ${lastStatus ?? 'nenhum'})`,
+    );
+  }
 
   // 3. Localiza último step com anexo
   const steps: any[] = responseData.steps || responseData.movimentacoes || [];
