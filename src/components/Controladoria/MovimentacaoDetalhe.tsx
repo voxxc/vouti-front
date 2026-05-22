@@ -1,0 +1,290 @@
+import { useState } from 'react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Paperclip, Loader2, FileText, FileImage, File, Eye, Download, X, CheckCircle2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { ProcessoAnexo } from '@/hooks/useProcessoAnexos';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
+import { htmlBytesToText } from '@/lib/htmlAttachment';
+
+export interface MovimentacaoSelecionada {
+  id: string;
+  descricao: string | null;
+  data_movimentacao: string | null;
+  tipo_movimentacao?: string | null;
+  lida: boolean;
+  origem: 'andamento' | 'intimacao';
+}
+
+interface MovimentacaoDetalheProps {
+  movimentacao: MovimentacaoSelecionada;
+  anexos: ProcessoAnexo[];
+  processoOabId: string;
+  numeroCnj: string;
+  instancia: number;
+  onClose: () => void;
+  onMarcarLida?: (id: string) => void;
+}
+
+const getFileIcon = (extension: string | null) => {
+  if (!extension) return File;
+  const ext = extension.toLowerCase();
+  if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) return FileImage;
+  if (['pdf', 'doc', 'docx', 'txt', 'html', 'htm'].includes(ext)) return FileText;
+  return File;
+};
+
+interface PreviewState {
+  anexoId: string;
+  url?: string;
+  blobUrl?: string;
+  text?: string;
+  mimeType?: string;
+  ext?: string;
+}
+
+export const MovimentacaoDetalhe = ({
+  movimentacao,
+  anexos,
+  processoOabId,
+  numeroCnj,
+  instancia,
+  onClose,
+  onMarcarLida,
+}: MovimentacaoDetalheProps) => {
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [preview, setPreview] = useState<PreviewState | null>(null);
+
+  const formatData = (data: string | null) => {
+    if (!data) return 'Data não informada';
+    try {
+      return format(new Date(data), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR });
+    } catch {
+      return data;
+    }
+  };
+
+  const visualizarAnexo = async (anexo: ProcessoAnexo) => {
+    if (anexo.status === 'pending') {
+      toast({ title: 'Anexo em processamento', description: 'Tente novamente em instantes.', variant: 'destructive' });
+      return;
+    }
+    if (anexo.attachment_name?.includes('Restrição na Visualização') || anexo.is_private) {
+      toast({ title: 'Anexo restrito', description: 'Documento sigiloso, não disponível.', variant: 'destructive' });
+      return;
+    }
+
+    setLoadingId(anexo.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('judit-baixar-anexo', {
+        body: {
+          processoOabId,
+          attachmentId: anexo.attachment_id,
+          numeroCnj,
+          instancia,
+          fileName: anexo.attachment_name,
+          stepId: anexo.step_id,
+          status: anexo.status,
+        },
+      });
+      if (error) throw error;
+      if (!data?.success && data?.errorType) {
+        toast({ title: 'Não foi possível abrir', description: data.error || 'Erro ao baixar anexo', variant: 'destructive' });
+        return;
+      }
+
+      const ext = (anexo.extension || anexo.attachment_name?.split('.').pop() || '').toLowerCase();
+      const isHtml = ext === 'html' || ext === 'htm';
+
+      // Limpa preview anterior
+      if (preview?.blobUrl) URL.revokeObjectURL(preview.blobUrl);
+
+      if (data?.url) {
+        // URL direta (PDF/imagem)
+        if (isHtml) {
+          // baixa e decodifica
+          try {
+            const resp = await fetch(data.url);
+            const buf = new Uint8Array(await resp.arrayBuffer());
+            const text = htmlBytesToText(buf, resp.headers.get('content-type') || '');
+            setPreview({ anexoId: anexo.id, text: text.slice(0, 80000), ext });
+          } catch {
+            setPreview({ anexoId: anexo.id, url: data.url, ext });
+          }
+        } else {
+          setPreview({ anexoId: anexo.id, url: data.url, ext });
+        }
+      } else if (data?.content) {
+        const byteCharacters = atob(data.content);
+        const byteNumbers = new Uint8Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+        const mimeType = data.mimeType || 'application/octet-stream';
+        if (isHtml) {
+          const text = htmlBytesToText(byteNumbers, mimeType);
+          setPreview({ anexoId: anexo.id, text: text.slice(0, 80000), ext, mimeType });
+        } else {
+          const blob = new Blob([byteNumbers], { type: mimeType });
+          const blobUrl = URL.createObjectURL(blob);
+          setPreview({ anexoId: anexo.id, blobUrl, ext, mimeType });
+        }
+      }
+    } catch (e: any) {
+      toast({ title: 'Erro ao abrir', description: e?.message || 'Falha ao carregar anexo', variant: 'destructive' });
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  const downloadAtual = () => {
+    const src = preview?.url || preview?.blobUrl;
+    if (src) window.open(src, '_blank');
+  };
+
+  const previewSrc = preview?.url || preview?.blobUrl;
+  const isPdf = preview?.ext === 'pdf';
+  const isImage = preview?.ext && ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(preview.ext);
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2 p-4 border-b">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <Badge variant="outline" className="text-xs border-primary/40 text-primary">
+              {movimentacao.origem === 'intimacao' ? 'Intimação' : 'Andamento'}
+            </Badge>
+            {movimentacao.tipo_movimentacao && (
+              <Badge variant="secondary" className="text-xs">{movimentacao.tipo_movimentacao}</Badge>
+            )}
+            {anexos.length > 0 && (
+              <Badge variant="secondary" className="text-xs gap-1">
+                <Paperclip className="w-3 h-3" /> {anexos.length}
+              </Badge>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">{formatData(movimentacao.data_movimentacao)}</p>
+        </div>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <ScrollArea className="flex-1">
+        <div className="p-4 space-y-5">
+          {/* Descrição */}
+          {movimentacao.descricao && (
+            <div>
+              <h4 className="text-xs font-medium text-muted-foreground mb-2">Descrição</h4>
+              <div className="bg-muted/40 rounded-lg p-3 text-sm leading-relaxed whitespace-pre-wrap">
+                {movimentacao.descricao}
+              </div>
+            </div>
+          )}
+
+          {/* Ações */}
+          <div className="flex items-center gap-2">
+            {!movimentacao.lida && onMarcarLida && (
+              <Button size="sm" className="gap-1.5" onClick={() => onMarcarLida(movimentacao.id)}>
+                <CheckCircle2 className="h-3.5 w-3.5" /> Marcar como lida
+              </Button>
+            )}
+            {movimentacao.lida && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <CheckCircle2 className="h-3 w-3 text-green-600" /> Lida
+              </Badge>
+            )}
+          </div>
+
+          {/* Documentos */}
+          {anexos.length > 0 && (
+            <div className="border-t pt-4">
+              <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                <Paperclip className="w-3 h-3" /> Documentos
+              </h4>
+              <div className="space-y-1.5">
+                {anexos.map((anexo) => {
+                  const FileIcon = getFileIcon(anexo.extension);
+                  const isLoading = loadingId === anexo.id;
+                  const isActive = preview?.anexoId === anexo.id;
+                  return (
+                    <div
+                      key={anexo.id}
+                      className={`flex items-center gap-2 p-2 rounded border transition-colors ${
+                        isActive ? 'border-primary/50 bg-primary/5' : 'border-border bg-muted/30 hover:bg-muted/60'
+                      }`}
+                    >
+                      <FileIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <span className="text-xs truncate flex-1" title={anexo.attachment_name}>
+                        {anexo.attachment_name}
+                      </span>
+                      {anexo.extension && (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
+                          {anexo.extension.toUpperCase()}
+                        </Badge>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 gap-1"
+                        onClick={() => visualizarAnexo(anexo)}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Eye className="w-3 h-3" />
+                        )}
+                        <span className="text-xs">Visualizar</span>
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Preview do anexo */}
+          {preview && (
+            <div className="border-t pt-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-medium text-muted-foreground">Resultado do anexo</h4>
+                {previewSrc && (
+                  <Button variant="ghost" size="sm" className="h-7 gap-1" onClick={downloadAtual}>
+                    <Download className="h-3 w-3" /> Baixar
+                  </Button>
+                )}
+              </div>
+              {isPdf && previewSrc && (
+                <div className="border rounded-lg overflow-hidden bg-muted/30">
+                  <iframe src={previewSrc} title="Documento" className="w-full h-[60vh] bg-background" />
+                </div>
+              )}
+              {isImage && previewSrc && (
+                <div className="border rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center">
+                  <img src={previewSrc} alt="Anexo" className="max-h-[60vh] w-auto" />
+                </div>
+              )}
+              {preview.text && (
+                <div className="bg-muted/50 rounded-lg p-4 text-sm leading-relaxed whitespace-pre-wrap max-h-[60vh] overflow-y-auto">
+                  {preview.text}
+                </div>
+              )}
+              {!previewSrc && !preview.text && (
+                <p className="text-xs text-muted-foreground">Anexo sem visualização disponível.</p>
+              )}
+            </div>
+          )}
+
+          {anexos.length === 0 && (
+            <div className="border-t pt-4 text-xs text-muted-foreground">
+              Esta movimentação não possui documentos anexados.
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+};

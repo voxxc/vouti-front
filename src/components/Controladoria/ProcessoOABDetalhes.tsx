@@ -70,6 +70,7 @@ import { TarefasTab } from './TarefasTab';
 import { VoutiIATab } from './VoutiIATab';
 import { AndamentoAnexos } from './AndamentoAnexos';
 import { IntimacaoCard } from './IntimacaoCard';
+import { MovimentacaoDetalhe, MovimentacaoSelecionada } from './MovimentacaoDetalhe';
 import { useProcessoAnexos } from '@/hooks/useProcessoAnexos';
 import { parseIntimacao, countIntimacoesUrgentes } from '@/utils/intimacaoParser';
 import AutomacaoPrazosCard from './AutomacaoPrazosCard';
@@ -210,6 +211,16 @@ export const ProcessoOABDetalhes = ({
   const [carregandoAndamentos, setCarregandoAndamentos] = useState(false);
   const [activeTab, setActiveTab] = useState("resumo");
   const [prazosRefreshKey, setPrazosRefreshKey] = useState(0);
+  const [movimentacaoSelecionada, setMovimentacaoSelecionada] = useState<{
+    mov: MovimentacaoSelecionada;
+    stepId: string | null;
+  } | null>(null);
+
+  const fecharSubdrawer = () => setMovimentacaoSelecionada(null);
+
+  const anexosDaMovSelecionada = movimentacaoSelecionada?.stepId
+    ? (anexosPorStep.get(movimentacaoSelecionada.stepId) || [])
+    : [];
 
   // Listener para evento de deadline criado
   useEffect(() => {
@@ -1044,7 +1055,21 @@ export const ProcessoOABDetalhes = ({
                           className={`p-3 cursor-pointer transition-colors ${
                             !andamento.lida ? 'bg-primary/5 border-primary/20' : ''
                           }`}
-                          onClick={() => !andamento.lida && marcarComoLida(andamento.id)}
+                           onClick={() => {
+                             if (!andamento.lida) marcarComoLida(andamento.id);
+                             const stepId = (andamento as any).dados_completos?.id || (andamento as any).dados_completos?.step_id || null;
+                             setMovimentacaoSelecionada({
+                               mov: {
+                                 id: andamento.id,
+                                 descricao: andamento.descricao,
+                                 data_movimentacao: andamento.data_movimentacao,
+                                 tipo_movimentacao: (andamento as any).tipo_movimentacao || null,
+                                 lida: andamento.lida,
+                                 origem: 'andamento',
+                               },
+                               stepId,
+                             });
+                           }}
                         >
                           <div className="flex items-start gap-2">
                             {!andamento.lida && (
@@ -1163,6 +1188,19 @@ export const ProcessoOABDetalhes = ({
                             downloading={downloading}
                             onDownload={downloadAnexo}
                             onMarcarLida={marcarComoLida}
+                           onCardClick={() => {
+                             setMovimentacaoSelecionada({
+                               mov: {
+                                 id: andamento.id,
+                                 descricao: andamento.descricao,
+                                 data_movimentacao: andamento.data_movimentacao,
+                                 tipo_movimentacao: (andamento as any).tipo_movimentacao || null,
+                                 lida: andamento.lida,
+                                 origem: 'intimacao',
+                               },
+                               stepId,
+                             });
+                           }}
                           />
                         );
                       })}
@@ -1437,6 +1475,38 @@ export const ProcessoOABDetalhes = ({
           </Tabs>
         </div>
       </SheetContent>
+      {/* Subdrawer lateral à esquerda - detalhe da movimentação */}
+      <Sheet
+        open={!!movimentacaoSelecionada}
+        onOpenChange={(v) => { if (!v) fecharSubdrawer(); }}
+        modal={false}
+      >
+        <SheetContent
+          side="left"
+          className="w-full sm:max-w-xl p-0"
+          onEscapeKeyDown={(e) => { e.preventDefault(); fecharSubdrawer(); }}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <SheetHeader className="sr-only">
+            <SheetTitle>Detalhe da movimentação</SheetTitle>
+          </SheetHeader>
+          {movimentacaoSelecionada && processo && (
+            <MovimentacaoDetalhe
+              movimentacao={movimentacaoSelecionada.mov}
+              anexos={anexosDaMovSelecionada}
+              processoOabId={processo.id}
+              numeroCnj={processo.numero_cnj}
+              instancia={1}
+              onClose={fecharSubdrawer}
+              onMarcarLida={(id) => {
+                marcarComoLida(id);
+                setMovimentacaoSelecionada((prev) => prev ? { ...prev, mov: { ...prev.mov, lida: true } } : prev);
+              }}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </Sheet>
   );
 };

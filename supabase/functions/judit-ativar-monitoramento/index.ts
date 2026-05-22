@@ -58,6 +58,7 @@ serve(async (req) => {
         search_key: numeroLimpo,
       },
       callback_url: webhookUrl,
+      with_attachments: true,
     };
 
     if (customerKey) {

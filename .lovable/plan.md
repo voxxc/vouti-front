@@ -1,67 +1,54 @@
 ## Causa raiz
 
-Hoje a Controladoria só começa a buscar dados **quando o usuário clica no item do sidebar**:
-
-- `useControladoriaCache` carrega KPIs (cache local de 5min existe e funciona bem).
-- O conteúdo pesado (`CentralAndamentosNaoLidos`, `CentralPrazosConcluidos`, `ControladoriaIndicadores`, `OABManager`) só monta após a navegação — cada um dispara suas próprias queries no `useEffect`.
-- O `prefetch` no hover do sidebar (`prefetchControladoria`) só popula a métrica de KPI; as listas pesadas não são tocadas.
-- Existe `prefetchAllPagesAfterLogin` em `usePrefetchPages.ts`, **mas ninguém invoca essa função** (busca por uso retorna 0).
-
-Resultado: ao clicar em Controladoria, o usuário aguarda 2-4 requests serializadas em uma página densa.
+1. Hoje a Edge Function `judit-ativar-monitoramento` cria o tracking na Judit **sem** `with_attachments: true`, então processos monitorados não recebem documentos automaticamente.
+2. Nas abas **Andamentos** e **Intimações** do drawer do caso (`ProcessoOABDetalhes`), o anexo só aparece como link de download inline (`AndamentoAnexos` / `IntimacaoCard`). Não há uma visualização rica do conteúdo do documento como existe em **Publicações** (`PublicacaoDetalhe`).
 
 ## Correção
 
-Estratégia em 3 camadas (todas silenciosas, sem skeleton no fluxo atual do usuário):
+### 1. Monitoramento sempre com anexos (a partir de agora)
 
-### 1. Disparar prefetch pós-login (silencioso)
-Invocar `prefetchAllPagesAfterLogin` no `AuthContext` logo após o login resolver, dentro de `requestIdleCallback` (fallback `setTimeout 1500ms`). Isso aquece KPIs de Dashboard, Projects e Controladoria sem competir com o render inicial.
+- Em `supabase/functions/judit-ativar-monitoramento/index.ts`, incluir no body do POST para `tracking.prod.judit.io/tracking`:
+  ```
+  with_attachments: true
+  ```
+- Não mexer em backfill — só novos trackings nascem com anexos. Trackings antigos continuam como estão (já discutido: para retroagir teria que deletar/recriar, fica para depois).
+- `judit-buscar-processo` (request CNJ on-demand) **continua sem** `with_attachments`, conforme regra anterior: anexo só em monitoramento.
 
-### 2. Estender o prefetch da Controladoria para incluir as listas pesadas
-Hoje `prefetchControladoriaDataInternal` só busca contagens. Adicionar prefetch das **mesmas queries** que `CentralAndamentosNaoLidos`, `CentralPrazosConcluidos` e `ControladoriaIndicadores` usam, com `queryKey` compartilhada. Os componentes serão refatorados (mínimo) para consumir via `useQuery` com a chave já populada — assim, ao montar, recebem `data` instantaneamente.
+### 2. Subdrawer de movimentação ao lado do drawer do caso
 
-Se algum desses componentes hoje usa `useState/useEffect` em vez de React Query, será migrado para `useQuery` (mudança local, sem alterar a lógica de fetch).
+Criar um novo componente `MovimentacaoDetalhe.tsx` (em `src/components/Controladoria/`) que reaproveita a UX visual do `PublicacaoDetalhe.tsx`:
+- Cabeçalho: data, tipo, badge de origem (Andamento/Intimação).
+- Texto da movimentação (`descricao`).
+- Seção "Documentos" listando os anexos vinculados ao step (já temos `anexosPorStep`).
+- Para cada anexo:
+  - Se já houver `storage_path` salvo → carregar via signed URL (preview de PDF em iframe + texto extraído quando HTML, igual `PublicacaoDetalhe`).
+  - Se ainda não baixado → botão "Baixar documento" disparando a função existente `judit-baixar-anexo`, e ao concluir renderizar inline.
+- Botões: "Marcar como lido" (reusar `marcarComoLida`) e fechar.
 
-### 3. Aquecer no hover do sidebar (já existe, ampliar)
-O `prefetchControladoria` no `DashboardSidebar` continuará disparando — só que agora aquece também as listas pesadas (mesmo conjunto da camada 2). Quem passar o mouse já chega em tela pronta.
-
-### 4. Manter cache localStorage para reabertura
-O `useControladoriaCache` já persiste KPIs por 5min. Estender o padrão para salvar também o snapshot das contagens de "andamentos não lidos" e "prazos concluídos" (apenas números), para o badge aparecer instantaneamente mesmo antes do React Query revalidar.
+Integração no `ProcessoOABDetalhes.tsx`:
+- Novo estado `movimentacaoSelecionada`.
+- Tornar o card de andamento e o `IntimacaoCard` clicáveis para setar o estado (sem perder o atual "marcar como lida"; o click abre o subdrawer e também marca como lida).
+- Renderizar o `MovimentacaoDetalhe` como um **Sheet lateral à esquerda** (`<Sheet><SheetContent side="left" />`), com largura ~`max-w-xl`, sobreposto à esquerda do drawer principal sem fechá-lo. ESC fecha apenas o subdrawer (interceptar `onEscapeKeyDown`, mesmo padrão já usado em `PublicacoesDrawer` e `ProjectProtocolosList`).
 
 ## Arquivos afetados
 
-- `src/contexts/AuthContext.tsx` — disparar `prefetchAllPagesAfterLogin` em idle após login bem-sucedido.
-- `src/hooks/usePrefetchPages.ts` — ampliar `prefetchControladoriaDataInternal` com as queries de andamentos não lidos, prazos concluídos e indicadores.
-- `src/components/Controladoria/CentralAndamentosNaoLidos.tsx` — migrar fetch para `useQuery` com a queryKey prefetched.
-- `src/components/Controladoria/CentralPrazosConcluidos.tsx` — idem.
-- `src/components/Controladoria/ControladoriaIndicadores.tsx` — idem.
-- `src/components/Controladoria/CentralControladoria.tsx` — persistir `totalNaoLidos` em cache local para badge instantâneo.
-
-Nenhuma alteração em RLS, edge functions ou banco de dados.
+- `supabase/functions/judit-ativar-monitoramento/index.ts` — adicionar `with_attachments: true`.
+- `src/components/Controladoria/MovimentacaoDetalhe.tsx` — novo.
+- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — estado + Sheet esquerdo + click handler nos cards/intimações.
+- `src/components/Controladoria/IntimacaoCard.tsx` — adicionar `onClick` opcional propagando o item.
 
 ## Impacto
 
-**1. Usuário final (UX)**
-- Ao clicar em Controladoria, a tela aparece praticamente preenchida em vez de mostrar skeletons por 2-4s.
-- O badge "Andamentos Não Lidos" no menu já reflete um número plausível antes mesmo de carregar.
-- Refresh em background continua acontecendo (indicador "Atualizando..." já existente).
-
-**2. Dados (banco/performance)**
-- ~3-4 queries extras disparadas em idle logo após login para cada usuário (uma vez por sessão). São as **mesmas queries** que aconteceriam ao abrir Controladoria — apenas adiantadas.
-- Sem nova carga sustentada: o React Query reutiliza o cache (`staleTime` 2-5min).
-- Realtime subscriptions permanecem como estão.
-
-**3. Riscos colaterais**
-- Para usuários que **nunca** abrem Controladoria (ex: perfil financeiro puro), há custo extra de 3-4 queries inúteis no login. Mitigação: condicionar o prefetch a `hasAccess('controladoria')` baseado em roles (já mapeado em `DashboardSidebar`).
-- Possível "flash" se cache localStorage estiver stale: o número antigo aparece e logo é substituído. Já é o comportamento atual de KPIs e não causou queixas.
-
-**4. Quem é afetado**
-- Todos os tenants e perfis com acesso à Controladoria (advogado, controller, estagiário, admin).
-- Demais perfis ignoram (gated por role).
+- **Usuário final:** ao ativar monitoramento de qualquer processo, a partir de agora começa a receber PDFs/HTMLs automaticamente. Nas abas Andamentos/Intimações do drawer do caso, clicar em uma movimentação abre um painel à esquerda com a "ficha" do andamento e o conteúdo do documento renderizado (igual ao card de publicação). Drawer do caso permanece aberto atrás.
+- **Dados:** sem migration. Anexos novos continuam caindo em `processos_oab_anexos` e `processo-documentos` (storage), via fluxo já existente. Volume tende a crescer (mais PDFs baixados pelo `judit-sync-monitorados`).
+- **Custos Judit:** trackings com `with_attachments=true` tendem a ter custo maior por resposta. Vale acompanhar.
+- **Riscos colaterais:** trackings antigos NÃO passam a ter anexos automaticamente — apenas os criados/recriados após o deploy. Se um usuário desativar e reativar um monitoramento, o novo já virá com anexos.
+- **Quem é afetado:** todos os tenants que ativam monitoramento Judit. Para o visual, qualquer perfil que abre o drawer do caso.
 
 ## Validação
 
-1. Login limpo (limpar localStorage) → conferir no console os logs `[Prefetch] Controladoria iniciado` em ~1.5s após login, **sem** estar na rota /controladoria.
-2. Clicar em Controladoria → tela deve aparecer com dados imediatamente; aba Andamentos Não Lidos preenchida sem skeleton.
-3. Network: ao clicar em Controladoria, **0 ou 1** request nova (apenas revalidação se cache stale).
-4. Perfil financeiro puro (sem acesso) → nenhum prefetch de Controladoria nos logs.
-5. Hover no item Controladoria do sidebar com cache frio → dispara as queries; aguardar 1s e clicar → instantâneo.
+1. Ativar monitoramento em um processo novo no tenant `demorais` e confirmar no log da função que o body enviado contém `with_attachments: true`.
+2. Aguardar próximo ciclo de `judit-sync-monitorados` e verificar `processos_oab_anexos` populado + storage com arquivos.
+3. No drawer do caso, abrir aba Andamentos, clicar em uma movimentação com anexo → subdrawer esquerdo abre com preview do PDF/HTML.
+4. ESC fecha o subdrawer sem fechar o drawer do caso.
+5. Repetir teste na aba Intimações.
