@@ -79,6 +79,43 @@ export const MovimentacaoDetalhe = ({
 
     setLoadingId(anexo.id);
     try {
+      // Fallback: anexos simulados / reaproveitados de publicações já estão no storage.
+      // Tenta resolver via tabela publicacoes (storage_path) antes de chamar a edge function.
+      try {
+        const { data: pub } = await supabase
+          .from('publicacoes')
+          .select('storage_path')
+          .eq('metadata->>attachment_id', anexo.attachment_id)
+          .not('storage_path', 'is', null)
+          .limit(1)
+          .maybeSingle();
+        if (pub?.storage_path) {
+          const ext = (anexo.extension || anexo.attachment_name?.split('.').pop() || '').toLowerCase();
+          const isHtml = ext === 'html' || ext === 'htm';
+          if (preview?.blobUrl) URL.revokeObjectURL(preview.blobUrl);
+          if (isHtml) {
+            const { data: file } = await supabase.storage
+              .from('processo-documentos')
+              .download(pub.storage_path);
+            if (file) {
+              const buf = new Uint8Array(await file.arrayBuffer());
+              const text = htmlBytesToText(buf, (file as any).type || '');
+              setPreview({ anexoId: anexo.id, text: text.slice(0, 80000), ext });
+              setLoadingId(null);
+              return;
+            }
+          }
+          const { data: signed } = await supabase.storage
+            .from('processo-documentos')
+            .createSignedUrl(pub.storage_path, 60 * 10);
+          if (signed?.signedUrl) {
+            setPreview({ anexoId: anexo.id, url: signed.signedUrl, ext });
+            setLoadingId(null);
+            return;
+          }
+        }
+      } catch { /* segue para edge function */ }
+
       const { data, error } = await supabase.functions.invoke('judit-baixar-anexo', {
         body: {
           processoOabId,
