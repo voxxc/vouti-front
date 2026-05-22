@@ -27,7 +27,8 @@ const recoverFromStaleAsset = async (msg: string) => {
 };
 window.addEventListener("vite:preloadError", (event) => {
   event.preventDefault();
-  void recoverFromStaleAsset(String((event as CustomEvent).detail?.message || (event as CustomEvent).detail || ""));
+  const payload = event.payload;
+  void recoverFromStaleAsset(String(payload?.message || payload || ""));
 });
 window.addEventListener("error", (e) => {
   const target = e.target as HTMLElement | null;
