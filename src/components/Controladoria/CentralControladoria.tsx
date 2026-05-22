@@ -11,11 +11,34 @@ import { cn } from "@/lib/utils";
 
 type TabValue = 'andamentos' | 'prazos' | 'subtarefas' | 'indicadores';
 
+const BADGE_CACHE_KEY = 'controladoria_badge_andamentos_v1';
+
+const readBadgeCache = (tenantId: string): number => {
+  try {
+    const raw = localStorage.getItem(BADGE_CACHE_KEY);
+    if (!raw) return 0;
+    const parsed = JSON.parse(raw) as { tenantId: string; total: number };
+    return parsed.tenantId === tenantId ? parsed.total : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const writeBadgeCache = (tenantId: string, total: number) => {
+  try {
+    localStorage.setItem(BADGE_CACHE_KEY, JSON.stringify({ tenantId, total }));
+  } catch {
+    // ignore
+  }
+};
+
 export const CentralControladoria = () => {
   const { tenantId } = useTenantId();
   const { tenantSlug } = useTenantNavigation();
   const [activeTab, setActiveTab] = useState<TabValue>('andamentos');
-  const [totalNaoLidos, setTotalNaoLidos] = useState(0);
+  const [totalNaoLidos, setTotalNaoLidos] = useState(() =>
+    tenantId ? readBadgeCache(tenantId) : 0
+  );
   const [totalSubtarefasPendentes, setTotalSubtarefasPendentes] = useState(0);
 
   const isSolvenza = tenantSlug === 'solvenza';
@@ -24,12 +47,17 @@ export const CentralControladoria = () => {
   useEffect(() => {
     if (!tenantId) return;
 
+    // Hidratar imediatamente a partir do cache local
+    const cached = readBadgeCache(tenantId);
+    if (cached) setTotalNaoLidos(cached);
+
     const fetchTotalNaoLidos = async () => {
       const { data, error } = await supabase
         .rpc('get_total_andamentos_nao_lidos', { p_tenant_id: tenantId });
 
       if (!error && data !== null) {
         setTotalNaoLidos(data);
+        writeBadgeCache(tenantId, data);
       }
     };
 
