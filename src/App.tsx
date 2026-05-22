@@ -10,6 +10,7 @@ import { LinkAuthProvider, useLinkAuth } from "@/contexts/LinkAuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { NavigationLoadingProvider } from "@/contexts/NavigationLoadingContext";
 import { NavigationLoadingOverlay } from "@/components/Common/NavigationLoadingOverlay";
+import { BackgroundPrefetcher } from "@/components/Common/BackgroundPrefetcher";
 import { useState, useEffect, lazy, Suspense } from 'react';
 
 const queryClient = new QueryClient({
@@ -341,6 +342,7 @@ const TenantRouteWrapper = ({ children, isPublic = false }: { children: React.Re
         <ThemeProvider>
           <NavigationLoadingProvider>
             <NavigationLoadingOverlay />
+            <BackgroundPrefetcher />
             {isPublic ? (
               <TenantPublicRoute>{children}</TenantPublicRoute>
             ) : (
