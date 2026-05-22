@@ -4,7 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantId } from '@/hooks/useTenantId';
 import { checkIfUserIsAdminOrController } from '@/lib/auth-helpers';
-import { fetchAllPaginated } from '@/lib/supabasePagination';
 
 // Cache key compartilhada com useAndamentosNaoLidosGlobal para hidratação instantânea
 export const ANDAMENTOS_NAO_LIDOS_SNAPSHOT_KEY = 'controladoria_andamentos_nao_lidos_v1';
@@ -57,80 +56,38 @@ export const prefetchControladoriaListasSilent = async (tenantId: string | null)
   if (isSnapshotFresh(existing)) return;
 
   try {
-    const [processosResult, naoLidosResult] = await Promise.all([
-      fetchAllPaginated<any>(() =>
-        supabase
-          .from('processos_oab')
-          .select(`
-            id,
-            numero_cnj,
-            parte_ativa,
-            parte_passiva,
-            tribunal_sigla,
-            monitoramento_ativo,
-            oab_id,
-            capa_completa,
-            oabs_cadastradas!inner(
-              id,
-              oab_numero,
-              oab_uf,
-              nome_advogado
-            )
-          `)
-          .eq('tenant_id', tenantId)
-          .order('id') as any
-      ),
-      supabase.rpc('get_andamentos_nao_lidos_por_processo', { p_tenant_id: tenantId }),
-    ]);
+    const { data, error } = await supabase
+      .rpc('get_central_andamentos_nao_lidos', { p_tenant_id: tenantId });
 
-    if (processosResult.error || naoLidosResult.error) return;
-
-    const naoLidosMap = new Map<string, { nao_lidos: number; ultima_movimentacao: string | null }>();
-    (naoLidosResult.data || []).forEach((row: any) => {
-      naoLidosMap.set(row.processo_oab_id, {
-        nao_lidos: row.nao_lidos,
-        ultima_movimentacao: row.ultima_movimentacao,
-      });
-    });
+    if (error) return;
 
     const oabsMap = new Map<string, { id: string; label: string }>();
-    const processos = (processosResult.data || [])
-      .map((p: any) => {
-        const oabData = p.oabs_cadastradas;
-        if (oabData && !oabsMap.has(oabData.id)) {
-          oabsMap.set(oabData.id, {
-            id: oabData.id,
-            label: `${oabData.nome_advogado || 'Advogado'} (${oabData.oab_numero}/${oabData.oab_uf})`,
-          });
-        }
-        const info = naoLidosMap.get(p.id);
-        return {
-          id: p.id,
-          numero_cnj: p.numero_cnj,
-          parte_ativa: p.parte_ativa,
-          parte_passiva: p.parte_passiva,
-          tribunal_sigla: p.tribunal_sigla,
-          monitoramento_ativo: p.monitoramento_ativo,
-          oab_id: p.oab_id,
-          capa_completa: p.capa_completa,
-          andamentos_nao_lidos: info?.nao_lidos || 0,
-          ultima_movimentacao: info?.ultima_movimentacao || null,
-          oab: oabData
-            ? {
-                id: oabData.id,
-                oab_numero: oabData.oab_numero,
-                oab_uf: oabData.oab_uf,
-                nome_advogado: oabData.nome_advogado,
-              }
-            : null,
-        };
-      })
-      .filter((p: any) => p.andamentos_nao_lidos > 0 && p.oab)
-      .sort((a: any, b: any) => {
-        const da = a.ultima_movimentacao ? new Date(a.ultima_movimentacao).getTime() : 0;
-        const db = b.ultima_movimentacao ? new Date(b.ultima_movimentacao).getTime() : 0;
-        return db - da;
-      });
+    const processos = (data || []).map((row: any) => {
+      if (row.oab_id && !oabsMap.has(row.oab_id)) {
+        oabsMap.set(row.oab_id, {
+          id: row.oab_id,
+          label: `${row.nome_advogado || 'Advogado'} (${row.oab_numero}/${row.oab_uf})`,
+        });
+      }
+      return {
+        id: row.id,
+        numero_cnj: row.numero_cnj,
+        parte_ativa: row.parte_ativa,
+        parte_passiva: row.parte_passiva,
+        tribunal_sigla: row.tribunal_sigla,
+        monitoramento_ativo: row.monitoramento_ativo,
+        oab_id: row.oab_id,
+        capa_completa: null,
+        andamentos_nao_lidos: Number(row.andamentos_nao_lidos) || 0,
+        ultima_movimentacao: row.ultima_movimentacao,
+        oab: {
+          id: row.oab_id,
+          oab_numero: row.oab_numero,
+          oab_uf: row.oab_uf,
+          nome_advogado: row.nome_advogado,
+        },
+      };
+    });
 
     const totalNaoLidos = processos.reduce((acc, p) => acc + p.andamentos_nao_lidos, 0);
 
