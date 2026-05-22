@@ -83,6 +83,25 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
   const [selectedProtocoloId, setSelectedProtocoloId] = useState<string | null>(null);
   const [view, setView] = useState<'lista' | 'detalhes'>('lista');
 
+  // ESC dentro do detalhe volta para a lista sem fechar o drawer do projeto
+  useEffect(() => {
+    if (view !== 'detalhes') return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      // Se houver outro overlay (Dialog/Popover) aberto, deixa ele tratar
+      const hasOverlay = document.querySelector(
+        '[role="dialog"][data-state="open"]:not([data-radix-sheet-content]), [role="alertdialog"][data-state="open"], [data-radix-popper-content-wrapper]'
+      );
+      if (hasOverlay) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      setView('lista');
+      setSelectedProtocoloId(null);
+    };
+    document.addEventListener('keydown', handler, true);
+    return () => document.removeEventListener('keydown', handler, true);
+  }, [view]);
+
   // Carteira state
   const [carteiras, setCarteiras] = useState<any[]>([]);
   const [carteiraProtocolos, setCarteiraProtocolos] = useState<Record<string, string[]>>({});
