@@ -1,28 +1,24 @@
-# Reposicionar visualizador de PDF
+# ESC volta para lista antes de fechar drawer
 
 ## Causa raiz
-No `PublicacaoDetalhe.tsx`, o iframe do PDF aparece logo no topo do drawer (acima das infos do processo e das ações). Isso empurra o botão "Marcar como tratada" para muito longe e atrapalha o fluxo de triagem.
+No `PublicacoesDrawer.tsx`, quando o usuário abre o detalhe de uma publicação (`selectedPub`), o ESC fecha o drawer inteiro de uma vez. O comportamento esperado é "voltar uma etapa" — ESC primeiro fecha o detalhe (volta para a lista), e só um segundo ESC fecha o drawer.
 
 ## Correção
-Reordenar o conteúdo do drawer para:
-1. Cabeçalho (badge "Publicação · Monitoramento" + botão "Abrir em nova aba")
-2. Grid de informações (nº processo, datas, diário, etc.)
-3. Barra de ações (**Marcar como tratada / Descartar / Reabrir / Acessar publicação**)
-4. Visualizador de PDF (iframe) — agora logo abaixo das ações
-5. "Resultado dos anexos" / "Conteúdo da Publicação"
-
-O cabeçalho com o botão "Abrir em nova aba" continua no topo para acesso rápido sem rolagem.
+Interceptar o evento de fechamento do `Sheet` quando `selectedPub` está ativo:
+- Adicionar `onEscapeKeyDown` (e `onPointerDownOutside`) no `SheetContent` da view de detalhe.
+- Se houver `selectedPub`, chamar `e.preventDefault()` e executar `setSelectedPub(null)` em vez de propagar o fechamento.
+- Quando não há `selectedPub`, ESC mantém o comportamento atual (fecha o drawer).
 
 ## Arquivos afetados
-- `src/components/Publicacoes/PublicacaoDetalhe.tsx` (apenas reordenação de blocos JSX)
+- `src/components/Publicacoes/PublicacoesDrawer.tsx`
 
 ## Impacto
-1. **UX**: Botão "Marcar como tratada" passa a ficar visível sem rolar a página. O preview do PDF deixa de ser a primeira coisa que ocupa a tela; vira referência consultiva após decisão.
-2. **Dados**: Nenhuma alteração de schema, RLS, queries ou migrations.
-3. **Riscos**: Mínimos — apenas mudança de ordem visual. Lógica de signed URL, carregamento de HTML e ações permanece intacta.
-4. **Quem é afetado**: Todos os usuários que abrem publicações de monitoramento (piloto: tenant Demorais).
+1. **UX**: ESC vira atalho natural de "voltar". Usuário que abre uma publicação por engano sai rapidamente sem perder o contexto da lista (filtros, scroll).
+2. **Dados**: Nenhum impacto em schema, RLS ou queries.
+3. **Riscos**: Mínimos — mudança isolada no handler de ESC do drawer. Clique no X / clique fora continuam fechando normalmente.
+4. **Quem é afetado**: Todos os usuários que utilizam o drawer de Publicações.
 
 ## Validação
-- Abrir uma publicação de monitoramento com anexo PDF e confirmar que o botão "Marcar como tratada" aparece acima do iframe.
-- Confirmar que clicar em "Marcar como tratada" / "Descartar" continua funcionando.
-- Confirmar que publicações sem PDF (somente HTML) mantêm o bloco "Resultado dos anexos" no final.
+- Abrir drawer de Publicações → abrir um item → pressionar ESC → deve voltar para a lista (drawer continua aberto).
+- Pressionar ESC novamente na lista → drawer fecha.
+- Confirmar que clicar fora ou no botão de fechar mantém o comportamento atual.
