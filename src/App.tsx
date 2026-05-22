@@ -341,6 +341,7 @@ const TenantRouteWrapper = ({ children, isPublic = false }: { children: React.Re
         <ThemeProvider>
           <NavigationLoadingProvider>
             <NavigationLoadingOverlay />
+            <BackgroundPrefetcher />
             {isPublic ? (
               <TenantPublicRoute>{children}</TenantPublicRoute>
             ) : (
