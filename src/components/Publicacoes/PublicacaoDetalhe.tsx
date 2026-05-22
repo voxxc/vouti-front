@@ -112,12 +112,6 @@ export function PublicacaoDetalhe({ publicacao, onStatusChange }: PublicacaoDeta
             <Badge variant="outline" className="text-xs border-primary/40 text-primary">
               {p.tipo || 'Publicação'} · Monitoramento
             </Badge>
-            {p.storage_path && (
-              <Button size="sm" variant="outline" className="h-7 gap-1.5 ml-auto" onClick={abrirDocumento} disabled={openingDoc}>
-                {openingDoc ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
-                Abrir em nova aba
-              </Button>
-            )}
           </div>
         </div>
       )}
