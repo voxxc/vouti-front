@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,32 @@ import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
-import { fetchAllPaginated, fetchAllPaginatedIn } from "@/lib/supabasePagination";
+
+const SNAPSHOT_KEY = 'controladoria_subtarefas_v1';
+const SNAPSHOT_TTL_MS = 5 * 60 * 1000;
+
+const readSnapshot = (tenantId: string, dias: string, userId: string) => {
+  try {
+    const raw = localStorage.getItem(SNAPSHOT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed.tenantId !== tenantId || parsed.dias !== dias || parsed.userId !== userId) return null;
+    if (Date.now() - parsed.lastUpdated > SNAPSHOT_TTL_MS) return null;
+    return parsed.prazos as PrazoConcluido[];
+  } catch {
+    return null;
+  }
+};
+
+const saveSnapshot = (tenantId: string, dias: string, userId: string, prazos: PrazoConcluido[]) => {
+  try {
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify({
+      tenantId, dias, userId, prazos, lastUpdated: Date.now(),
+    }));
+  } catch {
+    // ignore
+  }
+};
 
 interface Subtarefa {
   id: string;
@@ -97,6 +122,7 @@ export const CentralSubtarefas = () => {
   const [filterPeriod, setFilterPeriod] = useState<string>("90");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPrazo, setSelectedPrazo] = useState<PrazoConcluido | null>(null);
+  const hydratedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (tenantId) {
@@ -121,195 +147,32 @@ export const CentralSubtarefas = () => {
   };
 
   const fetchPrazos = async () => {
-    setLoading(true);
+    if (!tenantId) return;
+    const key = `${tenantId}|${filterPeriod}|${filterUserId}`;
+    const snap = readSnapshot(tenantId, filterPeriod, filterUserId);
+    if (snap && hydratedKeyRef.current !== key) {
+      setPrazos(snap);
+      setLoading(false);
+      hydratedKeyRef.current = key;
+    } else if (!snap) {
+      setLoading(true);
+    }
     try {
-      const dateLimit = subDays(new Date(), parseInt(filterPeriod));
-
-      // First get deadline IDs that have subtarefas
-      const { data: subtarefasDeadlineIds } = await fetchAllPaginated<any>(() =>
-        supabase
-          .from('deadline_subtarefas')
-          .select('deadline_id')
-          .eq('tenant_id', tenantId)
-          .order('id', { ascending: true }) as any
-      );
-
-      const deadlineIdsWithSubs = [...new Set((subtarefasDeadlineIds || []).map((s: any) => s.deadline_id))];
-
-      if (deadlineIdsWithSubs.length === 0) {
-        setPrazos([]);
-        setLoading(false);
-        return;
-      }
-
-      const buildDeadlinesQuery = () => {
-        let q = supabase
-          .from('deadlines')
-          .select(`
-          id,
-          title,
-          description,
-          date,
-          user_id,
-          comentario_conclusao,
-          concluido_em,
-          protocolo_etapa_id,
-          project_id,
-          workspace_id,
-          processo_oab_id,
-          advogado:profiles!deadlines_advogado_responsavel_id_fkey (
-            user_id,
-            full_name,
-            avatar_url
-          ),
-          concluido_por_profile:profiles!deadlines_concluido_por_fkey (
-            user_id,
-            full_name,
-            avatar_url
-          ),
-          projects (
-            id,
-            name,
-            client
-          ),
-          protocolo_etapa:project_protocolo_etapas (
-            id,
-            nome,
-            protocolo:project_protocolos (
-              id,
-              nome
-            )
-          )
-        `)
-          .eq('completed', true)
-          .eq('tenant_id', tenantId)
-          .gte('concluido_em', dateLimit.toISOString())
-          .order('concluido_em', { ascending: false });
-        if (filterUserId !== "all") {
-          q = q.or(`advogado_responsavel_id.eq.${filterUserId},concluido_por.eq.${filterUserId}`);
-        }
-        return q;
-      };
-
-      const { data, error } = await fetchAllPaginatedIn<any>(
-        deadlineIdsWithSubs,
-        (chunk) => (buildDeadlinesQuery() as any).in('id', chunk)
-      );
+      const { data, error } = await supabase.rpc('get_central_subtarefas', {
+        p_tenant_id: tenantId,
+        p_dias: parseInt(filterPeriod),
+        p_user_id: filterUserId === 'all' ? null : filterUserId,
+      });
 
       if (error) {
         console.error('Error fetching prazos com subtarefas:', error);
         return;
       }
 
-      // Batch fetch creator profiles
-      const creatorIds = new Set<string>();
-      (data || []).forEach((d: any) => {
-        if (d.user_id) creatorIds.add(d.user_id);
-      });
-      let creatorMap: Record<string, any> = {};
-      if (creatorIds.size > 0) {
-        const { data: creators } = await fetchAllPaginatedIn<any>(
-          Array.from(creatorIds),
-          (chunk) => supabase
-            .from('profiles')
-            .select('user_id, full_name, avatar_url')
-            .in('user_id', chunk) as any
-        );
-        (creators || []).forEach((c: any) => { creatorMap[c.user_id] = c; });
-      }
-
-      // Batch fetch subtarefas
-      const deadlineIds = (data || []).map((d: any) => d.id);
-      let subtarefasMap: Record<string, Subtarefa[]> = {};
-      if (deadlineIds.length > 0) {
-        const { data: subtarefasData } = await fetchAllPaginatedIn<any>(
-          deadlineIds,
-          (chunk) => supabase
-            .from('deadline_subtarefas')
-            .select('id, deadline_id, descricao, concluida, concluida_em, created_at, atribuido_a, criado_por')
-            .in('deadline_id', chunk) as any
-        );
-
-        const subUserIds = new Set<string>();
-        (subtarefasData || []).forEach((s: any) => {
-          if (s.atribuido_a) subUserIds.add(s.atribuido_a);
-          if (s.criado_por) subUserIds.add(s.criado_por);
-        });
-        let subProfileMap: Record<string, any> = {};
-        if (subUserIds.size > 0) {
-          const { data: subProfiles } = await fetchAllPaginatedIn<any>(
-            Array.from(subUserIds),
-            (chunk) => supabase
-              .from('profiles')
-              .select('user_id, full_name, avatar_url')
-              .in('user_id', chunk) as any
-          );
-          (subProfiles || []).forEach((p: any) => { subProfileMap[p.user_id] = p; });
-        }
-
-        (subtarefasData || []).forEach((s: any) => {
-          if (!subtarefasMap[s.deadline_id]) subtarefasMap[s.deadline_id] = [];
-          subtarefasMap[s.deadline_id].push({
-            id: s.id,
-            descricao: s.descricao,
-            concluida: s.concluida,
-            concluida_em: s.concluida_em,
-            created_at: s.created_at,
-            atribuido_a_profile: subProfileMap[s.atribuido_a] || null,
-            criado_por_profile: subProfileMap[s.criado_por] || null,
-          });
-        });
-      }
-
-      // Batch fetch workspace names
-      const workspaceIds = new Set<string>();
-      (data || []).forEach((d: any) => {
-        if (d.workspace_id) workspaceIds.add(d.workspace_id);
-      });
-      let workspaceMap: Record<string, string> = {};
-      if (workspaceIds.size > 0) {
-        const { data: workspaces } = await fetchAllPaginatedIn<any>(
-          Array.from(workspaceIds),
-          (chunk) => supabase
-            .from('project_workspaces')
-            .select('id, name')
-            .in('id', chunk) as any
-        );
-        (workspaces || []).forEach((w: any) => { workspaceMap[w.id] = w.name; });
-      }
-
-      // Batch fetch processo info
-      const processoIds = new Set<string>();
-      (data || []).forEach((d: any) => {
-        if (d.processo_oab_id) processoIds.add(d.processo_oab_id);
-      });
-      let processoMap: Record<string, { numeroCnj: string; parteAtiva: string; partePassiva: string }> = {};
-      if (processoIds.size > 0) {
-        const { data: processos } = await fetchAllPaginatedIn<any>(
-          Array.from(processoIds),
-          (chunk) => supabase
-            .from('processos_oab')
-            .select('id, numero_cnj, parte_ativa, parte_passiva')
-            .in('id', chunk) as any
-        );
-        (processos || []).forEach((p: any) => {
-          processoMap[p.id] = {
-            numeroCnj: p.numero_cnj || '',
-            parteAtiva: p.parte_ativa || '',
-            partePassiva: p.parte_passiva || '',
-          };
-        });
-      }
-
-      const mapped = (data || []).map((d: any) => ({
-        ...d,
-        criador_profile: d.user_id ? creatorMap[d.user_id] || null : null,
-        subtarefas: subtarefasMap[d.id] || [],
-        workspaceName: d.workspace_id ? workspaceMap[d.workspace_id] : undefined,
-        processoInfo: d.processo_oab_id ? processoMap[d.processo_oab_id] : undefined,
-      }));
-
-      setPrazos(mapped as unknown as PrazoConcluido[]);
+      const list = (data || []) as unknown as PrazoConcluido[];
+      setPrazos(list);
+      saveSnapshot(tenantId, filterPeriod, filterUserId, list);
+      hydratedKeyRef.current = key;
     } finally {
       setLoading(false);
     }
