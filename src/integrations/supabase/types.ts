@@ -11055,6 +11055,23 @@ export type Database = {
           ultima_movimentacao: string
         }[]
       }
+      get_central_andamentos_nao_lidos: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          andamentos_nao_lidos: number
+          id: string
+          monitoramento_ativo: boolean
+          nome_advogado: string
+          numero_cnj: string
+          oab_id: string
+          oab_numero: string
+          oab_uf: string
+          parte_ativa: string
+          parte_passiva: string
+          tribunal_sigla: string
+          ultima_movimentacao: string
+        }[]
+      }
       get_dashboard_processos_count: { Args: never; Returns: number }
       get_incomplete_processos_by_tenant: {
         Args: { p_tenant_id: string }
