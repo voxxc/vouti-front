@@ -119,20 +119,6 @@ export function PublicacaoDetalhe({ publicacao, onStatusChange }: PublicacaoDeta
               </Button>
             )}
           </div>
-          {isPdf && previewUrl && (
-            <div className="border rounded-lg overflow-hidden bg-muted/30">
-              <iframe
-                src={previewUrl}
-                title="Documento"
-                className="w-full h-[60vh] bg-background"
-              />
-            </div>
-          )}
-          {isPdf && !previewUrl && p.storage_path && (
-            <div className="border rounded-lg p-6 flex items-center justify-center text-xs text-muted-foreground gap-2">
-              <Loader2 className="h-3 w-3 animate-spin" /> Carregando documento…
-            </div>
-          )}
         </div>
       )}
 
@@ -178,6 +164,22 @@ export function PublicacaoDetalhe({ publicacao, onStatusChange }: PublicacaoDeta
           </Button>
         )}
       </div>
+
+      {/* PDF Viewer (abaixo das ações) */}
+      {isMonit && isPdf && previewUrl && (
+        <div className="border rounded-lg overflow-hidden bg-muted/30">
+          <iframe
+            src={previewUrl}
+            title="Documento"
+            className="w-full h-[60vh] bg-background"
+          />
+        </div>
+      )}
+      {isMonit && isPdf && !previewUrl && p.storage_path && (
+        <div className="border rounded-lg p-6 flex items-center justify-center text-xs text-muted-foreground gap-2">
+          <Loader2 className="h-3 w-3 animate-spin" /> Carregando documento…
+        </div>
+      )}
 
       {/* Content */}
       {(isMonit ? cleanText : p.conteudo_completo) && (
