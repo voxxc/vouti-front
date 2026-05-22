@@ -40,25 +40,22 @@ serve(async (req) => {
     const trackingId = monitoramento.tracking_id;
     const tenantId = monitoramento.tenant_id;
 
-    // Pausar tracking na Judit
-    const pauseResponse = await fetch(`https://tracking.prod.judit.io/tracking/${trackingId}`, {
-      method: 'PATCH',
+    // Deletar tracking na Judit (libera slot e permite recriar com with_attachments)
+    const deleteResponse = await fetch(`https://tracking.prod.judit.io/tracking/${trackingId}`, {
+      method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
         'api-key': juditApiKey,
       },
-      body: JSON.stringify({
-        status: 'paused',
-      }),
     });
 
-    if (!pauseResponse.ok) {
-      const error = await pauseResponse.text();
-      console.error('[Judit] Erro ao pausar tracking:', error);
-      throw new Error(`Erro ao desativar monitoramento: ${pauseResponse.status}`);
+    if (!deleteResponse.ok && deleteResponse.status !== 404) {
+      const error = await deleteResponse.text();
+      console.error('[Judit] Erro ao deletar tracking:', error);
+      // Não bloqueia: seguimos marcando como desativado localmente
+    } else {
+      console.log('[Judit] Tracking deletado na Judit (ou já inexistente)');
     }
-
-    console.log('[Judit] Tracking pausado na Judit');
 
     // Atualizar status no banco (mantem historico)
     const { error: updateError } = await supabase
