@@ -56,6 +56,7 @@ interface IntimacaoCardProps {
   downloading: string | null;
   onDownload: (anexo: ProcessoAnexo, numeroCnj: string, instancia: number) => void;
   onMarcarLida: (id: string) => void;
+  onCardClick?: () => void;
 }
 
 export const IntimacaoCard = ({
@@ -67,6 +68,7 @@ export const IntimacaoCard = ({
   downloading,
   onDownload,
   onMarcarLida,
+  onCardClick,
 }: IntimacaoCardProps) => {
   const { toast } = useToast();
   const { tenantId } = useTenantId();
@@ -248,7 +250,10 @@ export const IntimacaoCard = ({
     <>
       <Card 
         className={`p-3 cursor-pointer transition-colors border-l-4 ${getBorderColor()} ${getBackgroundColor()}`}
-        onClick={() => !andamento.lida && onMarcarLida(andamento.id)}
+        onClick={() => {
+          if (!andamento.lida) onMarcarLida(andamento.id);
+          onCardClick?.();
+        }}
       >
         <div className="space-y-3">
           {/* Header */}
