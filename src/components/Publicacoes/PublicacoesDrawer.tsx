@@ -302,6 +302,10 @@ export function PublicacoesDrawer({ open, onOpenChange }: PublicacoesDrawerProps
           className="p-0 flex flex-col"
           onInteractOutside={(e) => e.preventDefault()}
           onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => {
+            e.preventDefault();
+            setSelectedPub(null);
+          }}
         >
           <SheetTitle className="sr-only">Detalhe da Publicação</SheetTitle>
           <div className="flex items-center gap-2 px-6 py-4 border-b bg-background">
