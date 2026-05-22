@@ -88,11 +88,14 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
     if (view !== 'detalhes') return;
     const handler = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      // Se houver outro overlay (Dialog/Popover) aberto, deixa ele tratar
-      const hasOverlay = document.querySelector(
-        '[role="dialog"][data-state="open"]:not([data-radix-sheet-content]), [role="alertdialog"][data-state="open"], [data-radix-popper-content-wrapper]'
+      // Popover/Dropdown aberto → deixa o Radix fechar primeiro
+      if (document.querySelector('[data-radix-popper-content-wrapper]')) return;
+      // Se houver mais de um dialog/alertdialog aberto, há um modal interno
+      // empilhado sobre o Sheet do projeto — deixa ele fechar primeiro.
+      const openDialogs = document.querySelectorAll(
+        '[role="dialog"][data-state="open"],[role="alertdialog"][data-state="open"]'
       );
-      if (hasOverlay) return;
+      if (openDialogs.length > 1) return;
       e.preventDefault();
       e.stopImmediatePropagation();
       setView('lista');
