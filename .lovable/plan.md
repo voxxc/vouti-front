@@ -1,23 +1,41 @@
-# ESC volta para tela anterior dentro do drawer de Projetos
+# Corrigir "duplo ESC" fechando o drawer do projeto
 
 ## Causa raiz
-Ao pressionar **ESC** dentro do drawer de Projetos, o Radix Sheet captura o evento e fecha o drawer inteiro de uma vez, mesmo quando há uma "tela filha" aberta (protocolo/processo em detalhes). Hoje o usuário perde todo o contexto do projeto.
 
-## Comportamento desejado
-- Drawer do projeto aberto + protocolo/processo aberto → **ESC** volta para a lista de protocolos (mantém o drawer do projeto aberto).
-- Drawer do projeto aberto na lista → **ESC** fecha o drawer.
-- Mesma lógica do que já foi feito em Publicações.
+O handler de ESC em `ProjectProtocolosList.tsx` usa o seletor:
+
+```text
+[role="dialog"][data-state="open"]:not([data-radix-sheet-content]), [role="alertdialog"][data-state="open"], [data-radix-popper-content-wrapper]
+```
+
+para detectar "qualquer overlay aberto" e abortar. O problema: o próprio `SheetContent` do `ProjectDrawer` tem `role="dialog"` e `data-state="open"`, e NÃO emite `data-radix-sheet-content` (Radix Sheet é construído sobre Dialog e não adiciona esse atributo). O seletor casa com o próprio drawer, `hasOverlay` é sempre verdadeiro, o handler retorna cedo, e o `DismissableLayer` do Radix fecha o Sheet no primeiro ESC. O usuário percebe como "um duplo ESC que eu não dei".
 
 ## Correção
-1. **`ProjectProtocolosList.tsx`** — quando `view === 'detalhes'`, registrar listener de `keydown` em fase de captura no `document`. Se a tecla for `Escape`:
-   - `event.preventDefault()` + `event.stopImmediatePropagation()` para impedir o Radix de fechar o Sheet.
-   - `setView('lista')` e `setSelectedProtocoloId(null)`.
-2. **`ProjectDrawer.tsx`** — sem mudanças. O `onOpenChange` padrão continua respondendo ao ESC quando estamos na lista (pois o listener acima só age quando `view === 'detalhes'`).
-3. Verificar se existe outra "tela filha" análoga (ex.: processo CNJ aberto via vínculo). Hoje só foi encontrada a view de detalhes do protocolo dentro de `ProjectProtocolosList`; aplicar o mesmo padrão se aparecer uma nova subview no futuro.
+
+Trocar a heurística de "existe algum overlay" para **contagem de diálogos abertos**:
+
+- Contar elementos `[role="dialog"][data-state="open"]` + `[role="alertdialog"][data-state="open"]`.
+- Se `> 1`, há modal interno empilhado sobre o Sheet → `return` e deixar o Radix fechar o modal interno.
+- Se houver popover/dropdown aberto (`[data-radix-popper-content-wrapper]`), também `return`.
+- Caso contrário (apenas o Sheet aberto), `preventDefault` + `stopImmediatePropagation` em capture e voltar para a lista.
 
 ## Arquivos afetados
-- `src/components/Project/ProjectProtocolosList.tsx` (adicionar `useEffect` de ESC).
 
+- `src/components/Project/ProjectProtocolosList.tsx` — ajustar o `useEffect` do listener de ESC (linhas 87-103).
+
+## Impacto
+
+1. **UX:** Abrir projeto → abrir protocolo → ESC volta para a lista mantendo o drawer aberto. Segundo ESC fecha o drawer. Modais internos (etapa, editar, confirmar exclusão) continuam fechando primeiro com ESC.
+2. **Dados:** Nenhuma mudança — alteração puramente de UI no client.
+3. **Riscos colaterais:** Baixo, mudança local ao `ProjectProtocolosList`. Popovers/Dropdowns continuam fechando primeiro.
+4. **Quem é afetado:** Todos os usuários que abrem protocolos dentro do drawer de projetos, em todos os tenants.
+
+## Validação
+
+- Projeto + protocolo aberto → ESC volta para lista (drawer permanece).
+- Segundo ESC → fecha o drawer do projeto.
+- Modal de etapa aberto → ESC fecha apenas o modal.
+- Dropdown "Mover para carteira" aberto → ESC fecha apenas o dropdown.
 ## Impacto
 1. **Usuário final (UX):** ESC vira uma navegação hierárquica natural dentro do drawer de Projetos — primeiro fecha o protocolo, depois o drawer. Reduz o atrito de reabrir o projeto após uma consulta rápida ao protocolo.
 2. **Dados:** nenhuma mudança. Sem migrations, sem RLS, sem performance afetada.
