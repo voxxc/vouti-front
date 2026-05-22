@@ -11072,6 +11072,14 @@ export type Database = {
           ultima_movimentacao: string
         }[]
       }
+      get_central_prazos_concluidos: {
+        Args: { p_dias?: number; p_tenant_id: string; p_user_id?: string }
+        Returns: Json
+      }
+      get_central_subtarefas: {
+        Args: { p_dias?: number; p_tenant_id: string; p_user_id?: string }
+        Returns: Json
+      }
       get_dashboard_processos_count: { Args: never; Returns: number }
       get_incomplete_processos_by_tenant: {
         Args: { p_tenant_id: string }
