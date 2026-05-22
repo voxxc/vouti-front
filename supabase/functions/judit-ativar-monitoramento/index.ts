@@ -104,6 +104,12 @@ serve(async (req) => {
 
     console.log('[Judit] Monitoramento ativado com sucesso');
 
+    // Sincronizar processos_oab (caso tenha sido zerado em desativação anterior)
+    await supabase
+      .from('processos_oab')
+      .update({ monitoramento_ativo: true, tracking_id: trackingId })
+      .eq('id', processoId);
+
     // Registrar em tenant_banco_ids (tipo='tracking')
     if (effectiveTenantId) {
       // Remover entry de tracking_desativado para esse tracking_id se existir
