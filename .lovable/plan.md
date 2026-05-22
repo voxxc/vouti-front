@@ -1,24 +1,30 @@
-# ESC volta para lista antes de fechar drawer
+# ESC volta para tela anterior dentro do drawer de Projetos
 
 ## Causa raiz
-No `PublicacoesDrawer.tsx`, quando o usuário abre o detalhe de uma publicação (`selectedPub`), o ESC fecha o drawer inteiro de uma vez. O comportamento esperado é "voltar uma etapa" — ESC primeiro fecha o detalhe (volta para a lista), e só um segundo ESC fecha o drawer.
+Ao pressionar **ESC** dentro do drawer de Projetos, o Radix Sheet captura o evento e fecha o drawer inteiro de uma vez, mesmo quando há uma "tela filha" aberta (protocolo/processo em detalhes). Hoje o usuário perde todo o contexto do projeto.
+
+## Comportamento desejado
+- Drawer do projeto aberto + protocolo/processo aberto → **ESC** volta para a lista de protocolos (mantém o drawer do projeto aberto).
+- Drawer do projeto aberto na lista → **ESC** fecha o drawer.
+- Mesma lógica do que já foi feito em Publicações.
 
 ## Correção
-Interceptar o evento de fechamento do `Sheet` quando `selectedPub` está ativo:
-- Adicionar `onEscapeKeyDown` (e `onPointerDownOutside`) no `SheetContent` da view de detalhe.
-- Se houver `selectedPub`, chamar `e.preventDefault()` e executar `setSelectedPub(null)` em vez de propagar o fechamento.
-- Quando não há `selectedPub`, ESC mantém o comportamento atual (fecha o drawer).
+1. **`ProjectProtocolosList.tsx`** — quando `view === 'detalhes'`, registrar listener de `keydown` em fase de captura no `document`. Se a tecla for `Escape`:
+   - `event.preventDefault()` + `event.stopImmediatePropagation()` para impedir o Radix de fechar o Sheet.
+   - `setView('lista')` e `setSelectedProtocoloId(null)`.
+2. **`ProjectDrawer.tsx`** — sem mudanças. O `onOpenChange` padrão continua respondendo ao ESC quando estamos na lista (pois o listener acima só age quando `view === 'detalhes'`).
+3. Verificar se existe outra "tela filha" análoga (ex.: processo CNJ aberto via vínculo). Hoje só foi encontrada a view de detalhes do protocolo dentro de `ProjectProtocolosList`; aplicar o mesmo padrão se aparecer uma nova subview no futuro.
 
 ## Arquivos afetados
-- `src/components/Publicacoes/PublicacoesDrawer.tsx`
+- `src/components/Project/ProjectProtocolosList.tsx` (adicionar `useEffect` de ESC).
 
 ## Impacto
-1. **UX**: ESC vira atalho natural de "voltar". Usuário que abre uma publicação por engano sai rapidamente sem perder o contexto da lista (filtros, scroll).
-2. **Dados**: Nenhum impacto em schema, RLS ou queries.
-3. **Riscos**: Mínimos — mudança isolada no handler de ESC do drawer. Clique no X / clique fora continuam fechando normalmente.
-4. **Quem é afetado**: Todos os usuários que utilizam o drawer de Publicações.
+1. **Usuário final (UX):** ESC vira uma navegação hierárquica natural dentro do drawer de Projetos — primeiro fecha o protocolo, depois o drawer. Reduz o atrito de reabrir o projeto após uma consulta rápida ao protocolo.
+2. **Dados:** nenhuma mudança. Sem migrations, sem RLS, sem performance afetada.
+3. **Riscos colaterais:** o listener em fase de captura precisa ser bem escopado (apenas quando `view === 'detalhes'`) para não bloquear ESC de outros diálogos eventualmente abertos por cima (modais de edição). Será adicionado/removido via `useEffect` controlado por `view`.
+4. **Quem é afetado:** todos os tenants e perfis que abrem projetos pelo drawer (busca rápida, agenda, dashboard).
 
 ## Validação
-- Abrir drawer de Publicações → abrir um item → pressionar ESC → deve voltar para a lista (drawer continua aberto).
-- Pressionar ESC novamente na lista → drawer fecha.
-- Confirmar que clicar fora ou no botão de fechar mantém o comportamento atual.
+- Abrir um projeto, abrir um protocolo → ESC volta para a lista, drawer continua aberto.
+- ESC novamente → drawer do projeto fecha.
+- Abrir um modal de edição dentro do protocolo → ESC fecha apenas o modal, sem voltar a lista (Radix Dialog interno tem prioridade).
