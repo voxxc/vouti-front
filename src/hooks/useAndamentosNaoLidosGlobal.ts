@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
-import { fetchAllPaginated } from "@/lib/supabasePagination";
 import { readAndamentosSnapshot } from "@/hooks/usePrefetchPages";
 
 export interface ProcessoComNaoLidos {
@@ -59,101 +58,47 @@ export const useAndamentosNaoLidosGlobal = () => {
   const fetchProcessos = useCallback(async () => {
     if (!tenantId) return;
 
-    // Se já hidratou via snapshot, atualizar em background sem skeleton
     if (!hydratedRef.current) {
       setLoading(true);
     }
     try {
-      // Query 1: Fetch processes with OAB data (lightweight, no andamentos join)
-      const { data: processosData, error: processosError } = await fetchAllPaginated<any>(() =>
-        supabase
-          .from('processos_oab')
-          .select(`
-            id,
-            numero_cnj,
-            parte_ativa,
-            parte_passiva,
-            tribunal_sigla,
-            monitoramento_ativo,
-            oab_id,
-            capa_completa,
-            oabs_cadastradas!inner(
-              id,
-              oab_numero,
-              oab_uf,
-              nome_advogado
-            )
-          `)
-          .eq('tenant_id', tenantId)
-          .order('id') as any
-      );
+      // Uma única RPC traz apenas processos com andamentos não lidos,
+      // já com dados da OAB embutidos e ordenados por última movimentação.
+      const { data, error } = await supabase
+        .rpc('get_central_andamentos_nao_lidos', { p_tenant_id: tenantId });
 
-      if (processosError) {
-        console.error('Error fetching processos:', processosError);
+      if (error) {
+        console.error('Error fetching central andamentos:', error);
         return;
       }
 
-      // Query 2: Get unread counts per processo via RPC
-      const { data: naoLidosData, error: naoLidosError } = await supabase
-        .rpc('get_andamentos_nao_lidos_por_processo', { p_tenant_id: tenantId });
-
-      if (naoLidosError) {
-        console.error('Error fetching nao lidos:', naoLidosError);
-        return;
-      }
-
-      // Build lookup map: processo_oab_id -> { nao_lidos, ultima_movimentacao }
-      const naoLidosMap = new Map<string, { nao_lidos: number; ultima_movimentacao: string | null }>();
-      (naoLidosData || []).forEach((row: any) => {
-        naoLidosMap.set(row.processo_oab_id, {
-          nao_lidos: row.nao_lidos,
-          ultima_movimentacao: row.ultima_movimentacao
-        });
-      });
-
-      // Extract unique OABs for filter dropdown
       const oabsMap = new Map<string, OABOption>();
-
-      // Merge and build final list
-      const processosComNaoLidos = (processosData || [])
-        .map((p: any) => {
-          const oabData = p.oabs_cadastradas;
-          
-          if (oabData && !oabsMap.has(oabData.id)) {
-            oabsMap.set(oabData.id, {
-              id: oabData.id,
-              label: `${oabData.nome_advogado || 'Advogado'} (${oabData.oab_numero}/${oabData.oab_uf})`
-            });
-          }
-
-          const info = naoLidosMap.get(p.id);
-          const naoLidos = info?.nao_lidos || 0;
-
-          return {
-            id: p.id,
-            numero_cnj: p.numero_cnj,
-            parte_ativa: p.parte_ativa,
-            parte_passiva: p.parte_passiva,
-            tribunal_sigla: p.tribunal_sigla,
-            monitoramento_ativo: p.monitoramento_ativo,
-            oab_id: p.oab_id,
-            capa_completa: p.capa_completa,
-            andamentos_nao_lidos: naoLidos,
-            ultima_movimentacao: info?.ultima_movimentacao || null,
-            oab: oabData ? {
-              id: oabData.id,
-              oab_numero: oabData.oab_numero,
-              oab_uf: oabData.oab_uf,
-              nome_advogado: oabData.nome_advogado
-            } : null
-          } as ProcessoComNaoLidos;
-        })
-        .filter((p: ProcessoComNaoLidos) => p.andamentos_nao_lidos > 0 && p.oab)
-        .sort((a: ProcessoComNaoLidos, b: ProcessoComNaoLidos) => {
-          const dateA = a.ultima_movimentacao ? new Date(a.ultima_movimentacao).getTime() : 0;
-          const dateB = b.ultima_movimentacao ? new Date(b.ultima_movimentacao).getTime() : 0;
-          return dateB - dateA;
-        });
+      const processosComNaoLidos: ProcessoComNaoLidos[] = (data || []).map((row: any) => {
+        if (row.oab_id && !oabsMap.has(row.oab_id)) {
+          oabsMap.set(row.oab_id, {
+            id: row.oab_id,
+            label: `${row.nome_advogado || 'Advogado'} (${row.oab_numero}/${row.oab_uf})`
+          });
+        }
+        return {
+          id: row.id,
+          numero_cnj: row.numero_cnj,
+          parte_ativa: row.parte_ativa,
+          parte_passiva: row.parte_passiva,
+          tribunal_sigla: row.tribunal_sigla,
+          monitoramento_ativo: row.monitoramento_ativo,
+          oab_id: row.oab_id,
+          capa_completa: null,
+          andamentos_nao_lidos: Number(row.andamentos_nao_lidos) || 0,
+          ultima_movimentacao: row.ultima_movimentacao,
+          oab: {
+            id: row.oab_id,
+            oab_numero: row.oab_numero,
+            oab_uf: row.oab_uf,
+            nome_advogado: row.nome_advogado,
+          },
+        };
+      });
 
       setProcessos(processosComNaoLidos);
       setOabs(Array.from(oabsMap.values()));
@@ -172,55 +117,32 @@ export const useAndamentosNaoLidosGlobal = () => {
   useEffect(() => {
     if (!tenantId) return;
 
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefetch = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        fetchProcessos();
+      }, 800);
+    };
+
     const channel = supabase
       .channel('andamentos-nao-lidos-global')
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'processos_oab_andamentos'
         },
-        async (payload) => {
-           const processoOabId = payload.new.processo_oab_id;
-          
-          const { data, error } = await supabase
-            .from('processos_oab_andamentos')
-            .select('id, data_movimentacao')
-            .eq('processo_oab_id', processoOabId)
-            .eq('lida', false);
-
-          if (!error) {
-            const newCount = data?.length || 0;
-            const maxDate = data && data.length > 0
-              ? data.reduce((max, r) => r.data_movimentacao > max ? r.data_movimentacao : max, data[0].data_movimentacao)
-              : null;
-            
-            setProcessos(prev => {
-              const updated = prev.map(p => 
-                p.id === processoOabId 
-                  ? { ...p, andamentos_nao_lidos: newCount, ultima_movimentacao: maxDate }
-                  : p
-              ).filter(p => p.andamentos_nao_lidos > 0)
-                .sort((a, b) => {
-                  const dateA = a.ultima_movimentacao ? new Date(a.ultima_movimentacao).getTime() : 0;
-                  const dateB = b.ultima_movimentacao ? new Date(b.ultima_movimentacao).getTime() : 0;
-                  return dateB - dateA;
-                });
-              
-              setTotalNaoLidos(updated.reduce((acc, p) => acc + p.andamentos_nao_lidos, 0));
-              
-              return updated;
-            });
-          }
-        }
+        () => scheduleRefetch()
       )
       .subscribe();
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
-  }, [tenantId]);
+  }, [tenantId, fetchProcessos]);
 
   const marcarTodosComoLidos = async (processoId: string) => {
     const { error } = await supabase
