@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { fetchAllPaginated } from "@/lib/supabasePagination";
+import { readAndamentosSnapshot } from "@/hooks/usePrefetchPages";
 
 export interface ProcessoComNaoLidos {
   id: string;
@@ -34,6 +35,21 @@ export const useAndamentosNaoLidosGlobal = () => {
   const [oabs, setOabs] = useState<OABOption[]>([]);
   const [totalNaoLidos, setTotalNaoLidos] = useState(0);
   const processosRef = useRef<ProcessoComNaoLidos[]>([]);
+  const hydratedRef = useRef(false);
+
+  // Hidratação instantânea via snapshot do BackgroundPrefetcher
+  useEffect(() => {
+    if (!tenantId || hydratedRef.current) return;
+    const snap = readAndamentosSnapshot(tenantId);
+    if (snap) {
+      setProcessos(snap.processos as ProcessoComNaoLidos[]);
+      setOabs(snap.oabs);
+      setTotalNaoLidos(snap.totalNaoLidos);
+      setLoading(false);
+      hydratedRef.current = true;
+      console.log('[Andamentos] Hidratado do snapshot:', snap.processos.length, 'processos');
+    }
+  }, [tenantId]);
 
   // Keep ref in sync
   useEffect(() => {
@@ -43,7 +59,10 @@ export const useAndamentosNaoLidosGlobal = () => {
   const fetchProcessos = useCallback(async () => {
     if (!tenantId) return;
 
-    setLoading(true);
+    // Se já hidratou via snapshot, atualizar em background sem skeleton
+    if (!hydratedRef.current) {
+      setLoading(true);
+    }
     try {
       // Query 1: Fetch processes with OAB data (lightweight, no andamentos join)
       const { data: processosData, error: processosError } = await fetchAllPaginated<any>(() =>
