@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Paperclip, Loader2, FileText, FileImage, File, Eye, Download, X, CheckCircle2, ChevronDown } from 'lucide-react';
