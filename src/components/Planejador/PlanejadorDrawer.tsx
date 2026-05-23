@@ -8,6 +8,7 @@ import { PlanejadorTaskDetail } from "./PlanejadorTaskDetail";
 import { PlanejadorSettings, ColumnConfig } from "./PlanejadorSettings";
 import { PlanejadorPrazosView } from "./PlanejadorPrazosView";
 import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
+import { CreateDeadlineDialog } from "@/components/Agenda/CreateDeadlineDialog";
 import { usePlanejadorTasks, PlanejadorTask, KANBAN_COLUMNS, KanbanColumn } from "@/hooks/usePlanejadorTasks";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlanejadorLabels, useAllLabelAssignments } from "@/hooks/usePlanejadorLabels";
@@ -77,6 +78,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
   const queryClient = useQueryClient();
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [createDeadlineOpen, setCreateDeadlineOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<PlanejadorTask | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("prazo");
@@ -284,6 +286,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
               <div className="px-6 pt-5 pb-2">
                 <PlanejadorTopBar
                   onCreateTask={() => setCreateOpen(true)}
+                  onCreateDeadline={() => setCreateDeadlineOpen(true)}
                   searchQuery={searchQuery}
                   onSearchChange={setSearchQuery}
                   activeTab={activeTab}
@@ -364,6 +367,11 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
         onOpenChange={setCreateOpen}
         onSubmit={handleCreateTask}
         isLoading={createTask.isPending}
+      />
+
+      <CreateDeadlineDialog
+        open={createDeadlineOpen}
+        onOpenChange={setCreateDeadlineOpen}
       />
 
       <DeadlineDetailDialog
