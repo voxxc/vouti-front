@@ -69,6 +69,12 @@ export const MovimentacaoDetalhe = ({
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
 
+  useEffect(() => {
+    if (preview?.blobUrl) URL.revokeObjectURL(preview.blobUrl);
+    setPreview(null);
+    setLoadingId(null);
+  }, [movimentacao.id]);
+
   const formatData = (data: string | null) => {
     if (!data) return 'Data não informada';
     try {
