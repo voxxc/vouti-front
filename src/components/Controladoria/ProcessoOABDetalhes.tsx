@@ -1501,38 +1501,6 @@ export const ProcessoOABDetalhes = ({
           </Tabs>
         </div>
       </SheetContent>
-      {/* Subdrawer lateral à esquerda - detalhe da movimentação */}
-      <Sheet
-        open={!!movimentacaoSelecionada}
-        onOpenChange={(v) => { if (!v) fecharSubdrawer(); }}
-        modal={false}
-      >
-        <SheetContent
-          side="left"
-          className="w-full sm:max-w-xl p-0"
-          onEscapeKeyDown={(e) => { e.preventDefault(); fecharSubdrawer(); }}
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
-        >
-          <SheetHeader className="sr-only">
-            <SheetTitle>Detalhe da movimentação</SheetTitle>
-          </SheetHeader>
-          {movimentacaoSelecionada && processo && (
-            <MovimentacaoDetalhe
-              movimentacao={movimentacaoSelecionada.mov}
-              anexos={anexosDaMovSelecionada}
-              processoOabId={processo.id}
-              numeroCnj={processo.numero_cnj}
-              instancia={1}
-              onClose={fecharSubdrawer}
-              onMarcarLida={(id) => {
-                marcarComoLida(id);
-                setMovimentacaoSelecionada((prev) => prev ? { ...prev, mov: { ...prev.mov, lida: true } } : prev);
-              }}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
     </Sheet>
   );
 };
