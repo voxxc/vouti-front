@@ -107,7 +107,7 @@ serve(async (req) => {
     // Sincronizar processos_oab (caso tenha sido zerado em desativação anterior)
     await supabase
       .from('processos_oab')
-      .update({ monitoramento_ativo: true, tracking_id: trackingId })
+      .update({ monitoramento_ativo: true, tracking_id: trackingId, with_attachments: true })
       .eq('id', processoId);
 
     // Registrar em tenant_banco_ids (tipo='tracking')
