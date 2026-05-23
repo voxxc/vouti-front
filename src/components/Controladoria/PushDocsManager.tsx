@@ -17,6 +17,7 @@ import {
   Scale,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PushDocProcessosSheet } from './PushDocProcessosSheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -52,6 +53,7 @@ export const PushDocsManager = () => {
   const [activeTab, setActiveTab] = useState<TipoDocumento>('cpf');
   const [showCadastrar, setShowCadastrar] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [selectedPushDocId, setSelectedPushDocId] = useState<string | null>(null);
 
   // Form state
   const [tipoDocDialog, setTipoDocDialog] = useState<TipoDocumento>('cpf');
@@ -72,6 +74,9 @@ export const PushDocsManager = () => {
   } = useTenantPushDocs(tenantId || '');
 
   const filteredDocs = pushDocs.filter(pd => pd.tipo_documento === activeTab);
+  const selectedPushDoc = pushDocs.find(pd => pd.id === selectedPushDocId) || null;
+  const processosPorDoc = (id: string) =>
+    processosRecebidos.filter(p => p.push_doc_id === id).length;
   const docsCount = {
     cpf: pushDocs.filter(pd => pd.tipo_documento === 'cpf').length,
     cnpj: pushDocs.filter(pd => pd.tipo_documento === 'cnpj').length,
@@ -217,6 +222,8 @@ export const PushDocsManager = () => {
                       isAdmin={isAdmin}
                       formatDocumento={formatDocumento}
                       getStatusBadge={getStatusBadge}
+                      processosCount={processosPorDoc(doc.id)}
+                      onOpenProcessos={() => setSelectedPushDocId(doc.id)}
                       onPause={() => pausarPushDoc(doc.id)}
                       onResume={() => reativarPushDoc(doc.id)}
                       onDelete={() => setShowDeleteConfirm(doc.id)}
