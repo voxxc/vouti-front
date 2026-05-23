@@ -145,6 +145,7 @@ serve(async (req) => {
           search_key: numeroLimpo,
         },
         callback_url: webhookUrl,
+        with_attachments: true,
         ...(customerKey && { credential: { customer_key: customerKey } })
       };
 
