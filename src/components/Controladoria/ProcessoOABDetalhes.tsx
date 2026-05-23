@@ -485,7 +485,7 @@ export const ProcessoOABDetalhes = ({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        className="w-full sm:max-w-xl relative overflow-visible"
+        className="w-full sm:max-w-xl overflow-visible"
         onInteractOutside={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
       >
