@@ -87,15 +87,21 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return jsonResp({ error: "missing auth" }, 401);
+    if (!authHeader?.startsWith("Bearer ")) {
+      return jsonResp({ error: "missing auth" }, 401);
+    }
+    const token = authHeader.replace("Bearer ", "");
 
     const userClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } },
     );
-    const { data: { user }, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !user) return jsonResp({ error: "unauthorized" }, 401);
+    const { data: claimsData, error: claimsErr } = await userClient.auth
+      .getClaims(token);
+    const userId = claimsData?.claims?.sub as string | undefined;
+    if (claimsErr || !userId) return jsonResp({ error: "unauthorized" }, 401);
+    const user = { id: userId };
 
     if (!rateLimit(user.id)) return jsonResp({ error: "rate_limited" }, 429);
 
