@@ -484,7 +484,33 @@ export const ProcessoOABDetalhes = ({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl">
+      <SheetContent
+        className="w-full sm:max-w-xl relative overflow-visible"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
+        {/* Subdrawer lateral - desliza saindo da borda esquerda do drawer principal */}
+        {movimentacaoSelecionada && processo && (
+          <div
+            role="dialog"
+            aria-label="Detalhe da movimentação"
+            className="absolute right-full top-0 h-full w-[min(36rem,calc(100vw-2rem))] bg-background border-r shadow-2xl z-40 animate-in slide-in-from-right duration-200"
+            onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); fecharSubdrawer(); } }}
+          >
+            <MovimentacaoDetalhe
+              movimentacao={movimentacaoSelecionada.mov}
+              anexos={anexosDaMovSelecionada}
+              processoOabId={processo.id}
+              numeroCnj={processo.numero_cnj}
+              instancia={1}
+              onClose={fecharSubdrawer}
+              onMarcarLida={(id) => {
+                marcarComoLida(id);
+                setMovimentacaoSelecionada((prev) => prev ? { ...prev, mov: { ...prev.mov, lida: true } } : prev);
+              }}
+            />
+          </div>
+        )}
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <FileText className="w-5 h-5" />
