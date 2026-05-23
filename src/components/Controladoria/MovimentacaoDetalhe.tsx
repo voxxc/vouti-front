@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Paperclip, Loader2, FileText, FileImage, File, Eye, Download, X, CheckCircle2, ChevronDown } from 'lucide-react';
@@ -68,6 +68,12 @@ export const MovimentacaoDetalhe = ({
 }: MovimentacaoDetalheProps) => {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
+
+  useEffect(() => {
+    if (preview?.blobUrl) URL.revokeObjectURL(preview.blobUrl);
+    setPreview(null);
+    setLoadingId(null);
+  }, [movimentacao.id]);
 
   const formatData = (data: string | null) => {
     if (!data) return 'Data não informada';
