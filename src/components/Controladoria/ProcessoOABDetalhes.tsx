@@ -666,36 +666,35 @@ export const ProcessoOABDetalhes = ({
               setActiveTab(val);
               if (val === 'prazos') setPrazosRefreshKey(k => k + 1);
             }} className="flex-1">
-            <TabsList className="flex w-full overflow-x-auto no-scrollbar h-auto flex-wrap md:flex-nowrap gap-0.5 p-1">
-              <TabsTrigger value="resumo" className="text-xs md:text-sm px-2 md:px-3 py-1.5">Resumo</TabsTrigger>
-              <TabsTrigger value="andamentos" className="relative text-xs md:text-sm px-2 md:px-3 py-1.5">
+            <TabsList className="grid grid-cols-4 sm:grid-cols-7 w-full h-auto gap-0.5 p-1">
+              <TabsTrigger value="resumo" title="Resumo" className="text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">Resumo</TabsTrigger>
+              <TabsTrigger value="andamentos" title="Andamentos" className="relative text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">
                 Andamentos
                 {andamentosNaoLidos > 0 && (
-                  <Badge variant="destructive" className="ml-1 text-xs px-1.5">
+                  <Badge variant="destructive" className="ml-1 text-[10px] px-1">
                     {andamentosNaoLidos}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="partes" className="text-xs md:text-sm px-2 md:px-3 py-1.5">Partes</TabsTrigger>
-              <TabsTrigger value="intimacoes" className="relative text-xs md:text-sm px-2 md:px-3 py-1.5">
-                <span className="md:hidden">Intim.</span>
-                <span className="hidden md:inline">Intimacoes</span>
+              <TabsTrigger value="partes" title="Partes" className="text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">Partes</TabsTrigger>
+              <TabsTrigger value="intimacoes" title="Intimações" className="relative text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">
+                Intimações
                 {intimacoesUrgentes > 0 ? (
-                  <Badge variant="destructive" className="ml-1 text-xs px-1.5 animate-pulse">
+                  <Badge variant="destructive" className="ml-1 text-[10px] px-1 animate-pulse">
                     {intimacoesUrgentes}
                   </Badge>
                 ) : intimacoesNaoLidas > 0 ? (
-                  <Badge variant="destructive" className="ml-1 text-xs px-1.5">
+                  <Badge variant="destructive" className="ml-1 text-[10px] px-1">
                     {intimacoesNaoLidas}
                   </Badge>
                 ) : null}
               </TabsTrigger>
-              <TabsTrigger value="prazos" className="relative text-xs md:text-sm px-2 md:px-3 py-1.5">
+              <TabsTrigger value="prazos" title="Prazos" className="relative text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">
                 Prazos
               </TabsTrigger>
-              <TabsTrigger value="tarefas" className="text-xs md:text-sm px-2 md:px-3 py-1.5">Tarefas</TabsTrigger>
-              <TabsTrigger value="vouti-ia" className="text-xs md:text-sm px-2 md:px-3 py-1.5">
-                <Bot className="w-3.5 h-3.5 mr-1" />
+              <TabsTrigger value="tarefas" title="Tarefas" className="text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">Tarefas</TabsTrigger>
+              <TabsTrigger value="vouti-ia" title="Vouti IA" className="text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">
+                <Bot className="w-3.5 h-3.5 mr-1 shrink-0" />
                 IA
               </TabsTrigger>
             </TabsList>
