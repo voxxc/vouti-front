@@ -78,7 +78,17 @@ export const MovimentacaoDetalhe = ({
     }
   };
 
+  const fecharPreview = () => {
+    if (preview?.blobUrl) URL.revokeObjectURL(preview.blobUrl);
+    setPreview(null);
+  };
+
   const visualizarAnexo = async (anexo: ProcessoAnexo) => {
+    // Toggle: se já está aberto, fecha.
+    if (preview?.anexoId === anexo.id) {
+      fecharPreview();
+      return;
+    }
     if (anexo.status === 'pending') {
       toast({ title: 'Anexo em processamento', description: 'Tente novamente em instantes.', variant: 'destructive' });
       return;
@@ -257,37 +267,30 @@ export const MovimentacaoDetalhe = ({
                   const FileIcon = getFileIcon(anexo.extension);
                   const isLoading = loadingId === anexo.id;
                   const isActive = preview?.anexoId === anexo.id;
+                  const displayName = cleanAttachmentName(anexo.attachment_name) || 'Documento';
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={anexo.id}
-                      className={`flex items-center gap-2 p-2 rounded border transition-colors ${
+                      onClick={() => visualizarAnexo(anexo)}
+                      disabled={isLoading}
+                      aria-expanded={isActive}
+                      className={`w-full flex items-center gap-2 p-2 rounded border transition-colors text-left ${
                         isActive ? 'border-primary/50 bg-primary/5' : 'border-border bg-muted/30 hover:bg-muted/60'
-                      }`}
+                      } ${isLoading ? 'opacity-70 cursor-wait' : 'cursor-pointer'}`}
                     >
                       <FileIcon className="w-4 h-4 text-muted-foreground shrink-0" />
-                      <span className="text-xs truncate flex-1" title={anexo.attachment_name}>
-                        {anexo.attachment_name}
+                      <span className="text-xs truncate flex-1" title={displayName}>
+                        {displayName}
                       </span>
-                      {anexo.extension && (
-                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
-                          {anexo.extension.toUpperCase()}
-                        </Badge>
+                      {isLoading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground shrink-0" />
+                      ) : isActive ? (
+                        <ChevronDown className="w-3.5 h-3.5 text-primary shrink-0" />
+                      ) : (
+                        <Eye className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 gap-1"
-                        onClick={() => visualizarAnexo(anexo)}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Eye className="w-3 h-3" />
-                        )}
-                        <span className="text-xs">Visualizar</span>
-                      </Button>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
