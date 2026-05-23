@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
+// INVARIANTE: Esta função sincroniza processos descobertos por OAB usando /requests.
+// NUNCA criar tracking nem enviar `with_attachments: true` aqui.
+// Anexos são opt-in e só devem ser solicitados na ativação manual do monitoramento
+// (judit-ativar-monitoramento-oab). Sincronizar OAB jamais consome cota de anexos.
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
