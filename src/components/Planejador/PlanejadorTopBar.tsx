@@ -17,6 +17,7 @@ interface TenantProfile {
 
 interface PlanejadorTopBarProps {
   onCreateTask: () => void;
+  onCreateDeadline?: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   activeTab: string;
@@ -43,7 +44,7 @@ const TABS = [
 ];
 
 export function PlanejadorTopBar({
-  onCreateTask, searchQuery, onSearchChange, activeTab, onTabChange,
+  onCreateTask, onCreateDeadline, searchQuery, onSearchChange, activeTab, onTabChange,
   onClose, locked, onToggleLock, onOpenSettings,
   profiles = [], selectedUserId, onUserFilterChange,
   labels = [], selectedLabelIds, onLabelFilterChange,
@@ -77,7 +78,10 @@ export function PlanejadorTopBar({
             <h1 className={`text-xl font-bold tracking-tight ${text}`}>Planejador</h1>
           </div>
           <Button
-            onClick={onCreateTask}
+            onClick={() => {
+              if (activeTab === 'prazos' && onCreateDeadline) onCreateDeadline();
+              else onCreateTask();
+            }}
             className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-5 h-9 rounded-lg shadow-lg shadow-emerald-500/20"
           >
             <Plus className="h-4 w-4 mr-1.5" />
