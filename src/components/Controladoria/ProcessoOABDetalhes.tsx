@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
@@ -217,6 +217,23 @@ export const ProcessoOABDetalhes = ({
   } | null>(null);
 
   const fecharSubdrawer = () => setMovimentacaoSelecionada(null);
+
+  const sheetContentRef = useRef<HTMLDivElement>(null);
+
+  // Fechar drawer ao dar duplo clique fora dele
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      const content = sheetContentRef.current;
+      if (content && !content.contains(target)) {
+        onOpenChange(false);
+      }
+    };
+    document.addEventListener('dblclick', handler);
+    return () => document.removeEventListener('dblclick', handler);
+  }, [open, onOpenChange]);
 
   const anexosDaMovSelecionada = movimentacaoSelecionada?.stepId
     ? (anexosPorStep.get(movimentacaoSelecionada.stepId) || [])
@@ -485,6 +502,7 @@ export const ProcessoOABDetalhes = ({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        ref={sheetContentRef}
         className="w-full sm:max-w-xl overflow-visible"
         onInteractOutside={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
