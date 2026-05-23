@@ -48,6 +48,7 @@ serve(async (req) => {
             search_key: cnpjLimpo,
           },
           callback_url: webhookUrl,
+          with_attachments: true,
         }),
       });
 
