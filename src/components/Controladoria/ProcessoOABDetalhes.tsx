@@ -667,17 +667,17 @@ export const ProcessoOABDetalhes = ({
               if (val === 'prazos') setPrazosRefreshKey(k => k + 1);
             }} className="flex-1">
             <TabsList className="grid grid-cols-4 sm:grid-cols-7 w-full h-auto gap-0.5 p-1 overflow-visible">
-              <TabsTrigger value="resumo" title="Resumo" className="text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">Resumo</TabsTrigger>
-              <TabsTrigger value="andamentos" title="Andamentos" className="relative overflow-visible text-[11px] md:text-xs px-1.5 pt-3 pb-1.5 min-w-0 truncate">
+              <TabsTrigger value="resumo" title="Resumo" className="text-[10px] sm:text-[11px] md:text-xs px-1 sm:px-1.5 py-1.5 min-w-0 whitespace-nowrap">Resumo</TabsTrigger>
+              <TabsTrigger value="andamentos" title="Andamentos" className="relative overflow-visible text-[10px] sm:text-[11px] md:text-xs px-1 sm:px-1.5 pt-3 pb-1.5 min-w-0 whitespace-nowrap">
                 {andamentosNaoLidos > 0 && (
                   <span className="absolute top-0.5 left-1/2 -translate-x-1/2 min-w-[14px] h-[14px] px-1 rounded-full bg-destructive/10 text-destructive text-[9px] font-medium leading-none flex items-center justify-center">
                     {andamentosNaoLidos > 99 ? '99+' : andamentosNaoLidos}
                   </span>
                 )}
-                <span className="truncate block">Andamentos</span>
+                <span className="block whitespace-nowrap">Andamentos</span>
               </TabsTrigger>
-              <TabsTrigger value="partes" title="Partes" className="text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">Partes</TabsTrigger>
-              <TabsTrigger value="intimacoes" title="Intimações" className="relative overflow-visible text-[11px] md:text-xs px-1.5 pt-3 pb-1.5 min-w-0 truncate">
+              <TabsTrigger value="partes" title="Partes" className="text-[10px] sm:text-[11px] md:text-xs px-1 sm:px-1.5 py-1.5 min-w-0 whitespace-nowrap">Partes</TabsTrigger>
+              <TabsTrigger value="intimacoes" title="Intimações" className="relative overflow-visible text-[10px] sm:text-[11px] md:text-xs px-1 sm:px-1.5 pt-3 pb-1.5 min-w-0 whitespace-nowrap">
                 {intimacoesUrgentes > 0 ? (
                   <span className="absolute top-0.5 left-1/2 -translate-x-1/2 min-w-[14px] h-[14px] px-1 rounded-full bg-destructive/15 text-destructive text-[9px] font-medium leading-none flex items-center justify-center animate-pulse">
                     {intimacoesUrgentes > 99 ? '99+' : intimacoesUrgentes}
@@ -687,13 +687,13 @@ export const ProcessoOABDetalhes = ({
                     {intimacoesNaoLidas > 99 ? '99+' : intimacoesNaoLidas}
                   </span>
                 ) : null}
-                <span className="truncate block">Intimações</span>
+                <span className="block whitespace-nowrap">Intimações</span>
               </TabsTrigger>
-              <TabsTrigger value="prazos" title="Prazos" className="text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">
+              <TabsTrigger value="prazos" title="Prazos" className="text-[10px] sm:text-[11px] md:text-xs px-1 sm:px-1.5 py-1.5 min-w-0 whitespace-nowrap">
                 Prazos
               </TabsTrigger>
-              <TabsTrigger value="tarefas" title="Tarefas" className="text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">Tarefas</TabsTrigger>
-              <TabsTrigger value="vouti-ia" title="Vouti IA" className="text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">
+              <TabsTrigger value="tarefas" title="Tarefas" className="text-[10px] sm:text-[11px] md:text-xs px-1 sm:px-1.5 py-1.5 min-w-0 whitespace-nowrap">Tarefas</TabsTrigger>
+              <TabsTrigger value="vouti-ia" title="Vouti IA" className="text-[10px] sm:text-[11px] md:text-xs px-1 sm:px-1.5 py-1.5 min-w-0 whitespace-nowrap">
                 <Bot className="w-3.5 h-3.5 mr-1 shrink-0" />
                 IA
               </TabsTrigger>
