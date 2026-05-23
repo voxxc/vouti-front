@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Paperclip, Loader2, FileText, FileImage, File, Eye, Download, X, CheckCircle2 } from 'lucide-react';
+import { Paperclip, Loader2, FileText, FileImage, File, Eye, Download, X, CheckCircle2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -35,6 +35,17 @@ const getFileIcon = (extension: string | null) => {
   if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) return FileImage;
   if (['pdf', 'doc', 'docx', 'txt', 'html', 'htm'].includes(ext)) return FileText;
   return File;
+};
+
+const cleanAttachmentName = (name: string | null | undefined) => {
+  if (!name) return '';
+  return name
+    .replace(/\s*[-–]\s*(SEM|COM)\s+SIGILO/gi, '')
+    .replace(/\s*\(?\s*N[ÍI]VEL\s*\d+\s*\)?/gi, '')
+    .replace(/\s*[-–]\s*\d+(?:[.,]\d+)?\s*(KB|MB|GB|BYTES?|B)\b/gi, '')
+    .replace(/\s*[-–]\s*$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 };
 
 interface PreviewState {
