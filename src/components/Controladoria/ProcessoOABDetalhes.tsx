@@ -666,30 +666,30 @@ export const ProcessoOABDetalhes = ({
               setActiveTab(val);
               if (val === 'prazos') setPrazosRefreshKey(k => k + 1);
             }} className="flex-1">
-            <TabsList className="grid grid-cols-4 sm:grid-cols-7 w-full h-auto gap-0.5 p-1">
+            <TabsList className="grid grid-cols-4 sm:grid-cols-7 w-full h-auto gap-0.5 p-1 overflow-visible">
               <TabsTrigger value="resumo" title="Resumo" className="text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">Resumo</TabsTrigger>
-              <TabsTrigger value="andamentos" title="Andamentos" className="relative text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">
-                Andamentos
+              <TabsTrigger value="andamentos" title="Andamentos" className="relative overflow-visible text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">
+                <span className="truncate block">Andamentos</span>
                 {andamentosNaoLidos > 0 && (
-                  <Badge variant="destructive" className="ml-1 text-[10px] px-1">
-                    {andamentosNaoLidos}
-                  </Badge>
+                  <span className="absolute -top-1.5 -right-1.5 z-10 min-w-[16px] h-[16px] px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-semibold leading-none flex items-center justify-center shadow">
+                    {andamentosNaoLidos > 99 ? '99+' : andamentosNaoLidos}
+                  </span>
                 )}
               </TabsTrigger>
               <TabsTrigger value="partes" title="Partes" className="text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">Partes</TabsTrigger>
-              <TabsTrigger value="intimacoes" title="Intimações" className="relative text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">
-                Intimações
+              <TabsTrigger value="intimacoes" title="Intimações" className="relative overflow-visible text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">
+                <span className="truncate block">Intimações</span>
                 {intimacoesUrgentes > 0 ? (
-                  <Badge variant="destructive" className="ml-1 text-[10px] px-1 animate-pulse">
-                    {intimacoesUrgentes}
-                  </Badge>
+                  <span className="absolute -top-1.5 -right-1.5 z-10 min-w-[16px] h-[16px] px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-semibold leading-none flex items-center justify-center shadow animate-pulse">
+                    {intimacoesUrgentes > 99 ? '99+' : intimacoesUrgentes}
+                  </span>
                 ) : intimacoesNaoLidas > 0 ? (
-                  <Badge variant="destructive" className="ml-1 text-[10px] px-1">
-                    {intimacoesNaoLidas}
-                  </Badge>
+                  <span className="absolute -top-1.5 -right-1.5 z-10 min-w-[16px] h-[16px] px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-semibold leading-none flex items-center justify-center shadow">
+                    {intimacoesNaoLidas > 99 ? '99+' : intimacoesNaoLidas}
+                  </span>
                 ) : null}
               </TabsTrigger>
-              <TabsTrigger value="prazos" title="Prazos" className="relative text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">
+              <TabsTrigger value="prazos" title="Prazos" className="text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">
                 Prazos
               </TabsTrigger>
               <TabsTrigger value="tarefas" title="Tarefas" className="text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">Tarefas</TabsTrigger>
