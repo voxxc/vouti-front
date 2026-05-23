@@ -668,26 +668,26 @@ export const ProcessoOABDetalhes = ({
             }} className="flex-1">
             <TabsList className="grid grid-cols-4 sm:grid-cols-7 w-full h-auto gap-0.5 p-1 overflow-visible">
               <TabsTrigger value="resumo" title="Resumo" className="text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">Resumo</TabsTrigger>
-              <TabsTrigger value="andamentos" title="Andamentos" className="relative overflow-visible text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">
-                <span className="truncate block">Andamentos</span>
+              <TabsTrigger value="andamentos" title="Andamentos" className="relative overflow-visible text-[11px] md:text-xs px-1.5 pt-3 pb-1.5 min-w-0 truncate">
                 {andamentosNaoLidos > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 z-10 min-w-[16px] h-[16px] px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-semibold leading-none flex items-center justify-center shadow">
+                  <span className="absolute top-0.5 left-1/2 -translate-x-1/2 min-w-[14px] h-[14px] px-1 rounded-full bg-destructive/10 text-destructive text-[9px] font-medium leading-none flex items-center justify-center">
                     {andamentosNaoLidos > 99 ? '99+' : andamentosNaoLidos}
                   </span>
                 )}
+                <span className="truncate block">Andamentos</span>
               </TabsTrigger>
               <TabsTrigger value="partes" title="Partes" className="text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">Partes</TabsTrigger>
-              <TabsTrigger value="intimacoes" title="Intimações" className="relative overflow-visible text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">
-                <span className="truncate block">Intimações</span>
+              <TabsTrigger value="intimacoes" title="Intimações" className="relative overflow-visible text-[11px] md:text-xs px-1.5 pt-3 pb-1.5 min-w-0 truncate">
                 {intimacoesUrgentes > 0 ? (
-                  <span className="absolute -top-1.5 -right-1.5 z-10 min-w-[16px] h-[16px] px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-semibold leading-none flex items-center justify-center shadow animate-pulse">
+                  <span className="absolute top-0.5 left-1/2 -translate-x-1/2 min-w-[14px] h-[14px] px-1 rounded-full bg-destructive/15 text-destructive text-[9px] font-medium leading-none flex items-center justify-center animate-pulse">
                     {intimacoesUrgentes > 99 ? '99+' : intimacoesUrgentes}
                   </span>
                 ) : intimacoesNaoLidas > 0 ? (
-                  <span className="absolute -top-1.5 -right-1.5 z-10 min-w-[16px] h-[16px] px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-semibold leading-none flex items-center justify-center shadow">
+                  <span className="absolute top-0.5 left-1/2 -translate-x-1/2 min-w-[14px] h-[14px] px-1 rounded-full bg-destructive/10 text-destructive text-[9px] font-medium leading-none flex items-center justify-center">
                     {intimacoesNaoLidas > 99 ? '99+' : intimacoesNaoLidas}
                   </span>
                 ) : null}
+                <span className="truncate block">Intimações</span>
               </TabsTrigger>
               <TabsTrigger value="prazos" title="Prazos" className="text-[11px] md:text-xs px-1.5 py-1.5 min-w-0 truncate">
                 Prazos
