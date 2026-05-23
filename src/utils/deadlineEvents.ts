@@ -3,7 +3,7 @@
  * Componentes que mantêm cache local de deadlines (ex: useAgendaData)
  * escutam este evento para aplicar atualização otimista + refetch.
  */
-export type DeadlineChangeAction = "completed" | "reopened" | "deleted" | "updated";
+export type DeadlineChangeAction = "completed" | "reopened" | "deleted" | "updated" | "created";
 
 export interface DeadlineChangeDetail {
   deadlineId: string;
