@@ -29,6 +29,7 @@ import { SuperAdminBuscaProcessosCPF } from '@/components/SuperAdmin/SuperAdminB
 import { SuperAdminAuditoriaAndamentos } from '@/components/SuperAdmin/SuperAdminAuditoriaAndamentos';
 import { SuperAdminProcessosSemAndamentos } from '@/components/SuperAdmin/SuperAdminProcessosSemAndamentos';
 import { SuperAdminCarteirasAudit } from '@/components/SuperAdmin/SuperAdminCarteirasAudit';
+import { SuperAdminMigracaoAnexos } from '@/components/SuperAdmin/SuperAdminMigracaoAnexos';
 import { LinkBioSection } from '@/components/SuperAdmin/LinkBioSection';
 import { SystemType, Tenant, TenantFormData } from '@/types/superadmin';
 import { Badge } from '@/components/ui/badge';
@@ -365,7 +366,7 @@ export default function SuperAdmin() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant={['monitoramento', 'diagnostico', 'judit-docs', 'cofre-judit', 'auditoria-andamentos', 'processos-sem-andamentos'].includes(mainTab) ? 'default' : 'ghost'}
+                 variant={['monitoramento', 'diagnostico', 'judit-docs', 'cofre-judit', 'auditoria-andamentos', 'processos-sem-andamentos', 'migracao-anexos'].includes(mainTab) ? 'default' : 'ghost'}
                   size="sm"
                   className="gap-2"
                 >
@@ -390,6 +391,9 @@ export default function SuperAdmin() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setMainTab('processos-sem-andamentos')} className="gap-2">
                   <AlertTriangle className="h-4 w-4" /> Processos s/ Andamentos
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMainTab('migracao-anexos')} className="gap-2">
+                  <Paperclip className="h-4 w-4" /> Migração Anexos
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setMainTab('carteiras-audit')} className="gap-2">
                   <ShieldAlert className="h-4 w-4" /> Auditoria Carteiras
@@ -527,6 +531,10 @@ export default function SuperAdmin() {
 
           <TabsContent value="carteiras-audit">
             <SuperAdminCarteirasAudit />
+          </TabsContent>
+
+          <TabsContent value="migracao-anexos">
+            <SuperAdminMigracaoAnexos />
           </TabsContent>
         </Tabs>
       </main>
