@@ -1,40 +1,101 @@
-## Exibir processos recebidos por termo Push-docs (Painel lateral)
+# Oficializar drawer com anexos + migrar trackings para receber arquivos
 
-### Causa raiz
-Hoje o card de cada CPF/CNPJ/OAB monitorado em `PushDocsManager` mostra apenas o contador "Processos: N", sem permitir visualizar quais processos foram trazidos pelo Push-docs. Os dados existem em `push_docs_processos` (já carregados no hook `useTenantPushDocs` como `processosRecebidos`), mas não são apresentados na UI.
+## Causa raiz
 
-### Correção
-Adotar o direcionamento "Painel lateral" escolhido. Substituir o texto estático "Processos: N" por um **botão suave** ("N Processos →") no rodapé do card. Ao clicar, abre um **Sheet lateral à direita** listando todos os processos vinculados àquele `push_doc_id`.
+1. **Visual**: o drawer `ProcessoOABDetalhes` já tem o novo padrão (cards de andamento com `AndamentoAnexos` + `useProcessoAnexos`). `ProcessoCNPJDetalhes` e drawers irmãos (`MovimentacoesDrawer`, `AndamentosDrawer`) mostram andamentos sem o bloco de anexos.
+2. **Tracking Judit**: `judit-ativar-monitoramento` (CNPJ) já cria tracking com `with_attachments: true`, mas `judit-ativar-monitoramento-oab` **não envia o flag**. Trackings OAB antigos nunca receberam anexos, e a Judit não permite alterar flags em tracking existente — só `pause` + novo `create`.
+3. **Importação**: chamadas de **import/busca de processo** (não-monitoramento) podem estar enviando `with_attachments` em algum ponto, o que é desperdício de cota. Anexo só deve existir no fluxo de monitoramento.
 
-Conteúdo do painel:
-- Cabeçalho: "Processos Encontrados" + badge com a contagem
-- Lista rolável (`ScrollArea`) com cards de processo:
-  - Número CNJ (monoespaçado, destaque)
-  - Tribunal/sigla + data (`created_at` ou `data_distribuicao`)
-  - Status processual com dot colorido (azul = ativo/em andamento, âmbar = pendente/concluso, cinza = arquivado/sem status)
-  - Indicador visual de "não lido" (`lido = false`)
-- Rodapé: botão "Ver detalhes na íntegra" → navega para `/{tenantSlug}/controladoria/caso?cnj=...` (rota existente do detalhe do caso) ou aciona handler de abertura do drawer atual de processo.
+## Princípio (regra dura)
 
-Estado vazio: ilustração suave + texto "Aguardando primeira sincronização".
+> **`with_attachments: true` SOMENTE em criação/recriação de tracking de monitoramento. Em qualquer rota de importação, busca avulsa, requests on-demand ou refresh sob demanda → `with_attachments: false` (ou flag omitido).**
 
-Tudo respeitando os tokens do design system (`bg-card`, `border-border`, `text-muted-foreground`, `primary`, `destructive`, etc.) — nada de cores hardcoded.
+## Correção
 
-### Arquivos afetados
-- `src/components/Controladoria/PushDocsManager.tsx` — passar `processosRecebidos` para `PushDocCard`; gerenciar estado `selectedPushDocId` e renderizar `<PushDocProcessosSheet>`.
-- `src/components/Controladoria/PushDocCard.tsx` (extraído do final do arquivo atual) — trocar texto "Processos: N" por botão que dispara `onOpenProcessos(doc.id)`.
-- `src/components/Controladoria/PushDocProcessosSheet.tsx` (novo) — Sheet lateral com a lista, filtros mínimos e CTA de detalhe.
-- (opcional) `src/hooks/useTenantPushDocs.ts` — nenhum schema novo; apenas garantir que `processosRecebidos` seja retornado já filtrável por `push_doc_id`.
+### Parte 1 — Padronizar o visual (frontend)
 
-### Impacto
-1. **Usuário final (UX/telas/fluxos):** Controladoria passa a ver e abrir, a partir do card do termo monitorado, todos os processos retornados pelo Push-docs sem sair da tela. Reduz cliques e elimina a sensação atual de "número morto". Botão "Ver detalhes na íntegra" leva ao caso completo.
-2. **Dados (migrations/RLS/performance):** Nenhuma migration. Nenhuma alteração de RLS. Consulta usa `processosRecebidos` já carregado no hook (atualmente `limit(50)`); para termos com muitos processos pode-se aumentar limite ou paginar — fica como ajuste opcional.
-3. **Riscos colaterais:** Sheet abre sobre o conteúdo da Controladoria; conflito com outros drawers abertos (ex.: detalhe do caso) deve ser tratado fechando o painel ao navegar. Performance OK se mantivermos limite de 50 processos por termo na listagem inicial.
-4. **Quem é afetado:** Todos os tenants que usam Push-docs. Admin, controller e financeiro veem o botão; ações administrativas (pausar/deletar) seguem restritas a admin como hoje.
+- Extrair `AndamentoCard` reutilizável a partir do trecho atual em `ProcessoOABDetalhes` (header do andamento + `<AndamentoAnexos />`).
+- Aplicar em `ProcessoCNPJDetalhes`, `MovimentacoesDrawer`, `AndamentosDrawer`, `MovimentacaoCard`.
+- `useProcessoAnexos(processo.id)` agrupa anexos por `step_id` igual ao OAB.
 
-### Validação
-- Card com `Processos: 0` mostra botão desabilitado e estado vazio no painel.
-- Card com N>0 abre o painel e lista os N processos do mesmo `push_doc_id`.
-- Dot de status colore corretamente (ativo, pendente, arquivado, sem status).
-- Botão "Ver detalhes na íntegra" abre o caso correspondente.
-- Fechar painel preserva o scroll da lista de termos.
-- Verificação visual nos 3 breakpoints (mobile, sm, lg) com tokens do design system.
+### Parte 2 — Garantir attachments só no monitoramento (backend)
+
+- Auditar e ajustar para **não** enviar `with_attachments`:
+  - `judit-buscar-detalhes-processo`
+  - `judit-importar-processo` / `importar-processo-cnj` / qualquer função de import em massa
+  - Buscas on-demand do `AtualizadorAndamentos` / `BuscarAndamentosPJE` / `BuscarPorOABTab`
+- Corrigir `judit-ativar-monitoramento-oab` para passar `with_attachments: true` na criação do tracking.
+- Confirmar `judit-ativar-monitoramento` (CNPJ) já correto.
+
+### Parte 3 — Migrar trackings existentes
+
+Nova edge function `judit-migrar-trackings-attachments`:
+
+1. Paginar `processos_oab` (e CNPJ se algum nasceu sem flag) com `monitoramento_ativo = true` e `tracking_id IS NOT NULL` e `with_attachments = false`.
+2. Para cada processo, em ordem segura:
+   a. `POST /tracking` novo com `with_attachments: true` (+ credencial quando houver) → obter novo `tracking_id`.
+   b. `POST /tracking/{tracking_id_antigo}/pause`.
+   c. Atualizar `tracking_id`, `tracking_request_id`, `tracking_request_data`, `with_attachments = true`.
+   d. Log em `judit_logs` (`tipo_chamada: 'migracao_attachments'`) e registro em `judit_migracao_attachments`.
+3. Lotes pequenos (ex.: 25 por execução), cursor persistido, com retry e rate-limit.
+
+### Parte 4 — UI de acionamento
+
+- Nova aba **"Migração de Anexos"** em Controladoria, visível só para `admin`/`controller`:
+  - KPIs: ativos, migrados, pendentes, com erro.
+  - Botão "Migrar próximo lote".
+  - Tabela com status por processo + mensagem de erro.
+  - Histórico das últimas execuções.
+
+## Arquivos afetados
+
+**Frontend**
+- `src/components/Controladoria/AndamentoCard.tsx` *(novo)*
+- `src/components/Controladoria/ProcessoOABDetalhes.tsx` *(usa o card extraído)*
+- `src/components/Controladoria/ProcessoCNPJDetalhes.tsx` *(adota card + hook)*
+- `src/components/Controladoria/MovimentacoesDrawer.tsx`, `AndamentosDrawer.tsx`, `MovimentacaoCard.tsx`
+- `src/components/Controladoria/MigracaoAnexosTab.tsx` *(novo)*
+- `src/pages/Controladoria.tsx` *(adiciona aba)*
+- `src/hooks/useMigracaoAnexos.ts` *(novo)*
+
+**Backend**
+- `supabase/functions/judit-ativar-monitoramento-oab/index.ts` *(adicionar `with_attachments: true`)*
+- `supabase/functions/judit-buscar-detalhes-processo/index.ts` *(remover `with_attachments` se existir)*
+- Demais funções de import/busca avulsa: garantir ausência do flag.
+- `supabase/functions/judit-migrar-trackings-attachments/index.ts` *(novo)*
+
+**Banco**
+- Tabela `judit_migracao_attachments` (processo_id, tipo, tracking_id_antigo, tracking_id_novo, status, erro, executado_em) com RLS admin-only.
+- Coluna `with_attachments boolean default false` em `processos_oab` e `processos_cnpj` para idempotência e auditoria.
+
+## Impacto
+
+**Usuário final (UX)**
+- Drawer de qualquer caso/processo judicial (OAB e CNPJ) passa a mostrar andamentos com anexos inline + download direto — fim da inconsistência visual.
+- Admins ganham aba dedicada para migrar trackings e acompanhar status; não dependem mais do super-admin.
+- Toda nova movimentação de processo **monitorado** já chega com PDFs/anexos. Importações continuam rápidas e baratas, sem anexo (comportamento esperado).
+
+**Dados**
+- Cada tracking migrado consome 1 CREATE + 1 PAUSE na Judit → custo por processo. Migrar em lotes para controlar gasto.
+- `tracking_id` muda nos registros migrados — qualquer integração que dependa do ID antigo precisa ser tolerante.
+- Histórico de andamentos antigos **não** ganha anexos retroativos (Judit só envia anexos das movimentações capturadas pelo tracking ativo no momento). Só movimentações futuras terão arquivos.
+- Nova tabela de auditoria + 1 coluna por processo; RLS dos processos não muda.
+
+**Riscos colaterais**
+- Pequena janela entre CREATE novo e PAUSE antigo onde a Judit pode duplicar uma movimentação — dedupe atual por `step_id`/`message_id` já cobre.
+- Se a Judit recusar o novo tracking (credencial expirada, processo arquivado), o monitoramento daquele processo fica desativado — precisa aparecer destacado na tabela.
+- Esquecer de remover o flag em alguma rota de importação geraria custo desnecessário — por isso a auditoria explícita na Parte 2.
+
+**Quem é afetado**
+- **Todos os tenants** com monitoramento OAB ativo (CNPJ já nasce certo).
+- **Admins/controllers**: nova aba e responsabilidade de disparar a migração.
+- **Advogados**: ganham anexos diretos no drawer, sem mudar fluxo.
+
+## Validação
+
+1. Conferir paridade visual: abrir um processo CNPJ com anexos conhecidos e comparar com OAB.
+2. Grep final por `with_attachments` em `supabase/functions/` — deve aparecer **apenas** nas duas funções de ativação de monitoramento.
+3. Tenant piloto (demorais): rodar migração em 5 processos OAB → conferir novo `tracking_id`, antigo pausado, `judit_logs` com CREATE + PAUSE, próxima movimentação real chega com `processos_oab_anexos`.
+4. Ativar manualmente um novo monitoramento OAB → confirmar `with_attachments` no payload.
+5. Importar um processo novo (não-monitorado) → confirmar zero chamada com `with_attachments`.
+6. Stress test com lote de 100, medir tempo e ajustar batch.

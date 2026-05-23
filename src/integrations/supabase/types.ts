@@ -793,6 +793,7 @@ export type Database = {
           ultimo_request_id: string | null
           updated_at: string | null
           user_id: string
+          with_attachments: boolean
         }
         Insert: {
           cnpj: string
@@ -810,6 +811,7 @@ export type Database = {
           ultimo_request_id?: string | null
           updated_at?: string | null
           user_id: string
+          with_attachments?: boolean
         }
         Update: {
           cnpj?: string
@@ -827,6 +829,7 @@ export type Database = {
           ultimo_request_id?: string | null
           updated_at?: string | null
           user_id?: string
+          with_attachments?: boolean
         }
         Relationships: [
           {
@@ -2329,6 +2332,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      judit_migracao_attachments: {
+        Row: {
+          erro: string | null
+          executado_em: string
+          id: string
+          processo_id: string
+          status: string
+          tenant_id: string | null
+          tipo: string
+          tracking_id_antigo: string | null
+          tracking_id_novo: string | null
+        }
+        Insert: {
+          erro?: string | null
+          executado_em?: string
+          id?: string
+          processo_id: string
+          status?: string
+          tenant_id?: string | null
+          tipo: string
+          tracking_id_antigo?: string | null
+          tracking_id_novo?: string | null
+        }
+        Update: {
+          erro?: string | null
+          executado_em?: string
+          id?: string
+          processo_id?: string
+          status?: string
+          tenant_id?: string | null
+          tipo?: string
+          tracking_id_antigo?: string | null
+          tracking_id_novo?: string | null
+        }
+        Relationships: []
       }
       landing_lead_rate_limits: {
         Row: {
@@ -5179,6 +5218,7 @@ export type Database = {
           ultima_atualizacao_detalhes: string | null
           updated_at: string | null
           valor_causa: number | null
+          with_attachments: boolean
         }
         Insert: {
           ai_enabled?: boolean | null
@@ -5220,6 +5260,7 @@ export type Database = {
           ultima_atualizacao_detalhes?: string | null
           updated_at?: string | null
           valor_causa?: number | null
+          with_attachments?: boolean
         }
         Update: {
           ai_enabled?: boolean | null
@@ -5261,6 +5302,7 @@ export type Database = {
           ultima_atualizacao_detalhes?: string | null
           updated_at?: string | null
           valor_causa?: number | null
+          with_attachments?: boolean
         }
         Relationships: [
           {
