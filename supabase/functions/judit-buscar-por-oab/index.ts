@@ -1,6 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
+// INVARIANTE: Esta função realiza apenas snapshot inicial via /requests (search_type='oab').
+// NUNCA criar tracking nem enviar `with_attachments: true` aqui.
+// Anexos são opt-in e só devem ser solicitados na ativação manual do monitoramento
+// (judit-ativar-monitoramento*). Cadastrar OAB jamais consome cota de anexos da Judit.
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
