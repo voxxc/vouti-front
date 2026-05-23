@@ -15,6 +15,7 @@ import {
   User,
   Building2,
   Scale,
+  ChevronRight,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PushDocProcessosSheet } from './PushDocProcessosSheet';
@@ -379,6 +380,14 @@ export const PushDocsManager = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PushDocProcessosSheet
+        open={!!selectedPushDocId}
+        onOpenChange={(v) => !v && setSelectedPushDocId(null)}
+        pushDoc={selectedPushDoc}
+        processos={processosRecebidos}
+        onMarcarLido={marcarComoLido}
+      />
     </>
   );
 };
@@ -388,12 +397,14 @@ interface PushDocCardProps {
   isAdmin: boolean;
   formatDocumento: (doc: string, tipo: TipoDocumento) => string;
   getStatusBadge: (status: string) => React.ReactNode;
+  processosCount: number;
+  onOpenProcessos: () => void;
   onPause: () => void;
   onResume: () => void;
   onDelete: () => void;
 }
 
-function PushDocCard({ doc, isAdmin, formatDocumento, getStatusBadge, onPause, onResume, onDelete }: PushDocCardProps) {
+function PushDocCard({ doc, isAdmin, formatDocumento, getStatusBadge, processosCount, onOpenProcessos, onPause, onResume, onDelete }: PushDocCardProps) {
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between">
@@ -409,7 +420,14 @@ function PushDocCard({ doc, isAdmin, formatDocumento, getStatusBadge, onPause, o
           )}
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>Recorrência: {doc.recurrence} dia(s)</span>
-            <span>Processos: {doc.total_processos_recebidos}</span>
+            <button
+              type="button"
+              onClick={onOpenProcessos}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/5 hover:bg-primary text-primary hover:text-primary-foreground font-semibold transition-colors"
+            >
+              {processosCount} Processo{processosCount === 1 ? '' : 's'}
+              <ChevronRight className="h-3 w-3" />
+            </button>
             {doc.ultima_notificacao && (
               <span>
                 Última: {format(new Date(doc.ultima_notificacao), 'dd/MM/yy HH:mm', { locale: ptBR })}
