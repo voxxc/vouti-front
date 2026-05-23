@@ -19,11 +19,14 @@ const recoverFromStaleAsset = async (msg: string) => {
 
   if ("serviceWorker" in navigator) {
     await navigator.serviceWorker.getRegistrations()
-      .then((registrations) => Promise.all(registrations.map((registration) => registration.update().catch(() => undefined))))
+      .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister().catch(() => undefined))))
       .catch(() => undefined);
   }
 
-  window.location.reload();
+  // Cache-bust the navigation so the browser fetches a fresh index.html
+  const url = new URL(window.location.href);
+  url.searchParams.set("_r", Date.now().toString());
+  window.location.replace(url.toString());
 };
 window.addEventListener("vite:preloadError", (event) => {
   event.preventDefault();
