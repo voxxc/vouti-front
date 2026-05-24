@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Paperclip, AlertTriangle, CheckCircle2, RefreshCw, Play } from 'lucide-react';
+import { Loader2, Paperclip, AlertTriangle, CheckCircle2, RefreshCw, Play, Building2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface Stats {
@@ -21,20 +21,33 @@ interface Registro {
   status: string;
   erro: string | null;
   tracking_id_novo: string | null;
+  numero_cnj: string | null;
   executado_em: string;
+}
+
+interface TenantRow {
+  tenant_id: string;
+  tenant_name: string;
+  oab_ativos: number;
+  oab_migrados: number;
+  cnpj_ativos: number;
+  cnpj_migrados: number;
+  ultimo_evento: string | null;
 }
 
 export const SuperAdminMigracaoAnexos = () => {
   const [stats, setStats] = useState<Stats>({ oabAtivos: 0, oabMigrados: 0, cnpjAtivos: 0, cnpjMigrados: 0 });
   const [historico, setHistorico] = useState<Registro[]>([]);
+  const [tenants, setTenants] = useState<TenantRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
+  const [runningTenantId, setRunningTenantId] = useState<string | null>(null);
   const [batchSize, setBatchSize] = useState(10);
 
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const [oabAtivos, oabMigrados, cnpjAtivos, cnpjMigrados, hist] = await Promise.all([
+      const [oabAtivos, oabMigrados, cnpjAtivos, cnpjMigrados, hist, perTenant] = await Promise.all([
         supabase.from('processos_oab').select('id', { count: 'exact', head: true })
           .eq('monitoramento_ativo', true).not('tracking_id', 'is', null),
         supabase.from('processos_oab').select('id', { count: 'exact', head: true })
@@ -44,6 +57,7 @@ export const SuperAdminMigracaoAnexos = () => {
         supabase.from('cnpjs_cadastrados').select('id', { count: 'exact', head: true })
           .eq('monitoramento_ativo', true).eq('with_attachments', true).not('tracking_id', 'is', null),
         supabase.from('judit_migracao_attachments').select('*').order('executado_em', { ascending: false }).limit(50),
+        supabase.rpc('get_migracao_attachments_por_tenant'),
       ]);
       setStats({
         oabAtivos: oabAtivos.count ?? 0,
@@ -52,6 +66,7 @@ export const SuperAdminMigracaoAnexos = () => {
         cnpjMigrados: cnpjMigrados.count ?? 0,
       });
       setHistorico((hist.data || []) as Registro[]);
+      setTenants((perTenant.data || []) as TenantRow[]);
     } catch (e: any) {
       console.error(e);
     } finally {
@@ -61,11 +76,12 @@ export const SuperAdminMigracaoAnexos = () => {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  const executar = async (dryRun = false) => {
-    setRunning(true);
+  const executar = async (dryRun = false, tenantId: string | null = null) => {
+    if (tenantId) setRunningTenantId(tenantId);
+    else setRunning(true);
     try {
       const { data, error } = await supabase.functions.invoke('judit-migrar-trackings-attachments', {
-        body: { batchSize, tipo: 'all', dryRun },
+        body: { batchSize, tipo: 'all', dryRun, tenantId },
       });
       if (error) throw error;
       toast({
@@ -77,6 +93,7 @@ export const SuperAdminMigracaoAnexos = () => {
       toast({ title: 'Erro', description: e?.message ?? 'Falhou', variant: 'destructive' });
     } finally {
       setRunning(false);
+      setRunningTenantId(null);
     }
   };
 
@@ -142,6 +159,66 @@ export const SuperAdminMigracaoAnexos = () => {
       </Card>
 
       <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-primary" />
+            Progresso por tenant
+          </CardTitle>
+          <span className="text-xs text-muted-foreground">{tenants.length} tenants com monitoramento ativo</span>
+        </CardHeader>
+        <CardContent className="p-0">
+          {tenants.length === 0 ? (
+            <div className="text-center py-8 text-sm text-muted-foreground">Nenhum tenant com monitoramento ativo.</div>
+          ) : (
+            <ScrollArea className="h-[360px]">
+              <div className="divide-y">
+                {tenants.map((t) => {
+                  const ativos = t.oab_ativos + t.cnpj_ativos;
+                  const migrados = t.oab_migrados + t.cnpj_migrados;
+                  const pendentes = ativos - migrados;
+                  const pct = ativos > 0 ? Math.round((migrados / ativos) * 100) : 0;
+                  const isRunning = runningTenantId === t.tenant_id;
+                  return (
+                    <div key={t.tenant_id} className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium truncate">{t.tenant_name}</span>
+                          <Badge variant="outline" className="text-[10px]">OAB {t.oab_migrados}/{t.oab_ativos}</Badge>
+                          {t.cnpj_ativos > 0 && (
+                            <Badge variant="outline" className="text-[10px]">CNPJ {t.cnpj_migrados}/{t.cnpj_ativos}</Badge>
+                          )}
+                          {pendentes === 0
+                            ? <Badge className="text-[10px] bg-[hsl(var(--chart-2))]/15 text-[hsl(var(--chart-2))] hover:bg-[hsl(var(--chart-2))]/15">Completo</Badge>
+                            : <Badge variant="secondary" className="text-[10px]">{pendentes} pendentes</Badge>}
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <div className="flex-1 bg-muted h-1.5 rounded-full overflow-hidden">
+                            <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-[11px] text-muted-foreground tabular-nums w-10 text-right">{pct}%</span>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant={pendentes === 0 ? 'ghost' : 'outline'}
+                        disabled={pendentes === 0 || running || !!runningTenantId}
+                        onClick={() => executar(false, t.tenant_id)}
+                      >
+                        {isRunning
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <Play className="h-3.5 w-3.5" />}
+                        <span className="ml-1.5 text-xs">Migrar lote</span>
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">Últimas 50 execuções</CardTitle></CardHeader>
         <CardContent className="p-0">
           {historico.length === 0 ? (
@@ -163,6 +240,7 @@ export const SuperAdminMigracaoAnexos = () => {
                         <span className="text-xs text-muted-foreground">{new Date(h.executado_em).toLocaleString('pt-BR')}</span>
                         {h.tenant_id && <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[160px]">tenant: {h.tenant_id.slice(0, 8)}…</span>}
                       </div>
+                      {h.numero_cnj && <p className="text-xs font-mono mt-1 truncate">CNJ: {h.numero_cnj}</p>}
                       {h.tracking_id_novo && <p className="text-xs font-mono mt-1 truncate">novo: {h.tracking_id_novo}</p>}
                       {h.erro && <p className="text-xs text-destructive mt-1 break-all">{h.erro}</p>}
                     </div>

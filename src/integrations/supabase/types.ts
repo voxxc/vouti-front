@@ -2338,6 +2338,7 @@ export type Database = {
           erro: string | null
           executado_em: string
           id: string
+          numero_cnj: string | null
           processo_id: string
           status: string
           tenant_id: string | null
@@ -2349,6 +2350,7 @@ export type Database = {
           erro?: string | null
           executado_em?: string
           id?: string
+          numero_cnj?: string | null
           processo_id: string
           status?: string
           tenant_id?: string | null
@@ -2360,6 +2362,7 @@ export type Database = {
           erro?: string | null
           executado_em?: string
           id?: string
+          numero_cnj?: string | null
           processo_id?: string
           status?: string
           tenant_id?: string | null
@@ -11138,6 +11141,18 @@ export type Database = {
         Returns: {
           count: number
           tenant_id: string
+        }[]
+      }
+      get_migracao_attachments_por_tenant: {
+        Args: never
+        Returns: {
+          cnpj_ativos: number
+          cnpj_migrados: number
+          oab_ativos: number
+          oab_migrados: number
+          tenant_id: string
+          tenant_name: string
+          ultimo_evento: string
         }[]
       }
       get_project_basic_info: {
