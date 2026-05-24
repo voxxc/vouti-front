@@ -11106,6 +11106,10 @@ export type Database = {
           ultima_movimentacao: string
         }[]
       }
+      get_auditoria_cobertura_tenant: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       get_central_andamentos_nao_lidos: {
         Args: { p_tenant_id: string }
         Returns: {

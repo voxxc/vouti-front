@@ -55,11 +55,14 @@ export const SuperAdminMigracaoAnexos = () => {
   const [batchSize, setBatchSize] = useState(10);
   const [filtroTenant, setFiltroTenant] = useState<string>('all');
   const [buscaCnj, setBuscaCnj] = useState('');
-  const [aba, setAba] = useState<'execucoes' | 'historico'>('execucoes');
+  const [aba, setAba] = useState<'execucoes' | 'historico' | 'auditoria'>('execucoes');
   const [historicoFull, setHistoricoFull] = useState<Registro[]>([]);
   const [loadingFull, setLoadingFull] = useState(false);
   const [buscaTrack, setBuscaTrack] = useState('');
   const [filtroTipo, setFiltroTipo] = useState<'all' | 'oab' | 'cnpj'>('all');
+  const [auditoriaTenant, setAuditoriaTenant] = useState<string>('');
+  const [auditoria, setAuditoria] = useState<any>(null);
+  const [loadingAuditoria, setLoadingAuditoria] = useState(false);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -117,6 +120,34 @@ export const SuperAdminMigracaoAnexos = () => {
       carregarHistoricoCompleto();
     }
   }, [aba, historicoFull.length, loadingFull, carregarHistoricoCompleto]);
+
+  const carregarAuditoria = useCallback(async (tenantId: string) => {
+    if (!tenantId) return;
+    setLoadingAuditoria(true);
+    try {
+      const { data, error } = await supabase.rpc('get_auditoria_cobertura_tenant', { p_tenant_id: tenantId });
+      if (error) throw error;
+      setAuditoria(data);
+    } catch (e: any) {
+      toast({ title: 'Erro na auditoria', description: e?.message ?? 'Falhou', variant: 'destructive' });
+      setAuditoria(null);
+    } finally {
+      setLoadingAuditoria(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (aba === 'auditoria' && !auditoriaTenant && tenants.length > 0) {
+      const solv = tenants.find((t) => t.tenant_name.toLowerCase().includes('solvenza'));
+      setAuditoriaTenant(solv?.tenant_id ?? tenants[0].tenant_id);
+    }
+  }, [aba, auditoriaTenant, tenants]);
+
+  useEffect(() => {
+    if (aba === 'auditoria' && auditoriaTenant) {
+      carregarAuditoria(auditoriaTenant);
+    }
+  }, [aba, auditoriaTenant, carregarAuditoria]);
 
   const tenantsMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -351,12 +382,13 @@ export const SuperAdminMigracaoAnexos = () => {
               <TabsList>
                 <TabsTrigger value="execucoes" className="text-xs">Execuções recentes ({historicoFiltrado.length})</TabsTrigger>
                 <TabsTrigger value="historico" className="text-xs">Histórico de Trackings ({historicoFull.length || '…'})</TabsTrigger>
+                <TabsTrigger value="auditoria" className="text-xs">Auditoria de Cobertura</TabsTrigger>
               </TabsList>
               {aba === 'execucoes' ? (
                 <Button variant="outline" size="sm" onClick={exportarCSV} disabled={historicoFiltrado.length === 0}>
                   <Download className="h-3.5 w-3.5 mr-1.5" /> Exportar CSV
                 </Button>
-              ) : (
+              ) : aba === 'historico' ? (
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="sm" onClick={carregarHistoricoCompleto} disabled={loadingFull}>
                     <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loadingFull ? 'animate-spin' : ''}`} /> Recarregar
@@ -365,9 +397,14 @@ export const SuperAdminMigracaoAnexos = () => {
                     <Download className="h-3.5 w-3.5 mr-1.5" /> Exportar CSV
                   </Button>
                 </div>
+              ) : (
+                <Button variant="ghost" size="sm" onClick={() => carregarAuditoria(auditoriaTenant)} disabled={loadingAuditoria || !auditoriaTenant}>
+                  <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loadingAuditoria ? 'animate-spin' : ''}`} /> Recarregar
+                </Button>
               )}
             </div>
           </Tabs>
+          {aba !== 'auditoria' && (
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
@@ -402,9 +439,137 @@ export const SuperAdminMigracaoAnexos = () => {
               </Select>
             )}
           </div>
+          )}
+          {aba === 'auditoria' && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Select value={auditoriaTenant} onValueChange={setAuditoriaTenant}>
+                <SelectTrigger className="h-8 text-xs w-[260px]">
+                  <SelectValue placeholder="Selecionar tenant…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenants.map((t) => (
+                    <SelectItem key={t.tenant_id} value={t.tenant_id}>{t.tenant_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-0">
-          {aba === 'execucoes' ? (
+          {aba === 'auditoria' ? (
+            loadingAuditoria ? (
+              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Auditando tenant…
+              </div>
+            ) : !auditoria ? (
+              <div className="text-center py-8 text-sm text-muted-foreground">Selecione um tenant para auditar.</div>
+            ) : (
+              <div className="p-4 space-y-5">
+                {/* Bloco 1 — Reconciliação */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <Card><CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">Vínculos c/ anexo</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{auditoria.vinculos_com_anexo ?? 0}</CardContent></Card>
+                  <Card><CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">CNJs únicos c/ anexo</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{auditoria.cnjs_unicos_com_anexo ?? 0}</CardContent></Card>
+                  <Card><CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">Linhas na auditoria</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{auditoria.linhas_auditoria ?? 0}</CardContent></Card>
+                  <Card><CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">Diferença (re-execuções)</CardTitle></CardHeader><CardContent className={`text-2xl font-semibold ${(auditoria.diferenca ?? 0) > 0 ? 'text-amber-500' : ''}`}>{auditoria.diferenca > 0 ? `+${auditoria.diferenca}` : auditoria.diferenca}</CardContent></Card>
+                </div>
+
+                {/* Bloco 2 — Duplicados */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-sm font-medium">CNJs duplicados na auditoria</h4>
+                    <Badge variant="secondary" className="text-[10px]">{(auditoria.duplicados ?? []).length}</Badge>
+                  </div>
+                  {(auditoria.duplicados ?? []).length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Nenhuma duplicidade. Todo CNJ foi migrado em uma única execução bem sucedida.</p>
+                  ) : (
+                    <TooltipProvider delayDuration={150}>
+                    <div className="border rounded divide-y">
+                      {(auditoria.duplicados ?? []).map((d: any) => (
+                        <div key={d.numero_cnj} className="p-3 space-y-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button onClick={() => copiar(d.numero_cnj, 'CNJ copiado')} className="font-mono text-xs hover:text-primary inline-flex items-center gap-1">
+                              {d.numero_cnj} <Copy className="h-3 w-3 opacity-50" />
+                            </button>
+                            <Badge variant="outline" className="text-[10px]">{d.ocorrencias} tentativas</Badge>
+                          </div>
+                          <div className="space-y-1">
+                            {(d.tentativas ?? []).map((t: any, i: number) => {
+                              const dt = new Date(t.executado_em);
+                              return (
+                                <div key={t.id ?? i} className="flex items-center gap-2 text-[10px] font-mono">
+                                  <Badge variant={t.status === 'erro' ? 'destructive' : 'secondary'} className="text-[9px]">#{i + 1} {t.status}</Badge>
+                                  <span className="text-muted-foreground">{dt.toLocaleString('pt-BR')}</span>
+                                  <span className="opacity-70">{t.tracking_id_antigo ? `${t.tracking_id_antigo.slice(0, 8)}…` : '—'}</span>
+                                  <span className="text-muted-foreground">→</span>
+                                  <span className="text-primary">{t.tracking_id_novo ? `${t.tracking_id_novo.slice(0, 8)}…` : '—'}</span>
+                                  {t.erro && <span className="text-destructive truncate max-w-[260px]">{t.erro}</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    </TooltipProvider>
+                  )}
+                </div>
+
+                {/* Bloco 3 — Vínculos órfãos */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-sm font-medium">Vínculos órfãos (com anexo, sem auditoria)</h4>
+                    <Badge variant={(auditoria.orfaos ?? []).length === 0 ? 'secondary' : 'destructive'} className="text-[10px]">{(auditoria.orfaos ?? []).length}</Badge>
+                  </div>
+                  {(auditoria.orfaos ?? []).length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Todos os vínculos com anexo possuem registro de auditoria correspondente.</p>
+                  ) : (
+                    <ScrollArea className="h-[180px] border rounded">
+                      <table className="w-full text-xs">
+                        <thead className="sticky top-0 bg-background border-b">
+                          <tr className="text-left text-muted-foreground"><th className="px-2 py-1.5">CNJ</th><th className="px-2 py-1.5">Tracking atual</th></tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {(auditoria.orfaos ?? []).map((o: any) => (
+                            <tr key={o.processo_id}>
+                              <td className="px-2 py-1.5 font-mono text-[11px]">{o.numero_cnj}</td>
+                              <td className="px-2 py-1.5 font-mono text-[10px] opacity-70">{o.tracking_id ?? '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </ScrollArea>
+                  )}
+                </div>
+
+                {/* Bloco 4 — Sem cobertura */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-sm font-medium">CNJs ainda sem cobertura (ativos sem anexo)</h4>
+                    <Badge variant={(auditoria.sem_cobertura ?? []).length === 0 ? 'secondary' : 'destructive'} className="text-[10px]">{(auditoria.sem_cobertura ?? []).length}</Badge>
+                  </div>
+                  {(auditoria.sem_cobertura ?? []).length === 0 ? (
+                    <p className="text-xs text-muted-foreground">100% dos monitoramentos ativos deste tenant já operam com anexo.</p>
+                  ) : (
+                    <ScrollArea className="h-[180px] border rounded">
+                      <table className="w-full text-xs">
+                        <thead className="sticky top-0 bg-background border-b">
+                          <tr className="text-left text-muted-foreground"><th className="px-2 py-1.5">CNJ</th><th className="px-2 py-1.5">Tracking antigo</th></tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {(auditoria.sem_cobertura ?? []).map((o: any) => (
+                            <tr key={o.processo_id}>
+                              <td className="px-2 py-1.5 font-mono text-[11px]">{o.numero_cnj}</td>
+                              <td className="px-2 py-1.5 font-mono text-[10px] opacity-70">{o.tracking_id ?? '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </ScrollArea>
+                  )}
+                </div>
+              </div>
+            )
+          ) : aba === 'execucoes' ? (
           historicoFiltrado.length === 0 ? (
             <div className="text-center py-8 text-sm text-muted-foreground">Nenhuma execução registrada ainda.</div>
           ) : (
