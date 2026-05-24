@@ -442,7 +442,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
     toast({ title: 'Relatório gerado', description: `${processosAgg.length} processos exportados.` });
   };
 
-  const renderTrackingItem = (p: ProcessoAgg, ativo: boolean) => (
+  const renderTrackingItem = (p: TrackingLive | ProcessoAgg, ativo: boolean) => (
     <div key={p.processo_id} className="p-3 bg-muted/40 rounded-lg border border-border">
       <div className="flex items-center gap-2 mb-1.5">
         <Radio className="h-4 w-4 text-primary shrink-0" />
@@ -508,10 +508,10 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
           <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="trackings_on" className="text-xs">
-              <Radio className="h-3 w-3 mr-1" /> Trackings ON ({counts.on})
+              <Radio className="h-3 w-3 mr-1" /> Trackings ON ({trackingsStats.onTrk})
             </TabsTrigger>
             <TabsTrigger value="trackings_off" className="text-xs">
-              <Radio className="h-3 w-3 mr-1" /> Trackings OFF ({counts.off})
+              <Radio className="h-3 w-3 mr-1" /> Trackings OFF ({trackingsStats.offTrk})
             </TabsTrigger>
             <TabsTrigger value="requests_cnj" className="text-xs">
               <FileText className="h-3 w-3 mr-1" /> Requests CNJ ({counts.requests})
@@ -535,11 +535,25 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
             ) : (
               <div className="pr-3 space-y-2">
                 <TabsContent value="trackings_on" className="m-0 space-y-2">
-                  {pageItems.length === 0 ? <Empty /> : (pageItems as ProcessoAgg[]).map((p) => renderTrackingItem(p, true))}
+                  {trackingsOn.length > 0 && (
+                    <div className="text-[11px] text-muted-foreground px-1 pb-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                      <span><strong className="text-foreground">{trackingsStats.onTrk}</strong> trackings únicos</span>
+                      <span><strong className="text-foreground">{trackingsStats.onCnj}</strong> CNJs únicos</span>
+                      <span><strong className="text-foreground">{trackingsStats.onRows}</strong> vínculos (linhas em processos_oab/cnpjs)</span>
+                    </div>
+                  )}
+                  {pageItems.length === 0 ? <Empty /> : (pageItems as TrackingLive[]).map((p) => renderTrackingItem(p, true))}
                 </TabsContent>
 
                 <TabsContent value="trackings_off" className="m-0 space-y-2">
-                  {pageItems.length === 0 ? <Empty /> : (pageItems as ProcessoAgg[]).map((p) => renderTrackingItem(p, false))}
+                  {trackingsOff.length > 0 && (
+                    <div className="text-[11px] text-muted-foreground px-1 pb-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                      <span><strong className="text-foreground">{trackingsStats.offTrk}</strong> trackings únicos</span>
+                      <span><strong className="text-foreground">{trackingsStats.offCnj}</strong> CNJs únicos</span>
+                      <span><strong className="text-foreground">{trackingsStats.offRows}</strong> vínculos (linhas em processos_oab/cnpjs)</span>
+                    </div>
+                  )}
+                  {pageItems.length === 0 ? <Empty /> : (pageItems as TrackingLive[]).map((p) => renderTrackingItem(p, false))}
                 </TabsContent>
 
                 <TabsContent value="requests_cnj" className="m-0 space-y-2">
