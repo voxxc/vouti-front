@@ -2335,10 +2335,12 @@ export type Database = {
       }
       judit_migracao_attachments: {
         Row: {
+          antigo_pausado: boolean | null
           erro: string | null
           executado_em: string
           id: string
           numero_cnj: string | null
+          pausa_erro: string | null
           processo_id: string
           status: string
           tenant_id: string | null
@@ -2347,10 +2349,12 @@ export type Database = {
           tracking_id_novo: string | null
         }
         Insert: {
+          antigo_pausado?: boolean | null
           erro?: string | null
           executado_em?: string
           id?: string
           numero_cnj?: string | null
+          pausa_erro?: string | null
           processo_id: string
           status?: string
           tenant_id?: string | null
@@ -2359,10 +2363,12 @@ export type Database = {
           tracking_id_novo?: string | null
         }
         Update: {
+          antigo_pausado?: boolean | null
           erro?: string | null
           executado_em?: string
           id?: string
           numero_cnj?: string | null
+          pausa_erro?: string | null
           processo_id?: string
           status?: string
           tenant_id?: string | null

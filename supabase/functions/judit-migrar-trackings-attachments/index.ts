@@ -96,13 +96,25 @@ Deno.serve(async (req) => {
           if (!novoTrackingId) throw new Error('CREATE sem tracking_id na resposta');
 
           // 2) Pausa tracking antigo (best-effort)
+          let antigoPausado: boolean | null = null;
+          let pausaErro: string | null = null;
           if (p.tracking_id) {
             try {
-              await fetch(`${TRACKING_URL}/${p.tracking_id}/pause`, {
+              const pauseRes = await fetch(`${TRACKING_URL}/${p.tracking_id}/pause`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'api-key': juditApiKey.trim() },
               });
-            } catch (_) { /* ignore */ }
+              antigoPausado = pauseRes.ok;
+              if (!pauseRes.ok) {
+                const t = await pauseRes.text();
+                pausaErro = `${pauseRes.status}: ${t.substring(0, 200)}`;
+              } else {
+                await pauseRes.text().catch(() => {});
+              }
+            } catch (e: any) {
+              antigoPausado = false;
+              pausaErro = e?.message ?? String(e);
+            }
           }
 
           // 3) Atualiza DB (todos processos com mesmo CNJ no tenant)
@@ -126,6 +138,8 @@ Deno.serve(async (req) => {
             tracking_id_antigo: p.tracking_id,
             tracking_id_novo: novoTrackingId,
             status: 'migrado',
+            antigo_pausado: antigoPausado,
+            pausa_erro: pausaErro,
           });
 
           await supabase.from('judit_api_logs').insert({
@@ -196,13 +210,25 @@ Deno.serve(async (req) => {
           const novoTrackingId = JSON.parse(createTxt).tracking_id;
           if (!novoTrackingId) throw new Error('CREATE sem tracking_id');
 
+          let antigoPausadoC: boolean | null = null;
+          let pausaErroC: string | null = null;
           if (c.tracking_id) {
             try {
-              await fetch(`${TRACKING_URL}/${c.tracking_id}/pause`, {
+              const pauseRes = await fetch(`${TRACKING_URL}/${c.tracking_id}/pause`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'api-key': juditApiKey.trim() },
               });
-            } catch (_) {}
+              antigoPausadoC = pauseRes.ok;
+              if (!pauseRes.ok) {
+                const t = await pauseRes.text();
+                pausaErroC = `${pauseRes.status}: ${t.substring(0, 200)}`;
+              } else {
+                await pauseRes.text().catch(() => {});
+              }
+            } catch (e: any) {
+              antigoPausadoC = false;
+              pausaErroC = e?.message ?? String(e);
+            }
           }
 
           await supabase
@@ -222,6 +248,8 @@ Deno.serve(async (req) => {
             tracking_id_antigo: c.tracking_id,
             tracking_id_novo: novoTrackingId,
             status: 'migrado',
+            antigo_pausado: antigoPausadoC,
+            pausa_erro: pausaErroC,
           });
 
           migrados++;
