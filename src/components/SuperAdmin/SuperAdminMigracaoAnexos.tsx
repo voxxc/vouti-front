@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Paperclip, AlertTriangle, CheckCircle2, RefreshCw, Play } from 'lucide-react';
+import { Loader2, Paperclip, AlertTriangle, CheckCircle2, RefreshCw, Play, Building2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface Stats {
@@ -21,20 +21,33 @@ interface Registro {
   status: string;
   erro: string | null;
   tracking_id_novo: string | null;
+  numero_cnj: string | null;
   executado_em: string;
+}
+
+interface TenantRow {
+  tenant_id: string;
+  tenant_name: string;
+  oab_ativos: number;
+  oab_migrados: number;
+  cnpj_ativos: number;
+  cnpj_migrados: number;
+  ultimo_evento: string | null;
 }
 
 export const SuperAdminMigracaoAnexos = () => {
   const [stats, setStats] = useState<Stats>({ oabAtivos: 0, oabMigrados: 0, cnpjAtivos: 0, cnpjMigrados: 0 });
   const [historico, setHistorico] = useState<Registro[]>([]);
+  const [tenants, setTenants] = useState<TenantRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
+  const [runningTenantId, setRunningTenantId] = useState<string | null>(null);
   const [batchSize, setBatchSize] = useState(10);
 
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const [oabAtivos, oabMigrados, cnpjAtivos, cnpjMigrados, hist] = await Promise.all([
+      const [oabAtivos, oabMigrados, cnpjAtivos, cnpjMigrados, hist, perTenant] = await Promise.all([
         supabase.from('processos_oab').select('id', { count: 'exact', head: true })
           .eq('monitoramento_ativo', true).not('tracking_id', 'is', null),
         supabase.from('processos_oab').select('id', { count: 'exact', head: true })
@@ -44,6 +57,7 @@ export const SuperAdminMigracaoAnexos = () => {
         supabase.from('cnpjs_cadastrados').select('id', { count: 'exact', head: true })
           .eq('monitoramento_ativo', true).eq('with_attachments', true).not('tracking_id', 'is', null),
         supabase.from('judit_migracao_attachments').select('*').order('executado_em', { ascending: false }).limit(50),
+        supabase.rpc('get_migracao_attachments_por_tenant'),
       ]);
       setStats({
         oabAtivos: oabAtivos.count ?? 0,
@@ -52,6 +66,7 @@ export const SuperAdminMigracaoAnexos = () => {
         cnpjMigrados: cnpjMigrados.count ?? 0,
       });
       setHistorico((hist.data || []) as Registro[]);
+      setTenants((perTenant.data || []) as TenantRow[]);
     } catch (e: any) {
       console.error(e);
     } finally {
@@ -61,11 +76,12 @@ export const SuperAdminMigracaoAnexos = () => {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  const executar = async (dryRun = false) => {
-    setRunning(true);
+  const executar = async (dryRun = false, tenantId: string | null = null) => {
+    if (tenantId) setRunningTenantId(tenantId);
+    else setRunning(true);
     try {
       const { data, error } = await supabase.functions.invoke('judit-migrar-trackings-attachments', {
-        body: { batchSize, tipo: 'all', dryRun },
+        body: { batchSize, tipo: 'all', dryRun, tenantId },
       });
       if (error) throw error;
       toast({
@@ -77,6 +93,7 @@ export const SuperAdminMigracaoAnexos = () => {
       toast({ title: 'Erro', description: e?.message ?? 'Falhou', variant: 'destructive' });
     } finally {
       setRunning(false);
+      setRunningTenantId(null);
     }
   };
 
