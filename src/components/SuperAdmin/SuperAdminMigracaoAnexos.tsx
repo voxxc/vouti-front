@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fetchAllPaginated } from '@/lib/supabasePagination';
 import { toast } from '@/hooks/use-toast';
+import { SuperAdminReconciliacaoJudit } from './SuperAdminReconciliacaoJudit';
 
 interface Stats {
   oabAtivos: number;
@@ -55,7 +56,7 @@ export const SuperAdminMigracaoAnexos = () => {
   const [batchSize, setBatchSize] = useState(10);
   const [filtroTenant, setFiltroTenant] = useState<string>('all');
   const [buscaCnj, setBuscaCnj] = useState('');
-  const [aba, setAba] = useState<'execucoes' | 'historico' | 'auditoria'>('execucoes');
+  const [aba, setAba] = useState<'execucoes' | 'historico' | 'auditoria' | 'reconciliacao'>('execucoes');
   const [historicoFull, setHistoricoFull] = useState<Registro[]>([]);
   const [loadingFull, setLoadingFull] = useState(false);
   const [buscaTrack, setBuscaTrack] = useState('');
@@ -383,6 +384,7 @@ export const SuperAdminMigracaoAnexos = () => {
                 <TabsTrigger value="execucoes" className="text-xs">Execuções recentes ({historicoFiltrado.length})</TabsTrigger>
                 <TabsTrigger value="historico" className="text-xs">Histórico de Trackings ({historicoFull.length || '…'})</TabsTrigger>
                 <TabsTrigger value="auditoria" className="text-xs">Auditoria de Cobertura</TabsTrigger>
+                <TabsTrigger value="reconciliacao" className="text-xs">Reconciliação Judit</TabsTrigger>
               </TabsList>
               {aba === 'execucoes' ? (
                 <Button variant="outline" size="sm" onClick={exportarCSV} disabled={historicoFiltrado.length === 0}>
@@ -397,14 +399,14 @@ export const SuperAdminMigracaoAnexos = () => {
                     <Download className="h-3.5 w-3.5 mr-1.5" /> Exportar CSV
                   </Button>
                 </div>
-              ) : (
+              ) : aba === 'auditoria' ? (
                 <Button variant="ghost" size="sm" onClick={() => carregarAuditoria(auditoriaTenant)} disabled={loadingAuditoria || !auditoriaTenant}>
                   <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loadingAuditoria ? 'animate-spin' : ''}`} /> Recarregar
                 </Button>
-              )}
+              ) : null}
             </div>
           </Tabs>
-          {aba !== 'auditoria' && (
+          {aba !== 'auditoria' && aba !== 'reconciliacao' && (
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
@@ -456,7 +458,11 @@ export const SuperAdminMigracaoAnexos = () => {
           )}
         </CardHeader>
         <CardContent className="p-0">
-          {aba === 'auditoria' ? (
+          {aba === 'reconciliacao' ? (
+            <SuperAdminReconciliacaoJudit
+              tenants={tenants.map((t) => ({ tenant_id: t.tenant_id, tenant_name: t.tenant_name }))}
+            />
+          ) : aba === 'auditoria' ? (
             loadingAuditoria ? (
               <div className="flex items-center justify-center py-12 text-sm text-muted-foreground gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" /> Auditando tenant…
