@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fetchAllPaginated } from '@/lib/supabasePagination';
 import { toast } from '@/hooks/use-toast';
+import { SuperAdminReconciliacaoJudit } from './SuperAdminReconciliacaoJudit';
 
 interface Stats {
   oabAtivos: number;
@@ -55,7 +56,7 @@ export const SuperAdminMigracaoAnexos = () => {
   const [batchSize, setBatchSize] = useState(10);
   const [filtroTenant, setFiltroTenant] = useState<string>('all');
   const [buscaCnj, setBuscaCnj] = useState('');
-  const [aba, setAba] = useState<'execucoes' | 'historico' | 'auditoria'>('execucoes');
+  const [aba, setAba] = useState<'execucoes' | 'historico' | 'auditoria' | 'reconciliacao'>('execucoes');
   const [historicoFull, setHistoricoFull] = useState<Registro[]>([]);
   const [loadingFull, setLoadingFull] = useState(false);
   const [buscaTrack, setBuscaTrack] = useState('');
@@ -383,6 +384,7 @@ export const SuperAdminMigracaoAnexos = () => {
                 <TabsTrigger value="execucoes" className="text-xs">Execuções recentes ({historicoFiltrado.length})</TabsTrigger>
                 <TabsTrigger value="historico" className="text-xs">Histórico de Trackings ({historicoFull.length || '…'})</TabsTrigger>
                 <TabsTrigger value="auditoria" className="text-xs">Auditoria de Cobertura</TabsTrigger>
+                <TabsTrigger value="reconciliacao" className="text-xs">Reconciliação Judit</TabsTrigger>
               </TabsList>
               {aba === 'execucoes' ? (
                 <Button variant="outline" size="sm" onClick={exportarCSV} disabled={historicoFiltrado.length === 0}>
