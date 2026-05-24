@@ -107,7 +107,18 @@ export const useProcessoAnexos = (processoOabId: string | null) => {
       }
 
       if (data?.url) {
-        window.open(data.url, '_blank');
+        // Baixar via fetch->blob para não expor URL do Supabase em nova aba
+        const response = await fetch(data.url);
+        if (!response.ok) throw new Error('Falha ao baixar arquivo');
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = anexo.attachment_name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(objectUrl);
       } else if (data?.content) {
         // Se retornar conteudo base64, criar blob e download
         const byteCharacters = atob(data.content);
