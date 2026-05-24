@@ -159,6 +159,66 @@ export const SuperAdminMigracaoAnexos = () => {
       </Card>
 
       <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-primary" />
+            Progresso por tenant
+          </CardTitle>
+          <span className="text-xs text-muted-foreground">{tenants.length} tenants com monitoramento ativo</span>
+        </CardHeader>
+        <CardContent className="p-0">
+          {tenants.length === 0 ? (
+            <div className="text-center py-8 text-sm text-muted-foreground">Nenhum tenant com monitoramento ativo.</div>
+          ) : (
+            <ScrollArea className="h-[360px]">
+              <div className="divide-y">
+                {tenants.map((t) => {
+                  const ativos = t.oab_ativos + t.cnpj_ativos;
+                  const migrados = t.oab_migrados + t.cnpj_migrados;
+                  const pendentes = ativos - migrados;
+                  const pct = ativos > 0 ? Math.round((migrados / ativos) * 100) : 0;
+                  const isRunning = runningTenantId === t.tenant_id;
+                  return (
+                    <div key={t.tenant_id} className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium truncate">{t.tenant_name}</span>
+                          <Badge variant="outline" className="text-[10px]">OAB {t.oab_migrados}/{t.oab_ativos}</Badge>
+                          {t.cnpj_ativos > 0 && (
+                            <Badge variant="outline" className="text-[10px]">CNPJ {t.cnpj_migrados}/{t.cnpj_ativos}</Badge>
+                          )}
+                          {pendentes === 0
+                            ? <Badge className="text-[10px] bg-[hsl(var(--chart-2))]/15 text-[hsl(var(--chart-2))] hover:bg-[hsl(var(--chart-2))]/15">Completo</Badge>
+                            : <Badge variant="secondary" className="text-[10px]">{pendentes} pendentes</Badge>}
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <div className="flex-1 bg-muted h-1.5 rounded-full overflow-hidden">
+                            <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-[11px] text-muted-foreground tabular-nums w-10 text-right">{pct}%</span>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant={pendentes === 0 ? 'ghost' : 'outline'}
+                        disabled={pendentes === 0 || running || !!runningTenantId}
+                        onClick={() => executar(false, t.tenant_id)}
+                      >
+                        {isRunning
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <Play className="h-3.5 w-3.5" />}
+                        <span className="ml-1.5 text-xs">Migrar lote</span>
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">Últimas 50 execuções</CardTitle></CardHeader>
         <CardContent className="p-0">
           {historico.length === 0 ? (
@@ -180,6 +240,7 @@ export const SuperAdminMigracaoAnexos = () => {
                         <span className="text-xs text-muted-foreground">{new Date(h.executado_em).toLocaleString('pt-BR')}</span>
                         {h.tenant_id && <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[160px]">tenant: {h.tenant_id.slice(0, 8)}…</span>}
                       </div>
+                      {h.numero_cnj && <p className="text-xs font-mono mt-1 truncate">CNJ: {h.numero_cnj}</p>}
                       {h.tracking_id_novo && <p className="text-xs font-mono mt-1 truncate">novo: {h.tracking_id_novo}</p>}
                       {h.erro && <p className="text-xs text-destructive mt-1 break-all">{h.erro}</p>}
                     </div>
