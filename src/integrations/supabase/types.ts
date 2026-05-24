@@ -11202,6 +11202,18 @@ export type Database = {
           ultima_movimentacao: string
         }[]
       }
+      get_tenant_trackings_live: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          monitoramento_ativo: boolean
+          numero_cnj: string
+          processo_id: string
+          source: string
+          tracking_id: string
+          tribunal: string
+          updated_at: string
+        }[]
+      }
       get_total_andamentos_nao_lidos: {
         Args: { p_tenant_id: string }
         Returns: number
