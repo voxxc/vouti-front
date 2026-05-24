@@ -45,6 +45,16 @@ interface ProcessoAgg {
   created_at: string;
 }
 
+interface TrackingLive {
+  processo_id: string;
+  numero_cnj: string | null;
+  tribunal: string | null;
+  tracking_id: string;
+  tracking_ativo: boolean;
+  tracking_created_at: string | null;
+  source: 'oab' | 'cnpj';
+}
+
 interface OabAgg {
   id: string;
   oab: string;
@@ -80,6 +90,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
   const [pushDocs, setPushDocs] = useState<PushDocRow[]>([]);
   const [processosImport, setProcessosImport] = useState<Array<{ id: string; numero_cnj: string | null; created_at: string; importado_por_email: string | null }>>([]);
   const [monitorAudit, setMonitorAudit] = useState<Array<{ id: string; numero_cnj: string | null; acao: string; user_email: string | null; created_at: string }>>([]);
+  const [trackingsLive, setTrackingsLive] = useState<TrackingLive[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -97,15 +108,14 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [bancoRes, pushRes, procRes, auditRes] = await Promise.all([
+      const [bancoRes, pushRes, procRes, auditRes, oabLiveRes, cnpjLiveRes] = await Promise.all([
         fetchAllPaginated<BancoId>(
           () =>
             supabase
               .from('tenant_banco_ids')
               .select('id, tipo, referencia_id, external_id, descricao, metadata, created_at')
               .eq('tenant_id', tenantId)
-              .order('created_at', { ascending: false }),
-          { hardCap: 200 }
+              .order('created_at', { ascending: false })
         ),
         fetchAllPaginated<PushDocRow>(
           () =>
@@ -122,8 +132,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
               .from('processos_oab')
               .select('id, numero_cnj, created_at, importado_por_email')
               .eq('tenant_id', tenantId)
-              .order('created_at', { ascending: false }),
-          { hardCap: 500 }
+              .order('created_at', { ascending: false })
         ),
         fetchAllPaginated<{ id: string; numero_cnj: string | null; acao: string; user_email: string | null; created_at: string }>(
           () =>
@@ -131,8 +140,25 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
               .from('processo_monitoramento_audit')
               .select('id, numero_cnj, acao, user_email, created_at')
               .eq('tenant_id', tenantId)
-              .order('created_at', { ascending: false }),
-          { hardCap: 500 }
+              .order('created_at', { ascending: false })
+        ),
+        fetchAllPaginated<{ id: string; numero_cnj: string | null; tribunal_sigla: string | null; tracking_id: string | null; monitoramento_ativo: boolean | null; updated_at: string | null }>(
+          () =>
+            supabase
+              .from('processos_oab')
+              .select('id, numero_cnj, tribunal_sigla, tracking_id, monitoramento_ativo, updated_at')
+              .eq('tenant_id', tenantId)
+              .not('tracking_id', 'is', null)
+              .order('updated_at', { ascending: false })
+        ),
+        fetchAllPaginated<{ id: string; cnpj: string | null; tracking_id: string | null; monitoramento_ativo: boolean | null; updated_at: string | null }>(
+          () =>
+            supabase
+              .from('cnpjs_cadastrados')
+              .select('id, cnpj, tracking_id, monitoramento_ativo, updated_at')
+              .eq('tenant_id', tenantId)
+              .not('tracking_id', 'is', null)
+              .order('updated_at', { ascending: false })
         ),
       ]);
       if (bancoRes.error) throw bancoRes.error;
@@ -141,6 +167,25 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
       setPushDocs(pushRes.data || []);
       setProcessosImport(procRes.data || []);
       setMonitorAudit(auditRes.data || []);
+      const oabLive: TrackingLive[] = (oabLiveRes.data || []).map((p) => ({
+        processo_id: p.id,
+        numero_cnj: p.numero_cnj,
+        tribunal: p.tribunal_sigla,
+        tracking_id: p.tracking_id as string,
+        tracking_ativo: !!p.monitoramento_ativo,
+        tracking_created_at: p.updated_at,
+        source: 'oab',
+      }));
+      const cnpjLive: TrackingLive[] = (cnpjLiveRes.data || []).map((c) => ({
+        processo_id: c.id,
+        numero_cnj: c.cnpj,
+        tribunal: null,
+        tracking_id: c.tracking_id as string,
+        tracking_ativo: !!c.monitoramento_ativo,
+        tracking_created_at: c.updated_at,
+        source: 'cnpj',
+      }));
+      setTrackingsLive([...oabLive, ...cnpjLive]);
     } catch (error) {
       console.error('Erro ao buscar banco de IDs:', error);
       toast({ title: 'Erro', description: 'Não foi possível carregar os IDs', variant: 'destructive' });
@@ -226,18 +271,34 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
 
   const trackingsOn = useMemo(
     () =>
-      processosAgg
-        .filter((p) => p.tracking_id && p.tracking_ativo && matches(p.numero_cnj, p.tracking_id))
+      trackingsLive
+        .filter((t) => t.tracking_ativo && matches(t.numero_cnj, t.tracking_id))
         .sort((a, b) => (b.tracking_created_at || '').localeCompare(a.tracking_created_at || '')),
-    [processosAgg, term]
+    [trackingsLive, term]
   );
   const trackingsOff = useMemo(
     () =>
-      processosAgg
-        .filter((p) => p.tracking_id && !p.tracking_ativo && matches(p.numero_cnj, p.tracking_id))
+      trackingsLive
+        .filter((t) => !t.tracking_ativo && matches(t.numero_cnj, t.tracking_id))
         .sort((a, b) => (b.tracking_created_at || '').localeCompare(a.tracking_created_at || '')),
-    [processosAgg, term]
+    [trackingsLive, term]
   );
+
+  // Estatísticas reais para o header das abas Trackings
+  const trackingsStats = useMemo(() => {
+    const uniqCnj = (list: TrackingLive[]) =>
+      new Set(list.map((t) => t.numero_cnj).filter(Boolean)).size;
+    const uniqTrk = (list: TrackingLive[]) =>
+      new Set(list.map((t) => t.tracking_id).filter(Boolean)).size;
+    return {
+      onRows: trackingsOn.length,
+      onCnj: uniqCnj(trackingsOn),
+      onTrk: uniqTrk(trackingsOn),
+      offRows: trackingsOff.length,
+      offCnj: uniqCnj(trackingsOff),
+      offTrk: uniqTrk(trackingsOff),
+    };
+  }, [trackingsOn, trackingsOff]);
   const requestsCnj = useMemo(
     () =>
       processosAgg
