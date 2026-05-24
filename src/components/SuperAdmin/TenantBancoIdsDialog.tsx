@@ -108,7 +108,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [bancoRes, pushRes, procRes, auditRes, oabLiveRes, cnpjLiveRes] = await Promise.all([
+      const [bancoRes, pushRes, procRes, auditRes, liveRes] = await Promise.all([
         fetchAllPaginated<BancoId>(
           () =>
             supabase
@@ -142,50 +142,25 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
               .eq('tenant_id', tenantId)
               .order('created_at', { ascending: false })
         ),
-        fetchAllPaginated<{ id: string; numero_cnj: string | null; tribunal_sigla: string | null; tracking_id: string | null; monitoramento_ativo: boolean | null; updated_at: string | null }>(
-          () =>
-            supabase
-              .from('processos_oab')
-              .select('id, numero_cnj, tribunal_sigla, tracking_id, monitoramento_ativo, updated_at')
-              .eq('tenant_id', tenantId)
-              .not('tracking_id', 'is', null)
-              .order('updated_at', { ascending: false })
-        ),
-        fetchAllPaginated<{ id: string; cnpj: string | null; tracking_id: string | null; monitoramento_ativo: boolean | null; updated_at: string | null }>(
-          () =>
-            supabase
-              .from('cnpjs_cadastrados')
-              .select('id, cnpj, tracking_id, monitoramento_ativo, updated_at')
-              .eq('tenant_id', tenantId)
-              .not('tracking_id', 'is', null)
-              .order('updated_at', { ascending: false })
-        ),
+        supabase.rpc('get_tenant_trackings_live', { p_tenant_id: tenantId }),
       ]);
       if (bancoRes.error) throw bancoRes.error;
       if (pushRes.error) throw pushRes.error;
+      if (liveRes.error) throw liveRes.error;
       setBancoIds(bancoRes.data || []);
       setPushDocs(pushRes.data || []);
       setProcessosImport(procRes.data || []);
       setMonitorAudit(auditRes.data || []);
-      const oabLive: TrackingLive[] = (oabLiveRes.data || []).map((p) => ({
-        processo_id: p.id,
-        numero_cnj: p.numero_cnj,
-        tribunal: p.tribunal_sigla,
-        tracking_id: p.tracking_id as string,
-        tracking_ativo: !!p.monitoramento_ativo,
-        tracking_created_at: p.updated_at,
-        source: 'oab',
+      const live: TrackingLive[] = ((liveRes.data as any[]) || []).map((r) => ({
+        processo_id: r.processo_id,
+        numero_cnj: r.numero_cnj,
+        tribunal: r.tribunal,
+        tracking_id: r.tracking_id,
+        tracking_ativo: !!r.monitoramento_ativo,
+        tracking_created_at: r.updated_at,
+        source: r.source === 'cnpj' ? 'cnpj' : 'oab',
       }));
-      const cnpjLive: TrackingLive[] = (cnpjLiveRes.data || []).map((c) => ({
-        processo_id: c.id,
-        numero_cnj: c.cnpj,
-        tribunal: null,
-        tracking_id: c.tracking_id as string,
-        tracking_ativo: !!c.monitoramento_ativo,
-        tracking_created_at: c.updated_at,
-        source: 'cnpj',
-      }));
-      setTrackingsLive([...oabLive, ...cnpjLive]);
+      setTrackingsLive(live);
     } catch (error) {
       console.error('Erro ao buscar banco de IDs:', error);
       toast({ title: 'Erro', description: 'Não foi possível carregar os IDs', variant: 'destructive' });

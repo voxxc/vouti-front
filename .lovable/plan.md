@@ -1,47 +1,36 @@
-## Operação AB2 — Discrepância "Banco de IDs" vs Painel (Solvenza)
+## Trackings ON/OFF vazios no Banco de IDs
 
 ### Causa raiz
 
-São **duas fontes de dados diferentes** sendo comparadas, e ainda há um teto de leitura no dialog.
+Na última mudança, troquei a fonte das abas Trackings ON/OFF de `tenant_banco_ids` (que tem policy `is_super_admin(auth.uid())`) para leitura direta em `processos_oab` e `cnpjs_cadastrados`.
 
-| O quê | Fonte | Solvenza hoje |
-|---|---|---|
-| Painel "Migração de Anexos" / "ativos" | `processos_oab WHERE monitoramento_ativo=true AND tracking_id IS NOT NULL` (1 linha por processo) | **334 linhas** |
-| Mesma consulta, deduplicada por `numero_cnj` | idem, `DISTINCT numero_cnj` | **311 CNJs únicos** |
-| Mesma consulta, deduplicada por `tracking_id` | idem, `DISTINCT tracking_id` | **311 trackings únicos** |
-| Aba "Trackings ON" do Banco de IDs | `tenant_banco_ids` tipo `tracking` agregado por `referencia_id` (processo_id) | mostra ~328 mas limitado |
+Essas duas tabelas **não têm policy de super-admin**. As policies de SELECT existentes filtram por `tenant_id = get_user_tenant_id()`, ou seja, só retornam linhas do tenant do próprio usuário logado. Quando o super-admin (que pertence ao tenant `vouti` interno) abre o Banco de IDs de outro tenant (ex.: Solvenza), as duas queries retornam **0 linhas** → as abas aparecem vazias e os contadores zeram.
 
-O que cria a diferença:
+`tenant_banco_ids` continuava funcionando antes porque tinha a policy `Super admins podem ver todos os IDs`.
 
-1. **Fonte distinta.** O Banco de IDs reconstrói trackings a partir da tabela de auditoria `tenant_banco_ids` (linhas tipo `tracking` / `tracking_desativado`). O painel lê do estado vivo em `processos_oab`. Auditoria e estado não estão obrigados a ter cardinalidade igual — trackings antigos podem nunca ter gravado evento, e eventos órfãos podem existir sem `processos_oab` correspondente.
-2. **Deduplicação implícita.** O dialog agrupa por `processo_id` (1 entrada por processo). O painel conta linhas: o mesmo CNJ aparece **uma vez por OAB** que o referencia. Solvenza tem 334 linhas mas só 311 CNJs distintos → as 23 sobras são processos compartilhados entre 2+ OABs do escritório.
-3. **`hardCap: 200` no fetch.** Em `TenantBancoIdsDialog.tsx` linha 108, o carregamento de `tenant_banco_ids` está limitado a 200 linhas. Solvenza tem **360 linhas tipo `tracking`** + 15 `tracking_desativado` + milhares de outros tipos. O cap trunca a leitura, então a aba nunca consegue ver todos os trackings reais.
+### Correção
 
-Resumindo: nem o número do painel (334, com duplicatas por OAB) nem o do Banco de IDs (truncado pelo cap) representam fielmente "quantos trackings ativos existem na Judit". O número correto, de processos únicos sendo monitorados, é **311**.
+Criar uma RPC security-definer `get_tenant_trackings_live(p_tenant_id uuid)` que:
+- valida `is_super_admin(auth.uid())` (ou usuário do próprio tenant);
+- retorna os trackings vivos de `processos_oab` + `cnpjs_cadastrados` daquele tenant, com colunas `processo_id, numero_cnj, tribunal, tracking_id, monitoramento_ativo, updated_at, source`.
 
-### Correção proposta
-
-1. **Remover o `hardCap: 200`** em `TenantBancoIdsDialog.tsx` (linha 108). Trocar por leitura completa paginada (já temos `fetchAllPaginated` sem cap).
-2. **Trocar a fonte das abas Trackings ON/OFF** para `processos_oab` + `cnpjs_cadastrados` (mesma fonte do painel de migração), mantendo `tenant_banco_ids` apenas para Requests CNJ, OABs e Atividade. Assim o número bate com o painel e com a Judit.
-3. **Exibir três contadores** no header de cada aba: `linhas`, `CNJs únicos`, `trackings únicos`. Isso elimina a ambiguidade visual de duplicatas por OAB.
-4. **Tooltip explicativo** no contador "Trackings ON" do cartão do tenant esclarecendo a regra de contagem (linha vs CNJ único).
+Trocar as duas chamadas paginadas em `TenantBancoIdsDialog.tsx` por uma única chamada `supabase.rpc('get_tenant_trackings_live', { p_tenant_id: tenantId })`.
 
 ### Arquivos afetados
 
-- `src/components/SuperAdmin/TenantBancoIdsDialog.tsx` — remover hardCap, trocar fonte de Trackings ON/OFF, header com 3 contadores.
-- `src/components/SuperAdmin/TenantCard.tsx` (ou onde sai a label "Trackings ON: N") — tooltip explicativo.
-- Sem migrations. Sem mudança em Edge Functions.
+- Nova migration: criar função `get_tenant_trackings_live`.
+- `src/components/SuperAdmin/TenantBancoIdsDialog.tsx`: substituir os dois `fetchAllPaginated` de `processos_oab`/`cnpjs_cadastrados` por `supabase.rpc(...)`; manter o mapeamento para `TrackingLive[]`.
 
 ### Impacto
 
-1. **Usuário final (você no Super-Admin):** o Banco de IDs do Solvenza passará a mostrar 311 trackings únicos (e 334 vínculos OAB↔processo), batendo com o painel de migração e com o relatório da Judit (359 — diferença de 48 ficam para a Operação "órfãos"). Fim da sensação de "número não fecha".
-2. **Dados:** nenhuma alteração de schema, RLS ou storage. Apenas leitura. Performance: leitura completa de `tenant_banco_ids` para Solvenza são 15.375 linhas → paginação de 1.000 por vez resolve sem travar; impacto < 2s.
-3. **Riscos colaterais:** baixíssimos — mudança isolada no dialog de Super-Admin, não afeta CRM nem nenhum tenant. Risco maior é abrir o dialog ficar 1–2s mais lento por carregar tudo; se incomodar, dá pra adiar Requests/OABs até clicar na aba.
-4. **Quem é afetado:** apenas o super-admin (Vouti). Nenhum cliente vê esse dialog.
+1. **Usuário (Super-Admin):** Trackings ON volta a mostrar os 311+ trackings únicos do Solvenza (e equivalente para outros tenants). Trackings OFF idem.
+2. **Dados:** Sem mudança de schema, sem mudança em RLS de tabelas. Apenas nova função com `SECURITY DEFINER` + `SET search_path = public`, gate por `is_super_admin`.
+3. **Riscos colaterais:** Baixos. A RPC só lê e exige super-admin; não abre acesso novo a clientes. Nenhuma alteração para tenants comuns.
+4. **Quem é afetado:** Apenas o Super-Admin (Vouti). Nenhum cliente final.
 
 ### Validação
 
-- Abrir Banco de IDs do Solvenza → aba Trackings ON deve mostrar **311 únicos / 334 linhas**, mesmo número do painel de Migração de Anexos.
-- Comparar com `SELECT COUNT(*) FROM processos_oab WHERE tenant_id='…solvenza…' AND monitoramento_ativo=true AND tracking_id IS NOT NULL` (deve dar 334).
-- Conferir que Daniel Pereira de Morais (2 ativos) continua exibindo "2".
-- Após validar, partir para a **Operação Órfãos**: cruzar `tracking_id`s do Vouti com os 359 da planilha Judit para identificar os 48 trackings sem dono em nosso banco.
+- Abrir Banco de IDs do Solvenza → Trackings ON mostra ~311 únicos / ~334 linhas, batendo com o painel de Migração.
+- Tenant pequeno (Daniel Pereira de Morais) → Trackings ON exibe 2.
+- Trackings OFF popula para tenants com migração já desativada.
+- Outras abas (Requests CNJ, OABs, Push-docs, Atividade) seguem funcionando.
