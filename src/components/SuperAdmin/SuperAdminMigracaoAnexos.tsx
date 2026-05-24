@@ -399,14 +399,14 @@ export const SuperAdminMigracaoAnexos = () => {
                     <Download className="h-3.5 w-3.5 mr-1.5" /> Exportar CSV
                   </Button>
                 </div>
-              ) : (
+              ) : aba === 'auditoria' ? (
                 <Button variant="ghost" size="sm" onClick={() => carregarAuditoria(auditoriaTenant)} disabled={loadingAuditoria || !auditoriaTenant}>
                   <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loadingAuditoria ? 'animate-spin' : ''}`} /> Recarregar
                 </Button>
-              )}
+              ) : null}
             </div>
           </Tabs>
-          {aba !== 'auditoria' && (
+          {aba !== 'auditoria' && aba !== 'reconciliacao' && (
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
@@ -458,7 +458,11 @@ export const SuperAdminMigracaoAnexos = () => {
           )}
         </CardHeader>
         <CardContent className="p-0">
-          {aba === 'auditoria' ? (
+          {aba === 'reconciliacao' ? (
+            <SuperAdminReconciliacaoJudit
+              tenants={tenants.map((t) => ({ tenant_id: t.tenant_id, tenant_name: t.tenant_name }))}
+            />
+          ) : aba === 'auditoria' ? (
             loadingAuditoria ? (
               <div className="flex items-center justify-center py-12 text-sm text-muted-foreground gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" /> Auditando tenant…
