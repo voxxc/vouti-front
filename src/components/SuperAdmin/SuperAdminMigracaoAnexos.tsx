@@ -55,8 +55,7 @@ export const SuperAdminMigracaoAnexos = () => {
   const [batchSize, setBatchSize] = useState(10);
   const [filtroTenant, setFiltroTenant] = useState<string>('all');
   const [buscaCnj, setBuscaCnj] = useState('');
-  const [aba, setAba] = useState<'execucoes' | 'historico'>('execucoes');
-  type AbaTipo = 'execucoes' | 'historico' | 'auditoria';
+  const [aba, setAba] = useState<'execucoes' | 'historico' | 'auditoria'>('execucoes');
   const [historicoFull, setHistoricoFull] = useState<Registro[]>([]);
   const [loadingFull, setLoadingFull] = useState(false);
   const [buscaTrack, setBuscaTrack] = useState('');
