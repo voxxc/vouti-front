@@ -1,10 +1,15 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Paperclip, AlertTriangle, CheckCircle2, RefreshCw, Play, Building2 } from 'lucide-react';
+import { Loader2, Paperclip, AlertTriangle, CheckCircle2, RefreshCw, Play, Building2, Copy, Download, Search, PauseCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/hooks/use-toast';
 
 interface Stats {
@@ -20,9 +25,12 @@ interface Registro {
   tipo: string;
   status: string;
   erro: string | null;
+  tracking_id_antigo: string | null;
   tracking_id_novo: string | null;
   numero_cnj: string | null;
   executado_em: string;
+  antigo_pausado: boolean | null;
+  pausa_erro: string | null;
 }
 
 interface TenantRow {
@@ -43,6 +51,8 @@ export const SuperAdminMigracaoAnexos = () => {
   const [running, setRunning] = useState(false);
   const [runningTenantId, setRunningTenantId] = useState<string | null>(null);
   const [batchSize, setBatchSize] = useState(10);
+  const [filtroTenant, setFiltroTenant] = useState<string>('all');
+  const [buscaCnj, setBuscaCnj] = useState('');
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -56,7 +66,7 @@ export const SuperAdminMigracaoAnexos = () => {
           .eq('monitoramento_ativo', true).not('tracking_id', 'is', null),
         supabase.from('cnpjs_cadastrados').select('id', { count: 'exact', head: true })
           .eq('monitoramento_ativo', true).eq('with_attachments', true).not('tracking_id', 'is', null),
-        supabase.from('judit_migracao_attachments').select('*').order('executado_em', { ascending: false }).limit(50),
+        supabase.from('judit_migracao_attachments').select('*').order('executado_em', { ascending: false }).limit(200),
         supabase.rpc('get_migracao_attachments_por_tenant'),
       ]);
       setStats({
@@ -75,6 +85,51 @@ export const SuperAdminMigracaoAnexos = () => {
   }, []);
 
   useEffect(() => { carregar(); }, [carregar]);
+
+  const tenantsMap = useMemo(() => {
+    const m = new Map<string, string>();
+    tenants.forEach((t) => m.set(t.tenant_id, t.tenant_name));
+    return m;
+  }, [tenants]);
+
+  const historicoFiltrado = useMemo(() => {
+    return historico.filter((h) => {
+      if (filtroTenant !== 'all' && h.tenant_id !== filtroTenant) return false;
+      if (buscaCnj.trim() && !(h.numero_cnj || '').includes(buscaCnj.trim())) return false;
+      return true;
+    });
+  }, [historico, filtroTenant, buscaCnj]);
+
+  const copiar = (texto: string, label = 'Copiado') => {
+    navigator.clipboard.writeText(texto).then(() => toast({ title: label, description: texto }));
+  };
+
+  const exportarCSV = () => {
+    const rows = historicoFiltrado.map((h) => ({
+      executado_em: h.executado_em,
+      tenant: tenantsMap.get(h.tenant_id || '') || h.tenant_id || '',
+      tipo: h.tipo,
+      numero_cnj: h.numero_cnj || '',
+      tracking_antigo: h.tracking_id_antigo || '',
+      tracking_novo: h.tracking_id_novo || '',
+      status: h.status,
+      antigo_pausado: h.antigo_pausado === true ? 'sim' : h.antigo_pausado === false ? 'nao' : '',
+      pausa_erro: h.pausa_erro || '',
+      erro: h.erro || '',
+    }));
+    const headers = Object.keys(rows[0] || { executado_em: '' });
+    const csv = [
+      headers.join(','),
+      ...rows.map((r) => headers.map((h) => `"${String((r as any)[h]).replace(/"/g, '""')}"`).join(',')),
+    ].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `migracao-anexos-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const executar = async (dryRun = false, tenantId: string | null = null) => {
     if (tenantId) setRunningTenantId(tenantId);
@@ -219,35 +274,147 @@ export const SuperAdminMigracaoAnexos = () => {
       </Card>
 
       <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">Últimas 50 execuções</CardTitle></CardHeader>
+        <CardHeader className="pb-3 space-y-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <CardTitle className="text-sm font-medium">Execuções da migração ({historicoFiltrado.length})</CardTitle>
+            <Button variant="outline" size="sm" onClick={exportarCSV} disabled={historicoFiltrado.length === 0}>
+              <Download className="h-3.5 w-3.5 mr-1.5" /> Exportar CSV
+            </Button>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
+              <Input
+                value={buscaCnj}
+                onChange={(e) => setBuscaCnj(e.target.value)}
+                placeholder="Buscar por CNJ…"
+                className="h-8 pl-8 text-xs"
+              />
+            </div>
+            <Select value={filtroTenant} onValueChange={setFiltroTenant}>
+              <SelectTrigger className="h-8 text-xs w-[220px]">
+                <SelectValue placeholder="Todos os tenants" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tenants</SelectItem>
+                {tenants.map((t) => (
+                  <SelectItem key={t.tenant_id} value={t.tenant_id}>{t.tenant_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
         <CardContent className="p-0">
-          {historico.length === 0 ? (
+          {historicoFiltrado.length === 0 ? (
             <div className="text-center py-8 text-sm text-muted-foreground">Nenhuma execução registrada ainda.</div>
           ) : (
-            <ScrollArea className="h-[420px]">
-              <div className="divide-y">
-                {historico.map((h) => (
-                  <div key={h.id} className="flex items-start gap-3 px-4 py-3">
-                    {h.status === 'migrado'
-                      ? <CheckCircle2 className="h-4 w-4 text-[hsl(var(--chart-2))] mt-0.5 shrink-0" />
-                      : h.status === 'erro'
-                      ? <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-                      : <Loader2 className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="text-[10px] uppercase">{h.tipo}</Badge>
-                        <Badge variant={h.status === 'erro' ? 'destructive' : 'secondary'} className="text-[10px]">{h.status}</Badge>
-                        <span className="text-xs text-muted-foreground">{new Date(h.executado_em).toLocaleString('pt-BR')}</span>
-                        {h.tenant_id && <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[160px]">tenant: {h.tenant_id.slice(0, 8)}…</span>}
-                      </div>
-                      {h.numero_cnj && <p className="text-xs font-mono mt-1 truncate">CNJ: {h.numero_cnj}</p>}
-                      {h.tracking_id_novo && <p className="text-xs font-mono mt-1 truncate">novo: {h.tracking_id_novo}</p>}
-                      {h.erro && <p className="text-xs text-destructive mt-1 break-all">{h.erro}</p>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
+            <TooltipProvider delayDuration={150}>
+              <ScrollArea className="h-[480px]">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-background border-b z-10">
+                    <tr className="text-left text-muted-foreground">
+                      <th className="px-3 py-2 font-medium w-[20px]"></th>
+                      <th className="px-2 py-2 font-medium">Quando</th>
+                      <th className="px-2 py-2 font-medium">Tenant</th>
+                      <th className="px-2 py-2 font-medium">CNJ</th>
+                      <th className="px-2 py-2 font-medium">Tracking antigo → novo</th>
+                      <th className="px-2 py-2 font-medium">Pausa do antigo</th>
+                      <th className="px-2 py-2 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {historicoFiltrado.map((h) => {
+                      const tenantNome = tenantsMap.get(h.tenant_id || '') || (h.tenant_id ? `${h.tenant_id.slice(0, 8)}…` : '—');
+                      const dt = new Date(h.executado_em);
+                      return (
+                        <tr key={h.id} className="hover:bg-muted/40">
+                          <td className="px-3 py-2 align-top">
+                            {h.status === 'migrado'
+                              ? <CheckCircle2 className="h-4 w-4 text-[hsl(var(--chart-2))]" />
+                              : h.status === 'erro'
+                              ? <AlertTriangle className="h-4 w-4 text-destructive" />
+                              : <Loader2 className="h-4 w-4 text-muted-foreground" />}
+                          </td>
+                          <td className="px-2 py-2 align-top whitespace-nowrap text-muted-foreground">
+                            {dt.toLocaleDateString('pt-BR')}<br />
+                            <span className="text-[10px]">{dt.toLocaleTimeString('pt-BR')}</span>
+                          </td>
+                          <td className="px-2 py-2 align-top">
+                            <span className="truncate max-w-[160px] inline-block">{tenantNome}</span>
+                          </td>
+                          <td className="px-2 py-2 align-top">
+                            {h.numero_cnj ? (
+                              <button
+                                onClick={() => copiar(h.numero_cnj!, 'CNJ copiado')}
+                                className="font-mono text-[11px] hover:text-primary inline-flex items-center gap-1"
+                              >
+                                {h.numero_cnj}
+                                <Copy className="h-3 w-3 opacity-50" />
+                              </button>
+                            ) : <span className="text-muted-foreground">—</span>}
+                          </td>
+                          <td className="px-2 py-2 align-top">
+                            <div className="flex items-center gap-1.5 font-mono text-[10px]">
+                              {h.tracking_id_antigo ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      onClick={() => copiar(h.tracking_id_antigo!, 'Antigo copiado')}
+                                      className="bg-muted px-1.5 py-0.5 rounded hover:bg-muted/70 line-through opacity-70"
+                                    >
+                                      {h.tracking_id_antigo.slice(0, 8)}…
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent><span className="font-mono text-[10px]">{h.tracking_id_antigo}</span></TooltipContent>
+                                </Tooltip>
+                              ) : <span className="text-muted-foreground">—</span>}
+                              <span className="text-muted-foreground">→</span>
+                              {h.tracking_id_novo ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      onClick={() => copiar(h.tracking_id_novo!, 'Novo copiado')}
+                                      className="bg-primary/10 text-primary px-1.5 py-0.5 rounded hover:bg-primary/20"
+                                    >
+                                      {h.tracking_id_novo.slice(0, 8)}…
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent><span className="font-mono text-[10px]">{h.tracking_id_novo}</span></TooltipContent>
+                                </Tooltip>
+                              ) : <span className="text-muted-foreground">—</span>}
+                            </div>
+                          </td>
+                          <td className="px-2 py-2 align-top">
+                            {h.antigo_pausado === true ? (
+                              <Badge className="text-[10px] bg-[hsl(var(--chart-2))]/15 text-[hsl(var(--chart-2))] hover:bg-[hsl(var(--chart-2))]/15 gap-1">
+                                <PauseCircle className="h-3 w-3" /> Pausado
+                              </Badge>
+                            ) : h.antigo_pausado === false ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge variant="destructive" className="text-[10px] gap-1 cursor-help">
+                                    <AlertTriangle className="h-3 w-3" /> Pausa falhou
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs"><span className="text-[10px]">{h.pausa_erro || 'sem detalhe'}</span></TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground">— (pré-auditoria)</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-2 align-top">
+                            <Badge variant={h.status === 'erro' ? 'destructive' : 'secondary'} className="text-[10px]">
+                              {h.status}
+                            </Badge>
+                            {h.erro && <p className="text-[10px] text-destructive mt-1 break-all max-w-[220px]">{h.erro}</p>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </ScrollArea>
+            </TooltipProvider>
           )}
         </CardContent>
       </Card>
