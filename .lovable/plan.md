@@ -1,38 +1,47 @@
-## Causa raiz
+## Operação AB2 — Discrepância "Banco de IDs" vs Painel (Solvenza)
 
-Hoje o flag `with_attachments: true` está nas Edge Functions corretas (`judit-ativar-monitoramento`, `judit-ativar-monitoramento-oab`, `judit-ativar-monitoramento-cnpj`). O cadastro de OAB (`judit-buscar-por-oab`) e a sincronização (`judit-sincronizar-oab`) não enviam esse flag — usam apenas `/requests` (snapshot pontual).
+### Causa raiz
 
-Porém, há um ponto cinzento: quando o usuário cadastra uma OAB e logo em seguida clica em "Ativar" num processo descoberto, o tracking nasce com anexos. Você quer reforçar que **nenhum fluxo automático de cadastro** dispare anexos — apenas a ação explícita "Ativar monitoramento" feita pelo usuário.
+São **duas fontes de dados diferentes** sendo comparadas, e ainda há um teto de leitura no dialog.
 
-## Correção
+| O quê | Fonte | Solvenza hoje |
+|---|---|---|
+| Painel "Migração de Anexos" / "ativos" | `processos_oab WHERE monitoramento_ativo=true AND tracking_id IS NOT NULL` (1 linha por processo) | **334 linhas** |
+| Mesma consulta, deduplicada por `numero_cnj` | idem, `DISTINCT numero_cnj` | **311 CNJs únicos** |
+| Mesma consulta, deduplicada por `tracking_id` | idem, `DISTINCT tracking_id` | **311 trackings únicos** |
+| Aba "Trackings ON" do Banco de IDs | `tenant_banco_ids` tipo `tracking` agregado por `referencia_id` (processo_id) | mostra ~328 mas limitado |
 
-1. **Auditoria das chamadas Judit** — varrer todas as Edge Functions e confirmar que `with_attachments: true` aparece **apenas** dentro de `judit-ativar-monitoramento*` e da função de migração em lote. Qualquer outro lugar (inclusive helpers de import inicial) será removido.
-2. **Cadastro de OAB (`judit-buscar-por-oab`)** — confirmar que não há criação de tracking automático após o cadastro. Hoje não há, mas vou adicionar comentário explícito no topo do arquivo deixando claro que esse fluxo é "snapshot only, sem attachments".
-3. **Sincronização periódica (`judit-sincronizar-oab`)** — mesma garantia: apenas `/requests` sem anexos.
-4. **`judit-ativar-monitoramento-oab`** — manter `with_attachments: true` (é o ponto de entrada manual via botão "Ativar").
-5. **Reset/Atualizar manual (`judit-resetar-processo`)** — checar se também envia anexos. Se não envia, deixar como está (é um snapshot puro, sem criar tracking).
+O que cria a diferença:
 
-## Arquivos afetados
+1. **Fonte distinta.** O Banco de IDs reconstrói trackings a partir da tabela de auditoria `tenant_banco_ids` (linhas tipo `tracking` / `tracking_desativado`). O painel lê do estado vivo em `processos_oab`. Auditoria e estado não estão obrigados a ter cardinalidade igual — trackings antigos podem nunca ter gravado evento, e eventos órfãos podem existir sem `processos_oab` correspondente.
+2. **Deduplicação implícita.** O dialog agrupa por `processo_id` (1 entrada por processo). O painel conta linhas: o mesmo CNJ aparece **uma vez por OAB** que o referencia. Solvenza tem 334 linhas mas só 311 CNJs distintos → as 23 sobras são processos compartilhados entre 2+ OABs do escritório.
+3. **`hardCap: 200` no fetch.** Em `TenantBancoIdsDialog.tsx` linha 108, o carregamento de `tenant_banco_ids` está limitado a 200 linhas. Solvenza tem **360 linhas tipo `tracking`** + 15 `tracking_desativado` + milhares de outros tipos. O cap trunca a leitura, então a aba nunca consegue ver todos os trackings reais.
 
-- `supabase/functions/judit-buscar-por-oab/index.ts` — comentário de garantia, nenhum mudança funcional esperada.
-- `supabase/functions/judit-sincronizar-oab/index.ts` — idem.
-- `supabase/functions/judit-resetar-processo/index.ts` — verificar e remover `with_attachments` se existir.
-- Demais funções de ativação manual permanecem com `with_attachments: true`.
+Resumindo: nem o número do painel (334, com duplicatas por OAB) nem o do Banco de IDs (truncado pelo cap) representam fielmente "quantos trackings ativos existem na Judit". O número correto, de processos únicos sendo monitorados, é **311**.
 
-## Impacto
+### Correção proposta
 
-- **Usuário final**: nada muda visualmente. Continua existindo o botão "Ativar monitoramento" como única forma de habilitar anexos.
-- **Dados**: nenhum impacto em registros existentes. Não há migration nem alteração de RLS.
-- **Custos/Judit**: garante que cadastros em massa de OAB não inflem o consumo de anexos na Judit — anexos só são contabilizados quando o usuário decide ativar o monitoramento de um caso específico.
-- **Riscos colaterais**: nenhum. Auditoria de segurança — confirma o princípio "anexo é opt-in por monitoramento".
-- **Quem é afetado**: todos os tenants, mas sem mudança comportamental observável; somente reforço de invariante.
+1. **Remover o `hardCap: 200`** em `TenantBancoIdsDialog.tsx` (linha 108). Trocar por leitura completa paginada (já temos `fetchAllPaginated` sem cap).
+2. **Trocar a fonte das abas Trackings ON/OFF** para `processos_oab` + `cnpjs_cadastrados` (mesma fonte do painel de migração), mantendo `tenant_banco_ids` apenas para Requests CNJ, OABs e Atividade. Assim o número bate com o painel e com a Judit.
+3. **Exibir três contadores** no header de cada aba: `linhas`, `CNJs únicos`, `trackings únicos`. Isso elimina a ambiguidade visual de duplicatas por OAB.
+4. **Tooltip explicativo** no contador "Trackings ON" do cartão do tenant esclarecendo a regra de contagem (linha vs CNJ único).
 
-## Validação
+### Arquivos afetados
 
-1. `rg "with_attachments" supabase/functions/` deve listar apenas as 3 funções `judit-ativar-monitoramento*` e `judit-migrar-trackings-attachments`.
-2. Cadastrar uma OAB nova de teste no tenant Demorais e verificar nos logs da Judit que nenhum tracking foi criado automaticamente.
-3. Ativar manualmente um processo da OAB recém-cadastrada e confirmar que o tracking nasce com `with_attachments: true` e o webhook recebe anexos.
+- `src/components/SuperAdmin/TenantBancoIdsDialog.tsx` — remover hardCap, trocar fonte de Trackings ON/OFF, header com 3 contadores.
+- `src/components/SuperAdmin/TenantCard.tsx` (ou onde sai a label "Trackings ON: N") — tooltip explicativo.
+- Sem migrations. Sem mudança em Edge Functions.
 
-## Pergunta antes de implementar
+### Impacto
 
-Você quer que eu inclua também o **fluxo de cadastro por CNPJ** (`judit-buscar-por-cnpj`, se existir) na mesma auditoria, ou só OAB por enquanto?
+1. **Usuário final (você no Super-Admin):** o Banco de IDs do Solvenza passará a mostrar 311 trackings únicos (e 334 vínculos OAB↔processo), batendo com o painel de migração e com o relatório da Judit (359 — diferença de 48 ficam para a Operação "órfãos"). Fim da sensação de "número não fecha".
+2. **Dados:** nenhuma alteração de schema, RLS ou storage. Apenas leitura. Performance: leitura completa de `tenant_banco_ids` para Solvenza são 15.375 linhas → paginação de 1.000 por vez resolve sem travar; impacto < 2s.
+3. **Riscos colaterais:** baixíssimos — mudança isolada no dialog de Super-Admin, não afeta CRM nem nenhum tenant. Risco maior é abrir o dialog ficar 1–2s mais lento por carregar tudo; se incomodar, dá pra adiar Requests/OABs até clicar na aba.
+4. **Quem é afetado:** apenas o super-admin (Vouti). Nenhum cliente vê esse dialog.
+
+### Validação
+
+- Abrir Banco de IDs do Solvenza → aba Trackings ON deve mostrar **311 únicos / 334 linhas**, mesmo número do painel de Migração de Anexos.
+- Comparar com `SELECT COUNT(*) FROM processos_oab WHERE tenant_id='…solvenza…' AND monitoramento_ativo=true AND tracking_id IS NOT NULL` (deve dar 334).
+- Conferir que Daniel Pereira de Morais (2 ativos) continua exibindo "2".
+- Após validar, partir para a **Operação Órfãos**: cruzar `tracking_id`s do Vouti com os 359 da planilha Judit para identificar os 48 trackings sem dono em nosso banco.
