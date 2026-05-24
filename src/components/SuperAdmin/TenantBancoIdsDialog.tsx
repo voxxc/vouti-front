@@ -17,6 +17,17 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { fetchAllPaginated } from '@/lib/supabasePagination';
 
+function safeFormat(ts: string | number | null | undefined, pattern = "dd/MM/yyyy HH:mm"): string | null {
+  if (!ts) return null;
+  const d = new Date(ts);
+  if (!Number.isFinite(d.getTime())) return null;
+  try {
+    return format(d, pattern, { locale: ptBR });
+  } catch {
+    return null;
+  }
+}
+
 interface TenantBancoIdsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -433,13 +444,14 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
         {(() => {
           const toggle = p.numero_cnj ? lastToggleByCnj.get(p.numero_cnj) : null;
           const ts = toggle?.created_at || p.tracking_created_at;
-          if (!ts) return null;
+          const formatted = safeFormat(ts);
+          if (!formatted) return null;
           const label = toggle
             ? (toggle.acao === 'ativado' ? 'Ativado' : 'Pausado')
             : 'Registrado';
           return (
             <span className="text-[10px] text-muted-foreground ml-auto whitespace-nowrap">
-              {label} {format(new Date(ts), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+              {label} {formatted}
               {toggle?.email ? ` · ${toggle.email}` : ''}
             </span>
           );
@@ -544,11 +556,12 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
                           {(() => {
                             const imp = p.numero_cnj ? importByCnj.get(p.numero_cnj) : null;
                             const ts = imp?.created_at || p.created_at;
-                            if (!ts) return null;
+                            const formatted = safeFormat(ts);
+                            if (!formatted) return null;
                             const label = imp ? 'Importado' : 'Registrado';
                             return (
                               <span className="text-[10px] text-muted-foreground ml-auto whitespace-nowrap">
-                                {label} {format(new Date(ts), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                                {label} {formatted}
                                 {imp?.email ? ` · ${imp.email}` : ''}
                               </span>
                             );
@@ -635,7 +648,7 @@ export function TenantBancoIdsDialog({ open, onOpenChange, tenantId, tenantName 
                             </div>
                           </div>
                           <span className="text-[10px] text-muted-foreground tabular-nums whitespace-nowrap">
-                            {format(new Date(e.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                            {safeFormat(e.created_at) || '—'}
                           </span>
                         </div>
                       );
