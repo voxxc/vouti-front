@@ -382,19 +382,43 @@ const Auth = () => {
                         política de privacidade
                       </a>
                     </p>
-                  </form> : <form onSubmit={handleResetPassword} className="space-y-4">
+                  </form> : mode === 'recovery' ? <form onSubmit={handleResetPassword} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="recovery-email">Email</Label>
                       <Input id="recovery-email" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} disabled={isLoading} />
                     </div>
 
                     <Button type="submit" className="w-full" variant="professional" disabled={isLoading}>
-                      {isLoading ? "Enviando..." : "Enviar link de recuperacao"}
+                      {isLoading ? "Enviando..." : "Enviar código por email"}
                     </Button>
+
+                    <button type="button" onClick={() => setMode('code')} className="text-sm text-primary hover:underline w-full text-center">
+                      Já tenho o código
+                    </button>
 
                     <button type="button" onClick={() => setMode('login')} className="text-sm text-muted-foreground hover:text-foreground w-full text-center flex items-center justify-center gap-1">
                       <ArrowLeft className="h-3 w-3" />
                       Voltar ao login
+                    </button>
+                  </form> : <form onSubmit={handleSubmitCode} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="code-email">Email</Label>
+                      <Input id="code-email" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} disabled={isLoading} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="code-code">Código (6 dígitos)</Label>
+                      <Input id="code-code" inputMode="numeric" maxLength={6} placeholder="000000" value={resetCode} onChange={e => setResetCode(e.target.value.replace(/\D/g, ''))} disabled={isLoading} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="code-new-pass">Nova senha</Label>
+                      <Input id="code-new-pass" type="password" placeholder="Mínimo 8 caracteres" value={resetNewPassword} onChange={e => setResetNewPassword(e.target.value)} disabled={isLoading} />
+                    </div>
+                    <Button type="submit" className="w-full" variant="professional" disabled={isLoading}>
+                      {isLoading ? "Atualizando..." : "Redefinir senha"}
+                    </Button>
+                    <button type="button" onClick={() => setMode('recovery')} className="text-sm text-muted-foreground hover:text-foreground w-full text-center flex items-center justify-center gap-1">
+                      <ArrowLeft className="h-3 w-3" />
+                      Voltar
                     </button>
                   </form>}
               </div>
