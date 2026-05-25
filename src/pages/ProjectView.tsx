@@ -1105,33 +1105,33 @@ const ProjectView = ({
 
 
   const content = (
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={onBack} className="gap-2">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="flex items-center gap-2 md:gap-4 min-w-0">
+            <Button variant="ghost" onClick={onBack} className="gap-2 px-2 md:px-3 shrink-0">
               <ArrowLeft size={16} />
-              Voltar
+              <span className="hidden md:inline">Voltar</span>
             </Button>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <EditableProjectName 
                 projectName={project.name}
                 onUpdateName={handleUpdateProjectName}
               />
-              <p className="text-muted-foreground">{project.client}</p>
+              <p className="text-xs md:text-base text-muted-foreground truncate">{project.client}</p>
             </div>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 md:gap-6 overflow-x-auto -mx-1 px-1 scrollbar-hide">
             <button 
               onClick={() => setIsParticipantsOpen(true)}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="text-xs md:text-sm text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
             >
               Participantes
             </button>
 
             <button 
               onClick={() => setIsClientDataOpen(true)}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="text-xs md:text-sm text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
             >
               Dados
             </button>
@@ -1139,7 +1139,7 @@ const ProjectView = ({
             {isAdmin && (
               <button 
                 onClick={() => setIsHistoryOpen(true)}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="text-xs md:text-sm text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
               >
                 Histórico
               </button>
@@ -1160,7 +1160,7 @@ const ProjectView = ({
                 variant={isColumnsLocked ? "default" : "outline"}
                 onClick={() => setIsColumnsLocked(!isColumnsLocked)}
                 size="icon"
-                className="rounded-full h-9 w-9"
+                className="rounded-full h-8 w-8 md:h-9 md:w-9 shrink-0"
                 title={isColumnsLocked ? "Desbloquear colunas" : "Bloquear colunas"}
               >
                 {isColumnsLocked ? <Lock size={18} /> : <LockOpen size={18} />}
@@ -1182,7 +1182,7 @@ const ProjectView = ({
         {/* Tabs Navigation - Horizontal */}
         <div className="space-y-4">
         {/* Tab Buttons */}
-            <div className="flex gap-6">
+            <div className="flex gap-4 md:gap-6 overflow-x-auto scrollbar-hide">
               <button
                 onClick={() => setActiveTab('protocolos')}
                 className={cn(
