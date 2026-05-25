@@ -579,7 +579,7 @@ export function ProjectProtocoloContent({
                   <Label className="text-muted-foreground text-xs uppercase">Descrição</Label>
                   <p className="mt-1 text-sm">{protocolo.descricao || <span className="text-muted-foreground italic">Sem descrição</span>}</p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   <div>
                     <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1"><Calendar className="h-3 w-3" /> Data de Início</Label>
                     <p className="mt-1 font-medium">{format(protocolo.dataInicio, "dd/MM/yyyy", { locale: ptBR })}</p>
