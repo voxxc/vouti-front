@@ -190,16 +190,16 @@ export const OABManager = () => {
       />
 
       {/* Header */}
-      <div className="flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between flex-shrink-0 gap-2 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">
           <Scale className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-semibold">OABs</h2>
+          <h2 className="text-base md:text-lg font-semibold">OABs</h2>
           <Badge variant="secondary">
             {limites.oabs !== null ? `${uso.oabs}/${limites.oabs}` : oabs.length}
           </Badge>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {isAdmin && canImportCNJ && (
             <Button
               size="sm"
@@ -214,8 +214,8 @@ export const OABManager = () => {
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Cadastrar OAB
+                  <Plus className="w-4 h-4 md:mr-2" />
+                  <span className="hidden md:inline">Cadastrar OAB</span>
                 </Button>
               </DialogTrigger>
               <DialogContent>
