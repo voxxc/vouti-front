@@ -512,7 +512,7 @@ export const ProcessoOABDetalhes = ({
           <div
             role="dialog"
             aria-label="Detalhe da movimentação"
-            className="absolute right-full top-0 h-full w-[min(36rem,calc(100vw-2rem))] bg-background border-r shadow-2xl z-40 animate-in slide-in-from-right duration-200"
+            className="absolute top-0 h-full bg-background shadow-2xl z-50 animate-in slide-in-from-right duration-200 inset-x-0 w-full border-l md:inset-x-auto md:right-full md:w-[min(36rem,calc(100vw-2rem))] md:border-r md:border-l-0 md:z-40"
             onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); fecharSubdrawer(); } }}
           >
             <MovimentacaoDetalhe
