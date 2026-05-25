@@ -147,6 +147,7 @@ const DashboardLayout = ({
   const [deadlineDetailOpen, setDeadlineDetailOpen] = useState(false);
   const [deadlineDetailId, setDeadlineDetailId] = useState<string | undefined>();
   const [pendingPlanejadorTaskId, setPendingPlanejadorTaskId] = useState<string | null>(null);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [etapaModalData, setEtapaModalData] = useState<{
     etapa: ProjectProtocoloEtapa;
     protocoloId: string;
