@@ -109,10 +109,31 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Erro ao gerar código");
     }
 
+    // Resolve origem dinamicamente (allowlist) para que o link no email
+    // aponte para o mesmo dominio em que o usuario solicitou o reset.
+    const ALLOWED_ORIGINS = [
+      'https://vouti.co',
+      'https://www.vouti.co',
+      'https://vouti.lovable.app',
+    ];
+    const rawOrigin = req.headers.get('origin') || req.headers.get('referer') || '';
+    let resolvedOrigin = 'https://vouti.co';
+    try {
+      const u = rawOrigin ? new URL(rawOrigin) : null;
+      if (u) {
+        const base = `${u.protocol}//${u.host}`;
+        if (ALLOWED_ORIGINS.includes(base) || u.host.endsWith('.lovableproject.com') || u.host.endsWith('.lovable.app')) {
+          resolvedOrigin = base;
+        }
+      }
+    } catch (_) { /* fallback */ }
+
+    console.log('[send-password-reset] enqueued', { tenant_slug, origin: resolvedOrigin });
+
     // Send email via Resend
     if (resendApiKey) {
       const resend = new Resend(resendApiKey);
-      const resetUrl = `https://vouti.lovable.app/${tenant_slug}/reset-password/${code}`;
+      const resetUrl = `${resolvedOrigin}/${tenant_slug}/reset-password/${code}`;
 
       await resend.emails.send({
         from: "VOUTI <noreply@vouti.co>",
