@@ -17,7 +17,9 @@ const CrmLogin = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [mode, setMode] = useState<'login' | 'recovery'>('login');
+  const [mode, setMode] = useState<'login' | 'recovery' | 'code'>('login');
+  const [resetCode, setResetCode] = useState("");
+  const [resetNewPassword, setResetNewPassword] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
   const { tenant } = useParams<{ tenant: string }>();
