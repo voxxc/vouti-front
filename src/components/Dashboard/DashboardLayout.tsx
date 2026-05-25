@@ -10,6 +10,8 @@ import InternalMessaging from "@/components/Communication/InternalMessaging";
 import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 import { EtapaModal } from "@/components/Project/EtapaModal";
 import { LogOut, Settings, Loader2, Clock, UserCircle, Sun, Moon, Cloud } from "lucide-react";
+import { Search as SearchIcon } from "lucide-react";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { BillingAlertIndicator } from "./BillingAlertIndicator";
 import { SubscriptionDrawer } from "@/components/Support/SubscriptionDrawer";
 import {
@@ -145,6 +147,7 @@ const DashboardLayout = ({
   const [deadlineDetailOpen, setDeadlineDetailOpen] = useState(false);
   const [deadlineDetailId, setDeadlineDetailId] = useState<string | undefined>();
   const [pendingPlanejadorTaskId, setPendingPlanejadorTaskId] = useState<string | null>(null);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [etapaModalData, setEtapaModalData] = useState<{
     etapa: ProjectProtocoloEtapa;
     protocoloId: string;
@@ -446,7 +449,18 @@ const DashboardLayout = ({
               >
                 <Clock className="h-4 w-4 md:h-5 md:w-5" />
               </Button>
-              <GlobalSearch projects={projects} />
+              <div className="hidden md:inline-flex">
+                <GlobalSearch projects={projects} />
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden h-8 w-8"
+                onClick={() => setMobileSearchOpen(true)}
+                title="Buscar projetos e protocolos"
+              >
+                <SearchIcon className="h-4 w-4" />
+              </Button>
               {currentUser && (
                 <InternalMessaging currentUser={currentUser} users={users} />
               )}
@@ -622,6 +636,27 @@ const DashboardLayout = ({
         initialTaskId={pendingPlanejadorTaskId}
         onInitialTaskConsumed={() => setPendingPlanejadorTaskId(null)}
       />
+
+      {/* Mobile quick search (projetos + protocolos) */}
+      <Sheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen}>
+        <SheetContent side="top" className="p-4 md:hidden">
+          <SheetTitle className="text-base mb-3">Buscar projetos e protocolos</SheetTitle>
+          <ProjectQuickSearch
+            tenantPath={tenantPath}
+            onSelectProject={(pid) => {
+              setMobileSearchOpen(false);
+              handleQuickProjectSelect(pid);
+            }}
+            onSelectProtocolo={(projectId, protocoloId) => {
+              setMobileSearchOpen(false);
+              setSelectedProjectId(projectId);
+              setPendingProtocoloId(protocoloId);
+              setProjectDrawerOpen(true);
+              setActiveDrawer(null);
+            }}
+          />
+        </SheetContent>
+      </Sheet>
 
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav

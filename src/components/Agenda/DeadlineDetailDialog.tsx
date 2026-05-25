@@ -359,7 +359,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto z-[80]">
           {loading && <div className="py-8 text-center text-muted-foreground">Carregando...</div>}
           {!loading && deadline && (
             <>
