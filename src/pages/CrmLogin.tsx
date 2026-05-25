@@ -163,6 +163,42 @@ const CrmLogin = () => {
     }
   };
 
+  const handleSubmitCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !resetCode || !resetNewPassword) {
+      toast({ title: "Erro", description: "Preencha email, código e nova senha.", variant: "destructive" });
+      return;
+    }
+    if (resetNewPassword.length < 8) {
+      toast({ title: "Erro", description: "A nova senha deve ter ao menos 8 caracteres.", variant: "destructive" });
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("verify-password-reset", {
+        body: {
+          email: email.toLowerCase(),
+          code: resetCode.trim(),
+          new_password: resetNewPassword,
+          tenant_slug: "crm",
+        },
+      });
+      if (error || (data as any)?.error) {
+        toast({ title: "Erro", description: (data as any)?.error || error?.message || "Código inválido ou expirado.", variant: "destructive" });
+      } else {
+        toast({ title: "Senha atualizada", description: "Faça login com a nova senha." });
+        setMode('login');
+        setResetCode("");
+        setResetNewPassword("");
+        setPassword("");
+      }
+    } catch {
+      toast({ title: "Erro", description: "Erro inesperado ao redefinir senha.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (tenantValid === null) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
