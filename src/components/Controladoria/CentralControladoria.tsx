@@ -125,13 +125,14 @@ export const CentralControladoria = () => {
 
   return (
     <div className="flex-1 flex flex-col space-y-4">
-      <div className="apple-tab-bar">
+      <div className="apple-tab-bar overflow-x-auto">
         <button
           onClick={() => setActiveTab('andamentos')}
           data-active={activeTab === 'andamentos'}
-          className="apple-tab"
+          className="apple-tab whitespace-nowrap"
         >
-          Andamentos Não Lidos
+          <span className="md:hidden">Andamentos</span>
+          <span className="hidden md:inline">Andamentos Não Lidos</span>
           {totalNaoLidos > 0 && (
             <Badge variant="destructive" className="h-5 min-w-5 px-1.5 rounded-full">
               {totalNaoLidos > 999 ? '999+' : totalNaoLidos}
@@ -141,15 +142,16 @@ export const CentralControladoria = () => {
         <button
           onClick={() => setActiveTab('prazos')}
           data-active={activeTab === 'prazos'}
-          className="apple-tab"
+          className="apple-tab whitespace-nowrap"
         >
-          Prazos Concluídos
+          <span className="md:hidden">Prazos</span>
+          <span className="hidden md:inline">Prazos Concluídos</span>
         </button>
         {isSolvenza && (
           <button
             onClick={() => setActiveTab('subtarefas')}
             data-active={activeTab === 'subtarefas'}
-            className="apple-tab"
+            className="apple-tab whitespace-nowrap"
           >
             Subtarefas
             {totalSubtarefasPendentes > 0 && (
@@ -162,7 +164,7 @@ export const CentralControladoria = () => {
         <button
           onClick={() => setActiveTab('indicadores')}
           data-active={activeTab === 'indicadores'}
-          className="apple-tab"
+          className="apple-tab whitespace-nowrap"
         >
           Indicadores
         </button>
