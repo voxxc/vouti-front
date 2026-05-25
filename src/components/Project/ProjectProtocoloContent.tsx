@@ -544,7 +544,7 @@ export function ProjectProtocoloContent({
         </TabsList>
 
         <ScrollArea className="flex-1">
-          <TabsContent value="resumo" className="p-4 m-0 space-y-6">
+          <TabsContent value="resumo" className="p-3 md:p-4 m-0 space-y-4 md:space-y-6">
             {isEditing ? (
               <div className="space-y-4">
                 <div className="space-y-2">
