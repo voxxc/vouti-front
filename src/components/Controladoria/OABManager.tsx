@@ -336,8 +336,8 @@ export const OABManager = () => {
           {oabs.map((oab) => (
             <TabsContent key={oab.id} value={oab.id} className="mt-4 flex-1">
               {/* Toolbar da OAB */}
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between py-2 mb-4 flex-shrink-0 gap-2">
-                <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between py-2 mb-4 flex-shrink-0 gap-3">
+                <div className="flex items-center justify-between md:justify-start gap-2 md:gap-3 flex-wrap">
                   <div className="flex items-center gap-2">
                     <div>
                       <p className="font-medium text-sm md:text-base">
@@ -355,14 +355,14 @@ export const OABManager = () => {
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="grid grid-cols-3 md:flex md:items-center gap-1">
                   {canImportCNJ && (
                     <>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleOpenImportPlanilha(oab)}
-                        className="text-xs"
+                        className="text-xs justify-center"
                       >
                         <FileSpreadsheet className="w-4 h-4 mr-1" />
                         <span className="hidden md:inline">Importar planilha</span>
@@ -372,7 +372,7 @@ export const OABManager = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleOpenImportCNJ(oab)}
-                      className="text-xs"
+                      className="text-xs justify-center"
                     >
                       <FileInput className="w-4 h-4 mr-1" />
                       <span className="hidden md:inline">Importar CNJ</span>
@@ -385,7 +385,7 @@ export const OABManager = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDeleteClick(oab)}
-                      className="text-destructive hover:text-destructive"
+                      className="text-destructive hover:text-destructive justify-center"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
