@@ -644,15 +644,15 @@ const DashboardLayout = ({
           <ProjectQuickSearch
             tenantPath={tenantPath}
             onSelectProject={(pid) => {
-              setMobileSearchOpen(false);
               handleQuickProjectSelect(pid);
+              requestAnimationFrame(() => setMobileSearchOpen(false));
             }}
             onSelectProtocolo={(projectId, protocoloId) => {
-              setMobileSearchOpen(false);
               setSelectedProjectId(projectId);
               setPendingProtocoloId(protocoloId);
               setProjectDrawerOpen(true);
               setActiveDrawer(null);
+              requestAnimationFrame(() => setMobileSearchOpen(false));
             }}
           />
         </SheetContent>
