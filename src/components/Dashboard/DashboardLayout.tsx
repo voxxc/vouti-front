@@ -10,6 +10,8 @@ import InternalMessaging from "@/components/Communication/InternalMessaging";
 import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 import { EtapaModal } from "@/components/Project/EtapaModal";
 import { LogOut, Settings, Loader2, Clock, UserCircle, Sun, Moon, Cloud } from "lucide-react";
+import { Search as SearchIcon } from "lucide-react";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { BillingAlertIndicator } from "./BillingAlertIndicator";
 import { SubscriptionDrawer } from "@/components/Support/SubscriptionDrawer";
 import {
