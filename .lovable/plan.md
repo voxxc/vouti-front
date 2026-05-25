@@ -1,65 +1,72 @@
-## Causa raiz
+## Causa raiz (3 hipóteses, todas observadas no código)
 
-**1) Drawer não abre após pesquisa (mobile)**
-Em `DashboardLayout.tsx`, ao clicar num resultado dentro do `Sheet` mobile (busca rápida):
-```ts
-setMobileSearchOpen(false);
-handleQuickProjectSelect(pid);  // setProjectDrawerOpen(true)
-```
-O `Sheet` da busca é modal — quando fecha, o Radix Dialog injeta `pointer-events:none` no `body` e está animando saída. O `ProjectDrawer` é `modal={false}` com `side="inset"` e abre no mesmo tick, ficando preso atrás do estado de cleanup do Sheet anterior. Resultado: o drawer monta, mas o overlay/foco fica órfão e o usuário não vê nada (ou enxerga um piscar e ele "fecha").
+### 1) Reset por email (`Esqueci minha senha` em `/vargas/auth`)
+A `send-password-reset` envia o link **hardcoded** para `https://vouti.lovable.app/${tenant_slug}/reset-password/${code}`. O tenant Vargas usa o domínio de produção `vouti.co`. Quando o usuário clica no email, é levado para o domínio Lovable (não o custom domain), o que:
+- causa estranheza/desconfiança (link parece quebrado),
+- pode disparar bloqueios de cookie/sessão e
+- se o usuário recolar o código manualmente no `vouti.co/vargas/auth` não há tela pra colar o código (a tela só aceita link).
 
-**2) Visual do Projeto no mobile**
-`ProjectDrawerContent` envolve tudo em `container max-w-7xl mx-auto px-6 py-8` — em 390px isso consome ~48px de padding lateral + 32px vertical à toa. O `ProjectView` foi escrito só para desktop: header de projeto com botões em uma linha, abas inline (`text-sm` sem scroll), kanban com colunas `w-64` fixas, search "max-w-md". Nada com `md:` ou `useIsMobile`.
+### 2) Alterar a própria senha (Extras → Perfil)
+A função `update-own-password` valida a senha atual fazendo `signInWithPassword` num cliente "throwaway". Com as **novas signing keys (assimétricas) da Supabase**, esse `signInWithPassword` paralelo:
+- pode emitir um novo refresh token e **rotacionar/invalidar o token ativo do navegador**, fazendo o usuário cair em "Sessão expirada" antes mesmo do `updateUserById` ocorrer,
+- ou retornar 400 silencioso quando há rate-limit por IP, transformando uma senha correta em "Senha atual incorreta".
+Além disso, ainda usa `auth.getUser(token)` em vez do padrão atual `auth.getClaims(token)` (todas as outras funções já migraram).
 
-**3) Visual dos Protocolos no mobile**
-`ProjectProtocoloContent` (880 linhas) usa `grid grid-cols-2 gap-4` para cards de info, padding desktop, comentários e etapas com layout horizontal. No mobile fica tudo espremido — informações, comentários e anexos viram blocos minúsculos de difícil leitura.
+### 3) Admin trocando senha de outro usuário do tenant
+`admin-update-user-credentials` está OK em si, mas no Vargas só existe **1 usuário** (`jarifilho@hotmail.com`, admin). Não há UI em `/vargas` para o admin trocar a própria senha por esse caminho — o único path é o (2) acima. Logo, se (2) falha, o admin do Vargas fica sem alternativa interna.
 
 ## Correção
 
-### 1) Bug do drawer (rápido)
-Em `DashboardLayout.tsx`, dentro do `Sheet` mobile de busca:
-- Abrir o drawer ANTES de fechar o sheet, e atrasar o `setMobileSearchOpen(false)` em um tick (`requestAnimationFrame`) para que o cleanup do Sheet modal não atropele o mount do `ProjectDrawer`.
-- O mesmo para o handler de `onSelectProtocolo`.
+### Fix #1 — `update-own-password` (raiz mais provável)
+Reescrever para:
+- Verificar JWT com `getClaims(token)` (padrão atual do projeto).
+- **Não usar `signInWithPassword` para validar** a senha atual. Em vez disso, chamar diretamente a Auth REST `POST /auth/v1/token?grant_type=password` com `apikey: anon` e tratar o response sem salvar sessão (igual ao verifier, porém com `xform: ignore` e logout imediato do token emitido via `admin.auth.admin.signOut(newAccessToken)`). Isso impede a rotação do refresh token do usuário.
+- Mensagens de erro mais específicas (`Senha atual incorreta` vs `Limite de tentativas` vs `Erro interno`).
+- Registrar `tenant_id` e `slug` no log p/ rastreabilidade futura.
 
-### 2) Redesign mobile do Projeto
-Aplicar `useIsMobile()` e ajustes responsivos sem mexer em lógica:
+### Fix #2 — `send-password-reset` (link)
+- Trocar o hardcode `vouti.lovable.app` por **origin dinâmico**: ler `req.headers.get('origin')` e fazer fallback para `https://vouti.co`. Assim Vargas (e qualquer tenant em custom domain) recebe link na origem correta.
+- Validar que a origem está numa allowlist (`vouti.co`, `vouti.lovable.app`, `*.lovableproject.com`) para evitar open-redirect.
 
-**`ProjectDrawerContent.tsx`**
-- Container: `px-3 py-3 md:px-6 md:py-8` e remover `max-w-7xl` no mobile (`md:max-w-7xl md:mx-auto`).
+### Fix #3 — UI no `/tenant/auth` aceitar código manual
+Adicionar na `Auth.tsx` (modo `recovery`) um botão "Já tenho o código" que leva para um pequeno form (`email + código + nova senha`) que chama `verify-password-reset` diretamente. Resolve o caso do usuário do Vargas que recebeu o link, mas o link aponta pro domínio errado — ele consegue colar o código e seguir.
 
-**`ProjectView.tsx`** (header e abas)
-- Header: stack vertical no mobile (`flex-col md:flex-row`), título `text-base md:text-xl`, botões de ação viram ícones (sem texto) numa linha rolável (`overflow-x-auto`).
-- Workspaces tabs: `overflow-x-auto` + `whitespace-nowrap` + `snap-x` para rolar lateralmente.
-- Tabs principais (Protocolos / Casos / Colunas): mesma faixa rolável, padding maior (`py-2.5`).
-- Search: `w-full` no mobile (sem `max-w-md`).
-- Kanban: colunas `w-[80vw] max-w-[18rem] md:w-64`, `snap-x snap-mandatory md:snap-none`, padding reduzido.
-
-### 3) Redesign mobile dos Protocolos
-**`ProjectProtocoloContent.tsx`**
-- Container interno: padding compacto no mobile.
-- Cards de informação: `grid grid-cols-1 md:grid-cols-2` (empilha no mobile, lado a lado no desktop).
-- Header do protocolo: stack vertical, título quebra em 2 linhas, badges em wrap, botões de ação como linha rolável de ícones.
-- Bloco de comentários: largura total, avatar menor (`h-7 w-7`), texto `text-sm` com `leading-relaxed`, input fixo no rodapé do scroll (sticky bottom) para não perder foco.
-- Anexos: lista vertical com thumbnail + nome + tamanho, em vez de grid apertado.
-- Etapas: cards full-width com responsável + data em linha separada do título.
-
-Nenhuma mudança em hooks de dados, RPC, RLS ou queries.
+### Fix #4 — Telemetria
+Adicionar `console.log` estruturado no início e fim de `update-own-password` e `send-password-reset` para que esse tipo de chamado tenha logs (hoje `update-own-password` está sem nenhum log nas últimas execuções, o que dificulta o diagnóstico).
 
 ## Arquivos afetados
-- `src/components/Dashboard/DashboardLayout.tsx` — fix ordem de abertura/fechamento na busca mobile.
-- `src/components/Project/ProjectDrawerContent.tsx` — padding/container responsivo.
-- `src/pages/ProjectView.tsx` — header, tabs, search e kanban responsivos (mudanças localizadas, sem refatorar lógica).
-- `src/components/Project/ProjectProtocoloContent.tsx` — grid de info, comentários, anexos e etapas em layout mobile.
+
+- `supabase/functions/update-own-password/index.ts` — reescrita (Fix #1, #4)
+- `supabase/functions/send-password-reset/index.ts` — origin dinâmico + allowlist + logs (Fix #2, #4)
+- `src/pages/Auth.tsx` — novo subfluxo "Já tenho o código" no modo `recovery` (Fix #3)
+- `src/pages/CrmLogin.tsx` — mesmo subfluxo, para o produto CRM standalone (consistência)
 
 ## Impacto
-1. **Usuário final (UX)**: no mobile, busca rápida agora abre o drawer do projeto corretamente. A tela do projeto deixa de ter texto cortado/colunas grudadas — abas e workspaces rolam de lado, kanban faz snap, informações respiram. No protocolo, informações, comentários e anexos viram blocos legíveis em coluna única, com input de comentário sempre acessível. Desktop fica visualmente idêntico.
-2. **Dados**: zero. Sem migration, sem RLS, sem mudança de query.
-3. **Riscos colaterais**: as mudanças em `ProjectView` tocam classes Tailwind em pontos sensíveis (kanban com drag-and-drop); risco é apenas visual e o `react-beautiful-dnd` não depende de largura fixa. Sticky bottom do input de comentário precisa respeitar o `MobileBottomNav` (z-index e bottom-padding).
-4. **Quem é afetado**: todos os usuários acessando Planejamento de Projetos / Protocolos pelo mobile (qualquer tenant, qualquer role). Desktop não muda.
+
+**(1) Usuário final / UX**
+- Vargas (e todos os tenants em domínio próprio) passam a conseguir trocar senha pela tela Extras → Perfil sem ser deslogado no meio do processo.
+- Email de recuperação passa a apontar para o domínio do qual a pessoa solicitou (vouti.co para Vargas/Solvenza no custom domain; vouti.lovable.app em preview).
+- Surge um caminho alternativo "Já tenho o código" em `/tenant/auth`, útil quando o email chega com link quebrado/bloqueado.
+
+**(2) Dados**
+- Zero migrations. Nenhuma alteração em tabelas, RLS, índices ou storage.
+- Tabela `password_reset_codes` continua igual; só passa a ser usada com mais consistência.
+
+**(3) Riscos colaterais**
+- A allowlist de origem precisa cobrir os domínios reais (vouti.co, vouti.lovable.app, *.lovableproject.com); se faltar algum, o reset cai em fallback de produção — não quebra, só perde o "voltar pro mesmo domínio".
+- O subfluxo "código manual" reaproveita `verify-password-reset` que **já existe e está testado**, sem novas superfícies de ataque.
+- A remoção do `signInWithPassword` no `update-own-password` muda a forma de validar a senha atual; se a Auth REST mudar de contrato, a validação falha — mitigado mantendo o teste por `400 invalid_grant`.
+
+**(4) Quem é afetado**
+- **Todos os tenants** (Solvenza, Vargas, Jari Vargas, etc.) — não é fix específico do Vargas; só foi exposto lá porque ele tem 1 usuário só e não tem rota alternativa.
+- Admin/controller continuam usando `admin-update-user-credentials` (inalterado) para trocar senha de outros usuários do tenant.
+- Super Admin não é afetado (funções `super-admin-*` separadas).
 
 ## Validação
-- Mobile 390px → topbar → lupa → buscar "demo" → clicar projeto: drawer abre fullscreen.
-- Mesma busca → clicar protocolo: drawer abre já no protocolo certo.
-- Dentro do projeto: abas e workspaces rolam de lado sem quebrar; kanban faz snap entre colunas; header não estoura.
-- Dentro do protocolo: cards de info empilham, comentários ficam legíveis, input fica acessível ao teclado, anexos em lista.
-- Desktop ≥768px: layout idêntico ao atual em projeto e protocolo.
+
+1. Em `/vargas/auth` → "Esqueci minha senha" → conferir nos logs de `send-password-reset` que `origin` foi capturado e o link no email aponta para `vouti.co/vargas/reset-password/{code}`.
+2. No email, clicar no link → tela `ResetPassword` abre → trocar senha → login funciona com nova senha.
+3. Alternativo: em `/vargas/auth` → "Já tenho o código" → colar email + código + nova senha → sucesso.
+4. Logar como `jarifilho@hotmail.com` → Extras → Perfil → "Alterar senha" com senha atual correta → toast de sucesso → relogin com a nova senha (sessão antiga encerrada por logout intencional após sucesso, como já é hoje).
+5. Repetir o passo 4 com senha atual **errada** → toast "Senha atual incorreta" (não "Erro interno").
+6. Conferir nos Edge Function logs do Supabase que `update-own-password` agora registra início/fim com tenant_id.

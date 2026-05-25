@@ -17,7 +17,9 @@ const CrmLogin = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [mode, setMode] = useState<'login' | 'recovery'>('login');
+  const [mode, setMode] = useState<'login' | 'recovery' | 'code'>('login');
+  const [resetCode, setResetCode] = useState("");
+  const [resetNewPassword, setResetNewPassword] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
   const { tenant } = useParams<{ tenant: string }>();
@@ -161,6 +163,42 @@ const CrmLogin = () => {
     }
   };
 
+  const handleSubmitCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !resetCode || !resetNewPassword) {
+      toast({ title: "Erro", description: "Preencha email, código e nova senha.", variant: "destructive" });
+      return;
+    }
+    if (resetNewPassword.length < 8) {
+      toast({ title: "Erro", description: "A nova senha deve ter ao menos 8 caracteres.", variant: "destructive" });
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("verify-password-reset", {
+        body: {
+          email: email.toLowerCase(),
+          code: resetCode.trim(),
+          new_password: resetNewPassword,
+          tenant_slug: "crm",
+        },
+      });
+      if (error || (data as any)?.error) {
+        toast({ title: "Erro", description: (data as any)?.error || error?.message || "Código inválido ou expirado.", variant: "destructive" });
+      } else {
+        toast({ title: "Senha atualizada", description: "Faça login com a nova senha." });
+        setMode('login');
+        setResetCode("");
+        setResetNewPassword("");
+        setPassword("");
+      }
+    } catch {
+      toast({ title: "Erro", description: "Erro inesperado ao redefinir senha.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (tenantValid === null) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -264,18 +302,43 @@ const CrmLogin = () => {
                     <a href="/docs/politica-de-privacidade.pdf" download className="underline hover:text-primary">política de privacidade</a>
                   </p>
                 </form>
-              ) : (
+              ) : mode === 'recovery' ? (
                 <form onSubmit={handleResetPassword} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="recovery-email">Email</Label>
                     <Input id="recovery-email" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} disabled={isLoading} />
                   </div>
                   <Button type="submit" className="w-full" variant="professional" disabled={isLoading}>
-                    {isLoading ? "Enviando..." : "Enviar link de recuperação"}
+                    {isLoading ? "Enviando..." : "Enviar código por email"}
                   </Button>
+                  <button type="button" onClick={() => setMode('code')} className="text-sm text-primary hover:underline w-full text-center">
+                    Já tenho o código
+                  </button>
                   <button type="button" onClick={() => setMode('login')} className="text-sm text-muted-foreground hover:text-foreground w-full text-center flex items-center justify-center gap-1">
                     <ArrowLeft className="h-3 w-3" />
                     Voltar ao login
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleSubmitCode} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="code-email">Email</Label>
+                    <Input id="code-email" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} disabled={isLoading} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="code-code">Código (6 dígitos)</Label>
+                    <Input id="code-code" inputMode="numeric" maxLength={6} placeholder="000000" value={resetCode} onChange={e => setResetCode(e.target.value.replace(/\D/g, ''))} disabled={isLoading} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="code-new-pass">Nova senha</Label>
+                    <Input id="code-new-pass" type="password" placeholder="Mínimo 8 caracteres" value={resetNewPassword} onChange={e => setResetNewPassword(e.target.value)} disabled={isLoading} />
+                  </div>
+                  <Button type="submit" className="w-full" variant="professional" disabled={isLoading}>
+                    {isLoading ? "Atualizando..." : "Redefinir senha"}
+                  </Button>
+                  <button type="button" onClick={() => setMode('recovery')} className="text-sm text-muted-foreground hover:text-foreground w-full text-center flex items-center justify-center gap-1">
+                    <ArrowLeft className="h-3 w-3" />
+                    Voltar
                   </button>
                 </form>
               )}
