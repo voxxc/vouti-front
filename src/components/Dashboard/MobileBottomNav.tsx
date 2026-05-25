@@ -20,14 +20,14 @@ interface MobileBottomNavProps {
 
 const PRIMARY_TABS = [
   { id: 'dashboard', icon: BarChart3, label: 'Início' },
-  { id: 'projetos', icon: FolderOpen, label: 'Projetos' },
+  { id: 'planejador', icon: LayoutGrid, label: 'Planejador' },
   { id: 'agenda', icon: Calendar, label: 'Agenda' },
   { id: 'controladoria', icon: FileCheck, label: 'Controle' },
   { id: 'more', icon: MoreHorizontal, label: 'Mais' },
 ] as const;
 
 const MORE_ITEMS = [
-  { id: 'planejador', icon: LayoutGrid, label: 'Planejador' },
+  { id: 'projetos', icon: FolderOpen, label: 'Projetos' },
   { id: 'clientes', icon: Users, label: 'Clientes' },
   { id: 'financeiro', icon: DollarSign, label: 'Financeiro' },
   { id: 'documentos', icon: FileText, label: 'Documentos' },
