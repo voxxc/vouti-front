@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePlanejadorLabels, useAllLabelAssignments } from "@/hooks/usePlanejadorLabels";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { usePlanejadorTaskViews } from "@/hooks/usePlanejadorTaskViews";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -75,6 +76,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
   const currentUserId = user?.id || null;
   const { tenantId } = useTenantId();
   const { theme } = useTheme();
+  const isMobile = useIsMobile();
   const queryClient = useQueryClient();
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -244,19 +246,22 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
           onInteractOutside={(e) => e.preventDefault()}
           onPointerDownOutside={(e) => e.preventDefault()}
           className={`p-0 border-0 overflow-hidden [&>button]:hidden transition-all duration-300 ${
-            isExpanded ? '!fixed !inset-0 !top-0 !left-0 !bottom-0 !right-0 z-[60]' : ''
+            (isExpanded || isMobile) ? '!fixed !inset-0 !top-0 !left-0 !bottom-0 !right-0 z-[60]' : ''
           }`}
         >
           <SheetTitle className="sr-only">Planejador</SheetTitle>
           <div 
             className="h-full flex flex-col relative"
-            style={{
+            style={isMobile ? undefined : {
               backgroundImage: `url(${theme === 'dark' ? spaceBg : skyLightBg})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
             }}
           >
-            <div className={`absolute inset-0 backdrop-blur-[2px] ${theme === 'dark' ? 'bg-black/40' : 'bg-white/30'}`} />
+            {!isMobile && (
+              <div className={`absolute inset-0 backdrop-blur-[2px] ${theme === 'dark' ? 'bg-black/40' : 'bg-white/30'}`} />
+            )}
+            {isMobile && <div className="absolute inset-0 bg-background" />}
 
             {/* Task detail rendered inside Sheet context for proper focus/interaction */}
             {selectedTask && (
@@ -268,7 +273,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
               />
             )}
 
-            <button
+            {!isMobile && <button
               onClick={() => setIsExpanded(!isExpanded)}
               className={`absolute top-3 left-3 z-20 flex items-center justify-center w-7 h-7 rounded-md transition-colors ${
                 theme === 'dark' ? 'bg-white/10 hover:bg-white/20' : 'bg-black/5 hover:bg-black/10'
@@ -280,10 +285,10 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
               ) : (
                 <ChevronLeft className={`h-4 w-4 ${theme === 'dark' ? 'text-white/70' : 'text-foreground/70'}`} strokeWidth={1.5} />
               )}
-            </button>
+            </button>}
 
             <div className="relative z-10 flex flex-col h-full">
-              <div className="px-6 pt-5 pb-2">
+              <div className="px-3 pt-3 pb-2 md:px-6 md:pt-5">
                 <PlanejadorTopBar
                   onCreateTask={() => setCreateOpen(true)}
                   onCreateDeadline={() => setCreateDeadlineOpen(true)}
@@ -305,7 +310,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                 />
               </div>
 
-              <div className="flex-1 px-6 pb-4 min-h-0 overflow-hidden">
+              <div className="flex-1 px-3 pb-3 md:px-6 md:pb-4 min-h-0 overflow-hidden">
                 {isLoading ? (
                   <div className="flex items-center justify-center h-full">
                     <Loader2 className={`h-8 w-8 animate-spin ${theme === 'dark' ? 'text-white/50' : 'text-foreground/50'}`} />
