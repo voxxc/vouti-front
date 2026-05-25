@@ -151,11 +151,11 @@ export function PlanejadorKanban({
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <div className="flex gap-4 pb-4 h-full min-h-0 planejador-scroll" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
+      <div className="flex gap-3 md:gap-4 pb-4 h-full min-h-0 planejador-scroll snap-x snap-mandatory md:snap-none" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
         {columns.map((col) => {
           const tasks = filterTasks(tasksByColumn[col.id] || []);
           return (
-            <div key={col.id} className="flex-shrink-0 w-72 flex flex-col min-h-0">
+            <div key={col.id} className="flex-shrink-0 w-[85vw] max-w-[18rem] md:w-72 flex flex-col min-h-0 snap-start">
               <div className="flex items-center gap-2 mb-3 px-2">
                 <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-2 ring-white/40 dark:ring-white/10" style={{ backgroundColor: col.color }} />
                 <span className={`text-sm font-semibold tracking-tight truncate ${text}`}>{col.label}</span>
@@ -168,7 +168,7 @@ export function PlanejadorKanban({
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className={`flex-1 min-h-[200px] rounded-2xl p-2.5 transition-colors border ${
+                    className={`flex-1 min-h-[200px] rounded-2xl p-2 md:p-2.5 transition-colors border ${
                       isDark ? 'border-white/[0.04]' : 'border-black/[0.04]'
                     } ${snapshot.isDraggingOver ? colDragOver : colBg}`}
                   >
