@@ -1013,7 +1013,7 @@ export const ProcessoOABDetalhes = ({
             {/* Andamentos */}
             <TabsContent value="andamentos" className="mt-4">
               {/* Se nao tem request_id, mostrar botao para carregar/atualizar */}
-              {!processo.detalhes_request_id && onCarregarDetalhes && (
+              {!processo.detalhes_request_id && andamentos.length === 0 && onCarregarDetalhes && (
                 <div className="p-6 text-center space-y-4 border rounded-lg bg-muted/30 mb-4">
                   <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                     <ClipboardList className="w-6 h-6 text-primary" />
