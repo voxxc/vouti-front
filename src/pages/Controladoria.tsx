@@ -47,7 +47,26 @@ const Controladoria = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Mobile: scroll horizontal compacto */}
+        <div className="md:hidden -mx-1 px-1 flex overflow-x-auto snap-x snap-mandatory gap-2 pb-1">
+          {kpis.map(({ label, value, icon: Icon, tint }) => (
+            <div key={label} className="kpi-card !p-3 min-w-[150px] snap-start flex items-center gap-3">
+              <span className={`kpi-icon shrink-0 ${tint}`}>
+                <Icon className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] leading-tight font-medium text-muted-foreground line-clamp-2">{label}</p>
+                {showSkeleton ? (
+                  <Skeleton className="h-5 w-10 mt-1" />
+                ) : (
+                  <div className="text-lg font-semibold tracking-tight">{value}</div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Desktop: grid original */}
+        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-5 gap-4">
           {kpis.map(({ label, value, icon: Icon, tint }) => (
             <div key={label} className="kpi-card">
               <div className="flex items-start justify-between gap-3">
@@ -66,24 +85,26 @@ const Controladoria = () => {
         </div>
 
         <Tabs defaultValue="central" className="space-y-4">
-          <TabsList className="apple-segmented">
-            <TabsTrigger value="central">
-              <ClipboardCheck className="mr-2 h-4 w-4" />
-              Central
-            </TabsTrigger>
-            <TabsTrigger value="minhas-oabs">
-              <Scale className="mr-2 h-4 w-4" />
-              OABs
-            </TabsTrigger>
-            <TabsTrigger value="push-doc">
-              <FileStack className="mr-2 h-4 w-4" />
-              Push-Doc
-            </TabsTrigger>
-            <TabsTrigger value="prazos-of">
-              <AlertTriangle className="mr-2 h-4 w-4" />
-              Prazos OF
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-1 px-1">
+            <TabsList className="apple-segmented w-max md:w-auto">
+              <TabsTrigger value="central" className="text-xs md:text-sm">
+                <ClipboardCheck className="mr-1.5 md:mr-2 h-4 w-4" />
+                Central
+              </TabsTrigger>
+              <TabsTrigger value="minhas-oabs" className="text-xs md:text-sm">
+                <Scale className="mr-1.5 md:mr-2 h-4 w-4" />
+                OABs
+              </TabsTrigger>
+              <TabsTrigger value="push-doc" className="text-xs md:text-sm">
+                <FileStack className="mr-1.5 md:mr-2 h-4 w-4" />
+                Push-Doc
+              </TabsTrigger>
+              <TabsTrigger value="prazos-of" className="text-xs md:text-sm">
+                <AlertTriangle className="mr-1.5 md:mr-2 h-4 w-4" />
+                Prazos OF
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="central">
             <Card>

@@ -16,7 +16,14 @@ import {
   Building2,
   Scale,
   ChevronRight,
+  MoreHorizontal,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PushDocProcessosSheet } from './PushDocProcessosSheet';
 import { Button } from '@/components/ui/button';
@@ -167,26 +174,27 @@ export const PushDocsManager = () => {
     <>
       <div className="space-y-4">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TipoDocumento)}>
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <TabsList className="apple-segmented">
-              <TabsTrigger value="cpf" className="gap-2">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            <TabsList className="apple-segmented grid grid-cols-3 w-full md:w-auto md:flex">
+              <TabsTrigger value="cpf" className="gap-1.5 text-xs md:text-sm">
                 {getTabIcon('cpf')}
                 CPF ({docsCount.cpf})
               </TabsTrigger>
-              <TabsTrigger value="cnpj" className="gap-2">
+              <TabsTrigger value="cnpj" className="gap-1.5 text-xs md:text-sm">
                 {getTabIcon('cnpj')}
                 CNPJ ({docsCount.cnpj})
               </TabsTrigger>
-              <TabsTrigger value="oab" className="gap-2">
+              <TabsTrigger value="oab" className="gap-1.5 text-xs md:text-sm">
                 {getTabIcon('oab')}
                 OAB ({docsCount.oab})
               </TabsTrigger>
             </TabsList>
 
             {isAdmin && (
-              <Button size="sm" onClick={openCadastrarDialog} className="gap-2">
+              <Button size="sm" onClick={openCadastrarDialog} className="gap-2 md:w-auto">
                 <Plus className="h-4 w-4" />
-                Adicionar Termo
+                <span className="md:hidden">Adicionar</span>
+                <span className="hidden md:inline">Adicionar Termo</span>
               </Button>
             )}
           </div>
@@ -406,38 +414,42 @@ interface PushDocCardProps {
 
 function PushDocCard({ doc, isAdmin, formatDocumento, getStatusBadge, processosCount, onOpenProcessos, onPause, onResume, onDelete }: PushDocCardProps) {
   return (
-    <Card className="p-4">
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="font-mono font-medium">
+    <Card className="p-3 md:p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="space-y-1.5 min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono font-medium text-sm md:text-base break-all">
               {formatDocumento(doc.documento, doc.tipo_documento)}
             </span>
             {getStatusBadge(doc.tracking_status)}
           </div>
           {doc.descricao && (
-            <p className="text-sm text-muted-foreground">{doc.descricao}</p>
+            <p className="text-xs md:text-sm text-muted-foreground line-clamp-2">{doc.descricao}</p>
           )}
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span>Recorrência: {doc.recurrence} dia(s)</span>
+          <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-muted">
+              {doc.recurrence}d
+            </span>
             <button
               type="button"
               onClick={onOpenProcessos}
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/5 hover:bg-primary text-primary hover:text-primary-foreground font-semibold transition-colors"
             >
-              {processosCount} Processo{processosCount === 1 ? '' : 's'}
+              {processosCount} Proc.
               <ChevronRight className="h-3 w-3" />
             </button>
             {doc.ultima_notificacao && (
-              <span>
-                Última: {format(new Date(doc.ultima_notificacao), 'dd/MM/yy HH:mm', { locale: ptBR })}
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-muted">
+                {format(new Date(doc.ultima_notificacao), 'dd/MM/yy', { locale: ptBR })}
               </span>
             )}
           </div>
         </div>
 
         {isAdmin && (
-          <div className="flex items-center gap-1">
+          <>
+          {/* Desktop: ações inline */}
+          <div className="hidden md:flex items-center gap-1 shrink-0">
             {doc.tracking_status === 'ativo' && (
               <Button variant="ghost" size="icon" onClick={onPause} title="Pausar">
                 <Pause className="h-4 w-4" />
@@ -458,6 +470,32 @@ function PushDocCard({ doc, isAdmin, formatDocumento, getStatusBadge, processosC
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
+          {/* Mobile: dropdown */}
+          <div className="md:hidden shrink-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {doc.tracking_status === 'ativo' && (
+                  <DropdownMenuItem onClick={onPause}>
+                    <Pause className="h-4 w-4 mr-2" /> Pausar
+                  </DropdownMenuItem>
+                )}
+                {doc.tracking_status === 'pausado' && (
+                  <DropdownMenuItem onClick={onResume}>
+                    <Play className="h-4 w-4 mr-2" /> Reativar
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
+                  <Trash2 className="h-4 w-4 mr-2" /> Remover
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          </>
         )}
       </div>
     </Card>
