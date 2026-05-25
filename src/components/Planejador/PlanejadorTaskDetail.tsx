@@ -36,6 +36,7 @@ import { EditarPrazoDialog } from "@/components/Agenda/EditarPrazoDialog";
 import { ClienteDetails } from "@/components/CRM/ClienteDetails";
 import { Deadline } from "@/types/agenda";
 import { Cliente } from "@/types/cliente";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface PlanejadorTaskDetailProps {
   task: PlanejadorTask;
@@ -83,6 +84,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const [processoSearch, setProcessoSearch] = useState("");
   const [newEtapaTitle, setNewEtapaTitle] = useState("");
   const [activeTab, setActiveTab] = useState<'detalhes' | 'info'>('detalhes');
+  const [mobileTab, setMobileTab] = useState<'detalhes' | 'chat' | 'info'>('detalhes');
   const [editingPrazoDeadline, setEditingPrazoDeadline] = useState<Deadline | null>(null);
   const [editPrazoOpen, setEditPrazoOpen] = useState(false);
   const [clienteInfoOpen, setClienteInfoOpen] = useState(false);
@@ -90,6 +92,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const [pausarDate, setPausarDate] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   // ESC closes task detail first, not the drawer behind
   useEffect(() => {
