@@ -36,6 +36,7 @@ import { EditarPrazoDialog } from "@/components/Agenda/EditarPrazoDialog";
 import { ClienteDetails } from "@/components/CRM/ClienteDetails";
 import { Deadline } from "@/types/agenda";
 import { Cliente } from "@/types/cliente";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface PlanejadorTaskDetailProps {
   task: PlanejadorTask;
@@ -83,6 +84,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const [processoSearch, setProcessoSearch] = useState("");
   const [newEtapaTitle, setNewEtapaTitle] = useState("");
   const [activeTab, setActiveTab] = useState<'detalhes' | 'info'>('detalhes');
+  const [mobileTab, setMobileTab] = useState<'detalhes' | 'chat' | 'info'>('detalhes');
   const [editingPrazoDeadline, setEditingPrazoDeadline] = useState<Deadline | null>(null);
   const [editPrazoOpen, setEditPrazoOpen] = useState(false);
   const [clienteInfoOpen, setClienteInfoOpen] = useState(false);
@@ -90,6 +92,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const [pausarDate, setPausarDate] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   // ESC closes task detail first, not the drawer behind
   useEffect(() => {
@@ -909,65 +912,116 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
 
   return (
     <>
-      <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-stretch animate-in fade-in duration-200" onDoubleClick={(e) => { e.stopPropagation(); onClose(); }} onClick={(e) => e.stopPropagation()}>
-        <div className="flex w-full max-w-6xl mx-auto my-4 rounded-2xl overflow-hidden shadow-2xl border border-border bg-background pointer-events-auto" onDoubleClick={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`absolute inset-0 z-[60] bg-black/60 ${isMobile ? '' : 'backdrop-blur-sm'} flex items-stretch animate-in fade-in duration-200`}
+        onDoubleClick={(e) => { e.stopPropagation(); if (!isMobile) onClose(); }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className={
+            isMobile
+              ? "flex flex-col w-full h-full bg-background pointer-events-auto"
+              : "flex w-full max-w-6xl mx-auto my-4 rounded-2xl overflow-hidden shadow-2xl border border-border bg-background pointer-events-auto"
+          }
+          onDoubleClick={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
 
-          {/* Left Panel */}
-          <div className="w-[45%] flex flex-col border-r border-border">
+          {/* Left Panel (Desktop) / Full Panel (Mobile) */}
+          <div className={isMobile ? "flex-1 flex flex-col min-h-0" : "w-[45%] flex flex-col border-r border-border"}>
             {/* Header */}
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <Button variant="ghost" size="sm" onClick={onClose} className="gap-1.5">
-                <ArrowLeft className="h-4 w-4" />
-                Voltar
-              </Button>
-              <div className="flex items-center gap-2">
-                <Badge className={`${status.color} border-0 text-xs`}>{status.label}</Badge>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
-                  <X className="h-4 w-4" />
-                </Button>
+            {isMobile ? (
+              <div className="px-3 pt-3 pb-2 border-b border-border space-y-2">
+                <div className="flex items-center justify-between">
+                  <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 -ml-2">
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                  <Badge className={`${status.color} border-0 text-xs`}>{status.label}</Badge>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 -mr-2" onClick={onClose}>
+                    <X className="h-5 w-5" />
+                  </Button>
+                </div>
+                <h2 className="text-base font-semibold text-foreground truncate px-1">{titulo || 'Sem título'}</h2>
               </div>
-            </div>
+            ) : (
+              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                <Button variant="ghost" size="sm" onClick={onClose} className="gap-1.5">
+                  <ArrowLeft className="h-4 w-4" />
+                  Voltar
+                </Button>
+                <div className="flex items-center gap-2">
+                  <Badge className={`${status.color} border-0 text-xs`}>{status.label}</Badge>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Tabs */}
-            <div className="flex border-b border-border">
-              <button
-                onClick={() => setActiveTab('detalhes')}
-                className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
-                  activeTab === 'detalhes' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Detalhes
-              </button>
-              <button
-                onClick={() => setActiveTab('info')}
-                className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
-                  activeTab === 'info' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Info className="h-3.5 w-3.5" /> Info
-              </button>
-            </div>
+            {isMobile ? (
+              <div className="flex border-b border-border">
+                {(['detalhes', 'chat', 'info'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setMobileTab(tab)}
+                    className={`flex-1 px-2 py-3 text-sm font-medium capitalize transition-colors ${
+                      mobileTab === tab ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground'
+                    }`}
+                  >
+                    {tab === 'chat' ? 'Chat' : tab === 'info' ? 'Info' : 'Detalhes'}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex border-b border-border">
+                <button
+                  onClick={() => setActiveTab('detalhes')}
+                  className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
+                    activeTab === 'detalhes' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Detalhes
+                </button>
+                <button
+                  onClick={() => setActiveTab('info')}
+                  className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+                    activeTab === 'info' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Info className="h-3.5 w-3.5" /> Info
+                </button>
+              </div>
+            )}
 
             {/* Tab Content */}
-            {activeTab === 'detalhes' ? renderDetailsTab() : renderInfoTab()}
+            {isMobile ? (
+              mobileTab === 'chat' ? (
+                <div className="flex-1 flex flex-col min-h-0">
+                  <PlanejadorTaskChat taskId={task.id} />
+                </div>
+              ) : mobileTab === 'info' ? renderInfoTab() : renderDetailsTab()
+            ) : (
+              activeTab === 'detalhes' ? renderDetailsTab() : renderInfoTab()
+            )}
 
             {/* Bottom Actions */}
-            <div className="px-5 py-3 border-t border-border flex items-center gap-2">
+            <div className={isMobile ? "px-3 py-2 border-t border-border flex items-center gap-2" : "px-5 py-3 border-t border-border flex items-center gap-2"}>
               {task.status !== 'in_progress' && task.status !== 'completed' && (
-                <Button size="sm" variant="outline" onClick={() => handleStatusChange('in_progress')} className="gap-1.5">
+                <Button size={isMobile ? "default" : "sm"} variant="outline" onClick={() => handleStatusChange('in_progress')} className={isMobile ? "gap-1.5 flex-1 h-11" : "gap-1.5"}>
                   <Play className="h-3.5 w-3.5" />
                   Iniciar
                 </Button>
               )}
               {task.status !== 'completed' && (
-                <Button size="sm" onClick={() => handleStatusChange('completed')} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+                <Button size={isMobile ? "default" : "sm"} onClick={() => handleStatusChange('completed')} className={isMobile ? "gap-1.5 flex-1 h-11 bg-emerald-600 hover:bg-emerald-700" : "gap-1.5 bg-emerald-600 hover:bg-emerald-700"}>
                   <CheckCircle className="h-3.5 w-3.5" />
                   Concluir
                 </Button>
               )}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button size="sm" variant="ghost" className="ml-auto text-destructive hover:text-destructive p-2">
+                  <Button size={isMobile ? "default" : "sm"} variant="ghost" className={isMobile ? "text-destructive hover:text-destructive h-11 w-11 p-0" : "ml-auto text-destructive hover:text-destructive p-2"}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </AlertDialogTrigger>
@@ -992,10 +1046,12 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
             </div>
           </div>
 
-          {/* Right Panel - Chat */}
-          <div className="w-[55%] flex flex-col">
-            <PlanejadorTaskChat taskId={task.id} />
-          </div>
+          {/* Right Panel - Chat (Desktop only) */}
+          {!isMobile && (
+            <div className="w-[55%] flex flex-col">
+              <PlanejadorTaskChat taskId={task.id} />
+            </div>
+          )}
         </div>
       </div>
 

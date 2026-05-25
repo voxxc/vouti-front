@@ -1,44 +1,51 @@
-# Correções mobile: deadline detail, bottom nav e busca rápida
-
 ## Causa raiz
 
-1. **Prazo não abre**: `DeadlineDetailDialog` usa o `Dialog` padrão do shadcn, que renderiza no `z-50`. No mobile, o `PlanejadorDrawer` foi configurado para abrir fullscreen com `z-[60]`. O dialog do prazo é renderizado por trás do overlay do Planejador — ele abre mas fica invisível. Vale também para o `DeadlineDetailDialog` dentro do `DashboardLayout` se houver outro overlay ativo.
-2. **Botão Planejador escondido em "Mais"**: na rodada anterior coloquei `planejador` em `MORE_ITEMS`. O usuário quer ele visível direto na barra inferior, no lugar de **Projetos** (já que Projetos pode viver no menu "Mais").
-3. **Lupa do topbar não faz nada útil no mobile**: hoje o ícone de lupa no header (`GlobalSearch`) abre uma busca genérica. No desktop existe o `ProjectQuickSearch` (busca rápida de projetos + protocolos) que está `hidden md:flex` — invisível no mobile. O usuário quer que a lupa do mobile dispare exatamente a busca rápida de projetos/protocolos.
+O `PlanejadorTaskDetail` foi desenhado só para desktop:
+
+- Overlay com card `max-w-6xl` dividido horizontalmente em duas colunas fixas: **45% Detalhes + 55% Chat** lado a lado.
+- No mobile (390px) essas duas colunas viram ~175px cada, espremendo título, campos, sidebar de seções e o chat ao mesmo tempo.
+- Padding interno (`p-5`, `px-5 py-4`) e fontes pensadas para desktop.
+- O header tem "Voltar" + badge de status + X amontoados na mesma linha estreita.
+- Tabs internas só alternam `Detalhes` / `Info`, então o Chat fica sempre visível roubando metade da tela.
+- O card flutua com `my-4` e `rounded-2xl` — no mobile precisa ser fullscreen.
 
 ## Correção
 
-### 1. Z-index do DeadlineDetailDialog no mobile
-- Em `src/components/Agenda/DeadlineDetailDialog.tsx`: aumentar o `z-index` do `DialogContent` para `z-[70]` (acima do drawer do Planejador que está em `z-[60]`). Aplicar via className (`className="... z-[70]"`).
-- Como o `Dialog` do shadcn também usa um overlay (z-50), passar a classe no overlay também. Alternativa cirúrgica: usar `className="z-[70]"` no `DialogContent` — o overlay subjacente do Radix herda `z-50` por padrão, mas o content fica clicável acima do drawer. Validar que o backdrop escuro não esconde nada essencial. Se o overlay do dialog continuar atrás, alternativa B: subir overlay também com um wrapper customizado (já existem variantes em ui/dialog.tsx).
+Detectar mobile com `useIsMobile()` e renderizar um layout vertical fullscreen, mantendo o desktop intacto.
 
-### 2. Bottom nav: trocar Projetos por Planejador
-- Em `src/components/Dashboard/MobileBottomNav.tsx`:
-  - `PRIMARY_TABS`: trocar `{ id: 'projetos', icon: FolderOpen, label: 'Projetos' }` por `{ id: 'planejador', icon: LayoutGrid, label: 'Planejador' }`.
-  - `MORE_ITEMS`: remover o `planejador` que adicionei na rodada anterior e adicionar `{ id: 'projetos', icon: FolderOpen, label: 'Projetos' }` no topo da lista do "Mais".
-  - `hasAccessToItem`: continuar tratando `planejador` como sempre visível (já feito). Para `projetos`, manter regra existente.
+**Layout mobile (md:hidden)**
+- Overlay sem `max-w-6xl`/`my-4`/`rounded-2xl`: ocupa `inset-0` inteiro, sem bordas arredondadas nem margem.
+- Painel único em coluna (`flex-col`), sem split 45/55.
+- Header compacto em 2 linhas:
+  - Linha 1: botão Voltar (ícone só) + badge de status + X à direita.
+  - Linha 2: título da tarefa em destaque (`text-base font-semibold`), editável ao tocar (vira input).
+- Adicionar uma 3ª tab: **Detalhes | Chat | Info** — no mobile o Chat passa a ser uma tab dedicada em vez de coluna fixa. Desktop continua com 2 tabs + chat lateral.
+- Conteúdo das tabs com padding maior e respiro: `px-4 py-4 space-y-4` em vez de `p-5 space-y-5` apertado dentro de 175px.
+- Sidebar de seções (subtarefas/etapas/arquivos/etc.) que hoje fica embutida no Detalhes vira lista de cards empilhados com toque grande (min `h-12`), abrindo cada seção como sheet/bottom-sheet em vez de expansão inline.
+- Bottom Actions (Iniciar/Concluir/Excluir) viram barra fixa no rodapé com botões de largura igual (`flex-1`) e altura confortável (`h-11`).
+- Diálogos secundários (Participantes, Cliente Info, Editar Prazo) já usam `Dialog` shadcn — só garantir `max-w-[95vw]` no mobile.
 
-### 3. Lupa mobile = busca rápida de projetos/protocolos
-- Em `src/components/Dashboard/DashboardLayout.tsx`:
-  - O `GlobalSearch` no header passa a ser `hidden md:inline-flex` (continua só no desktop, junto com o `ProjectQuickSearch` desktop).
-  - Adicionar um novo botão de lupa visível apenas no mobile (`md:hidden`) que abre um `Sheet` (side="top" ou full overlay) contendo o `ProjectQuickSearch` renderizado em modo full-width. O `ProjectQuickSearch` já usa portal para o dropdown — basta envolvê-lo em um Sheet/Dialog e ele funcionará. Os handlers `onSelectProject` e `onSelectProtocolo` já existem no DashboardLayout (linhas 421-431), passar os mesmos para o novo wrapper mobile e fechar o Sheet ao selecionar.
+**Layout desktop (md:)**
+- Mantém exatamente o atual: card 6xl, split 45/55, chat lateral, 2 tabs.
 
 ## Arquivos afetados
 
-- `src/components/Agenda/DeadlineDetailDialog.tsx` — z-index do DialogContent
-- `src/components/Dashboard/MobileBottomNav.tsx` — Planejador na primary bar, Projetos vai pro "Mais"
-- `src/components/Dashboard/DashboardLayout.tsx` — esconde GlobalSearch no mobile, adiciona Sheet mobile com ProjectQuickSearch
+- `src/components/Planejador/PlanejadorTaskDetail.tsx` — adicionar `useIsMobile()`, branch de layout mobile, terceira tab "Chat", ajustes de padding/espaçamento, header em 2 linhas, bottom bar fixa.
+
+Nenhuma mudança em hooks, dados ou outros componentes.
 
 ## Impacto
 
-- **Usuário final (UX)**: (a) Clicar em um prazo no Planejador (mobile) finalmente abre o dialog de detalhes visivelmente. (b) Botão Planejador acessível em 1 toque na barra inferior (era 2 toques via "Mais"). Projetos vira 2 toques. (c) A lupa do topbar mobile agora abre a busca rápida (igual desktop) que lista projetos e protocolos com navegação direta.
-- **Dados (migrations, RLS, performance)**: nenhuma alteração.
-- **Riscos colaterais**: baixo. (1) Subir z-index do DeadlineDetailDialog pode afetar interação com outros overlays que apareçam acima dele — pouco provável já que `z-[70]` é raro. (2) Trocar a ordem dos tabs muda o "muscle memory" de quem já usava Projetos no mobile, mas o item continua acessível em "Mais". (3) O `ProjectQuickSearch` dentro de Sheet usa `createPortal` para o dropdown — validar se o dropdown aparece acima do Sheet (provavelmente sim, pois portal vai para o body).
-- **Quem é afetado**: todos os tenants/roles que usam o app no mobile.
+1. **Usuário final (UX)**: no mobile, ao abrir uma tarefa do Planejador agora tudo tem espaço real — título legível, campos com toque confortável, chat em tab própria com largura total, seções em lista clara. No desktop nada muda visualmente.
+2. **Dados**: zero. Nenhuma migration, RLS ou query alterada.
+3. **Riscos colaterais**: precisa garantir que o `PlanejadorTaskChat` funcione bem em viewport estreita (já é um chat — deve estar OK, mas vale conferir). Z-index dos diálogos internos (Participantes, EditarPrazo, ClienteInfo) precisa continuar acima do overlay fullscreen mobile — já estão em `z-[90]` ou padrão Dialog `z-50`, ajustaremos se necessário para ficar acima do `z-[60]` do detail.
+4. **Quem é afetado**: todos os usuários que abrem o Planejador no mobile (qualquer role, qualquer tenant). Desktop inalterado.
 
 ## Validação
 
-1. Mobile 390px → Planejador → tab "Prazos" → tocar em um card → dialog de detalhe abre visível e interativo.
-2. Mobile 390px → barra inferior mostra "Planejador" no lugar de "Projetos"; tocar leva direto ao drawer. Em "Mais" aparece "Projetos".
-3. Mobile 390px → tocar na lupa no header → abre Sheet com input de busca; digitar nome de projeto/protocolo → resultados aparecem → tocar navega corretamente e fecha o Sheet.
-4. Desktop ≥768px: nenhuma mudança visível (ProjectQuickSearch desktop continua no header, GlobalSearch continua à direita).
+- Mobile 390px → abrir Planejador → tocar em uma tarefa: dialog ocupa tela inteira, sem split.
+- Header mostra Voltar + status + X sem quebrar; título em segunda linha.
+- Tabs: Detalhes / Chat / Info — alternar entre elas funciona, chat ocupa largura total.
+- Bottom bar fixa com Iniciar/Concluir/Excluir acessíveis sem scroll.
+- Abrir Participantes / Editar Prazo / Cliente Info — diálogos aparecem acima do detail.
+- Desktop ≥768px → layout antigo intacto (split 45/55, chat lateral, 2 tabs).
