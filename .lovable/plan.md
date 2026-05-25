@@ -1,54 +1,44 @@
-# Planejador no mobile + redesign mobile
+# Correções mobile: deadline detail, bottom nav e busca rápida
 
 ## Causa raiz
 
-1. **Acesso ausente no mobile**: a `DashboardSidebar` é escondida em telas `< md` (`-translate-x-full md:translate-x-0`) e o `MobileBottomNav` (que a substitui) **não lista o Planejador** — nem em `PRIMARY_TABS` nem em `MORE_ITEMS`. Por isso o usuário não consegue abrir o drawer no celular.
-2. **Layout do Planejador não é responsivo**: `PlanejadorDrawer` usa `side="inset"` (drawer lateral grande), `PlanejadorTopBar` empilha tudo numa única linha horizontal com input de busca de `w-64`, filtros "Minhas/Todos", dropdown de usuário, dropdown de marcadores, settings, lock, search e close — tudo isso quebra brutalmente em 390px. O `PlanejadorKanban` mostra colunas de `w-72` lado a lado com scroll horizontal, mas o overhead do header consome quase toda a tela vertical.
+1. **Prazo não abre**: `DeadlineDetailDialog` usa o `Dialog` padrão do shadcn, que renderiza no `z-50`. No mobile, o `PlanejadorDrawer` foi configurado para abrir fullscreen com `z-[60]`. O dialog do prazo é renderizado por trás do overlay do Planejador — ele abre mas fica invisível. Vale também para o `DeadlineDetailDialog` dentro do `DashboardLayout` se houver outro overlay ativo.
+2. **Botão Planejador escondido em "Mais"**: na rodada anterior coloquei `planejador` em `MORE_ITEMS`. O usuário quer ele visível direto na barra inferior, no lugar de **Projetos** (já que Projetos pode viver no menu "Mais").
+3. **Lupa do topbar não faz nada útil no mobile**: hoje o ícone de lupa no header (`GlobalSearch`) abre uma busca genérica. No desktop existe o `ProjectQuickSearch` (busca rápida de projetos + protocolos) que está `hidden md:flex` — invisível no mobile. O usuário quer que a lupa do mobile dispare exatamente a busca rápida de projetos/protocolos.
 
 ## Correção
 
-### 1. Adicionar Planejador ao menu mobile
-- Em `MobileBottomNav.tsx`: incluir `{ id: 'planejador', icon: LayoutGrid, label: 'Planejador' }` em `MORE_ITEMS` (entre Projetos e Clientes ou logo após Documentos — fica no sheet "Mais"). 
-- Liberar acesso em `hasAccessToItem`: tratar `'planejador'` como sempre visível (igual ao sidebar desktop linha 122).
+### 1. Z-index do DeadlineDetailDialog no mobile
+- Em `src/components/Agenda/DeadlineDetailDialog.tsx`: aumentar o `z-index` do `DialogContent` para `z-[70]` (acima do drawer do Planejador que está em `z-[60]`). Aplicar via className (`className="... z-[70]"`).
+- Como o `Dialog` do shadcn também usa um overlay (z-50), passar a classe no overlay também. Alternativa cirúrgica: usar `className="z-[70]"` no `DialogContent` — o overlay subjacente do Radix herda `z-50` por padrão, mas o content fica clicável acima do drawer. Validar que o backdrop escuro não esconde nada essencial. Se o overlay do dialog continuar atrás, alternativa B: subir overlay também com um wrapper customizado (já existem variantes em ui/dialog.tsx).
 
-### 2. Drawer fullscreen no mobile
-Em `PlanejadorDrawer.tsx`:
-- Detectar mobile com `useIsMobile()`.
-- Quando mobile: forçar `isExpanded = true` por padrão e esconder o botão de expandir/recolher.
-- Trocar o background heavy (space-bg/sky-light-bg) por um background sólido (`bg-background`) no mobile — a imagem + blur prejudica performance e legibilidade em telas pequenas.
-- Reduzir paddings: `px-6 pt-5` → `px-3 pt-3` no mobile.
+### 2. Bottom nav: trocar Projetos por Planejador
+- Em `src/components/Dashboard/MobileBottomNav.tsx`:
+  - `PRIMARY_TABS`: trocar `{ id: 'projetos', icon: FolderOpen, label: 'Projetos' }` por `{ id: 'planejador', icon: LayoutGrid, label: 'Planejador' }`.
+  - `MORE_ITEMS`: remover o `planejador` que adicionei na rodada anterior e adicionar `{ id: 'projetos', icon: FolderOpen, label: 'Projetos' }` no topo da lista do "Mais".
+  - `hasAccessToItem`: continuar tratando `planejador` como sempre visível (já feito). Para `projetos`, manter regra existente.
 
-### 3. TopBar mobile (`PlanejadorTopBar.tsx`)
-Reorganizar em 3 linhas compactas quando mobile:
-- **Linha 1 (header)**: ícone + "Planejador" à esquerda, botões `Settings`, `Lock`, `Close` à direita (ícones 32x32). Remover o `pl-6`.
-- **Linha 2 (ações)**: botão "Criar" (full-width grande) + ícone de busca que expande input ao tocar (ou input compacto em `flex-1`).
-- **Linha 3 (filtros)**: toggle "Minhas/Todos" + dropdown usuário + dropdown marcadores, lado a lado em `flex gap-2` com `text-xs`.
-- **Tabs**: já estão em `flex gap-1`, adicionar `overflow-x-auto snap-x` e reduzir `px-4` para `px-3` no mobile.
-
-### 4. Kanban mobile (`PlanejadorKanban.tsx`)
-- Largura das colunas: `w-72` → `w-[85vw] max-w-72` no mobile, com `snap-x snap-mandatory` no container para que o usuário deslize coluna por coluna.
-- Padding interno das colunas (`p-2.5`) → `p-2` mobile.
-- Header das colunas (bolinha + label + contador) mantém o layout — já é compacto.
-
-### 5. Outras views (Lista, Prazos)
-- `PlanejadorListView` e `PlanejadorPrazosView` já são listas verticais; só garantir que `px-6 pb-4` do container externo vire `px-3 pb-3` no mobile (feito no item 2).
+### 3. Lupa mobile = busca rápida de projetos/protocolos
+- Em `src/components/Dashboard/DashboardLayout.tsx`:
+  - O `GlobalSearch` no header passa a ser `hidden md:inline-flex` (continua só no desktop, junto com o `ProjectQuickSearch` desktop).
+  - Adicionar um novo botão de lupa visível apenas no mobile (`md:hidden`) que abre um `Sheet` (side="top" ou full overlay) contendo o `ProjectQuickSearch` renderizado em modo full-width. O `ProjectQuickSearch` já usa portal para o dropdown — basta envolvê-lo em um Sheet/Dialog e ele funcionará. Os handlers `onSelectProject` e `onSelectProtocolo` já existem no DashboardLayout (linhas 421-431), passar os mesmos para o novo wrapper mobile e fechar o Sheet ao selecionar.
 
 ## Arquivos afetados
 
-- `src/components/Dashboard/MobileBottomNav.tsx` — adicionar item Planejador
-- `src/components/Planejador/PlanejadorDrawer.tsx` — fullscreen mobile, paddings, bg
-- `src/components/Planejador/PlanejadorTopBar.tsx` — reorganização responsiva (3 linhas no mobile)
-- `src/components/Planejador/PlanejadorKanban.tsx` — colunas em `w-[85vw]` + snap
+- `src/components/Agenda/DeadlineDetailDialog.tsx` — z-index do DialogContent
+- `src/components/Dashboard/MobileBottomNav.tsx` — Planejador na primary bar, Projetos vai pro "Mais"
+- `src/components/Dashboard/DashboardLayout.tsx` — esconde GlobalSearch no mobile, adiciona Sheet mobile com ProjectQuickSearch
 
 ## Impacto
 
-- **Usuário final (UX)**: usuários mobile finalmente conseguem acessar o Planejador pelo botão "Mais" da bottom nav. O drawer abre em tela cheia, com TopBar reorganizada em 3 linhas (sem espremer 8 controles numa linha só), Kanban com swipe coluna-a-coluna (snap), e busca/filtros legíveis. Desktop continua exatamente igual.
-- **Dados (migrations, RLS, performance)**: nenhuma. Mudanças puramente de UI/responsividade. Performance melhora levemente no mobile ao remover background-image + blur.
-- **Riscos colaterais**: baixo. As alterações no `PlanejadorTopBar` precisam preservar TODOS os controles existentes (criar, filtros usuário, marcadores, settings, lock, busca, fechar, tabs) — apenas reorganizando layout. Listas (Lista/Prazos) e detalhes de tarefa (`PlanejadorTaskDetail`) não são tocados nesta rodada — se houver problema mobile neles, será uma rodada separada.
-- **Quem é afetado**: todos os tenants (recurso é global), em particular usuários mobile com roles que têm acesso ao Planejador (todos, pois o item é tratado como sempre visível). Desktop intacto.
+- **Usuário final (UX)**: (a) Clicar em um prazo no Planejador (mobile) finalmente abre o dialog de detalhes visivelmente. (b) Botão Planejador acessível em 1 toque na barra inferior (era 2 toques via "Mais"). Projetos vira 2 toques. (c) A lupa do topbar mobile agora abre a busca rápida (igual desktop) que lista projetos e protocolos com navegação direta.
+- **Dados (migrations, RLS, performance)**: nenhuma alteração.
+- **Riscos colaterais**: baixo. (1) Subir z-index do DeadlineDetailDialog pode afetar interação com outros overlays que apareçam acima dele — pouco provável já que `z-[70]` é raro. (2) Trocar a ordem dos tabs muda o "muscle memory" de quem já usava Projetos no mobile, mas o item continua acessível em "Mais". (3) O `ProjectQuickSearch` dentro de Sheet usa `createPortal` para o dropdown — validar se o dropdown aparece acima do Sheet (provavelmente sim, pois portal vai para o body).
+- **Quem é afetado**: todos os tenants/roles que usam o app no mobile.
 
 ## Validação
 
-1. Mobile 390px: abrir → tocar "Mais" na bottom nav → ver "Planejador" → tocar → drawer abre fullscreen → header organizado em 3 linhas → trocar entre tabs → no Kanban deslizar lateralmente coluna a coluna com snap.
-2. Desktop ≥768px: comportamento idêntico ao atual (drawer lateral, TopBar em uma linha).
-3. Confirmar que filtros (Minhas/Todos/usuário/marcadores), busca, lock e settings continuam funcionais no mobile.
+1. Mobile 390px → Planejador → tab "Prazos" → tocar em um card → dialog de detalhe abre visível e interativo.
+2. Mobile 390px → barra inferior mostra "Planejador" no lugar de "Projetos"; tocar leva direto ao drawer. Em "Mais" aparece "Projetos".
+3. Mobile 390px → tocar na lupa no header → abre Sheet com input de busca; digitar nome de projeto/protocolo → resultados aparecem → tocar navega corretamente e fecha o Sheet.
+4. Desktop ≥768px: nenhuma mudança visível (ProjectQuickSearch desktop continua no header, GlobalSearch continua à direita).
