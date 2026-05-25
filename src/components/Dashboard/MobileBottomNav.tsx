@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
 import { 
   BarChart3, FolderOpen, Calendar, FileCheck, MoreHorizontal,
-  Users, DollarSign, Video, FileText, MessageSquare, Newspaper, Star, Headphones
+  Users, DollarSign, Video, FileText, MessageSquare, Newspaper, Star, Headphones, LayoutGrid
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ const PRIMARY_TABS = [
 ] as const;
 
 const MORE_ITEMS = [
+  { id: 'planejador', icon: LayoutGrid, label: 'Planejador' },
   { id: 'clientes', icon: Users, label: 'Clientes' },
   { id: 'financeiro', icon: DollarSign, label: 'Financeiro' },
   { id: 'documentos', icon: FileText, label: 'Documentos' },
@@ -54,7 +55,7 @@ export function MobileBottomNav({ activeDrawer, onDrawerChange, onDashboardClick
   };
 
   const hasAccessToItem = useCallback((itemId: string) => {
-    if (itemId === 'dashboard' || itemId === 'extras') return true;
+    if (itemId === 'dashboard' || itemId === 'extras' || itemId === 'planejador') return true;
     if (itemId === 'whatsapp') return isWhatsAppEnabled && userRoles.includes('admin');
     if (itemId === 'publicacoes') return tenantSlug === 'demorais' && (userRoles.includes('admin') || userRoles.includes('controller'));
     if (userRoles.includes('admin')) return true;
