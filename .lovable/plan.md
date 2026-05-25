@@ -1,38 +1,54 @@
-# Anexos de andamento não aparecem no mobile
+# Planejador no mobile + redesign mobile
 
 ## Causa raiz
 
-Em `ProcessoOABDetalhes.tsx` (linha ~511), o subdrawer que mostra o detalhe da movimentação (e onde estão os anexos clicáveis com preview real — `MovimentacaoDetalhe`) é renderizado com:
-
-```
-className="absolute right-full top-0 h-full w-[min(36rem,calc(100vw-2rem))] ..."
-```
-
-`right-full` posiciona o painel **à esquerda do Sheet principal**. No desktop o Sheet ocupa só a direita, então sobra espaço à esquerda e o subdrawer aparece. No mobile (390px), o Sheet ocupa 100% da largura → o subdrawer fica em `left = -100vw`, completamente fora da tela. Por isso, ao tocar no andamento para ver o anexo, "nada aparece".
-
-A lista inline `AndamentoAnexos` mostra só nome + botão de download, não o preview/visualização — o fluxo de "ver anexo" depende do subdrawer.
+1. **Acesso ausente no mobile**: a `DashboardSidebar` é escondida em telas `< md` (`-translate-x-full md:translate-x-0`) e o `MobileBottomNav` (que a substitui) **não lista o Planejador** — nem em `PRIMARY_TABS` nem em `MORE_ITEMS`. Por isso o usuário não consegue abrir o drawer no celular.
+2. **Layout do Planejador não é responsivo**: `PlanejadorDrawer` usa `side="inset"` (drawer lateral grande), `PlanejadorTopBar` empilha tudo numa única linha horizontal com input de busca de `w-64`, filtros "Minhas/Todos", dropdown de usuário, dropdown de marcadores, settings, lock, search e close — tudo isso quebra brutalmente em 390px. O `PlanejadorKanban` mostra colunas de `w-72` lado a lado com scroll horizontal, mas o overhead do header consome quase toda a tela vertical.
 
 ## Correção
 
-Tornar o subdrawer responsivo:
+### 1. Adicionar Planejador ao menu mobile
+- Em `MobileBottomNav.tsx`: incluir `{ id: 'planejador', icon: LayoutGrid, label: 'Planejador' }` em `MORE_ITEMS` (entre Projetos e Clientes ou logo após Documentos — fica no sheet "Mais"). 
+- Liberar acesso em `hasAccessToItem`: tratar `'planejador'` como sempre visível (igual ao sidebar desktop linha 122).
 
-- **Desktop (`md+`)**: comportamento atual — desliza à esquerda do Sheet (`right-full`, largura ~36rem).
-- **Mobile (`<md`)**: renderizar como overlay full-screen **sobre** o próprio Sheet (`inset-0`, `w-full h-full`, `z-50`), entrando da direita (`slide-in-from-right`). O botão "voltar" interno do `MovimentacaoDetalhe` (`onClose={fecharSubdrawer}`) já existe, então o usuário fecha e volta ao detalhe do processo normalmente.
+### 2. Drawer fullscreen no mobile
+Em `PlanejadorDrawer.tsx`:
+- Detectar mobile com `useIsMobile()`.
+- Quando mobile: forçar `isExpanded = true` por padrão e esconder o botão de expandir/recolher.
+- Trocar o background heavy (space-bg/sky-light-bg) por um background sólido (`bg-background`) no mobile — a imagem + blur prejudica performance e legibilidade em telas pequenas.
+- Reduzir paddings: `px-6 pt-5` → `px-3 pt-3` no mobile.
 
-Sem mudanças em `MovimentacaoDetalhe` — só nas classes do container que o embrulha.
+### 3. TopBar mobile (`PlanejadorTopBar.tsx`)
+Reorganizar em 3 linhas compactas quando mobile:
+- **Linha 1 (header)**: ícone + "Planejador" à esquerda, botões `Settings`, `Lock`, `Close` à direita (ícones 32x32). Remover o `pl-6`.
+- **Linha 2 (ações)**: botão "Criar" (full-width grande) + ícone de busca que expande input ao tocar (ou input compacto em `flex-1`).
+- **Linha 3 (filtros)**: toggle "Minhas/Todos" + dropdown usuário + dropdown marcadores, lado a lado em `flex gap-2` com `text-xs`.
+- **Tabs**: já estão em `flex gap-1`, adicionar `overflow-x-auto snap-x` e reduzir `px-4` para `px-3` no mobile.
+
+### 4. Kanban mobile (`PlanejadorKanban.tsx`)
+- Largura das colunas: `w-72` → `w-[85vw] max-w-72` no mobile, com `snap-x snap-mandatory` no container para que o usuário deslize coluna por coluna.
+- Padding interno das colunas (`p-2.5`) → `p-2` mobile.
+- Header das colunas (bolinha + label + contador) mantém o layout — já é compacto.
+
+### 5. Outras views (Lista, Prazos)
+- `PlanejadorListView` e `PlanejadorPrazosView` já são listas verticais; só garantir que `px-6 pb-4` do container externo vire `px-3 pb-3` no mobile (feito no item 2).
 
 ## Arquivos afetados
 
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — apenas o `div` wrapper do subdrawer (~linha 511-531).
+- `src/components/Dashboard/MobileBottomNav.tsx` — adicionar item Planejador
+- `src/components/Planejador/PlanejadorDrawer.tsx` — fullscreen mobile, paddings, bg
+- `src/components/Planejador/PlanejadorTopBar.tsx` — reorganização responsiva (3 linhas no mobile)
+- `src/components/Planejador/PlanejadorKanban.tsx` — colunas em `w-[85vw]` + snap
 
 ## Impacto
 
-1. **Usuário final**: no mobile, ao tocar em um andamento, o painel de detalhes (com lista de anexos clicáveis e preview de PDF/imagem/texto) passa a aparecer em tela cheia sobre o drawer. Botão fechar leva de volta à lista de andamentos. Desktop fica idêntico.
-2. **Dados**: nenhuma mudança — puro CSS responsivo.
-3. **Riscos colaterais**: mínimos. O z-index do overlay precisa ficar acima do conteúdo do Sheet (z-50 já usado). Verificar que não bloqueia o botão "X" de fechar do Sheet — como o subdrawer tem botão próprio de fechar e o usuário não precisa do X do Sheet enquanto vê o detalhe, é aceitável cobrir.
-4. **Quem é afetado**: todos os usuários da Controladoria em mobile (qualquer tenant) ao visualizar anexos de andamentos OAB.
+- **Usuário final (UX)**: usuários mobile finalmente conseguem acessar o Planejador pelo botão "Mais" da bottom nav. O drawer abre em tela cheia, com TopBar reorganizada em 3 linhas (sem espremer 8 controles numa linha só), Kanban com swipe coluna-a-coluna (snap), e busca/filtros legíveis. Desktop continua exatamente igual.
+- **Dados (migrations, RLS, performance)**: nenhuma. Mudanças puramente de UI/responsividade. Performance melhora levemente no mobile ao remover background-image + blur.
+- **Riscos colaterais**: baixo. As alterações no `PlanejadorTopBar` precisam preservar TODOS os controles existentes (criar, filtros usuário, marcadores, settings, lock, busca, fechar, tabs) — apenas reorganizando layout. Listas (Lista/Prazos) e detalhes de tarefa (`PlanejadorTaskDetail`) não são tocados nesta rodada — se houver problema mobile neles, será uma rodada separada.
+- **Quem é afetado**: todos os tenants (recurso é global), em particular usuários mobile com roles que têm acesso ao Planejador (todos, pois o item é tratado como sempre visível). Desktop intacto.
 
 ## Validação
 
-- Abrir `/{tenant}/controladoria` no viewport 390px → OAB → processo → tocar em andamento com anexo → painel deve abrir em tela cheia → tocar no anexo → preview deve renderizar.
-- Repetir em desktop (≥768px) → comportamento original (painel desliza à esquerda do drawer).
+1. Mobile 390px: abrir → tocar "Mais" na bottom nav → ver "Planejador" → tocar → drawer abre fullscreen → header organizado em 3 linhas → trocar entre tabs → no Kanban deslizar lateralmente coluna a coluna com snap.
+2. Desktop ≥768px: comportamento idêntico ao atual (drawer lateral, TopBar em uma linha).
+3. Confirmar que filtros (Minhas/Todos/usuário/marcadores), busca, lock e settings continuam funcionais no mobile.
