@@ -637,6 +637,27 @@ const DashboardLayout = ({
         onInitialTaskConsumed={() => setPendingPlanejadorTaskId(null)}
       />
 
+      {/* Mobile quick search (projetos + protocolos) */}
+      <Sheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen}>
+        <SheetContent side="top" className="p-4 md:hidden">
+          <SheetTitle className="text-base mb-3">Buscar projetos e protocolos</SheetTitle>
+          <ProjectQuickSearch
+            tenantPath={tenantPath}
+            onSelectProject={(pid) => {
+              setMobileSearchOpen(false);
+              handleQuickProjectSelect(pid);
+            }}
+            onSelectProtocolo={(projectId, protocoloId) => {
+              setMobileSearchOpen(false);
+              setSelectedProjectId(projectId);
+              setPendingProtocoloId(protocoloId);
+              setProjectDrawerOpen(true);
+              setActiveDrawer(null);
+            }}
+          />
+        </SheetContent>
+      </Sheet>
+
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav
         activeDrawer={activeDrawer}
