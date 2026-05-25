@@ -50,7 +50,7 @@ const KanbanColumn = ({
     <div 
       className={cn(
         "bg-muted/50 rounded-lg p-3 flex flex-col max-h-[calc(100vh-220px)] flex-shrink-0 transition-opacity",
-        fullWidth ? 'w-full min-w-[280px]' : 'w-64 min-w-64',
+        fullWidth ? 'w-full min-w-[280px]' : 'w-[82vw] max-w-[18rem] md:w-64 md:min-w-64 snap-start md:snap-align-none',
         isDraggingColumn && 'opacity-50 shadow-lg ring-2 ring-primary/30'
       )}
     >

@@ -522,7 +522,7 @@ export function ProjectProtocoloContent({
       </div>
 
       <Tabs defaultValue="resumo" className="flex-1 flex flex-col overflow-hidden" onValueChange={(val) => { if (val === 'prazos') fetchPrazosVinculados(); }}>
-        <TabsList className="w-full h-auto bg-transparent p-0 justify-start gap-6 border-b shrink-0">
+        <TabsList className="w-full h-auto bg-transparent p-0 justify-start gap-4 md:gap-6 border-b shrink-0 overflow-x-auto scrollbar-hide">
           <TabsTrigger value="resumo" className="bg-transparent px-0 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground data-[state=active]:text-foreground">
             Resumo
           </TabsTrigger>
@@ -544,7 +544,7 @@ export function ProjectProtocoloContent({
         </TabsList>
 
         <ScrollArea className="flex-1">
-          <TabsContent value="resumo" className="p-4 m-0 space-y-6">
+          <TabsContent value="resumo" className="p-3 md:p-4 m-0 space-y-4 md:space-y-6">
             {isEditing ? (
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -579,7 +579,7 @@ export function ProjectProtocoloContent({
                   <Label className="text-muted-foreground text-xs uppercase">Descrição</Label>
                   <p className="mt-1 text-sm">{protocolo.descricao || <span className="text-muted-foreground italic">Sem descrição</span>}</p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   <div>
                     <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1"><Calendar className="h-3 w-3" /> Data de Início</Label>
                     <p className="mt-1 font-medium">{format(protocolo.dataInicio, "dd/MM/yyyy", { locale: ptBR })}</p>

@@ -39,19 +39,19 @@ export function ProjectProtocoloDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[90vh]">
-        <DrawerHeader className="border-b pb-4">
-          <div className="flex items-center justify-between">
-            <DrawerTitle className="text-xl">{protocolo.nome}</DrawerTitle>
+      <DrawerContent className="max-h-[92vh]">
+        <DrawerHeader className="border-b pb-3 md:pb-4 px-3 md:px-6">
+          <div className="flex items-start justify-between gap-2">
+            <DrawerTitle className="text-base md:text-xl leading-snug break-words flex-1 min-w-0">{protocolo.nome}</DrawerTitle>
             <DrawerClose asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="shrink-0 -mt-1">
                 <X className="h-4 w-4" />
               </Button>
             </DrawerClose>
           </div>
         </DrawerHeader>
 
-        <div className="p-4 flex flex-col overflow-hidden" style={{ height: '70vh' }}>
+        <div className="px-3 py-3 md:p-4 flex flex-col overflow-hidden" style={{ height: '75vh' }}>
           <ProjectProtocoloContent
             protocolo={protocolo}
             onUpdate={onUpdate}

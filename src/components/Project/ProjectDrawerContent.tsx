@@ -222,7 +222,7 @@ export function ProjectDrawerContent({ projectId, onClose, module, protocoloId, 
   if (drawerView === 'acordos' && module !== 'crm') {
     return (
       <div className="flex-1 h-full overflow-auto">
-        <div className="container max-w-7xl mx-auto px-6 py-8">
+        <div className="w-full md:container md:max-w-7xl md:mx-auto px-3 py-3 md:px-6 md:py-8">
           <AcordosView
             project={project}
             onUpdateProject={handleUpdateProject}
@@ -244,7 +244,7 @@ export function ProjectDrawerContent({ projectId, onClose, module, protocoloId, 
     }
     return (
       <div className="flex-1 h-full overflow-auto">
-        <div className="container max-w-7xl mx-auto px-6 py-8">
+        <div className="w-full md:container md:max-w-7xl md:mx-auto px-3 py-3 md:px-6 md:py-8">
           <SectorView
             onBack={handleBackToMain}
             project={project}
@@ -260,7 +260,7 @@ export function ProjectDrawerContent({ projectId, onClose, module, protocoloId, 
   // Main project view
   return (
     <div className="flex-1 h-full overflow-auto">
-      <div className="container max-w-7xl mx-auto px-6 py-8">
+      <div className="w-full md:container md:max-w-7xl md:mx-auto px-3 py-3 md:px-6 md:py-8">
         <ProjectView
           onLogout={() => {}}
           onBack={onClose}
