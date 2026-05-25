@@ -22,8 +22,8 @@ export function ProjectDrawer({ open, onOpenChange, projectId, protocoloId, onPr
         onInteractOutside={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b bg-background">
-          <SheetTitle className="text-lg font-semibold">Projeto</SheetTitle>
+        <div className="flex items-center justify-between px-3 py-2.5 md:px-6 md:py-4 border-b bg-background">
+          <SheetTitle className="text-base md:text-lg font-semibold">Projeto</SheetTitle>
           <Button
             variant="ghost"
             size="icon"
