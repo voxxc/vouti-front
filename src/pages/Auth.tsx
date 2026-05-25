@@ -336,7 +336,11 @@ const Auth = () => {
                 {mode === 'login' ? 'Acesso ao Sistema' : 'Recuperar Senha'}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {mode === 'login' ? 'Entre ou crie sua conta para continuar' : 'Informe seu email para receber o link de recuperação'}
+                {mode === 'login'
+                  ? 'Entre ou crie sua conta para continuar'
+                  : mode === 'recovery'
+                  ? 'Informe seu email para receber o código de recuperação'
+                  : 'Cole o código de 6 dígitos enviado por email e defina uma nova senha'}
               </p>
             </CardHeader>
             <CardContent>
