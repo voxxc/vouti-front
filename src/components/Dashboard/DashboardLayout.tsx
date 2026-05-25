@@ -449,7 +449,18 @@ const DashboardLayout = ({
               >
                 <Clock className="h-4 w-4 md:h-5 md:w-5" />
               </Button>
-              <GlobalSearch projects={projects} />
+              <div className="hidden md:inline-flex">
+                <GlobalSearch projects={projects} />
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden h-8 w-8"
+                onClick={() => setMobileSearchOpen(true)}
+                title="Buscar projetos e protocolos"
+              >
+                <SearchIcon className="h-4 w-4" />
+              </Button>
               {currentUser && (
                 <InternalMessaging currentUser={currentUser} users={users} />
               )}
