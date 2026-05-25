@@ -104,14 +104,20 @@ serve(async (req) => {
       }
     }
 
-    // Chamar /requests com lawsuit_cnj (incluindo customer_key se disponível)
-    const requestPayload = {
+    // Chamar /requests com lawsuit_cnj
+    // INVARIANTE: import NUNCA envia with_attachments. Anexos são exclusivos
+    // do fluxo de ativação de monitoramento (judit-ativar-monitoramento*).
+    // A credencial deve ir em search.search_params.credential — esse é o shape
+    // aceito pela Judit para destravar processos sigilosos (confirmado via Postman).
+    const requestPayload: Record<string, unknown> = {
       search: {
         search_type: 'lawsuit_cnj',
         search_key: searchKey,
-        on_demand: true
-      },
-      ...(customerKey && { credential: { customer_key: customerKey } })
+        on_demand: true,
+        ...(customerKey && {
+          search_params: { credential: { customer_key: customerKey } }
+        })
+      }
     };
 
     console.log('[Judit Import CNJ] Payload:', JSON.stringify(requestPayload));
