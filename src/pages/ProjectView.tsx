@@ -1278,7 +1278,7 @@ const ProjectView = ({
                                       /* CRM Kanban Style */
                                       <div
                                         className={cn(
-                                          "bg-muted/50 rounded-lg p-3 w-64 flex-shrink-0 flex flex-col",
+                                          "bg-muted/50 rounded-lg p-3 w-[82vw] max-w-[18rem] md:w-64 flex-shrink-0 snap-start md:snap-align-none flex flex-col",
                                           "h-[calc(100vh-280px)]",
                                           columnSnapshot.isDragging && "opacity-50"
                                         )}
