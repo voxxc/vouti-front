@@ -349,7 +349,9 @@ export const ImportarProcessoCNJDialog = ({
                 <SelectItem value={PUBLICO_VALUE}>Público (sem credencial)</SelectItem>
                 {credenciais.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.system_name}
+                    {c.system_name === '*'
+                      ? `* (todos) — ${c.customer_key}`
+                      : `${c.system_name} — ${c.customer_key}`}
                   </SelectItem>
                 ))}
               </SelectContent>
