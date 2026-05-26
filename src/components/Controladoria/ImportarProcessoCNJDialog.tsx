@@ -20,6 +20,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { OABCadastrada } from '@/hooks/useOABs';
 import { usePlanoLimites } from '@/hooks/usePlanoLimites';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useJuditSystemNames } from '@/hooks/useJuditSystemNames';
+
+const PUBLICO_VALUE = '__publico__';
 
 interface ImportarProcessoCNJDialogProps {
   open: boolean;
@@ -64,6 +74,14 @@ export const ImportarProcessoCNJDialog = ({
   const [cnjList, setCnjList] = useState<string[]>([]);
   const [novoCnj, setNovoCnj] = useState('');
 
+  // Credencial Judit selecionada (vale para os dois modos)
+  const [credencialValue, setCredencialValue] = useState<string>(PUBLICO_VALUE);
+  const { data: credenciais = [] } = useJuditSystemNames(tenantId);
+
+  const credencialSelecionada = credenciais.find((c) => c.id === credencialValue);
+  const juditSystemName = credencialSelecionada?.system_name ?? null;
+  const juditCustomerKey = credencialSelecionada?.customer_key ?? null;
+
   const handleImportar = () => {
     if (!isValidCNJ(numeroCnj)) return;
     
@@ -80,6 +98,8 @@ export const ImportarProcessoCNJDialog = ({
     const cnjParaImportar = numeroCnj;
     const apartadoFlag = isApartado;
     const sufixo = sufixoApartado;
+    const systemNameSelecionado = juditSystemName;
+    const customerKeySelecionada = juditCustomerKey;
 
     // Fechar dialog imediatamente
     setNumeroCnj('');
@@ -100,6 +120,8 @@ export const ImportarProcessoCNJDialog = ({
         oabId: oab.id,
         tenantId,
         userId: user?.id,
+        juditSystemName: systemNameSelecionado,
+        juditCustomerKey: customerKeySelecionada,
         ...(apartadoFlag && { apartado: true, sufixoApartado: sufixo })
       }
     }).then(({ data, error }) => {
@@ -214,6 +236,8 @@ export const ImportarProcessoCNJDialog = ({
     }
 
     const total = processosParaImportar.length;
+    const systemNameSelecionado = juditSystemName;
+    const customerKeySelecionada = juditCustomerKey;
 
     // Fecha o dialog imediatamente
     setCnjList([]);
@@ -237,7 +261,9 @@ export const ImportarProcessoCNJDialog = ({
             numeroCnj: cnj,
             oabId: oab.id,
             tenantId,
-            userId: user?.id
+            userId: user?.id,
+            juditSystemName: systemNameSelecionado,
+            juditCustomerKey: customerKeySelecionada,
           }
         });
 
@@ -283,6 +309,7 @@ export const ImportarProcessoCNJDialog = ({
     setCnjList([]);
     setNovoCnj('');
     setMode('single');
+    setCredencialValue(PUBLICO_VALUE);
     onOpenChange(false);
   };
 
@@ -311,8 +338,31 @@ export const ImportarProcessoCNJDialog = ({
             </TabsTrigger>
           </TabsList>
 
+          {/* Seletor de credencial Judit — vale para os dois modos */}
+          <div className="space-y-2 pt-4">
+            <Label htmlFor="credencial-judit">Tribunal / Credencial Judit</Label>
+            <Select value={credencialValue} onValueChange={setCredencialValue}>
+              <SelectTrigger id="credencial-judit">
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={PUBLICO_VALUE}>Público (sem credencial)</SelectItem>
+                {credenciais.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.system_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {credencialSelecionada
+                ? `Monitoramento será criado usando esta credencial.`
+                : `Sem credencial: processos sigilosos podem voltar sem andamentos.`}
+            </p>
+          </div>
+
           {/* Modo Único */}
-          <TabsContent value="single" className="space-y-4 pt-4">
+          <TabsContent value="single" className="space-y-4 pt-2">
             <div className="space-y-2">
               <Label htmlFor="numero-cnj">Número do Processo (CNJ)</Label>
               <Input
