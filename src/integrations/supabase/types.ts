@@ -2336,9 +2336,11 @@ export type Database = {
       judit_migracao_attachments: {
         Row: {
           antigo_pausado: boolean | null
+          customer_key: string | null
           erro: string | null
           executado_em: string
           id: string
+          motivo: string | null
           numero_cnj: string | null
           pausa_erro: string | null
           processo_id: string
@@ -2350,9 +2352,11 @@ export type Database = {
         }
         Insert: {
           antigo_pausado?: boolean | null
+          customer_key?: string | null
           erro?: string | null
           executado_em?: string
           id?: string
+          motivo?: string | null
           numero_cnj?: string | null
           pausa_erro?: string | null
           processo_id: string
@@ -2364,9 +2368,11 @@ export type Database = {
         }
         Update: {
           antigo_pausado?: boolean | null
+          customer_key?: string | null
           erro?: string | null
           executado_em?: string
           id?: string
+          motivo?: string | null
           numero_cnj?: string | null
           pausa_erro?: string | null
           processo_id?: string
