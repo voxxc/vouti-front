@@ -78,7 +78,6 @@ import { PrazosCasoTab } from './PrazosCasoTab';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useJuditSystemNames } from '@/hooks/useJuditSystemNames';
-import { toast } from '@/hooks/use-toast';
 
 // Gate temporário: apenas este usuário pode editar a credencial Judit
 // vinculada ao processo (regeneração manual de trackings na SOLVENZA).
