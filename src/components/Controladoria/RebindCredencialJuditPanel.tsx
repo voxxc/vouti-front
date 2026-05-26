@@ -15,15 +15,34 @@ interface Props {
   tenantId?: string;
 }
 
-const PRESETS: { label: string; pattern: string }[] = [
-  { label: 'TJPR (8.16)', pattern: '%.8.16.%' },
-  { label: 'TJSP (8.26)', pattern: '%.8.26.%' },
-  { label: 'TJMG (8.13)', pattern: '%.8.13.%' },
-  { label: 'TJSC (8.24)', pattern: '%.8.24.%' },
-  { label: 'TJRO (8.22)', pattern: '%.8.22.%' },
-  { label: 'TJTO (8.27)', pattern: '%.8.27.%' },
-  { label: 'Todos', pattern: '%' },
-];
+// Rótulos amigáveis por J.TR (5º campo do CNJ). Os padrões em si são
+// descobertos dinamicamente via edge function (modo listPatterns).
+const JTR_LABELS: Record<string, string> = {
+  '8.16': 'TJPR',
+  '8.26': 'TJSP',
+  '8.13': 'TJMG',
+  '8.24': 'TJSC',
+  '8.22': 'TJRO',
+  '8.27': 'TJTO',
+  '8.21': 'TJMS',
+  '8.04': 'TJAM',
+  '8.06': 'TJCE',
+  '8.09': 'TJGO',
+  '8.11': 'TJMT',
+  '8.14': 'TJPA',
+  '8.19': 'TJRJ',
+  '4.03': 'TRF3',
+  '4.04': 'TRF4',
+  '4.06': 'TRF6',
+  '5.09': 'TRT9',
+};
+
+const labelFor = (jtr: string) => {
+  const name = JTR_LABELS[jtr];
+  return name ? `${name} (${jtr})` : jtr;
+};
+
+const TODOS = { pattern: '%', jtr: '__all__', label: 'Todos', total: undefined as number | undefined };
 
 const BATCH_SIZES = [5, 10, 25, 50];
 
@@ -42,6 +61,8 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
   const [histByPattern, setHistByPattern] = useState<Record<string, any[]>>({});
   const [histLoading, setHistLoading] = useState<string | null>(null);
   const [histTab, setHistTab] = useState<string>('%.8.16.%');
+  const [patterns, setPatterns] = useState<{ pattern: string; total: number }[]>([]);
+  const [patternsLoading, setPatternsLoading] = useState(false);
 
   // Progresso da execução contínua
   const [autoRunning, setAutoRunning] = useState(false);
@@ -73,6 +94,29 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
     setAutoLote(0);
     setHistByPattern({});
   }, [tenantId]);
+
+  // Carrega padrões J.TR efetivamente monitorados
+  useEffect(() => {
+    if (!tenantId) return;
+    let cancel = false;
+    (async () => {
+      setPatternsLoading(true);
+      const r = await invoke({ tenantId, globalScope: globalCount }, 'listPatterns');
+      if (cancel) return;
+      const list: { pattern: string; total: number }[] = r?.patterns ?? [];
+      setPatterns(list);
+      setPatternsLoading(false);
+      // ajusta tab/pattern se o atual não existir
+      if (list.length > 0) {
+        const exists = list.some((p) => `%.${p.pattern}.%` === pattern);
+        if (!exists && pattern !== '%') setPattern(`%.${list[0].pattern}.%`);
+        const histExists = list.some((p) => `%.${p.pattern}.%` === histTab) || histTab === '%';
+        if (!histExists) setHistTab(`%.${list[0].pattern}.%`);
+      }
+    })();
+    return () => { cancel = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId, globalCount]);
 
   const credOptions = useMemo(
     () =>
@@ -270,18 +314,31 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
 
       {/* Pattern */}
       <div className="space-y-1.5">
-        <Label>Padrão de CNJ</Label>
+        <Label>
+          Padrão de CNJ
+          {patternsLoading && <Loader2 className="inline h-3 w-3 ml-2 animate-spin" />}
+        </Label>
         <div className="flex gap-2 flex-wrap">
-          {PRESETS.map((p) => (
-            <Button
-              key={p.pattern}
-              size="sm"
-              variant={pattern === p.pattern ? 'default' : 'outline'}
-              onClick={() => setPattern(p.pattern)}
-            >
-              {p.label}
-            </Button>
-          ))}
+          {patterns.map((p) => {
+            const full = `%.${p.pattern}.%`;
+            return (
+              <Button
+                key={p.pattern}
+                size="sm"
+                variant={pattern === full ? 'default' : 'outline'}
+                onClick={() => setPattern(full)}
+              >
+                {labelFor(p.pattern)} <span className="ml-1 opacity-70">({p.total})</span>
+              </Button>
+            );
+          })}
+          <Button
+            size="sm"
+            variant={pattern === '%' ? 'default' : 'outline'}
+            onClick={() => setPattern('%')}
+          >
+            Todos
+          </Button>
         </div>
         <Input value={pattern} onChange={(e) => setPattern(e.target.value)} className="font-mono text-xs" />
       </div>
@@ -451,13 +508,17 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
         <Label className="text-sm">Histórico por padrão</Label>
         <Tabs value={histTab} onValueChange={setHistTab}>
           <TabsList className="flex-wrap h-auto">
-            {PRESETS.map((p) => (
-              <TabsTrigger key={p.pattern} value={p.pattern} className="text-xs">
-                {p.label}
-              </TabsTrigger>
-            ))}
+            {patterns.map((p) => {
+              const full = `%.${p.pattern}.%`;
+              return (
+                <TabsTrigger key={full} value={full} className="text-xs">
+                  {labelFor(p.pattern)} ({p.total})
+                </TabsTrigger>
+              );
+            })}
+            <TabsTrigger value="%" className="text-xs">Todos</TabsTrigger>
           </TabsList>
-          {PRESETS.map((p) => {
+          {[...patterns.map((p) => ({ pattern: `%.${p.pattern}.%`, label: labelFor(p.pattern) })), { pattern: '%', label: 'Todos' }].map((p) => {
             const rows = histByPattern[p.pattern];
             const loading = histLoading === p.pattern;
             return (

@@ -17,6 +17,7 @@ interface Body {
   dryRun?: boolean;
   countOnly?: boolean;
   listOabs?: boolean;
+  listPatterns?: boolean;
   history?: boolean;
   historyLimit?: number;
   globalScope?: boolean;
@@ -32,6 +33,7 @@ Deno.serve(async (req) => {
     const dryRun = !!body.dryRun;
     const countOnly = !!body.countOnly;
     const listOabs = !!body.listOabs;
+    const listPatterns = !!body.listPatterns;
     const history = !!body.history;
     const globalScope = !!body.globalScope;
 
@@ -56,6 +58,41 @@ Deno.serve(async (req) => {
       if (error) throw error;
       return new Response(
         JSON.stringify({ success: true, oabs: data ?? [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // Modo: lista os padrões J.TR efetivamente monitorados (com tracking ativo)
+    if (listPatterns) {
+      const pageSize = 1000;
+      const counts = new Map<string, number>();
+      let from = 0;
+      // paginação manual para escapar do limite de 1000
+      for (let i = 0; i < 50; i++) {
+        let q = sb0
+          .from('processos_oab')
+          .select('numero_cnj')
+          .eq('monitoramento_ativo', true)
+          .not('tracking_id', 'is', null)
+          .range(from, from + pageSize - 1);
+        if (!globalScope) q = q.eq('tenant_id', tenantId);
+        const { data, error } = await q;
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        for (const row of data) {
+          const m = (row as any).numero_cnj?.match(/\.(\d\.\d+)\.\d+$/);
+          if (!m) continue;
+          const key = m[1];
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      const patterns = [...counts.entries()]
+        .map(([pattern, total]) => ({ pattern, total }))
+        .sort((a, b) => b.total - a.total);
+      return new Response(
+        JSON.stringify({ success: true, patterns, globalScope }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
