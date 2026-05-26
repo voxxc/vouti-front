@@ -19,6 +19,7 @@ interface Body {
   listOabs?: boolean;
   history?: boolean;
   historyLimit?: number;
+  globalScope?: boolean;
 }
 
 Deno.serve(async (req) => {
@@ -32,6 +33,7 @@ Deno.serve(async (req) => {
     const countOnly = !!body.countOnly;
     const listOabs = !!body.listOabs;
     const history = !!body.history;
+    const globalScope = !!body.globalScope;
 
     if (!tenantId) {
       return new Response(
@@ -96,10 +98,14 @@ Deno.serve(async (req) => {
     let qLinhas = supabase
       .from('processos_oab')
       .select('id, numero_cnj, tracking_id, oab_id')
-      .eq('tenant_id', tenantId)
       .eq('monitoramento_ativo', true)
       .not('tracking_id', 'is', null)
       .ilike('numero_cnj', cnjPattern);
+    // Apenas em countOnly + globalScope removemos o filtro de tenant.
+    // dryRun/run continuam restritos ao tenant selecionado.
+    if (!(countOnly && globalScope)) {
+      qLinhas = qLinhas.eq('tenant_id', tenantId);
+    }
     if (filtrarPorOab) qLinhas = qLinhas.in('oab_id', oabIds!);
     const { data: linhasElegiveis, error: errLin } = await qLinhas;
     if (errLin) throw errLin;
@@ -117,13 +123,16 @@ Deno.serve(async (req) => {
     }
 
     // Já migrados anteriormente para a mesma customer_key (motivo='rebind_credencial')
-    const { data: jaMigrados } = await supabase
+    let qJa = supabase
       .from('judit_migracao_attachments')
       .select('numero_cnj')
-      .eq('tenant_id', tenantId)
       .eq('motivo', 'rebind_credencial')
       .eq('customer_key', customerKey)
       .eq('status', 'migrado');
+    if (!(countOnly && globalScope)) {
+      qJa = qJa.eq('tenant_id', tenantId);
+    }
+    const { data: jaMigrados } = await qJa;
     const setJa = new Set((jaMigrados || []).map((r: any) => r.numero_cnj));
 
     const cnjsPendentes = [...mapaCnj.keys()].filter((c) => !setJa.has(c));
@@ -148,6 +157,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
+          globalScope,
           cnjs_elegiveis: cnjsPendentes.length,
           cnjs_total_filtro: mapaCnj.size,
           linhas_filtro: (linhasElegiveis || []).length,

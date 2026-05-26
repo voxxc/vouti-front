@@ -35,6 +35,7 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
   const [pattern, setPattern] = useState<string>('%.8.16.%');
   const [batchSize, setBatchSize] = useState<number>(10);
   const [countResult, setCountResult] = useState<any>(null);
+  const [globalCount, setGlobalCount] = useState<boolean>(true);
   const [dryResult, setDryResult] = useState<any>(null);
   const [runResult, setRunResult] = useState<any>(null);
   // Histórico por padrão de CNJ (cache local)
@@ -97,7 +98,7 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
 
   const handleCount = async () => {
     setCountResult(null);
-    const r = await invoke(params, 'count');
+    const r = await invoke({ ...params, globalScope: globalCount }, 'count');
     setCountResult(r);
   };
   const handleDry = async () => {
@@ -303,6 +304,15 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
           {running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Calculator className="h-4 w-4 mr-2" />}
           Contar
         </Button>
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={globalCount}
+            onChange={(e) => setGlobalCount(e.target.checked)}
+            className="h-3.5 w-3.5"
+          />
+          contar em todos os tenants (global)
+        </label>
         <Button variant="outline" onClick={handleDry} disabled={running || autoRunning || !podeExecutar}>
           <Eye className="h-4 w-4 mr-2" /> Dry-run
         </Button>
@@ -366,7 +376,10 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
       {/* Resultados */}
       {countResult && (
         <div className="rounded-md border p-3 text-sm bg-muted/30 space-y-1">
-          <div><strong>Elegíveis (pendentes):</strong> {countResult.cnjs_elegiveis}</div>
+          <div className="flex items-center gap-2">
+            <strong>Elegíveis (pendentes):</strong> {countResult.cnjs_elegiveis}
+            {countResult.globalScope && <Badge variant="secondary" className="text-[10px]">global</Badge>}
+          </div>
           <div><strong>Total no filtro:</strong> {countResult.cnjs_total_filtro} CNJs ({countResult.linhas_filtro} linhas)</div>
           <div><strong>Já migrados anteriormente:</strong> {countResult.ja_migrados}</div>
         </div>
