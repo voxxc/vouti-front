@@ -10,12 +10,15 @@ const TRACKING_URL = 'https://tracking.prod.judit.io/tracking';
 
 interface Body {
   tenantId: string;
-  customerKey: string;
-  cnjPattern: string;
-  oabIds: string[];
+  customerKey?: string;
+  cnjPattern?: string;
+  oabIds?: string[];
   batchSize?: number;
   dryRun?: boolean;
   countOnly?: boolean;
+  listOabs?: boolean;
+  history?: boolean;
+  historyLimit?: number;
 }
 
 Deno.serve(async (req) => {
@@ -27,6 +30,52 @@ Deno.serve(async (req) => {
     const batchSize = Math.min(body.batchSize ?? 10, 50);
     const dryRun = !!body.dryRun;
     const countOnly = !!body.countOnly;
+    const listOabs = !!body.listOabs;
+    const history = !!body.history;
+
+    if (!tenantId) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'tenantId é obrigatório' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    const supabaseUrl0 = Deno.env.get('SUPABASE_URL')!;
+    const serviceKey0 = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const sb0 = createClient(supabaseUrl0, serviceKey0);
+
+    // Modo: lista OABs do tenant (usado pelo painel de super-admin)
+    if (listOabs) {
+      const { data, error } = await sb0
+        .from('oabs_cadastradas')
+        .select('id, nome_advogado, oab_numero, oab_uf')
+        .eq('tenant_id', tenantId)
+        .order('nome_advogado');
+      if (error) throw error;
+      return new Response(
+        JSON.stringify({ success: true, oabs: data ?? [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // Modo: histórico de migrações desta credencial
+    if (history) {
+      const limit = Math.min(body.historyLimit ?? 500, 2000);
+      let q = sb0
+        .from('judit_migracao_attachments')
+        .select('numero_cnj, tracking_id_antigo, tracking_id_novo, status, antigo_pausado, customer_key, erro, created_at')
+        .eq('tenant_id', tenantId)
+        .eq('motivo', 'rebind_credencial')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (customerKey) q = q.eq('customer_key', customerKey);
+      const { data, error } = await q;
+      if (error) throw error;
+      return new Response(
+        JSON.stringify({ success: true, history: data ?? [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
 
     if (!tenantId || !customerKey || !cnjPattern || !Array.isArray(oabIds) || oabIds.length === 0) {
       return new Response(
@@ -207,7 +256,14 @@ Deno.serve(async (req) => {
         });
 
         migrados++;
-        results.push({ numero_cnj: cnj, novoTrackingId, antigoPausado, compartilhado, status: 'migrado' });
+        results.push({
+          numero_cnj: cnj,
+          trackingAntigo: info.tracking_id,
+          novoTrackingId,
+          antigoPausado,
+          compartilhado,
+          status: 'migrado',
+        });
       } catch (e: any) {
         erros++;
         const msg = e?.message ?? String(e);
@@ -222,7 +278,7 @@ Deno.serve(async (req) => {
           customer_key: customerKey,
           motivo: 'rebind_credencial',
         });
-        results.push({ numero_cnj: cnj, status: 'erro', erro: msg });
+        results.push({ numero_cnj: cnj, trackingAntigo: info.tracking_id, status: 'erro', erro: msg });
       }
     }
 
