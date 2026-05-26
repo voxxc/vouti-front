@@ -109,7 +109,10 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
     setRunResult(null);
     const r = await invoke(params, 'run');
     setRunResult(r);
-    if (r) await handleCount();
+    if (r) {
+      await handleCount();
+      await loadHistoryFor(pattern);
+    }
   };
 
   const handleAutoRun = async () => {
@@ -157,6 +160,7 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
     setAutoRunning(false);
     cancelRef.current = false;
     await handleCount();
+    await loadHistoryFor(pattern);
   };
 
   const loadHistoryFor = async (p: string) => {
