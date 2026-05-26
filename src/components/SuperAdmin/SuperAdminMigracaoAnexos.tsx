@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fetchAllPaginated } from '@/lib/supabasePagination';
 import { toast } from '@/hooks/use-toast';
 import { SuperAdminReconciliacaoJudit } from './SuperAdminReconciliacaoJudit';
-import { RebindCredencialJuditDialog } from '@/components/Controladoria/RebindCredencialJuditDialog';
+import { RebindCredencialJuditPanel } from '@/components/Controladoria/RebindCredencialJuditPanel';
 
 interface Stats {
   oabAtivos: number;
@@ -57,7 +57,7 @@ export const SuperAdminMigracaoAnexos = () => {
   const [batchSize, setBatchSize] = useState(10);
   const [filtroTenant, setFiltroTenant] = useState<string>('all');
   const [buscaCnj, setBuscaCnj] = useState('');
-  const [aba, setAba] = useState<'execucoes' | 'historico' | 'auditoria' | 'reconciliacao'>('execucoes');
+  const [aba, setAba] = useState<'execucoes' | 'historico' | 'auditoria' | 'reconciliacao' | 'rebind'>('execucoes');
   const [historicoFull, setHistoricoFull] = useState<Registro[]>([]);
   const [loadingFull, setLoadingFull] = useState(false);
   const [buscaTrack, setBuscaTrack] = useState('');
@@ -65,7 +65,7 @@ export const SuperAdminMigracaoAnexos = () => {
   const [auditoriaTenant, setAuditoriaTenant] = useState<string>('');
   const [auditoria, setAuditoria] = useState<any>(null);
   const [loadingAuditoria, setLoadingAuditoria] = useState(false);
-  const [rebindTenantId, setRebindTenantId] = useState<string | null>(null);
+  const [rebindTenantId, setRebindTenantId] = useState<string>('');
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -369,15 +369,6 @@ export const SuperAdminMigracaoAnexos = () => {
                           : <Play className="h-3.5 w-3.5" />}
                         <span className="ml-1.5 text-xs">Migrar lote</span>
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setRebindTenantId(t.tenant_id)}
-                        title="Recriar trackings com credencial específica"
-                      >
-                        <RefreshCw className="h-3.5 w-3.5" />
-                        <span className="ml-1.5 text-xs">Recriar c/ credencial</span>
-                      </Button>
                     </div>
                   );
                 })}
@@ -386,12 +377,6 @@ export const SuperAdminMigracaoAnexos = () => {
           )}
         </CardContent>
       </Card>
-
-      <RebindCredencialJuditDialog
-        open={!!rebindTenantId}
-        onOpenChange={(v) => { if (!v) setRebindTenantId(null); }}
-        tenantIdOverride={rebindTenantId ?? undefined}
-      />
 
       <Card>
         <CardHeader className="pb-3 space-y-3">
@@ -402,6 +387,7 @@ export const SuperAdminMigracaoAnexos = () => {
                 <TabsTrigger value="historico" className="text-xs">Histórico de Trackings ({historicoFull.length || '…'})</TabsTrigger>
                 <TabsTrigger value="auditoria" className="text-xs">Auditoria de Cobertura</TabsTrigger>
                 <TabsTrigger value="reconciliacao" className="text-xs">Reconciliação Judit</TabsTrigger>
+                <TabsTrigger value="rebind" className="text-xs">Recriar c/ credencial</TabsTrigger>
               </TabsList>
               {aba === 'execucoes' ? (
                 <Button variant="outline" size="sm" onClick={exportarCSV} disabled={historicoFiltrado.length === 0}>
@@ -423,7 +409,7 @@ export const SuperAdminMigracaoAnexos = () => {
               ) : null}
             </div>
           </Tabs>
-          {aba !== 'auditoria' && aba !== 'reconciliacao' && (
+          {aba !== 'auditoria' && aba !== 'reconciliacao' && aba !== 'rebind' && (
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
@@ -475,7 +461,24 @@ export const SuperAdminMigracaoAnexos = () => {
           )}
         </CardHeader>
         <CardContent className="p-0">
-          {aba === 'reconciliacao' ? (
+          {aba === 'rebind' ? (
+            <div className="p-4 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Tenant</label>
+                <Select value={rebindTenantId} onValueChange={setRebindTenantId}>
+                  <SelectTrigger className="h-9 text-sm w-[320px]">
+                    <SelectValue placeholder="Selecionar tenant…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tenants.map((t) => (
+                      <SelectItem key={t.tenant_id} value={t.tenant_id}>{t.tenant_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <RebindCredencialJuditPanel tenantId={rebindTenantId || undefined} />
+            </div>
+          ) : aba === 'reconciliacao' ? (
             <SuperAdminReconciliacaoJudit
               tenants={tenants.map((t) => ({ tenant_id: t.tenant_id, tenant_name: t.tenant_name }))}
             />
