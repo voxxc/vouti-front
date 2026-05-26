@@ -9,6 +9,7 @@ export interface RebindParams {
   batchSize?: number;
   tenantId?: string;
   historyLimit?: number;
+  globalScope?: boolean;
 }
 
 export type RebindMode = 'count' | 'dry' | 'run' | 'listOabs' | 'history';
@@ -36,6 +37,7 @@ export const useRebindCredencialJudit = () => {
               listOabs: mode === 'listOabs',
               history: mode === 'history',
               historyLimit: params.historyLimit,
+            globalScope: params.globalScope ?? false,
             },
           },
         );
