@@ -63,10 +63,10 @@ Deno.serve(async (req) => {
       const limit = Math.min(body.historyLimit ?? 500, 2000);
       let q = sb0
         .from('judit_migracao_attachments')
-        .select('numero_cnj, tracking_id_antigo, tracking_id_novo, status, antigo_pausado, customer_key, erro, created_at')
+        .select('numero_cnj, tracking_id_antigo, tracking_id_novo, status, antigo_pausado, customer_key, erro, executado_em')
         .eq('tenant_id', tenantId)
         .eq('motivo', 'rebind_credencial')
-        .order('created_at', { ascending: false })
+        .order('executado_em', { ascending: false })
         .limit(limit);
       if (customerKey) q = q.eq('customer_key', customerKey);
       const { data, error } = await q;
