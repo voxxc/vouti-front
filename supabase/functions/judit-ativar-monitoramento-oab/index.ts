@@ -27,7 +27,7 @@ serve(async (req) => {
     // Buscar processo atual
     const { data: processo, error: fetchError } = await supabase
       .from('processos_oab')
-      .select('tracking_id, monitoramento_ativo, tenant_id')
+      .select('tracking_id, monitoramento_ativo, tenant_id, judit_customer_key, judit_system_name')
       .eq('id', processoOabId)
       .single();
 
@@ -42,7 +42,11 @@ serve(async (req) => {
     // Buscar credencial ativa do tenant para processos sigilosos
     let customerKey: string | null = null;
 
-    if (processoTenantId) {
+    // PRIORIDADE 1: credencial explicitamente vinculada ao processo
+    if (processo.judit_customer_key) {
+      customerKey = processo.judit_customer_key;
+      console.log('[Judit Monitor] Credencial vinculada ao processo:', customerKey, '- sistema:', processo.judit_system_name);
+    } else if (processoTenantId) {
       // Extrair tribunal do CNJ para matching de credencial
       const match = numeroCnj.match(/^\d{7}-\d{2}\.\d{4}\.(\d)\.(\d{2})\.\d{4}$/);
       let tribunalSigla = '';
