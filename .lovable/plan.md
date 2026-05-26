@@ -1,60 +1,33 @@
+# Inserir credencial global `alangeral` (*)
+
 ## Causa raiz
+A credencial `alangeral` foi cadastrada diretamente na Judit via Postman, mas não existe na tabela `public.credenciais_judit` do Vouti. Por isso ela não aparece no dropdown de edição (que é alimentado pela função `list_judit_credentials` filtrando por `tenant_id`).
 
-A RPC `list_judit_credentials` retorna `400 - column reference "id" is ambiguous`. Os nomes dos parâmetros OUT (`id`, `system_name`, `customer_key`) colidem com as colunas de mesmo nome em `credenciais_judit` dentro do `RETURN QUERY`. Por isso o dropdown fica vazio — a query falha antes de devolver linhas.
-
-Sem isso resolvido, **não adianta cadastrar nada novo no super-admin**: as 12+ credenciais ativas do Solvenza já existem no banco; o problema é só a função quebrada.
+Segundo a doc da Judit, `system_name = '*'` representa credencial global (válida para qualquer tribunal).
 
 ## Correção
+Inserir 1 linha em `public.credenciais_judit` para o tenant Solvenza (`27492091-e05d-46a8-9ee8-b3b47ec894e4`):
 
-Migration para recriar a função usando nomes OUT distintos e qualificando o `select`:
+| campo | valor |
+|---|---|
+| `customer_key` | `alangeral` |
+| `system_name` | `*` |
+| `username` | `alangeral` (mesmo padrão das outras globais) |
+| `status` | `active` |
+| `oab_id` / `credencial_cliente_id` / `enviado_por` | `NULL` |
 
-```sql
-drop function if exists public.list_judit_credentials(uuid);
-
-create or replace function public.list_judit_credentials(p_tenant_id uuid)
-returns table(credencial_id uuid, system_name text, customer_key text)
-language plpgsql stable security definer set search_path = public
-as $$
-begin
-  if not (
-    is_super_admin(auth.uid())
-    or exists (
-      select 1 from auth.users u
-      where u.id = auth.uid()
-        and lower(u.email) = 'danieldemorais.e@gmail.com'
-    )
-  ) then
-    return;
-  end if;
-
-  return query
-    select c.id as credencial_id, c.system_name, c.customer_key
-    from public.credenciais_judit c
-    where c.tenant_id = p_tenant_id and c.status = 'active'
-    order by c.system_name;
-end;
-$$;
-
-grant execute on function public.list_judit_credentials(uuid) to authenticated;
-```
-
-E atualizar o hook + consumidor para mapear `credencial_id → id`:
-
-- `src/hooks/useJuditSystemNames.ts`: mapear o resultado do rpc para `{ id: row.credencial_id, system_name, customer_key }` mantendo a interface `JuditCredencial` igual.
-
-Não é necessário tocar em `ProcessoOABDetalhes.tsx`.
+Como o `SelectItem` mostra `system_name — customer_key`, no dropdown aparecerá: **`* — alangeral`**.
 
 ## Arquivos afetados
-- Nova migration SQL
-- `src/hooks/useJuditSystemNames.ts`
+- Nenhum arquivo de código alterado.
+- 1 INSERT em `public.credenciais_judit` (via tool de insert).
 
 ## Impacto
-- **Usuário final (Daniel):** o dropdown passa a listar imediatamente as credenciais ativas do tenant Solvenza (EPROC TJSP/TJRS/TJSC/TRF4, PJE TJMG/TJRO, PROJUDI TJPR, etc.) + "Público (sem credencial)". Nada precisa ser recadastrado no super-admin.
-- **Dados:** Sem mudança de schema/dados. Só recria a função.
-- **Riscos colaterais:** Gate continua restrito a super admins e Daniel. Hook só muda mapeamento interno — componentes que usam `JuditCredencial.id` continuam funcionando.
-- **Quem é afetado:** Apenas Daniel (Solvenza). Demais usuários inalterados.
+1. **UX:** Daniel passa a ver a opção `* — alangeral` no dropdown "Credencial Judit" da edição do caso na tela `/solvenza` (Controladoria → ProcessoOABDetalhes). Como é global, pode ser selecionada para qualquer tribunal.
+2. **Dados:** +1 linha em `credenciais_judit`. Sem migration, sem mudança de schema, sem alteração de RLS. Performance inalterada.
+3. **Riscos colaterais:** Mínimos. Caso alguma rotina antiga ainda assuma `system_name` específico (não global), pode tentar usar `alangeral` em tribunal não suportado pela Judit — mas isso é controlado pela própria Judit no momento da chamada. Sem efeito em monitoramento já existente.
+4. **Quem é afetado:** Apenas o tenant Solvenza, e dentro dele apenas Daniel (único com acesso ao dropdown, conforme `list_judit_credentials`). Demais tenants e usuários não veem nem são impactados.
 
 ## Validação
-1. Pós-migration: requisição da RPC retorna 200 e >0 linhas para Daniel no tenant Solvenza.
-2. UI: abrir processo Solvenza → desativar monitoramento → "Editar" → dropdown lista as credenciais existentes.
-3. Selecionar uma e salvar → registro persiste em `processos_oab.judit_system_name` / `judit_customer_key`.
+- Após o INSERT, abrir a edição de um caso em Solvenza, abrir o dropdown e confirmar que `* — alangeral` aparece junto com as demais.
+- Selecionar `alangeral`, salvar e verificar toast "Credencial atualizada para * — alangeral".
