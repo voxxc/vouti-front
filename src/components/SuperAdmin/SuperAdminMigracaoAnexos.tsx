@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fetchAllPaginated } from '@/lib/supabasePagination';
 import { toast } from '@/hooks/use-toast';
 import { SuperAdminReconciliacaoJudit } from './SuperAdminReconciliacaoJudit';
+import { RebindCredencialJuditDialog } from '@/components/Controladoria/RebindCredencialJuditDialog';
 
 interface Stats {
   oabAtivos: number;
@@ -64,6 +65,7 @@ export const SuperAdminMigracaoAnexos = () => {
   const [auditoriaTenant, setAuditoriaTenant] = useState<string>('');
   const [auditoria, setAuditoria] = useState<any>(null);
   const [loadingAuditoria, setLoadingAuditoria] = useState(false);
+  const [rebindTenantId, setRebindTenantId] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -367,6 +369,15 @@ export const SuperAdminMigracaoAnexos = () => {
                           : <Play className="h-3.5 w-3.5" />}
                         <span className="ml-1.5 text-xs">Migrar lote</span>
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setRebindTenantId(t.tenant_id)}
+                        title="Recriar trackings com credencial específica"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        <span className="ml-1.5 text-xs">Recriar c/ credencial</span>
+                      </Button>
                     </div>
                   );
                 })}
@@ -375,6 +386,12 @@ export const SuperAdminMigracaoAnexos = () => {
           )}
         </CardContent>
       </Card>
+
+      <RebindCredencialJuditDialog
+        open={!!rebindTenantId}
+        onOpenChange={(v) => { if (!v) setRebindTenantId(null); }}
+        tenantIdOverride={rebindTenantId ?? undefined}
+      />
 
       <Card>
         <CardHeader className="pb-3 space-y-3">

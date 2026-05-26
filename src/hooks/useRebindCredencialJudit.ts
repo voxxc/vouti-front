@@ -8,6 +8,7 @@ export interface RebindParams {
   cnjPattern: string;
   oabIds: string[];
   batchSize?: number;
+  tenantId?: string;
 }
 
 export const useRebindCredencialJudit = () => {
@@ -16,14 +17,15 @@ export const useRebindCredencialJudit = () => {
 
   const invoke = useCallback(
     async (params: RebindParams, mode: 'count' | 'dry' | 'run') => {
-      if (!tenantId) return null;
+      const effectiveTenantId = params.tenantId ?? tenantId;
+      if (!effectiveTenantId) return null;
       setRunning(true);
       try {
         const { data, error } = await supabase.functions.invoke(
           'judit-rebind-credencial-lote',
           {
             body: {
-              tenantId,
+              tenantId: effectiveTenantId,
               customerKey: params.customerKey,
               cnjPattern: params.cnjPattern,
               oabIds: params.oabIds,
