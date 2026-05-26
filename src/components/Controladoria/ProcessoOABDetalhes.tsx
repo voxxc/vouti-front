@@ -208,6 +208,13 @@ export const ProcessoOABDetalhes = ({
 }: ProcessoOABDetalhesProps) => {
   const { andamentos, loading: loadingAndamentos, fetchAndamentos, marcarComoLida, marcarTodasComoLidas } = useAndamentosOAB(processo?.id || null);
   const { anexosPorStep, downloading, downloadAnexo } = useProcessoAnexos(processo?.id || null);
+  const { user, tenantId } = useAuth();
+  const { data: credenciaisJudit = [] } = useJuditSystemNames(tenantId);
+  const podeEditarCredencial =
+    (user?.email || '').toLowerCase() === EDIT_CREDENCIAL_EMAIL;
+  const [editandoCredencial, setEditandoCredencial] = useState(false);
+  const [salvandoCredencial, setSalvandoCredencial] = useState(false);
+  const [credencialDraft, setCredencialDraft] = useState<string>('__publico__');
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [togglingMonitoramento, setTogglingMonitoramento] = useState(false);
   const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
