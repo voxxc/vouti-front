@@ -126,6 +126,20 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId, globalCount]);
 
+  // Lista de J.TR para renderizar = união da base estática + descobertos.
+  // Ordem: estáticos primeiro (na ordem definida), depois extras por total desc.
+  const mergedPatterns = useMemo(() => {
+    const map = new Map<string, number | undefined>();
+    for (const j of STATIC_JTRS) map.set(j, undefined);
+    for (const p of patterns) map.set(p.pattern, p.total);
+    const staticOnes = STATIC_JTRS.map((j) => ({ jtr: j, total: map.get(j) }));
+    const extras = [...map.keys()]
+      .filter((j) => !STATIC_JTRS.includes(j))
+      .map((j) => ({ jtr: j, total: map.get(j) }))
+      .sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
+    return [...staticOnes, ...extras];
+  }, [patterns]);
+
   const credOptions = useMemo(
     () =>
       credenciais.map((c) => ({
