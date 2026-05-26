@@ -737,7 +737,7 @@ export const ProcessoOABDetalhes = ({
                         }
                         toast({
                           title: 'Credencial atualizada',
-                          description: sel?.system_name || 'Público',
+                          description: sel ? `${sel.system_name} — ${sel.customer_key}` : 'Público',
                         });
                         setEditandoCredencial(false);
                         onRefreshProcessos?.();
