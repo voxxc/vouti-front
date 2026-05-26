@@ -12,7 +12,7 @@ export interface RebindParams {
   globalScope?: boolean;
 }
 
-export type RebindMode = 'count' | 'dry' | 'run' | 'listOabs' | 'history';
+export type RebindMode = 'count' | 'dry' | 'run' | 'listOabs' | 'listPatterns' | 'history';
 
 export const useRebindCredencialJudit = () => {
   const [running, setRunning] = useState(false);
@@ -35,6 +35,7 @@ export const useRebindCredencialJudit = () => {
               countOnly: mode === 'count',
               dryRun: mode === 'dry',
               listOabs: mode === 'listOabs',
+              listPatterns: mode === 'listPatterns',
               history: mode === 'history',
               historyLimit: params.historyLimit,
             globalScope: params.globalScope ?? false,
