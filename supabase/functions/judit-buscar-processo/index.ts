@@ -63,8 +63,10 @@ serve(async (req) => {
         search: {
           search_type: 'lawsuit_cnj',
           search_key: numeroCnjLimpo,
+          ...(customerKey && {
+            search_params: { credential: { customer_key: customerKey } },
+          }),
         },
-        ...(customerKey && { credential: { customer_key: customerKey } }),
       }),
     });
 

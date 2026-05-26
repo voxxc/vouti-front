@@ -65,6 +65,7 @@ serve(async (req) => {
     const webhookUrl = `${supabaseUrl}/functions/v1/judit-webhook`;
 
     // Criar tracking na Judit (COM credencial para processos sigilosos)
+    // IMPORTANTE: credencial vai em search.search_params.credential (formato oficial Judit).
     const trackingBody: any = {
       recurrence: 1,
       search: {
@@ -76,7 +77,7 @@ serve(async (req) => {
     };
 
     if (customerKey) {
-      trackingBody.credential = { customer_key: customerKey };
+      trackingBody.search.search_params = { credential: { customer_key: customerKey } };
       console.log('[Judit] Tracking criado COM credencial para acesso a processos sigilosos');
     }
 
