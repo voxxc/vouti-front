@@ -655,7 +655,14 @@ export const ProcessoOABDetalhes = ({
                     Credencial Judit
                   </p>
                   <p className="text-sm truncate">
-                    {processo.judit_system_name || (
+                    {processo.judit_system_name ? (
+                      <>
+                        {processo.judit_system_name}
+                        {processo.judit_customer_key && (
+                          <span className="text-muted-foreground"> — {processo.judit_customer_key}</span>
+                        )}
+                      </>
+                    ) : (
                       <span className="text-muted-foreground">Público (sem credencial)</span>
                     )}
                   </p>
