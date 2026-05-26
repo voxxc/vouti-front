@@ -6,8 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Play, Eye, Calculator } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Loader2, Play, Eye, Calculator, Download, History } from 'lucide-react';
 import { useJuditSystemNames } from '@/hooks/useJuditSystemNames';
 import { useRebindCredencialJudit } from '@/hooks/useRebindCredencialJudit';
 
@@ -46,6 +45,8 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
   const [countResult, setCountResult] = useState<any>(null);
   const [dryResult, setDryResult] = useState<any>(null);
   const [runResult, setRunResult] = useState<any>(null);
+  const [history, setHistory] = useState<any[] | null>(null);
+  const [loadingOabs, setLoadingOabs] = useState(false);
 
   // Default credencial = alangeral
   useEffect(() => {
@@ -67,13 +68,10 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
       setOabsSelecionadas(new Set());
       return;
     }
-    supabase
-      .from('oabs_cadastradas')
-      .select('id, nome_advogado, oab_numero, oab_uf')
-      .eq('tenant_id', tenantId)
-      .order('nome_advogado')
-      .then(({ data }) => {
-        const list = (data || []) as OabRow[];
+    setLoadingOabs(true);
+    invoke({ tenantId }, 'listOabs')
+      .then((r) => {
+        const list = ((r?.oabs ?? []) as OabRow[]);
         setOabs(list);
         setOabsSelecionadas(
           new Set(
@@ -82,7 +80,8 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
               .map((o) => o.id),
           ),
         );
-      });
+      })
+      .finally(() => setLoadingOabs(false));
   }, [tenantId]);
 
   const credOptions = useMemo(
@@ -131,6 +130,65 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
     const r = await invoke(params, 'run');
     setRunResult(r);
     if (r) await handleCount();
+  };
+
+  const handleHistory = async () => {
+    const r = await invoke({ tenantId, customerKey, historyLimit: 1000 }, 'history');
+    setHistory(r?.history ?? []);
+  };
+
+  const exportCsv = () => {
+    const rowsByCnj = new Map<string, any>();
+    if (dryResult?.lote) {
+      for (const it of dryResult.lote) {
+        rowsByCnj.set(it.numero_cnj, {
+          numero_cnj: it.numero_cnj,
+          tracking_antigo: it.tracking_antigo ?? '',
+          tracking_novo: '',
+          antigo_pausado: '',
+          compartilhado_fora_filtro: it.compartilhado_fora_filtro ? 'sim' : 'nao',
+          status: 'pendente',
+          erro: '',
+        });
+      }
+    }
+    if (runResult?.results) {
+      for (const r of runResult.results) {
+        rowsByCnj.set(r.numero_cnj, {
+          numero_cnj: r.numero_cnj,
+          tracking_antigo: r.trackingAntigo ?? '',
+          tracking_novo: r.novoTrackingId ?? '',
+          antigo_pausado: r.antigoPausado === true ? 'sim' : r.antigoPausado === false ? 'nao' : '',
+          compartilhado_fora_filtro: r.compartilhado ? 'sim' : 'nao',
+          status: r.status,
+          erro: r.erro ?? '',
+        });
+      }
+    }
+    const rows = [...rowsByCnj.values()];
+    if (rows.length === 0) return;
+    const header = ['numero_cnj','tracking_antigo','tracking_novo','antigo_pausado','compartilhado_fora_filtro','status','erro'];
+    const csv = [header.join(','), ...rows.map((r) => header.map((h) => `"${String((r as any)[h] ?? '').replace(/"/g,'""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rebind-credencial-${customerKey}-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportHistoryCsv = () => {
+    if (!history || history.length === 0) return;
+    const header = ['created_at','numero_cnj','tracking_id_antigo','tracking_id_novo','antigo_pausado','customer_key','status','erro'];
+    const csv = [header.join(','), ...history.map((r) => header.map((h) => `"${String((r as any)[h] ?? '').replace(/"/g,'""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rebind-historico-${customerKey || 'all'}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (!tenantId) {
@@ -182,7 +240,10 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
 
       {/* OABs */}
       <div className="space-y-1.5">
-        <Label>OABs a migrar ({oabsSelecionadas.size}/{oabs.length})</Label>
+        <Label>
+          OABs a migrar ({oabsSelecionadas.size}/{oabs.length})
+          {loadingOabs && <Loader2 className="inline h-3 w-3 ml-2 animate-spin" />}
+        </Label>
         <div className="border rounded-md p-2 space-y-1 max-h-48 overflow-auto">
           {oabs.map((o) => (
             <label key={o.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 px-2 py-1 rounded">
@@ -191,7 +252,7 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
               <Badge variant="outline" className="text-[10px]">{o.oab_numero}/{o.oab_uf}</Badge>
             </label>
           ))}
-          {oabs.length === 0 && <p className="text-xs text-muted-foreground p-2">Nenhuma OAB.</p>}
+          {oabs.length === 0 && !loadingOabs && <p className="text-xs text-muted-foreground p-2">Nenhuma OAB.</p>}
         </div>
       </div>
 
@@ -232,12 +293,20 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
 
       {dryResult?.lote && (
         <div className="rounded-md border p-3 text-xs space-y-1">
-          <div className="font-medium mb-2">Próximo lote ({dryResult.lote.length}) — restantes depois: {dryResult.restantes}</div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-medium">Próximo lote ({dryResult.lote.length}) — restantes depois: {dryResult.restantes}</span>
+            <Button size="sm" variant="ghost" onClick={exportCsv}>
+              <Download className="h-3 w-3 mr-1" /> CSV
+            </Button>
+          </div>
           <ScrollArea className="max-h-56">
             <div className="space-y-1">
               {dryResult.lote.map((it: any) => (
                 <div key={it.numero_cnj} className="flex items-center gap-2 font-mono">
-                  <span className="flex-1 truncate">{it.numero_cnj}</span>
+                  <span className="w-48 truncate" title={it.numero_cnj}>{it.numero_cnj}</span>
+                  <span className="flex-1 truncate text-muted-foreground" title={it.tracking_antigo}>
+                    {it.tracking_antigo}
+                  </span>
                   {it.compartilhado_fora_filtro && (
                     <Badge variant="secondary" className="text-[10px]">compartilhado</Badge>
                   )}
@@ -253,17 +322,25 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
 
       {runResult && (
         <div className="rounded-md border p-3 text-sm bg-muted/30">
-          <div className="flex gap-4 flex-wrap">
+          <div className="flex gap-4 flex-wrap items-center">
             <span><strong>Migrados:</strong> {runResult.migrados}</span>
             <span><strong>Erros:</strong> {runResult.erros}</span>
             <span><strong>Restantes:</strong> {runResult.restantes}</span>
+            <Button size="sm" variant="ghost" className="ml-auto" onClick={exportCsv}>
+              <Download className="h-3 w-3 mr-1" /> CSV
+            </Button>
           </div>
           {runResult.results?.length > 0 && (
             <ScrollArea className="max-h-40 mt-2">
               <div className="space-y-0.5 text-xs font-mono">
                 {runResult.results.map((r: any, i: number) => (
-                  <div key={i} className="flex gap-2">
-                    <span className="flex-1 truncate">{r.numero_cnj}</span>
+                  <div key={i} className="flex gap-2 items-center">
+                    <span className="w-44 truncate" title={r.numero_cnj}>{r.numero_cnj}</span>
+                    <span className="w-40 truncate text-muted-foreground" title={r.trackingAntigo}>{r.trackingAntigo}</span>
+                    <span>→</span>
+                    <span className="flex-1 truncate text-foreground" title={r.novoTrackingId}>{r.novoTrackingId ?? '-'}</span>
+                    {r.antigoPausado === true && <Badge variant="secondary" className="text-[10px]">pausado</Badge>}
+                    {r.compartilhado && <Badge variant="outline" className="text-[10px]">compartilhado</Badge>}
                     <Badge variant={r.status === 'migrado' ? 'default' : 'destructive'} className="text-[10px]">
                       {r.status}
                     </Badge>
@@ -274,6 +351,38 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
           )}
         </div>
       )}
+
+      {/* Histórico */}
+      <div className="border-t pt-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={handleHistory} disabled={running || !tenantId}>
+            <History className="h-3 w-3 mr-1" /> Carregar histórico
+          </Button>
+          {history && history.length > 0 && (
+            <Button size="sm" variant="ghost" onClick={exportHistoryCsv}>
+              <Download className="h-3 w-3 mr-1" /> CSV histórico
+            </Button>
+          )}
+          {history && <span className="text-xs text-muted-foreground">{history.length} registros</span>}
+        </div>
+        {history && history.length > 0 && (
+          <ScrollArea className="max-h-56 border rounded-md p-2">
+            <div className="space-y-0.5 text-xs font-mono">
+              {history.map((r, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <span className="w-32 truncate text-muted-foreground">{(r.created_at || '').slice(0,19).replace('T',' ')}</span>
+                  <span className="w-40 truncate" title={r.numero_cnj}>{r.numero_cnj}</span>
+                  <span className="w-36 truncate text-muted-foreground" title={r.tracking_id_antigo}>{r.tracking_id_antigo}</span>
+                  <span>→</span>
+                  <span className="flex-1 truncate" title={r.tracking_id_novo}>{r.tracking_id_novo ?? '-'}</span>
+                  {r.antigo_pausado && <Badge variant="secondary" className="text-[10px]">pausado</Badge>}
+                  <Badge variant={r.status === 'migrado' ? 'default' : 'destructive'} className="text-[10px]">{r.status}</Badge>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
+      </div>
     </div>
   );
 };
