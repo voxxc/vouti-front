@@ -15,7 +15,6 @@ import { fetchAllPaginated } from '@/lib/supabasePagination';
 import { toast } from '@/hooks/use-toast';
 import { SuperAdminReconciliacaoJudit } from './SuperAdminReconciliacaoJudit';
 import { RebindCredencialJuditDialog } from '@/components/Controladoria/RebindCredencialJuditDialog';
-import { RefreshCw as RefreshCwIcon } from 'lucide-react';
 
 interface Stats {
   oabAtivos: number;
@@ -376,7 +375,7 @@ export const SuperAdminMigracaoAnexos = () => {
                         onClick={() => setRebindTenantId(t.tenant_id)}
                         title="Recriar trackings com credencial específica"
                       >
-                        <RefreshCwIcon className="h-3.5 w-3.5" />
+                        <RefreshCw className="h-3.5 w-3.5" />
                         <span className="ml-1.5 text-xs">Recriar c/ credencial</span>
                       </Button>
                     </div>
