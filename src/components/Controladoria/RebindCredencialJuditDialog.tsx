@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, RefreshCw, Play, Eye, Calculator } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useTenantId } from '@/hooks/useTenantId';
 import { useJuditSystemNames } from '@/hooks/useJuditSystemNames';
 import { useRebindCredencialJudit } from '@/hooks/useRebindCredencialJudit';
 
@@ -39,8 +38,7 @@ interface OabRow {
 }
 
 export const RebindCredencialJuditDialog = ({ open, onOpenChange, tenantIdOverride }: Props) => {
-  const { tenantId: ctxTenantId } = useTenantId();
-  const tenantId = tenantIdOverride ?? ctxTenantId;
+  const tenantId = tenantIdOverride;
   const { data: credenciais = [] } = useJuditSystemNames(tenantId);
   const { running, invoke } = useRebindCredencialJudit();
 
@@ -106,9 +104,9 @@ export const RebindCredencialJuditDialog = ({ open, onOpenChange, tenantIdOverri
       cnjPattern: pattern,
       oabIds: [...oabsSelecionadas],
       batchSize,
-      tenantId: tenantIdOverride,
+      tenantId,
     }),
-    [customerKey, pattern, oabsSelecionadas, batchSize, tenantIdOverride],
+    [customerKey, pattern, oabsSelecionadas, batchSize, tenantId],
   );
 
   const podeExecutar = !!customerKey && !!pattern && oabsSelecionadas.size > 0;
