@@ -1,40 +1,53 @@
 ## Causa raiz
 
-Hoje o botão **"Recriar c/ credencial"** aparece dentro do card "Progresso por tenant" do `SuperAdminMigracaoAnexos`, escondido entre dezenas de linhas e abrindo um modal. Em telas grandes (super-admin), o usuário não localiza onde a função está.
+Na print, "**OABs a migrar (0/0) — Nenhuma OAB**". O botão "Executar lote" exige `oabsSelecionadas.size > 0`, então fica desabilitado.
+
+O painel busca OABs com `supabase.from('oabs_cadastradas').select(...).eq('tenant_id', X)` no client. Em `/super-admin`, o usuário super-admin **não é membro do tenant SOLVENZA**, e a RLS de `oabs_cadastradas` exige `has_role_in_tenant()` — por isso o SELECT volta vazio (silenciosamente). Funciona em Controladoria porque lá o usuário pertence ao tenant.
+
+Sobre "auditoria": dry-run e execução já retornam dados úteis, mas a UI atual mostra muito pouco (só o número do CNJ + badge). O par **tracking antigo → tracking novo** não aparece em nenhuma lista; também não há exportação.
 
 ## Correção
 
-Promover a função para uma **aba dedicada** ao lado de "Reconciliação Judit", com seletor de tenant no topo e o painel de execução logo abaixo (sem modal).
+### 1. Carregar OABs com privilégio de service-role
+Adicionar um modo `listOabs` à Edge Function `judit-rebind-credencial-lote` (já tem service-role). Retorna `[{id, nome_advogado, oab_numero, oab_uf}]` para o `tenantId`.
 
-1. **Extrair o conteúdo do dialog** em um componente reutilizável `RebindCredencialJuditPanel` (mesmas controles: credencial, padrão CNJ, OABs, lote, Contar/Dry-run/Executar e resultados). Recebe `tenantId: string` por prop.
+No `RebindCredencialJuditPanel`: substituir o SELECT direto por chamada ao hook `useRebindCredencialJudit` em modo `listOabs`. Funciona tanto em Controladoria (já era service-role na Edge) quanto em Super-admin.
 
-2. **`RebindCredencialJuditDialog`** passa a apenas envolver o panel em `<Dialog>` — mantém compatibilidade com o uso atual em `MigracaoAnexosTab` (Controladoria) e com o botão por linha no super-admin (se desejado manter; será removido para não duplicar — ver abaixo).
+### 2. Auditoria visível e exportável
+- **Dry-run:** adicionar coluna **"tracking antigo"** (fonte mono, truncada com tooltip) ao lado do CNJ; manter as badges de "compartilhado" e "pausa antigo / mantém antigo".
+- **Execução:** ampliar `runResult.results` na UI para mostrar `numero_cnj | tracking_antigo | → | tracking_novo | badge(status)` + badge "pausado" quando aplicável.
+- **Botão "Exportar auditoria (CSV)":** aparece quando há `dryResult` ou `runResult`. Gera CSV com colunas: `numero_cnj, tracking_antigo, tracking_novo, antigo_pausado, compartilhado_fora_filtro, status, erro`. Une dados de dry-run e da última execução (run sobrescreve dry para os CNJs em comum).
+- **Persistência server-side:** já temos `judit_migracao_attachments` com `motivo='rebind_credencial'`, `customer_key`, `tracking_id_antigo`, `tracking_id_novo`. Aproveitar para um botão **"Carregar histórico desta credencial"** que lê desse table filtrado por `tenant_id + motivo + customer_key`, garantindo que o usuário possa auditar a qualquer momento (não só logo após rodar).
 
-3. **`SuperAdminMigracaoAnexos.tsx`**:
-   - Adicionar `TabsTrigger value="rebind"` com label **"Recriar c/ credencial"** ao lado de "Reconciliação Judit".
-   - No `CardContent`, quando `aba === 'rebind'`: renderizar um `<Select>` de tenant (reutiliza `tenants`) + `<RebindCredencialJuditPanel tenantId={tenantSelecionado} />`.
-   - Remover o botão "Recriar c/ credencial" das linhas da lista de tenants (e o estado `rebindTenantId` + render do dialog), já que agora há uma aba própria.
+### 3. Hook
+`useRebindCredencialJudit.invoke(params, mode)` ganha o modo `'listOabs'`. Para esse modo, basta `tenantId` no body; retorna `{ oabs: [...] }`.
 
-Nenhuma mudança em Edge Function (`judit-rebind-credencial-lote`), hooks de dados ou schema.
+Nenhuma migration de schema. Sem alteração de RLS. Sem alteração de payload das chamadas existentes (count/dry/run).
 
 ## Arquivos afetados
 
-- `src/components/Controladoria/RebindCredencialJuditPanel.tsx` (novo — UI extraída)
-- `src/components/Controladoria/RebindCredencialJuditDialog.tsx` (vira wrapper Dialog + panel)
-- `src/components/SuperAdmin/SuperAdminMigracaoAnexos.tsx` (nova aba + remove botão por linha)
+- `supabase/functions/judit-rebind-credencial-lote/index.ts` — novo modo `listOabs` + um modo `history` (lê `judit_migracao_attachments`).
+- `src/hooks/useRebindCredencialJudit.ts` — tipos do `mode` ampliados; helper para `listOabs` e `history`.
+- `src/components/Controladoria/RebindCredencialJuditPanel.tsx`:
+  - troca SELECT direto por chamada ao edge `listOabs`;
+  - melhora tabelas de dry-run e execução com tracking antigo/novo;
+  - botão "Exportar auditoria CSV";
+  - botão "Carregar histórico" + lista com paginação simples.
 
 ## Impacto
 
-- **Usuário final (super-admin):** a função fica visível como aba dedicada "Recriar c/ credencial" ao lado de "Reconciliação Judit". Fluxo: seleciona o tenant no topo → ajusta credencial/padrão/OABs → Contar / Dry-run / Executar. Sem precisar caçar botão em linha. O botão por linha some.
-- **Usuário final (tenant — Controladoria):** sem mudança visível. O botão "Recriar com credencial" da aba "Migração de Anexos" continua abrindo o mesmo dialog (que agora internamente usa o panel).
-- **Dados:** nenhum. Sem migration, sem alteração de RLS, sem mudança de payload.
-- **Riscos colaterais:** baixos. Apenas reorganização de UI; lógica de execução e seleção de OABs/credenciais é a mesma. O panel não chama `useTenantId` — recebe tenant explícito (consistente com a correção anterior).
-- **Quem é afetado:** super-admins (ganho de descoberta) e advogados/admin em Controladoria (sem efeito).
+- **Usuário final (super-admin):** a aba "Recriar c/ credencial" passa a listar as OABs do tenant (Alan, Will, João etc.), com seleção padrão "todos exceto João" funcionando. O botão **Executar lote** habilita. Após dry-run/execução, vê a auditoria detalhada (tracking antigo → novo, pausa) e pode exportar CSV. Histórico das migrações anteriores também consultável pela própria tela.
+- **Usuário final (tenant — Controladoria):** mesmo comportamento, agora com auditoria mais rica e CSV. Não há regressão.
+- **Dados:** nenhum schema novo. Edge Function passa a fazer SELECTs adicionais (oabs_cadastradas, judit_migracao_attachments) com service-role — uso pontual, sem impacto de performance.
+- **Riscos colaterais:** baixos. A Edge Function continua exigindo `tenantId`; modos novos são read-only.
+- **Quem é afetado:** super-admins (correção do bloqueio + auditoria) e admins/advogados em Controladoria (só ganho de auditoria/CSV).
 
 ## Validação
 
-1. `/super-admin` → módulo Judit/Migração → aba **"Recriar c/ credencial"** existe ao lado de "Reconciliação Judit".
-2. Selecionar SOLVENZA → credencial `alangeral` pré-selecionada → padrão `%.8.16.%` → OABs Alan/Will marcadas, João desmarcado.
-3. **Contar** retorna número esperado; **Dry-run** lista lote; **Executar lote** processa.
-4. Linhas de tenant na visão de progresso não exibem mais o botão "Recriar c/ credencial" (sem duplicidade).
-5. Controladoria de um tenant → aba "Migração de Anexos" → botão "Recriar com credencial" abre o dialog normalmente.
+1. `/super-admin` → aba **Recriar c/ credencial** → selecionar **SOLVENZA** → lista de OABs aparece com checagens; João desmarcado por padrão.
+2. **Contar** → mostra elegíveis ≈ 86 (TJPR Alan+Will).
+3. **Dry-run** → tabela lista CNJ + tracking_antigo + badge "pausa antigo / mantém antigo" + "compartilhado" quando aplicável.
+4. **Exportar auditoria CSV** → arquivo abre com colunas `numero_cnj, tracking_antigo, tracking_novo, antigo_pausado, compartilhado_fora_filtro, status, erro` (pós dry-run só tem antigo; pós run vem o novo também).
+5. **Executar lote (5)** → results mostra `antigo → novo` com badge pausado. Tabela `judit_migracao_attachments` recebe linhas com `motivo='rebind_credencial'`, `customer_key='alangeral'`.
+6. **Carregar histórico** → lista as execuções anteriores desta credencial para o tenant.
+7. Em conta tenant: Controladoria → Migração de Anexos → "Recriar com credencial" → mesmo fluxo, sem regressão.
