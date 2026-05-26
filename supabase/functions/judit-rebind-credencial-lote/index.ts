@@ -97,13 +97,12 @@ Deno.serve(async (req) => {
     const filtrarPorOab = Array.isArray(oabIds) && oabIds.length > 0;
     let qLinhas = supabase
       .from('processos_oab')
-      .select('id, numero_cnj, tracking_id, oab_id')
+      .select('id, numero_cnj, tracking_id, oab_id, tenant_id')
       .eq('monitoramento_ativo', true)
       .not('tracking_id', 'is', null)
       .ilike('numero_cnj', cnjPattern);
-    // Apenas em countOnly + globalScope removemos o filtro de tenant.
-    // dryRun/run continuam restritos ao tenant selecionado.
-    if (!(countOnly && globalScope)) {
+    // globalScope vale para count/dry/run.
+    if (!globalScope) {
       qLinhas = qLinhas.eq('tenant_id', tenantId);
     }
     if (filtrarPorOab) qLinhas = qLinhas.in('oab_id', oabIds!);
@@ -111,14 +110,14 @@ Deno.serve(async (req) => {
     if (errLin) throw errLin;
 
     // Agrupa por numero_cnj
-    const mapaCnj = new Map<string, { tracking_id: string; rowIds: string[] }>();
+    const mapaCnj = new Map<string, { tracking_id: string; rowIds: string[]; tenant_id: string }>();
     for (const l of linhasElegiveis || []) {
       if (!l.numero_cnj || !l.tracking_id) continue;
       const cur = mapaCnj.get(l.numero_cnj);
       if (cur) {
         cur.rowIds.push(l.id);
       } else {
-        mapaCnj.set(l.numero_cnj, { tracking_id: l.tracking_id, rowIds: [l.id] });
+        mapaCnj.set(l.numero_cnj, { tracking_id: l.tracking_id, rowIds: [l.id], tenant_id: l.tenant_id });
       }
     }
 
@@ -129,7 +128,7 @@ Deno.serve(async (req) => {
       .eq('motivo', 'rebind_credencial')
       .eq('customer_key', customerKey)
       .eq('status', 'migrado');
-    if (!(countOnly && globalScope)) {
+    if (!globalScope) {
       qJa = qJa.eq('tenant_id', tenantId);
     }
     const { data: jaMigrados } = await qJa;
@@ -244,7 +243,7 @@ Deno.serve(async (req) => {
           .in('id', info.rowIds);
 
         await supabase.from('judit_migracao_attachments').insert({
-          tenant_id: tenantId,
+          tenant_id: info.tenant_id ?? tenantId,
           processo_id: info.rowIds[0],
           tipo: 'oab',
           numero_cnj: cnj,
@@ -258,7 +257,7 @@ Deno.serve(async (req) => {
         });
 
         await supabase.from('judit_api_logs').insert({
-          tenant_id: tenantId,
+          tenant_id: info.tenant_id ?? tenantId,
           tipo_chamada: 'rebind_credencial',
           endpoint: TRACKING_URL,
           metodo: 'POST',
@@ -281,7 +280,7 @@ Deno.serve(async (req) => {
         erros++;
         const msg = e?.message ?? String(e);
         await supabase.from('judit_migracao_attachments').insert({
-          tenant_id: tenantId,
+          tenant_id: info.tenant_id ?? tenantId,
           processo_id: info.rowIds[0],
           tipo: 'oab',
           numero_cnj: cnj,
