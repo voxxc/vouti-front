@@ -18,7 +18,7 @@ export const useRebindCredencialJudit = () => {
   const [running, setRunning] = useState(false);
 
   const invoke = useCallback(
-    async (params: RebindParams, mode: RebindMode) => {
+    async (params: RebindParams, mode: RebindMode, opts?: { silent?: boolean }) => {
       const effectiveTenantId = params.tenantId;
       if (!effectiveTenantId) return null;
       setRunning(true);
@@ -46,6 +46,7 @@ export const useRebindCredencialJudit = () => {
         if (data?.success === false) throw new Error(data.error || 'Falha');
         return data;
       } catch (e: any) {
+        if (opts?.silent) return null;
         const isFetchErr =
           e?.name === 'FunctionsFetchError' ||
           /Failed to send a request/i.test(e?.message ?? '');

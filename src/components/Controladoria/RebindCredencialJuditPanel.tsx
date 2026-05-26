@@ -101,7 +101,7 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
     let cancel = false;
     (async () => {
       setPatternsLoading(true);
-      const r = await invoke({ tenantId, globalScope: globalCount }, 'listPatterns');
+      const r = await invoke({ tenantId, globalScope: globalCount }, 'listPatterns', { silent: true });
       if (cancel) return;
       const list: { pattern: string; total: number }[] = r?.patterns ?? [];
       setPatterns(list);
