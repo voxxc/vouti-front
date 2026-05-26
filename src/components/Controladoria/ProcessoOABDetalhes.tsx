@@ -655,7 +655,14 @@ export const ProcessoOABDetalhes = ({
                     Credencial Judit
                   </p>
                   <p className="text-sm truncate">
-                    {processo.judit_system_name || (
+                    {processo.judit_system_name ? (
+                      <>
+                        {processo.judit_system_name}
+                        {processo.judit_customer_key && (
+                          <span className="text-muted-foreground"> — {processo.judit_customer_key}</span>
+                        )}
+                      </>
+                    ) : (
                       <span className="text-muted-foreground">Público (sem credencial)</span>
                     )}
                   </p>
@@ -693,7 +700,7 @@ export const ProcessoOABDetalhes = ({
                       <SelectItem value="__publico__">Público (sem credencial)</SelectItem>
                       {credenciaisJudit.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
-                          {c.system_name}
+                          {c.system_name} — {c.customer_key}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -730,7 +737,7 @@ export const ProcessoOABDetalhes = ({
                         }
                         toast({
                           title: 'Credencial atualizada',
-                          description: sel?.system_name || 'Público',
+                          description: sel ? `${sel.system_name} — ${sel.customer_key}` : 'Público',
                         });
                         setEditandoCredencial(false);
                         onRefreshProcessos?.();
