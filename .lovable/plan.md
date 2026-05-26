@@ -1,81 +1,58 @@
 ## Causa raiz
 
-Hoje (a) o dialog de importar CNJ não captura a qual tribunal/credencial Judit o processo pertence, e (b) o drawer do processo não permite ajustar essa amarração antes de reativar o monitoramento. Sem isso, o `judit-ativar-monitoramento` continua usando `credenciais[0]` aleatoriamente e processos sigilosos voltam sem andamentos.
+O dropdown "Credencial Judit" do drawer (modo edição, só visível ao Daniel) está vazio porque `useJuditSystemNames` faz `SELECT` direto em `credenciais_judit`, e a tabela só tem política de SELECT para **super admins**:
 
-Este plano cobre **apenas a preparação do ambiente** — vínculo do processo a uma credencial e a UI para definir/editar manualmente. A regeração em massa fica para depois.
+```
+SELECT → is_super_admin(auth.uid())
+```
+
+Daniel (`danieldemorais.e@gmail.com`) **não é super admin**, então a lista vem vazia — apesar do tenant Solvenza ter várias credenciais ativas (EPROC TJSP/TJRS/TJSC/TRF4, PJE TJMG, PROJUDI TJPR, …).
 
 ## Correção
 
-### 1. Modelo de dados
-- Migration: adicionar `processos_oab.judit_system_name text` (nullable) e `processos_oab.judit_customer_key text` (nullable, snapshot do customer_key escolhido — fica fácil auditar e usado direto no payload).
-- Index leve: `(tenant_id, judit_system_name)`.
+Criar uma RPC `SECURITY DEFINER` que retorna as credenciais ativas do tenant **apenas para super admins ou para o email do Daniel** (gate idêntico ao da UI de edição). Não abre RLS da tabela para todos os membros (o `customer_key` é sensível).
 
-### 2. Dialog "Importar Processo por CNJ" (modo único e em massa)
-- Novo Select **obrigatório** "Tribunal / Credencial Judit" no `ImportarProcessoCNJDialog.tsx`.
-- Opções carregadas via novo hook `useJuditSystemNames(tenantId)` que faz `SELECT id, system_name, customer_key FROM credenciais_judit WHERE tenant_id=? AND status='active' ORDER BY system_name` + opção fixa "Público (sem credencial)".
-- No modo em massa, o select vale para todos os CNJs do lote.
-- Valor escolhido é passado para `judit-buscar-processo-cnj` (novos campos `juditSystemName`, `juditCustomerKey`) e persistido em `processos_oab` no insert.
+1. **Migration** — nova função:
+   ```sql
+   create or replace function public.list_judit_credentials(p_tenant_id uuid)
+   returns table(id uuid, system_name text, customer_key text)
+   language plpgsql stable security definer set search_path = public
+   as $$
+   begin
+     if not (
+       is_super_admin(auth.uid())
+       or exists (
+         select 1 from auth.users
+         where id = auth.uid()
+           and lower(email) = 'danieldemorais.e@gmail.com'
+       )
+     ) then
+       return;
+     end if;
 
-### 3. Drawer do processo — edição restrita
-- Em `ProcessoOABDetalhes.tsx`, adicionar bloco "Credencial Judit" logo acima do toggle de monitoramento.
-- Exibição: sempre visível (mostra `judit_system_name` atual ou "Público").
-- **Edição**: só aparece quando `processo.monitoramento_ativo === false` **e** o usuário logado é `danieldemorais.e@gmail.com` (gate por email via `useAuth().user?.email`).
-- Ao salvar: update em `processos_oab` com `judit_system_name` e `judit_customer_key` snapshot.
-- Mensagem orientando: "Desative o monitoramento, ajuste a credencial e reative — um novo tracking será criado com essa credencial."
+     return query
+       select c.id, c.system_name, c.customer_key
+       from credenciais_judit c
+       where c.tenant_id = p_tenant_id and c.status = 'active'
+       order by c.system_name;
+   end;
+   $$;
+   grant execute on function public.list_judit_credentials(uuid) to authenticated;
+   ```
 
-### 4. Ativar/desativar monitoramento usa a credencial do processo
-- `judit-ativar-monitoramento`: trocar a busca de `credenciais[0]` por ler `processos_oab.judit_customer_key` do próprio processo. Se vazio → tracking público (sem `credential` no payload). Sempre `with_attachments: true`.
-- `judit-desativar-monitoramento` já deleta o tracking na Judit — mantém comportamento. Garantir que registra em `tenant_banco_ids` (tipo `tracking_desativado`) como já faz.
-- Resultado: cada ciclo desativar→ativar gera **um novo tracking_id**, ficando registrado no histórico.
-
-### 5. Histórico no SuperAdmin
-- `SuperAdminMonitoramento.tsx` já lê `tenant_banco_ids` (tipos `tracking` e `tracking_desativado`). Garantir que a coluna mostra `metadata.com_credencial` / `metadata.system_name` para visualizar pausa e reativação com a credencial nova.
-- Pequeno ajuste: incluir `system_name` no metadata salvo por `judit-ativar-monitoramento`.
+2. **Hook** `src/hooks/useJuditSystemNames.ts` — trocar o `.from('credenciais_judit').select(...)` por `supabase.rpc('list_judit_credentials', { p_tenant_id: tenantId })`. Mesmo shape de retorno (`{id, system_name, customer_key}`), o dropdown no `ProcessoOABDetalhes` popula automaticamente.
 
 ## Arquivos afetados
-
-- Migration nova: `processos_oab` + index.
-- `src/hooks/useJuditSystemNames.ts` (novo).
-- `src/components/Controladoria/ImportarProcessoCNJDialog.tsx`.
-- `supabase/functions/judit-buscar-processo-cnj/index.ts` — receber e persistir os campos.
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — bloco de credencial + edição gated.
-- `supabase/functions/judit-ativar-monitoramento/index.ts` — usar `judit_customer_key` do processo, incluir `system_name` no metadata.
-- `src/components/SuperAdmin/SuperAdminMonitoramento.tsx` — exibir credencial no histórico (ajuste de leitura).
+- `supabase/migrations/<novo>.sql`
+- `src/hooks/useJuditSystemNames.ts`
 
 ## Impacto
-
-**Usuário final (UX):**
-- Dialog de importar CNJ ganha um Select obrigatório de credencial. Quem não tem credencial cadastrada vê só "Público".
-- Operadores comuns continuam vendo o badge "Credencial: ..." no drawer mas **não conseguem editar**.
-- Apenas o usuário `danieldemorais.e@gmail.com` da SOLVENZA enxerga o botão "Editar credencial" — e só com monitoramento pausado.
-- Fluxo manual fica: pausar toggle → editar credencial → ligar toggle → novo tracking aparece no histórico do SuperAdmin.
-
-**Dados:**
-- 2 colunas nullable em `processos_oab` (migration leve, sem reescrita).
-- Trackings existentes continuam funcionando como estão (sem mexer). Só os processos que o usuário editar e reativar vão ganhar credencial.
-- Cada ciclo desativar/ativar gera 1 DELETE + 1 CREATE na Judit (consumo previsível, sob controle manual do usuário).
-- Sem mudança em RLS.
-
-**Riscos colaterais:**
-- Gate por email é frágil em tese (qualquer alteração de email quebra), mas é exatamente o desejado — restrição temporária. Documentar isso em comentário no código.
-- Se o usuário escolher `system_name` errado, a Judit pode rejeitar — tratar erro 4xx no `judit-ativar-monitoramento` e devolver mensagem clara no toast.
-- Importações em massa antigas (sem `judit_system_name`) seguem ativas como hoje — nenhuma quebra.
-
-**Quem é afetado:**
-- Todos os tenants veem o novo campo no dialog de importação.
-- Edição no drawer: apenas `danieldemorais.e@gmail.com` (SOLVENZA).
-- SuperAdmin vê histórico enriquecido com nome da credencial.
+- **Usuário final:** Só Daniel vê o botão "Editar" (gate já existente) **e** agora também vê o dropdown populado com as credenciais ativas + "Público (sem credencial)". Fluxo: desativa monitoramento → edita → escolhe credencial → reativa → novo tracking criado com o `customer_key` correto.
+- **Dados:** Sem mudança de schema. Apenas adiciona uma função no banco.
+- **Riscos colaterais:** `customer_key` continua oculto via RLS direta. A RPC só libera leitura para super admins e Daniel — alinhado 1:1 com o gate visual de edição. Nenhum outro usuário (nem admins de tenant) recebe acesso novo.
+- **Quem é afetado:** Apenas Daniel (Solvenza). Demais usuários inalterados.
 
 ## Validação
-
-1. Importar 1 CNJ de teste escolhendo cada credencial disponível e conferir `SELECT judit_system_name, judit_customer_key FROM processos_oab WHERE id=...`.
-2. Logar como `danieldemorais.e@gmail.com`: abrir um processo, pausar monitoramento, ver botão "Editar credencial" aparecer, trocar para outra credencial, salvar.
-3. Reativar monitoramento: conferir log do `judit-ativar-monitoramento` mostrando `customer_key` correto + `with_attachments: true`.
-4. Logar com outro usuário no mesmo tenant: confirmar que o botão de editar **não aparece**.
-5. Abrir `SuperAdminMonitoramento`: ver entrada `tracking_desativado` antigo + `tracking` novo com `metadata.system_name`.
-6. Em 24h, conferir se `processo_andamentos_judit` recebe andamentos via webhook do tracking recém-criado em processo sigiloso.
-
-## Confirmações antes de partir para implementação
-
-1. Confirma o email `danieldemorais.e@gmail.com` como gate (exato, case-insensitive)?
-2. Confirma que o select no modo em massa pode ser **único para o lote inteiro** (mais simples) — ou precisa por linha?
+1. Pós-migration: autenticado como Daniel, `select public.list_judit_credentials('<tenant_solvenza>')` retorna >0 linhas.
+2. UI (Daniel): abrir processo Solvenza, desativar monitoramento, clicar "Editar" — select lista as credenciais ativas + "Público".
+3. Como qualquer outro usuário: nem o botão "Editar" aparece, e a RPC retorna vazio (sem regressão de segurança).
