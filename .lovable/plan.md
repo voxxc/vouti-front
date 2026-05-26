@@ -1,72 +1,81 @@
-## Causa raiz (3 hipóteses, todas observadas no código)
+## Causa raiz
 
-### 1) Reset por email (`Esqueci minha senha` em `/vargas/auth`)
-A `send-password-reset` envia o link **hardcoded** para `https://vouti.lovable.app/${tenant_slug}/reset-password/${code}`. O tenant Vargas usa o domínio de produção `vouti.co`. Quando o usuário clica no email, é levado para o domínio Lovable (não o custom domain), o que:
-- causa estranheza/desconfiança (link parece quebrado),
-- pode disparar bloqueios de cookie/sessão e
-- se o usuário recolar o código manualmente no `vouti.co/vargas/auth` não há tela pra colar o código (a tela só aceita link).
+Hoje (a) o dialog de importar CNJ não captura a qual tribunal/credencial Judit o processo pertence, e (b) o drawer do processo não permite ajustar essa amarração antes de reativar o monitoramento. Sem isso, o `judit-ativar-monitoramento` continua usando `credenciais[0]` aleatoriamente e processos sigilosos voltam sem andamentos.
 
-### 2) Alterar a própria senha (Extras → Perfil)
-A função `update-own-password` valida a senha atual fazendo `signInWithPassword` num cliente "throwaway". Com as **novas signing keys (assimétricas) da Supabase**, esse `signInWithPassword` paralelo:
-- pode emitir um novo refresh token e **rotacionar/invalidar o token ativo do navegador**, fazendo o usuário cair em "Sessão expirada" antes mesmo do `updateUserById` ocorrer,
-- ou retornar 400 silencioso quando há rate-limit por IP, transformando uma senha correta em "Senha atual incorreta".
-Além disso, ainda usa `auth.getUser(token)` em vez do padrão atual `auth.getClaims(token)` (todas as outras funções já migraram).
-
-### 3) Admin trocando senha de outro usuário do tenant
-`admin-update-user-credentials` está OK em si, mas no Vargas só existe **1 usuário** (`jarifilho@hotmail.com`, admin). Não há UI em `/vargas` para o admin trocar a própria senha por esse caminho — o único path é o (2) acima. Logo, se (2) falha, o admin do Vargas fica sem alternativa interna.
+Este plano cobre **apenas a preparação do ambiente** — vínculo do processo a uma credencial e a UI para definir/editar manualmente. A regeração em massa fica para depois.
 
 ## Correção
 
-### Fix #1 — `update-own-password` (raiz mais provável)
-Reescrever para:
-- Verificar JWT com `getClaims(token)` (padrão atual do projeto).
-- **Não usar `signInWithPassword` para validar** a senha atual. Em vez disso, chamar diretamente a Auth REST `POST /auth/v1/token?grant_type=password` com `apikey: anon` e tratar o response sem salvar sessão (igual ao verifier, porém com `xform: ignore` e logout imediato do token emitido via `admin.auth.admin.signOut(newAccessToken)`). Isso impede a rotação do refresh token do usuário.
-- Mensagens de erro mais específicas (`Senha atual incorreta` vs `Limite de tentativas` vs `Erro interno`).
-- Registrar `tenant_id` e `slug` no log p/ rastreabilidade futura.
+### 1. Modelo de dados
+- Migration: adicionar `processos_oab.judit_system_name text` (nullable) e `processos_oab.judit_customer_key text` (nullable, snapshot do customer_key escolhido — fica fácil auditar e usado direto no payload).
+- Index leve: `(tenant_id, judit_system_name)`.
 
-### Fix #2 — `send-password-reset` (link)
-- Trocar o hardcode `vouti.lovable.app` por **origin dinâmico**: ler `req.headers.get('origin')` e fazer fallback para `https://vouti.co`. Assim Vargas (e qualquer tenant em custom domain) recebe link na origem correta.
-- Validar que a origem está numa allowlist (`vouti.co`, `vouti.lovable.app`, `*.lovableproject.com`) para evitar open-redirect.
+### 2. Dialog "Importar Processo por CNJ" (modo único e em massa)
+- Novo Select **obrigatório** "Tribunal / Credencial Judit" no `ImportarProcessoCNJDialog.tsx`.
+- Opções carregadas via novo hook `useJuditSystemNames(tenantId)` que faz `SELECT id, system_name, customer_key FROM credenciais_judit WHERE tenant_id=? AND status='active' ORDER BY system_name` + opção fixa "Público (sem credencial)".
+- No modo em massa, o select vale para todos os CNJs do lote.
+- Valor escolhido é passado para `judit-buscar-processo-cnj` (novos campos `juditSystemName`, `juditCustomerKey`) e persistido em `processos_oab` no insert.
 
-### Fix #3 — UI no `/tenant/auth` aceitar código manual
-Adicionar na `Auth.tsx` (modo `recovery`) um botão "Já tenho o código" que leva para um pequeno form (`email + código + nova senha`) que chama `verify-password-reset` diretamente. Resolve o caso do usuário do Vargas que recebeu o link, mas o link aponta pro domínio errado — ele consegue colar o código e seguir.
+### 3. Drawer do processo — edição restrita
+- Em `ProcessoOABDetalhes.tsx`, adicionar bloco "Credencial Judit" logo acima do toggle de monitoramento.
+- Exibição: sempre visível (mostra `judit_system_name` atual ou "Público").
+- **Edição**: só aparece quando `processo.monitoramento_ativo === false` **e** o usuário logado é `danieldemorais.e@gmail.com` (gate por email via `useAuth().user?.email`).
+- Ao salvar: update em `processos_oab` com `judit_system_name` e `judit_customer_key` snapshot.
+- Mensagem orientando: "Desative o monitoramento, ajuste a credencial e reative — um novo tracking será criado com essa credencial."
 
-### Fix #4 — Telemetria
-Adicionar `console.log` estruturado no início e fim de `update-own-password` e `send-password-reset` para que esse tipo de chamado tenha logs (hoje `update-own-password` está sem nenhum log nas últimas execuções, o que dificulta o diagnóstico).
+### 4. Ativar/desativar monitoramento usa a credencial do processo
+- `judit-ativar-monitoramento`: trocar a busca de `credenciais[0]` por ler `processos_oab.judit_customer_key` do próprio processo. Se vazio → tracking público (sem `credential` no payload). Sempre `with_attachments: true`.
+- `judit-desativar-monitoramento` já deleta o tracking na Judit — mantém comportamento. Garantir que registra em `tenant_banco_ids` (tipo `tracking_desativado`) como já faz.
+- Resultado: cada ciclo desativar→ativar gera **um novo tracking_id**, ficando registrado no histórico.
+
+### 5. Histórico no SuperAdmin
+- `SuperAdminMonitoramento.tsx` já lê `tenant_banco_ids` (tipos `tracking` e `tracking_desativado`). Garantir que a coluna mostra `metadata.com_credencial` / `metadata.system_name` para visualizar pausa e reativação com a credencial nova.
+- Pequeno ajuste: incluir `system_name` no metadata salvo por `judit-ativar-monitoramento`.
 
 ## Arquivos afetados
 
-- `supabase/functions/update-own-password/index.ts` — reescrita (Fix #1, #4)
-- `supabase/functions/send-password-reset/index.ts` — origin dinâmico + allowlist + logs (Fix #2, #4)
-- `src/pages/Auth.tsx` — novo subfluxo "Já tenho o código" no modo `recovery` (Fix #3)
-- `src/pages/CrmLogin.tsx` — mesmo subfluxo, para o produto CRM standalone (consistência)
+- Migration nova: `processos_oab` + index.
+- `src/hooks/useJuditSystemNames.ts` (novo).
+- `src/components/Controladoria/ImportarProcessoCNJDialog.tsx`.
+- `supabase/functions/judit-buscar-processo-cnj/index.ts` — receber e persistir os campos.
+- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — bloco de credencial + edição gated.
+- `supabase/functions/judit-ativar-monitoramento/index.ts` — usar `judit_customer_key` do processo, incluir `system_name` no metadata.
+- `src/components/SuperAdmin/SuperAdminMonitoramento.tsx` — exibir credencial no histórico (ajuste de leitura).
 
 ## Impacto
 
-**(1) Usuário final / UX**
-- Vargas (e todos os tenants em domínio próprio) passam a conseguir trocar senha pela tela Extras → Perfil sem ser deslogado no meio do processo.
-- Email de recuperação passa a apontar para o domínio do qual a pessoa solicitou (vouti.co para Vargas/Solvenza no custom domain; vouti.lovable.app em preview).
-- Surge um caminho alternativo "Já tenho o código" em `/tenant/auth`, útil quando o email chega com link quebrado/bloqueado.
+**Usuário final (UX):**
+- Dialog de importar CNJ ganha um Select obrigatório de credencial. Quem não tem credencial cadastrada vê só "Público".
+- Operadores comuns continuam vendo o badge "Credencial: ..." no drawer mas **não conseguem editar**.
+- Apenas o usuário `danieldemorais.e@gmail.com` da SOLVENZA enxerga o botão "Editar credencial" — e só com monitoramento pausado.
+- Fluxo manual fica: pausar toggle → editar credencial → ligar toggle → novo tracking aparece no histórico do SuperAdmin.
 
-**(2) Dados**
-- Zero migrations. Nenhuma alteração em tabelas, RLS, índices ou storage.
-- Tabela `password_reset_codes` continua igual; só passa a ser usada com mais consistência.
+**Dados:**
+- 2 colunas nullable em `processos_oab` (migration leve, sem reescrita).
+- Trackings existentes continuam funcionando como estão (sem mexer). Só os processos que o usuário editar e reativar vão ganhar credencial.
+- Cada ciclo desativar/ativar gera 1 DELETE + 1 CREATE na Judit (consumo previsível, sob controle manual do usuário).
+- Sem mudança em RLS.
 
-**(3) Riscos colaterais**
-- A allowlist de origem precisa cobrir os domínios reais (vouti.co, vouti.lovable.app, *.lovableproject.com); se faltar algum, o reset cai em fallback de produção — não quebra, só perde o "voltar pro mesmo domínio".
-- O subfluxo "código manual" reaproveita `verify-password-reset` que **já existe e está testado**, sem novas superfícies de ataque.
-- A remoção do `signInWithPassword` no `update-own-password` muda a forma de validar a senha atual; se a Auth REST mudar de contrato, a validação falha — mitigado mantendo o teste por `400 invalid_grant`.
+**Riscos colaterais:**
+- Gate por email é frágil em tese (qualquer alteração de email quebra), mas é exatamente o desejado — restrição temporária. Documentar isso em comentário no código.
+- Se o usuário escolher `system_name` errado, a Judit pode rejeitar — tratar erro 4xx no `judit-ativar-monitoramento` e devolver mensagem clara no toast.
+- Importações em massa antigas (sem `judit_system_name`) seguem ativas como hoje — nenhuma quebra.
 
-**(4) Quem é afetado**
-- **Todos os tenants** (Solvenza, Vargas, Jari Vargas, etc.) — não é fix específico do Vargas; só foi exposto lá porque ele tem 1 usuário só e não tem rota alternativa.
-- Admin/controller continuam usando `admin-update-user-credentials` (inalterado) para trocar senha de outros usuários do tenant.
-- Super Admin não é afetado (funções `super-admin-*` separadas).
+**Quem é afetado:**
+- Todos os tenants veem o novo campo no dialog de importação.
+- Edição no drawer: apenas `danieldemorais.e@gmail.com` (SOLVENZA).
+- SuperAdmin vê histórico enriquecido com nome da credencial.
 
 ## Validação
 
-1. Em `/vargas/auth` → "Esqueci minha senha" → conferir nos logs de `send-password-reset` que `origin` foi capturado e o link no email aponta para `vouti.co/vargas/reset-password/{code}`.
-2. No email, clicar no link → tela `ResetPassword` abre → trocar senha → login funciona com nova senha.
-3. Alternativo: em `/vargas/auth` → "Já tenho o código" → colar email + código + nova senha → sucesso.
-4. Logar como `jarifilho@hotmail.com` → Extras → Perfil → "Alterar senha" com senha atual correta → toast de sucesso → relogin com a nova senha (sessão antiga encerrada por logout intencional após sucesso, como já é hoje).
-5. Repetir o passo 4 com senha atual **errada** → toast "Senha atual incorreta" (não "Erro interno").
-6. Conferir nos Edge Function logs do Supabase que `update-own-password` agora registra início/fim com tenant_id.
+1. Importar 1 CNJ de teste escolhendo cada credencial disponível e conferir `SELECT judit_system_name, judit_customer_key FROM processos_oab WHERE id=...`.
+2. Logar como `danieldemorais.e@gmail.com`: abrir um processo, pausar monitoramento, ver botão "Editar credencial" aparecer, trocar para outra credencial, salvar.
+3. Reativar monitoramento: conferir log do `judit-ativar-monitoramento` mostrando `customer_key` correto + `with_attachments: true`.
+4. Logar com outro usuário no mesmo tenant: confirmar que o botão de editar **não aparece**.
+5. Abrir `SuperAdminMonitoramento`: ver entrada `tracking_desativado` antigo + `tracking` novo com `metadata.system_name`.
+6. Em 24h, conferir se `processo_andamentos_judit` recebe andamentos via webhook do tracking recém-criado em processo sigiloso.
+
+## Confirmações antes de partir para implementação
+
+1. Confirma o email `danieldemorais.e@gmail.com` como gate (exato, case-insensitive)?
+2. Confirma que o select no modo em massa pode ser **único para o lote inteiro** (mais simples) — ou precisa por linha?

@@ -5204,6 +5204,8 @@ export type Database = {
           importado_manualmente: boolean | null
           importado_por: string | null
           importado_por_email: string | null
+          judit_customer_key: string | null
+          judit_system_name: string | null
           juizo: string | null
           link_tribunal: string | null
           monitoramento_ativo: boolean | null
@@ -5246,6 +5248,8 @@ export type Database = {
           importado_manualmente?: boolean | null
           importado_por?: string | null
           importado_por_email?: string | null
+          judit_customer_key?: string | null
+          judit_system_name?: string | null
           juizo?: string | null
           link_tribunal?: string | null
           monitoramento_ativo?: boolean | null
@@ -5288,6 +5292,8 @@ export type Database = {
           importado_manualmente?: boolean | null
           importado_por?: string | null
           importado_por_email?: string | null
+          judit_customer_key?: string | null
+          judit_system_name?: string | null
           juizo?: string | null
           link_tribunal?: string | null
           monitoramento_ativo?: boolean | null

@@ -12,7 +12,16 @@ serve(async (req) => {
   }
 
   try {
-    const { numeroCnj, oabId, tenantId, userId, apartado, sufixoApartado } = await req.json();
+    const {
+      numeroCnj,
+      oabId,
+      tenantId,
+      userId,
+      apartado,
+      sufixoApartado,
+      juditSystemName,
+      juditCustomerKey,
+    } = await req.json();
     
     if (!numeroCnj || !oabId) {
       throw new Error('numeroCnj e oabId sao obrigatorios');
@@ -60,9 +69,11 @@ serve(async (req) => {
     }
 
     // Buscar credencial do tenant para usar no request (processos sigilosos)
-    let customerKey: string | null = null;
+    // Prioridade: credencial explicitamente escolhida no dialog de importação.
+    let customerKey: string | null = juditCustomerKey || null;
+    let systemNameFinal: string | null = juditSystemName || null;
 
-    if (tenantId) {
+    if (!customerKey && tenantId) {
       // Extrair tribunal do CNJ para matching de credencial
       const match = numeroCnj.match(/^\d{7}-\d{2}\.\d{4}\.(\d)\.(\d{2})\.\d{4}$/);
       let tribunalSigla = '';
@@ -100,8 +111,13 @@ serve(async (req) => {
           return sn.includes(tribunalLower) || tribunalLower.includes(sn.replace('rodrigo', ''));
         });
         customerKey = matched?.customer_key || credenciais[0].customer_key;
+        systemNameFinal = matched?.system_name || credenciais[0].system_name;
         console.log('[Judit Import CNJ] Credencial selecionada:', customerKey, '- tribunal:', tribunalSigla);
       }
+    }
+
+    if (juditCustomerKey) {
+      console.log('[Judit Import CNJ] Usando credencial escolhida no dialog:', juditSystemName);
     }
 
     // Chamar /requests com lawsuit_cnj
@@ -247,7 +263,9 @@ serve(async (req) => {
         detalhes_carregados: false,
         detalhes_request_id: requestId,
         detalhes_request_data: new Date().toISOString(),
-        importado_manualmente: true
+        importado_manualmente: true,
+        judit_system_name: systemNameFinal,
+        judit_customer_key: customerKey,
       };
 
       const { data: processoInserido, error: insertError } = await supabase
@@ -393,7 +411,9 @@ serve(async (req) => {
       detalhes_carregados: true,
       detalhes_request_id: requestId,
       detalhes_request_data: new Date().toISOString(),
-      importado_manualmente: true
+      importado_manualmente: true,
+      judit_system_name: systemNameFinal,
+      judit_customer_key: customerKey,
     };
 
     const { data: processoInserido, error: insertError } = await supabase
