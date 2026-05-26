@@ -11348,6 +11348,14 @@ export type Database = {
         Args: { _deadline_id: string; _user_id: string }
         Returns: boolean
       }
+      list_judit_credentials: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          customer_key: string
+          id: string
+          system_name: string
+        }[]
+      }
       mover_processo_para_carteira: {
         Args: { p_carteira_id: string; p_project_processo_id: string }
         Returns: undefined
