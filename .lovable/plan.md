@@ -1,40 +1,40 @@
 ## Causa raiz
 
-Hoje o painel mostra apenas o resultado da última execução (rolagem dos últimos 100). O histórico geral existe mas é uma lista única, sem separação por padrão de CNJ. O usuário quer poder voltar depois e ver, por tribunal (ex.: TJPR `%.8.16.%`, TJSP `%.8.26.%` etc.), todos os trackings antigos pausados e os novos gerados.
-
-Os dados já são gravados em `judit_migracao_attachments` (com `motivo='rebind_credencial'`, `customer_key`, `tracking_id_antigo`, `tracking_id_novo`, `antigo_pausado`, `executado_em`). Basta consultá-los filtrados por padrão.
+Hoje as abas de "Histórico por padrão" no `RebindCredencialJuditPanel` têm presets fixos (TJPR, TJSP, TJMG, TJSC, TJRO, TJTO, Todos, Custom). Não cobrem padrões como `4.04`, `5.09`, `8.22`, etc. O usuário quer ver dinamicamente **todos os padrões J.TR efetivamente monitorados**.
 
 ## Correção
 
-1. **Edge function `judit-rebind-credencial-lote`** — no modo `history`, aceitar `cnjPattern` opcional e aplicar `.ilike('numero_cnj', cnjPattern)` quando informado. Sem mudança de schema.
+1. **Edge function `judit-rebind-credencial-lote`** — novo modo `listPatterns`:
+   - Recebe `tenantId` e opcional `globalScope`.
+   - Query: `SELECT numero_cnj FROM processos_oab WHERE monitoramento_ativo=true AND tracking_id IS NOT NULL` (filtra por `tenant_id` se não global), paginado via helper.
+   - Extrai o segmento `J.TR` (5º campo do CNJ, regex `\.(\d\.\d+)\.\d+$`).
+   - Agrupa por J.TR, retorna `[{ pattern: '8.16', label: '%.8.16.%', total: 109 }, ...]` ordenado por `total desc`.
 
-2. **Hook `useRebindCredencialJudit`** — adicionar `cnjPattern` ao body quando `mode === 'history'`.
+2. **Hook `useRebindCredencialJudit`** — adicionar modo `'listPatterns'` ao tipo `RebindMode` e flag `listPatterns: mode === 'listPatterns'` no body.
 
-3. **`RebindCredencialJuditPanel.tsx`** — nova seção "Histórico por padrão" com `Tabs` (shadcn):
-   - Uma aba por preset (TJPR, TJSP, TJMG, TJSC, TJRO, TJTO, Todos) + aba "Custom" para o pattern digitado.
-   - Ao abrir a aba pela primeira vez (ou clicar "Recarregar"), chama `history` com `tenantId + customerKey + cnjPattern` e mostra em `ScrollArea` (altura ~400px) ordenado por `executado_em desc`.
-   - Cada linha: data · `numero_cnj` · `tracking_antigo` → `tracking_novo` · badge "pausado"/"não pausado" · badge status (migrado/erro).
-   - Botão "CSV" por aba reusa `exportHistoryCsv` filtrado.
-   - Cache local em `useState` por pattern (Map) para não recarregar a cada troca de aba.
-
-4. Manter o bloco "Histórico" antigo (carrega tudo) ou removê-lo — proponho **substituir** pelas abas para evitar duplicidade.
+3. **`RebindCredencialJuditPanel.tsx`**:
+   - No mount (e quando `globalCount` muda), chama `listPatterns` e popula `patterns: { pattern, total }[]`.
+   - Renderiza uma `Tab` por padrão retornado (label: `J.TR (total)`, ex.: `8.16 (109)`), mantendo aba "Todos" e "Custom".
+   - Cada aba usa `cnjPattern = '%.' + pattern + '.%'` ao chamar `history`.
+   - Cache local por pattern continua igual.
+   - Remove a lista hardcoded de presets.
 
 ## Arquivos afetados
 
-- `supabase/functions/judit-rebind-credencial-lote/index.ts` — filtro `cnjPattern` em `history`.
-- `src/hooks/useRebindCredencialJudit.ts` — passar `cnjPattern` em `history`.
-- `src/components/Controladoria/RebindCredencialJuditPanel.tsx` — adicionar `Tabs` + cache por pattern, remover bloco "Carregar histórico" único.
+- `supabase/functions/judit-rebind-credencial-lote/index.ts` — novo modo `listPatterns`.
+- `src/hooks/useRebindCredencialJudit.ts` — adicionar `'listPatterns'` em `RebindMode`.
+- `src/components/Controladoria/RebindCredencialJuditPanel.tsx` — abas dinâmicas baseadas no retorno.
 
 ## Impacto
 
-- **Usuário final (UX):** super-admin na Controladoria → aba "Recriar trackings" passa a ter uma seção com abas por tribunal. Toda execução fica consultável depois, separada por padrão, com scroll completo (não só últimos 100). Resolve o pedido de "salvar para ver depois".
-- **Dados:** zero migrações, zero RLS, zero mudança de schema. Só uma leitura extra com `ilike` em `judit_migracao_attachments` (já indexável por `tenant_id`).
-- **Riscos colaterais:** baixíssimo. Aba "Todos" pode trazer muitas linhas — limitado a `historyLimit=1000` (mesmo limite atual).
-- **Quem é afetado:** apenas super-admins que usam o painel `RebindCredencialJuditPanel` na Controladoria. Nenhum outro fluxo toca esse código.
+- **Usuário final (UX):** ao abrir o painel, as abas refletem exatamente os tribunais/segmentos onde há tracking ativo. Ex.: hoje aparecerão `8.16 (109)`, `8.22 (98)`, `8.13 (59)`, `8.26 (35)`, `4.04 (12)`, `8.21 (8)`, `5.09 (7)`, `4.03 (3)`, etc. Com o switch global ligado, contempla todos os tenants.
+- **Dados:** zero migrações, zero RLS. Apenas leitura extra paginada em `processos_oab`.
+- **Riscos colaterais:** baixos. Se houver muitos padrões (>15), a lista de abas pode quebrar — usaremos `flex-wrap` no `TabsList` para acomodar.
+- **Quem é afetado:** apenas super-admins usando o painel na Controladoria.
 
 ## Validação
 
-1. Mudar credencial para `alangeral`, abrir aba TJPR → ver os CNJs já migrados nesta sessão (antigo pausado, novo gerado).
-2. Executar lote em TJSP → abrir aba TJSP, clicar "Recarregar" → ver os novos registros.
-3. Trocar para aba TJMG → vazio (nada migrado). Trocar de volta para TJPR → mostra cache sem recarregar.
-4. Exportar CSV de uma aba e conferir que só traz os CNJs daquele padrão.
+1. Abrir painel sem global → ver abas só do tenant atual.
+2. Ativar global → abas recarregam mostrando todos os J.TR do sistema com contagem real.
+3. Clicar aba `4.04` → histórico filtrado por `%.4.04.%`.
+4. Aba "Todos" e "Custom" continuam funcionando.
