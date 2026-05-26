@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Play, Eye, Calculator, Download, History, FastForward, StopCircle } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Loader2, Play, Eye, Calculator, Download, RefreshCw, FastForward, StopCircle } from 'lucide-react';
 import { useJuditSystemNames } from '@/hooks/useJuditSystemNames';
 import { useRebindCredencialJudit } from '@/hooks/useRebindCredencialJudit';
 
@@ -36,7 +37,10 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
   const [countResult, setCountResult] = useState<any>(null);
   const [dryResult, setDryResult] = useState<any>(null);
   const [runResult, setRunResult] = useState<any>(null);
-  const [history, setHistory] = useState<any[] | null>(null);
+  // Histórico por padrão de CNJ (cache local)
+  const [histByPattern, setHistByPattern] = useState<Record<string, any[]>>({});
+  const [histLoading, setHistLoading] = useState<string | null>(null);
+  const [histTab, setHistTab] = useState<string>('%.8.16.%');
 
   // Progresso da execução contínua
   const [autoRunning, setAutoRunning] = useState(false);
@@ -66,6 +70,7 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
     setAutoErros(0);
     setAutoRestantes(0);
     setAutoLote(0);
+    setHistByPattern({});
   }, [tenantId]);
 
   const credOptions = useMemo(
@@ -154,10 +159,25 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
     await handleCount();
   };
 
-  const handleHistory = async () => {
-    const r = await invoke({ tenantId, customerKey, historyLimit: 1000 }, 'history');
-    setHistory(r?.history ?? []);
+  const loadHistoryFor = async (p: string) => {
+    if (!tenantId) return;
+    setHistLoading(p);
+    const r = await invoke(
+      { tenantId, customerKey, cnjPattern: p, historyLimit: 1000 },
+      'history',
+    );
+    setHistByPattern((prev) => ({ ...prev, [p]: r?.history ?? [] }));
+    setHistLoading(null);
   };
+
+  // Carrega aba ativa quando muda tab/credencial
+  useEffect(() => {
+    if (!tenantId || !customerKey || !histTab) return;
+    if (histByPattern[histTab] === undefined) {
+      loadHistoryFor(histTab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [histTab, customerKey, tenantId]);
 
   const exportCsv = () => {
     const rowsByCnj = new Map<string, any>();
@@ -202,15 +222,15 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
     URL.revokeObjectURL(url);
   };
 
-  const exportHistoryCsv = () => {
-    if (!history || history.length === 0) return;
-    const header = ['created_at','numero_cnj','tracking_id_antigo','tracking_id_novo','antigo_pausado','customer_key','status','erro'];
-    const csv = [header.join(','), ...history.map((r) => header.map((h) => `"${String((r as any)[h] ?? '').replace(/"/g,'""')}"`).join(','))].join('\n');
+  const exportHistoryCsv = (rows: any[], label: string) => {
+    if (!rows || rows.length === 0) return;
+    const header = ['executado_em','numero_cnj','tracking_id_antigo','tracking_id_novo','antigo_pausado','customer_key','status','erro'];
+    const csv = [header.join(','), ...rows.map((r) => header.map((h) => `"${String((r as any)[h] ?? '').replace(/"/g,'""')}"`).join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `rebind-historico-${customerKey || 'all'}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = `rebind-historico-${customerKey || 'all'}-${label}-${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -409,36 +429,66 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
         </div>
       )}
 
-      {/* Histórico */}
+      {/* Histórico por padrão de CNJ */}
       <div className="border-t pt-3 space-y-2">
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={handleHistory} disabled={running || !tenantId}>
-            <History className="h-3 w-3 mr-1" /> Carregar histórico
-          </Button>
-          {history && history.length > 0 && (
-            <Button size="sm" variant="ghost" onClick={exportHistoryCsv}>
-              <Download className="h-3 w-3 mr-1" /> CSV histórico
-            </Button>
-          )}
-          {history && <span className="text-xs text-muted-foreground">{history.length} registros</span>}
-        </div>
-        {history && history.length > 0 && (
-          <ScrollArea className="max-h-56 border rounded-md p-2">
-            <div className="space-y-0.5 text-xs font-mono">
-              {history.map((r, i) => (
-                <div key={i} className="flex gap-2 items-center">
-                  <span className="w-32 truncate text-muted-foreground">{(r.created_at || '').slice(0,19).replace('T',' ')}</span>
-                  <span className="w-40 truncate" title={r.numero_cnj}>{r.numero_cnj}</span>
-                  <span className="w-36 truncate text-muted-foreground" title={r.tracking_id_antigo}>{r.tracking_id_antigo}</span>
-                  <span>→</span>
-                  <span className="flex-1 truncate" title={r.tracking_id_novo}>{r.tracking_id_novo ?? '-'}</span>
-                  {r.antigo_pausado && <Badge variant="secondary" className="text-[10px]">pausado</Badge>}
-                  <Badge variant={r.status === 'migrado' ? 'default' : 'destructive'} className="text-[10px]">{r.status}</Badge>
+        <Label className="text-sm">Histórico por padrão</Label>
+        <Tabs value={histTab} onValueChange={setHistTab}>
+          <TabsList className="flex-wrap h-auto">
+            {PRESETS.map((p) => (
+              <TabsTrigger key={p.pattern} value={p.pattern} className="text-xs">
+                {p.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {PRESETS.map((p) => {
+            const rows = histByPattern[p.pattern];
+            const loading = histLoading === p.pattern;
+            return (
+              <TabsContent key={p.pattern} value={p.pattern} className="space-y-2 mt-2">
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => loadHistoryFor(p.pattern)} disabled={loading}>
+                    {loading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                    Recarregar
+                  </Button>
+                  {rows && rows.length > 0 && (
+                    <Button size="sm" variant="ghost" onClick={() => exportHistoryCsv(rows, p.label.replace(/\s+/g,'_'))}>
+                      <Download className="h-3 w-3 mr-1" /> CSV
+                    </Button>
+                  )}
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {rows ? `${rows.length} registros` : loading ? 'carregando…' : '—'}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </ScrollArea>
-        )}
+                {rows && rows.length > 0 ? (
+                  <ScrollArea className="h-[400px] border rounded-md p-2">
+                    <div className="space-y-0.5 text-xs font-mono">
+                      {rows.map((r, i) => (
+                        <div key={i} className="flex gap-2 items-center">
+                          <span className="w-32 truncate text-muted-foreground">
+                            {(r.executado_em || '').slice(0,19).replace('T',' ')}
+                          </span>
+                          <span className="w-40 truncate" title={r.numero_cnj}>{r.numero_cnj}</span>
+                          <span className="w-36 truncate text-muted-foreground" title={r.tracking_id_antigo}>{r.tracking_id_antigo}</span>
+                          <span>→</span>
+                          <span className="flex-1 truncate" title={r.tracking_id_novo}>{r.tracking_id_novo ?? '-'}</span>
+                          {r.antigo_pausado === true && <Badge variant="secondary" className="text-[10px]">pausado</Badge>}
+                          {r.antigo_pausado === false && <Badge variant="outline" className="text-[10px]">não pausado</Badge>}
+                          <Badge variant={r.status === 'migrado' ? 'default' : 'destructive'} className="text-[10px]">{r.status}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                ) : (
+                  !loading && rows && (
+                    <div className="text-xs text-muted-foreground py-4 text-center border rounded-md">
+                      Nenhum registro para este padrão.
+                    </div>
+                  )
+                )}
+              </TabsContent>
+            );
+          })}
+        </Tabs>
       </div>
     </div>
   );
