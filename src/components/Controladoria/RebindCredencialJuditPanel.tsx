@@ -103,12 +103,12 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
   };
   const handleDry = async () => {
     setDryResult(null);
-    const r = await invoke(params, 'dry');
+    const r = await invoke({ ...params, globalScope: globalCount }, 'dry');
     setDryResult(r);
   };
   const handleRun = async () => {
     setRunResult(null);
-    const r = await invoke(params, 'run');
+    const r = await invoke({ ...params, globalScope: globalCount }, 'run');
     setRunResult(r);
     if (r) {
       await handleCount();
@@ -129,7 +129,7 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
     setAutoLote(0);
 
     // 1) snapshot do total
-    const c = await invoke(params, 'count');
+    const c = await invoke({ ...params, globalScope: globalCount }, 'count');
     const total = c?.cnjs_elegiveis ?? 0;
     setAutoTotal(total);
     setAutoRestantes(total);
@@ -146,7 +146,7 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
     while (!cancelRef.current) {
       lote++;
       setAutoLote(lote);
-      const r = await invoke(params, 'run');
+      const r = await invoke({ ...params, globalScope: globalCount }, 'run');
       if (!r) break;
       migrados += r.migrados ?? 0;
       erros += r.erros ?? 0;
@@ -311,7 +311,7 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
             onChange={(e) => setGlobalCount(e.target.checked)}
             className="h-3.5 w-3.5"
           />
-          contar em todos os tenants (global)
+          operar em todos os tenants (global)
         </label>
         <Button variant="outline" onClick={handleDry} disabled={running || autoRunning || !podeExecutar}>
           <Eye className="h-4 w-4 mr-2" /> Dry-run
