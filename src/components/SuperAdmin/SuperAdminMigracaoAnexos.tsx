@@ -461,7 +461,24 @@ export const SuperAdminMigracaoAnexos = () => {
           )}
         </CardHeader>
         <CardContent className="p-0">
-          {aba === 'reconciliacao' ? (
+          {aba === 'rebind' ? (
+            <div className="p-4 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Tenant</label>
+                <Select value={rebindTenantId} onValueChange={setRebindTenantId}>
+                  <SelectTrigger className="h-9 text-sm w-[320px]">
+                    <SelectValue placeholder="Selecionar tenant…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tenants.map((t) => (
+                      <SelectItem key={t.tenant_id} value={t.tenant_id}>{t.tenant_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <RebindCredencialJuditPanel tenantId={rebindTenantId || undefined} />
+            </div>
+          ) : aba === 'reconciliacao' ? (
             <SuperAdminReconciliacaoJudit
               tenants={tenants.map((t) => ({ tenant_id: t.tenant_id, tenant_name: t.tenant_name }))}
             />
