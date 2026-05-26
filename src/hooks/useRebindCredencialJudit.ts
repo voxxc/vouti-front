@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useTenantId } from '@/hooks/useTenantId';
 import { toast } from '@/hooks/use-toast';
 
 export interface RebindParams {
@@ -12,12 +11,11 @@ export interface RebindParams {
 }
 
 export const useRebindCredencialJudit = () => {
-  const { tenantId } = useTenantId();
   const [running, setRunning] = useState(false);
 
   const invoke = useCallback(
     async (params: RebindParams, mode: 'count' | 'dry' | 'run') => {
-      const effectiveTenantId = params.tenantId ?? tenantId;
+      const effectiveTenantId = params.tenantId;
       if (!effectiveTenantId) return null;
       setRunning(true);
       try {
@@ -49,7 +47,7 @@ export const useRebindCredencialJudit = () => {
         setRunning(false);
       }
     },
-    [tenantId],
+    [],
   );
 
   return { running, invoke };

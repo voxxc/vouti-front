@@ -1,32 +1,38 @@
-# Adicionar "Recriar com credencial" no Super Admin
-
 ## Causa raiz
-O botão **Recriar com credencial** foi adicionado apenas em `src/components/Controladoria/MigracaoAnexosTab.tsx` (escopo tenant — usado dentro de uma Controladoria específica). A tela em que você está agora é a **Migração global** do Super Admin (`/super-admin` → aba Judit), renderizada por `src/components/SuperAdmin/SuperAdminMigracaoAnexos.tsx`, que não recebeu o botão.
+
+A rota `/super-admin` em `src/App.tsx` **não está envolvida** por `<AuthProvider>` (diferente das rotas de tenant). Quando o `SuperAdminMigracaoAnexos` abre o `RebindCredencialJuditDialog`, este chama:
+
+- `useTenantId()` → internamente faz `useAuth()` → lança `useAuth must be used within an AuthProvider`.
+- `useRebindCredencialJudit()` → também chama `useTenantId()` → mesmo erro.
+
+Como o super-admin já passa `tenantIdOverride` por linha de tenant, não há motivo para o dialog/hook dependerem do `AuthContext` quando o tenant vem por prop.
 
 ## Correção
-1. Em `SuperAdminMigracaoAnexos.tsx`, adicionar botão **"Recriar com credencial"** na barra de ações do header (ao lado de "Atualizar" / "Simular" / "Migrar próximo lote") e também opcionalmente na linha de cada tenant (próximo de "Migrar lote").
-2. Ao abrir, o `RebindCredencialJuditDialog` precisa saber qual `tenantId` usar. Como a tela é global e o diálogo atual usa `useTenantId()` (tenant do usuário logado), há duas opções:
-   - **a)** Adicionar prop opcional `tenantId` ao `RebindCredencialJuditDialog` e, no super-admin, abrir o diálogo a partir do botão de cada tenant passando o `tenant_id` daquela linha.
-   - **b)** Adicionar um seletor de tenant dentro do próprio diálogo quando aberto em contexto global.
-   
-   Recomendo **(a)**: botão por tenant na lista "Progresso por tenant", reaproveitando o diálogo existente com prop `tenantIdOverride`.
-3. Ajustar `useRebindCredencialJudit` para aceitar `tenantId` opcional via parâmetro, em vez de só ler do hook.
+
+1. **`RebindCredencialJuditDialog.tsx`** — remover a chamada a `useTenantId()`. Usar apenas `tenantIdOverride` (prop). Para o uso atual em Controladoria (`MigracaoAnexosTab`), passar `tenantIdOverride` a partir do `useTenantId()` do componente pai (que está dentro do AuthProvider).
+
+2. **`useRebindCredencialJudit.ts`** — remover `useTenantId()` do hook. Exigir `tenantId` em `RebindParams` (já existe como opcional; tornar obrigatório no uso interno: usar `params.tenantId` direto).
+
+3. **`MigracaoAnexosTab.tsx`** — onde renderiza o dialog, ler `useTenantId()` localmente e repassar como `tenantIdOverride={tenantId}` para manter compatibilidade com o uso tenant-scoped.
+
+Nenhuma mudança em Edge Function, schema, RLS ou no `SuperAdminMigracaoAnexos` (que já passa `tenantIdOverride`).
 
 ## Arquivos afetados
-- `src/components/SuperAdmin/SuperAdminMigracaoAnexos.tsx` — adicionar botão por linha de tenant e estado para abrir o diálogo com o tenant selecionado.
-- `src/components/Controladoria/RebindCredencialJuditDialog.tsx` — aceitar prop `tenantIdOverride?: string`.
-- `src/hooks/useRebindCredencialJudit.ts` — aceitar `tenantId` via `params` (sobrescrevendo o do hook).
+
+- `src/components/Controladoria/RebindCredencialJuditDialog.tsx` (remover useTenantId)
+- `src/hooks/useRebindCredencialJudit.ts` (remover useTenantId)
+- `src/components/Controladoria/MigracaoAnexosTab.tsx` (passar tenantIdOverride explicitamente)
 
 ## Impacto
-- **Usuário final (você, super-admin):** passa a ver, em `/super-admin` aba Judit, um botão "Recriar com credencial" em cada tenant da lista "Progresso por tenant". Clica no SOLVENZA → abre o diálogo já contextualizado naquele tenant, com OABs do SOLVENZA, preset TJPR 8.16 e credencial `alangeral`.
-- **Dados:** nenhuma mudança de schema. A Edge Function `judit-rebind-credencial-lote` já recebe `tenantId` no body — só estamos ampliando de onde ele vem.
-- **Riscos colaterais:** baixo. O diálogo continua funcionando igual na Controladoria por tenant (prop opcional). Único cuidado: garantir que ao abrir no super-admin a query de OABs use o `tenantIdOverride` (não o `useTenantId()` do usuário logado).
-- **Quem é afetado:** apenas super-admins. Não muda nada para advogados/comercial/financeiro nem para a Controladoria de um tenant específico.
+
+- **Usuário final:** o botão "Recriar c/ credencial" volta a abrir normalmente em `/super-admin` (hoje quebra a página). Em Controladoria de tenant continua funcionando idêntico.
+- **Dados:** nenhum. Sem migration, sem alteração de RLS, sem mudança de payload da Edge Function.
+- **Riscos colaterais:** baixos. O dialog e o hook deixam de ler `AuthContext`; ambos só são chamados em telas que já têm o `tenantId` disponível (super-admin via override; controladoria via `useTenantId` no pai).
+- **Quem é afetado:** super-admins (correção do crash) e advogados/admin usando Controladoria (sem mudança perceptível).
 
 ## Validação
-1. Acessar `/super-admin` → aba Judit → confirmar botão "Recriar com credencial" em cada linha de tenant.
-2. Clicar no SOLVENZA → diálogo abre, lista as OABs do SOLVENZA, Alan + Will pré-selecionados, João desmarcado.
-3. Clicar **Contar** → deve retornar ~86 CNJs elegíveis (8.16, OABs Alan+Will).
-4. **Dry-run** → preview com badge "compartilhado" nos CNJs que têm linha do João.
-5. **Executar lote** com batch 10 → 86 ÷ 10 = 9 lotes; verificar `judit_migracao_attachments` com `motivo='rebind_credencial'` e `customer_key='alangeral'`.
-6. Abrir Controladoria do SOLVENZA → confirmar que o botão antigo continua funcionando lá também.
+
+1. Acessar `/super-admin` → aba Judit → clicar **"Recriar c/ credencial"** em uma linha de tenant → dialog abre sem erro.
+2. **Contar** retorna número de CNJs elegíveis para aquele tenant.
+3. Em uma conta de tenant, abrir **Controladoria → Migração de Anexos → "Recriar com credencial"** → continua abrindo e contando normalmente.
+4. Conferir console: sem `useAuth must be used within an AuthProvider`.
