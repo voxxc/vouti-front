@@ -42,7 +42,15 @@ const labelFor = (jtr: string) => {
   return name ? `${name} (${jtr})` : jtr;
 };
 
-const TODOS = { pattern: '%', jtr: '__all__', label: 'Todos', total: undefined as number | undefined };
+// Lista-base sempre visível (todas as J.TR conhecidas). É mesclada com o
+// retorno do edge function `listPatterns` para somar contagens reais e
+// adicionar quaisquer J.TR descobertos no banco que não estejam aqui.
+const STATIC_JTRS: string[] = [
+  '8.16','8.26','8.13','8.24','8.22','8.27','8.21',
+  '8.04','8.06','8.09','8.11','8.14','8.19',
+  '4.03','4.04','4.06',
+  '5.09',
+];
 
 const BATCH_SIZES = [5, 10, 25, 50];
 
@@ -117,6 +125,20 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
     return () => { cancel = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId, globalCount]);
+
+  // Lista de J.TR para renderizar = união da base estática + descobertos.
+  // Ordem: estáticos primeiro (na ordem definida), depois extras por total desc.
+  const mergedPatterns = useMemo(() => {
+    const map = new Map<string, number | undefined>();
+    for (const j of STATIC_JTRS) map.set(j, undefined);
+    for (const p of patterns) map.set(p.pattern, p.total);
+    const staticOnes = STATIC_JTRS.map((j) => ({ jtr: j, total: map.get(j) }));
+    const extras = [...map.keys()]
+      .filter((j) => !STATIC_JTRS.includes(j))
+      .map((j) => ({ jtr: j, total: map.get(j) }))
+      .sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
+    return [...staticOnes, ...extras];
+  }, [patterns]);
 
   const credOptions = useMemo(
     () =>
@@ -319,16 +341,19 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
           {patternsLoading && <Loader2 className="inline h-3 w-3 ml-2 animate-spin" />}
         </Label>
         <div className="flex gap-2 flex-wrap">
-          {patterns.map((p) => {
-            const full = `%.${p.pattern}.%`;
+          {mergedPatterns.map((p) => {
+            const full = `%.${p.jtr}.%`;
             return (
               <Button
-                key={p.pattern}
+                key={p.jtr}
                 size="sm"
                 variant={pattern === full ? 'default' : 'outline'}
                 onClick={() => setPattern(full)}
               >
-                {labelFor(p.pattern)} <span className="ml-1 opacity-70">({p.total})</span>
+                {labelFor(p.jtr)}
+                {typeof p.total === 'number' && (
+                  <span className="ml-1 opacity-70">({p.total})</span>
+                )}
               </Button>
             );
           })}
@@ -508,17 +533,18 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
         <Label className="text-sm">Histórico por padrão</Label>
         <Tabs value={histTab} onValueChange={setHistTab}>
           <TabsList className="flex-wrap h-auto">
-            {patterns.map((p) => {
-              const full = `%.${p.pattern}.%`;
+            {mergedPatterns.map((p) => {
+              const full = `%.${p.jtr}.%`;
               return (
                 <TabsTrigger key={full} value={full} className="text-xs">
-                  {labelFor(p.pattern)} ({p.total})
+                  {labelFor(p.jtr)}
+                  {typeof p.total === 'number' && ` (${p.total})`}
                 </TabsTrigger>
               );
             })}
             <TabsTrigger value="%" className="text-xs">Todos</TabsTrigger>
           </TabsList>
-          {[...patterns.map((p) => ({ pattern: `%.${p.pattern}.%`, label: labelFor(p.pattern) })), { pattern: '%', label: 'Todos' }].map((p) => {
+          {[...mergedPatterns.map((p) => ({ pattern: `%.${p.jtr}.%`, label: labelFor(p.jtr) })), { pattern: '%', label: 'Todos' }].map((p) => {
             const rows = histByPattern[p.pattern];
             const loading = histLoading === p.pattern;
             return (
