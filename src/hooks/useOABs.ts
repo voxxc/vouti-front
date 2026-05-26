@@ -55,6 +55,9 @@ export interface ProcessoOAB {
   prazo_automatico_ativo?: boolean;
   prazo_advogado_responsavel_id?: string | null;
   prazo_usuarios_marcados?: string[];
+  // Vínculo com credencial Judit (definido na importação, editável no drawer)
+  judit_system_name?: string | null;
+  judit_customer_key?: string | null;
 }
 
 export interface AndamentoOAB {
