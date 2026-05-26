@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Play, Eye, Calculator, Download, History } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Loader2, Play, Eye, Calculator, Download, History, FastForward, StopCircle } from 'lucide-react';
 import { useJuditSystemNames } from '@/hooks/useJuditSystemNames';
 import { useRebindCredencialJudit } from '@/hooks/useRebindCredencialJudit';
 
@@ -26,19 +26,10 @@ const PRESETS: { label: string; pattern: string }[] = [
 
 const BATCH_SIZES = [5, 10, 25, 50];
 
-interface OabRow {
-  id: string;
-  nome_advogado: string;
-  oab_numero: string;
-  oab_uf: string;
-}
-
 export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
   const { data: credenciais = [] } = useJuditSystemNames(tenantId);
   const { running, invoke } = useRebindCredencialJudit();
 
-  const [oabs, setOabs] = useState<OabRow[]>([]);
-  const [oabsSelecionadas, setOabsSelecionadas] = useState<Set<string>>(new Set());
   const [customerKey, setCustomerKey] = useState<string>('');
   const [pattern, setPattern] = useState<string>('%.8.16.%');
   const [batchSize, setBatchSize] = useState<number>(10);
@@ -46,7 +37,16 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
   const [dryResult, setDryResult] = useState<any>(null);
   const [runResult, setRunResult] = useState<any>(null);
   const [history, setHistory] = useState<any[] | null>(null);
-  const [loadingOabs, setLoadingOabs] = useState(false);
+
+  // Progresso da execução contínua
+  const [autoRunning, setAutoRunning] = useState(false);
+  const [autoTotal, setAutoTotal] = useState(0);
+  const [autoMigrados, setAutoMigrados] = useState(0);
+  const [autoErros, setAutoErros] = useState(0);
+  const [autoRestantes, setAutoRestantes] = useState(0);
+  const [autoLote, setAutoLote] = useState(0);
+  const [autoResults, setAutoResults] = useState<any[]>([]);
+  const cancelRef = useRef(false);
 
   // Default credencial = alangeral
   useEffect(() => {
@@ -60,28 +60,12 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
     setCountResult(null);
     setDryResult(null);
     setRunResult(null);
-  }, [tenantId]);
-
-  useEffect(() => {
-    if (!tenantId) {
-      setOabs([]);
-      setOabsSelecionadas(new Set());
-      return;
-    }
-    setLoadingOabs(true);
-    invoke({ tenantId }, 'listOabs')
-      .then((r) => {
-        const list = ((r?.oabs ?? []) as OabRow[]);
-        setOabs(list);
-        setOabsSelecionadas(
-          new Set(
-            list
-              .filter((o) => !/joão|joao/i.test(o.nome_advogado || ''))
-              .map((o) => o.id),
-          ),
-        );
-      })
-      .finally(() => setLoadingOabs(false));
+    setAutoResults([]);
+    setAutoTotal(0);
+    setAutoMigrados(0);
+    setAutoErros(0);
+    setAutoRestantes(0);
+    setAutoLote(0);
   }, [tenantId]);
 
   const credOptions = useMemo(
@@ -93,27 +77,18 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
     [credenciais],
   );
 
-  const toggleOab = (id: string) => {
-    setOabsSelecionadas((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
   const params = useMemo(
     () => ({
       customerKey,
       cnjPattern: pattern,
-      oabIds: [...oabsSelecionadas],
+      oabIds: [] as string[],
       batchSize,
       tenantId,
     }),
-    [customerKey, pattern, oabsSelecionadas, batchSize, tenantId],
+    [customerKey, pattern, batchSize, tenantId],
   );
 
-  const podeExecutar = !!tenantId && !!customerKey && !!pattern && oabsSelecionadas.size > 0;
+  const podeExecutar = !!tenantId && !!customerKey && !!pattern;
 
   const handleCount = async () => {
     setCountResult(null);
@@ -130,6 +105,53 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
     const r = await invoke(params, 'run');
     setRunResult(r);
     if (r) await handleCount();
+  };
+
+  const handleAutoRun = async () => {
+    if (autoRunning) {
+      cancelRef.current = true;
+      return;
+    }
+    cancelRef.current = false;
+    setAutoRunning(true);
+    setAutoResults([]);
+    setAutoMigrados(0);
+    setAutoErros(0);
+    setAutoLote(0);
+
+    // 1) snapshot do total
+    const c = await invoke(params, 'count');
+    const total = c?.cnjs_elegiveis ?? 0;
+    setAutoTotal(total);
+    setAutoRestantes(total);
+    if (!total) {
+      setAutoRunning(false);
+      return;
+    }
+
+    let migrados = 0;
+    let erros = 0;
+    let lote = 0;
+    const acc: any[] = [];
+
+    while (!cancelRef.current) {
+      lote++;
+      setAutoLote(lote);
+      const r = await invoke(params, 'run');
+      if (!r) break;
+      migrados += r.migrados ?? 0;
+      erros += r.erros ?? 0;
+      if (Array.isArray(r.results)) acc.push(...r.results);
+      setAutoMigrados(migrados);
+      setAutoErros(erros);
+      setAutoResults([...acc]);
+      setAutoRestantes(r.restantes ?? 0);
+      if ((r.restantes ?? 0) === 0) break;
+      if ((r.processados ?? 0) === 0) break; // safety
+    }
+    setAutoRunning(false);
+    cancelRef.current = false;
+    await handleCount();
   };
 
   const handleHistory = async () => {
@@ -152,8 +174,8 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
         });
       }
     }
-    if (runResult?.results) {
-      for (const r of runResult.results) {
+    const mergeResults = (arr: any[]) => {
+      for (const r of arr) {
         rowsByCnj.set(r.numero_cnj, {
           numero_cnj: r.numero_cnj,
           tracking_antigo: r.trackingAntigo ?? '',
@@ -164,7 +186,9 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
           erro: r.erro ?? '',
         });
       }
-    }
+    };
+    if (runResult?.results) mergeResults(runResult.results);
+    if (autoResults.length) mergeResults(autoResults);
     const rows = [...rowsByCnj.values()];
     if (rows.length === 0) return;
     const header = ['numero_cnj','tracking_antigo','tracking_novo','antigo_pausado','compartilhado_fora_filtro','status','erro'];
@@ -202,9 +226,8 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
-        Pausa o tracking antigo e cria um novo na Judit usando a credencial selecionada.
-        Atualiza apenas as linhas das OABs marcadas. Em CNJs compartilhados com OABs
-        <strong> fora </strong>do filtro, o antigo <strong>não</strong> é pausado.
+        Pausa o tracking antigo e cria um novo na Judit usando a credencial selecionada,
+        para todos os CNJs deste tenant que casam com o padrão escolhido.
       </p>
 
       {/* Credencial */}
@@ -238,30 +261,12 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
         <Input value={pattern} onChange={(e) => setPattern(e.target.value)} className="font-mono text-xs" />
       </div>
 
-      {/* OABs */}
-      <div className="space-y-1.5">
-        <Label>
-          OABs a migrar ({oabsSelecionadas.size}/{oabs.length})
-          {loadingOabs && <Loader2 className="inline h-3 w-3 ml-2 animate-spin" />}
-        </Label>
-        <div className="border rounded-md p-2 space-y-1 max-h-48 overflow-auto">
-          {oabs.map((o) => (
-            <label key={o.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 px-2 py-1 rounded">
-              <Checkbox checked={oabsSelecionadas.has(o.id)} onCheckedChange={() => toggleOab(o.id)} />
-              <span className="flex-1">{o.nome_advogado}</span>
-              <Badge variant="outline" className="text-[10px]">{o.oab_numero}/{o.oab_uf}</Badge>
-            </label>
-          ))}
-          {oabs.length === 0 && !loadingOabs && <p className="text-xs text-muted-foreground p-2">Nenhuma OAB.</p>}
-        </div>
-      </div>
-
       {/* Batch size */}
       <div className="space-y-1.5">
         <Label>Tamanho do lote</Label>
         <div className="flex gap-2">
           {BATCH_SIZES.map((n) => (
-            <Button key={n} size="sm" variant={batchSize === n ? 'default' : 'outline'} onClick={() => setBatchSize(n)}>
+            <Button key={n} size="sm" variant={batchSize === n ? 'default' : 'outline'} onClick={() => setBatchSize(n)} disabled={autoRunning}>
               {n}
             </Button>
           ))}
@@ -270,17 +275,69 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
 
       {/* Ações */}
       <div className="flex gap-2 flex-wrap pt-2 border-t">
-        <Button variant="outline" onClick={handleCount} disabled={running || !podeExecutar}>
+        <Button variant="outline" onClick={handleCount} disabled={running || autoRunning || !podeExecutar}>
           {running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Calculator className="h-4 w-4 mr-2" />}
           Contar
         </Button>
-        <Button variant="outline" onClick={handleDry} disabled={running || !podeExecutar}>
+        <Button variant="outline" onClick={handleDry} disabled={running || autoRunning || !podeExecutar}>
           <Eye className="h-4 w-4 mr-2" /> Dry-run
         </Button>
-        <Button onClick={handleRun} disabled={running || !podeExecutar}>
+        <Button variant="outline" onClick={handleRun} disabled={running || autoRunning || !podeExecutar}>
           <Play className="h-4 w-4 mr-2" /> Executar lote
         </Button>
+        <Button
+          onClick={handleAutoRun}
+          disabled={!autoRunning && (running || !podeExecutar)}
+          variant={autoRunning ? 'destructive' : 'default'}
+        >
+          {autoRunning ? (
+            <><StopCircle className="h-4 w-4 mr-2" /> Parar</>
+          ) : (
+            <><FastForward className="h-4 w-4 mr-2" /> Executar até concluir</>
+          )}
+        </Button>
       </div>
+
+      {/* Progresso da execução contínua */}
+      {(autoRunning || autoTotal > 0) && (
+        <div className="rounded-md border p-3 space-y-2 bg-muted/30">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium">
+              {autoRunning ? `Executando lote #${autoLote}…` : 'Execução concluída'}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {autoTotal - autoRestantes}/{autoTotal} CNJs
+            </span>
+          </div>
+          <Progress value={autoTotal ? ((autoTotal - autoRestantes) / autoTotal) * 100 : 0} />
+          <div className="flex gap-4 flex-wrap text-xs">
+            <span>✅ <strong>{autoMigrados}</strong> migrados</span>
+            <span>❌ <strong>{autoErros}</strong> erros</span>
+            <span>⏳ <strong>{autoRestantes}</strong> restantes</span>
+            {autoResults.length > 0 && (
+              <Button size="sm" variant="ghost" className="ml-auto h-6" onClick={exportCsv}>
+                <Download className="h-3 w-3 mr-1" /> CSV
+              </Button>
+            )}
+          </div>
+          {autoResults.length > 0 && (
+            <ScrollArea className="max-h-48 mt-1">
+              <div className="space-y-0.5 text-[11px] font-mono">
+                {autoResults.slice(-100).map((r: any, i: number) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <span className="w-40 truncate" title={r.numero_cnj}>{r.numero_cnj}</span>
+                    <span className="w-36 truncate text-muted-foreground" title={r.trackingAntigo}>{r.trackingAntigo}</span>
+                    <span>→</span>
+                    <span className="flex-1 truncate" title={r.novoTrackingId}>{r.novoTrackingId ?? '-'}</span>
+                    {r.antigoPausado === true && <Badge variant="secondary" className="text-[10px]">pausado</Badge>}
+                    <Badge variant={r.status === 'migrado' ? 'default' : 'destructive'} className="text-[10px]">{r.status}</Badge>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </div>
+      )}
 
       {/* Resultados */}
       {countResult && (

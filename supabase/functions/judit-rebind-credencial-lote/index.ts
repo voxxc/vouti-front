@@ -77,9 +77,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!tenantId || !customerKey || !cnjPattern || !Array.isArray(oabIds) || oabIds.length === 0) {
+    if (!tenantId || !customerKey || !cnjPattern) {
       return new Response(
-        JSON.stringify({ success: false, error: 'tenantId, customerKey, cnjPattern e oabIds são obrigatórios' }),
+        JSON.stringify({ success: false, error: 'tenantId, customerKey e cnjPattern são obrigatórios' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
@@ -90,15 +90,17 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
     const webhookOAB = `${supabaseUrl}/functions/v1/judit-webhook-oab`;
 
-    // Pega todas as linhas elegíveis (dentro dos oabIds informados)
-    const { data: linhasElegiveis, error: errLin } = await supabase
+    // Pega todas as linhas elegíveis. Se oabIds for fornecido (compat), filtra; senão pega tudo.
+    const filtrarPorOab = Array.isArray(oabIds) && oabIds.length > 0;
+    let qLinhas = supabase
       .from('processos_oab')
       .select('id, numero_cnj, tracking_id, oab_id')
       .eq('tenant_id', tenantId)
       .eq('monitoramento_ativo', true)
       .not('tracking_id', 'is', null)
-      .ilike('numero_cnj', cnjPattern)
-      .in('oab_id', oabIds);
+      .ilike('numero_cnj', cnjPattern);
+    if (filtrarPorOab) qLinhas = qLinhas.in('oab_id', oabIds!);
+    const { data: linhasElegiveis, error: errLin } = await qLinhas;
     if (errLin) throw errLin;
 
     // Agrupa por numero_cnj
@@ -125,15 +127,15 @@ Deno.serve(async (req) => {
 
     const cnjsPendentes = [...mapaCnj.keys()].filter((c) => !setJa.has(c));
 
-    // Para cada CNJ pendente, verificar se há outras linhas fora dos oabIds (compartilhado)
+    // Compartilhamento só faz sentido quando filtrando por OAB.
     const compartilhamentoMap = new Map<string, boolean>();
-    if (cnjsPendentes.length > 0) {
+    if (filtrarPorOab && cnjsPendentes.length > 0) {
       const { data: todasLinhas } = await supabase
         .from('processos_oab')
         .select('numero_cnj, oab_id, monitoramento_ativo')
         .eq('tenant_id', tenantId)
         .in('numero_cnj', cnjsPendentes);
-      const setOabFiltro = new Set(oabIds);
+      const setOabFiltro = new Set(oabIds!);
       for (const cnj of cnjsPendentes) {
         const linhas = (todasLinhas || []).filter((r: any) => r.numero_cnj === cnj);
         const compartilhado = linhas.some((r: any) => !setOabFiltro.has(r.oab_id));
