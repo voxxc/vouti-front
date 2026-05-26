@@ -27,14 +27,27 @@ serve(async (req) => {
     const numeroLimpo = numeroProcesso.replace(/\D/g, '');
     console.log('[Judit] Ativando monitoramento para:', numeroLimpo);
 
-    // Buscar credencial ativa do tenant para processos sigilosos
+    // Buscar credencial vinculada ao processo (definida na importação ou
+    // ajustada manualmente no drawer). Fallback: primeira credencial ativa do tenant.
     let customerKey: string | null = null;
+    let systemNameUsado: string | null = null;
     const effectiveTenantId = tenantId || null;
 
-    if (effectiveTenantId) {
-      // Tentar match por código do tribunal no CNJ (dígitos 14-17 do CNJ = código tribunal)
-      const codigoTribunal = numeroLimpo.length >= 17 ? numeroLimpo.substring(13, 17) : null;
-      
+    // 1) Snapshot salvo no próprio processo
+    const { data: processoRow } = await supabase
+      .from('processos_oab')
+      .select('judit_customer_key, judit_system_name')
+      .eq('id', processoId)
+      .maybeSingle();
+
+    if (processoRow?.judit_customer_key) {
+      customerKey = processoRow.judit_customer_key;
+      systemNameUsado = processoRow.judit_system_name || null;
+      console.log('[Judit] Usando credencial vinculada ao processo:', systemNameUsado);
+    }
+
+    // 2) Fallback histórico (mantém comportamento anterior se nenhum snapshot)
+    if (!customerKey && effectiveTenantId) {
       const { data: credenciais } = await supabase
         .from('credenciais_judit')
         .select('customer_key, system_name')
@@ -43,6 +56,7 @@ serve(async (req) => {
       
       if (credenciais && credenciais.length > 0) {
         customerKey = credenciais[0].customer_key;
+        systemNameUsado = credenciais[0].system_name;
         console.log('[Judit] Usando credencial do cofre:', customerKey, '- sistema:', credenciais[0].system_name);
       }
     }
@@ -142,6 +156,7 @@ serve(async (req) => {
           ativado_em: new Date().toISOString(),
           recurrence: 1,
           com_credencial: !!customerKey,
+          system_name: systemNameUsado,
         },
       };
 
