@@ -16,6 +16,7 @@ import { useRebindCredencialJudit } from '@/hooks/useRebindCredencialJudit';
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  tenantIdOverride?: string;
 }
 
 const PRESETS: { label: string; pattern: string }[] = [
@@ -37,8 +38,9 @@ interface OabRow {
   oab_uf: string;
 }
 
-export const RebindCredencialJuditDialog = ({ open, onOpenChange }: Props) => {
-  const { tenantId } = useTenantId();
+export const RebindCredencialJuditDialog = ({ open, onOpenChange, tenantIdOverride }: Props) => {
+  const { tenantId: ctxTenantId } = useTenantId();
+  const tenantId = tenantIdOverride ?? ctxTenantId;
   const { data: credenciais = [] } = useJuditSystemNames(tenantId);
   const { running, invoke } = useRebindCredencialJudit();
 
@@ -104,8 +106,9 @@ export const RebindCredencialJuditDialog = ({ open, onOpenChange }: Props) => {
       cnjPattern: pattern,
       oabIds: [...oabsSelecionadas],
       batchSize,
+      tenantId: tenantIdOverride,
     }),
-    [customerKey, pattern, oabsSelecionadas, batchSize],
+    [customerKey, pattern, oabsSelecionadas, batchSize, tenantIdOverride],
   );
 
   const podeExecutar = !!customerKey && !!pattern && oabsSelecionadas.size > 0;
