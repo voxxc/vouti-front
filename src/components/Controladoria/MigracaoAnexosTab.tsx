@@ -2,11 +2,14 @@ import { useMigracaoAnexos } from '@/hooks/useMigracaoAnexos';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Paperclip, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Loader2, Paperclip, AlertTriangle, CheckCircle2, RefreshCw, KeyRound } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useState } from 'react';
+import { RebindCredencialJuditDialog } from './RebindCredencialJuditDialog';
 
 export const MigracaoAnexosTab = () => {
   const { stats, historico, loading, running, carregar, migrarLote } = useMigracaoAnexos();
+  const [rebindOpen, setRebindOpen] = useState(false);
 
   const totalPendentes = stats.oabPendentes + stats.cnpjPendentes;
   const totalMigrados = stats.oabMigrados + stats.cnpjMigrados;
@@ -30,6 +33,10 @@ export const MigracaoAnexosTab = () => {
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Atualizar
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setRebindOpen(true)}>
+            <KeyRound className="h-4 w-4 mr-2" />
+            Recriar com credencial
+          </Button>
           <Button onClick={() => migrarLote(10)} disabled={running || totalPendentes === 0}>
             {running ? (
               <>
@@ -42,6 +49,8 @@ export const MigracaoAnexosTab = () => {
           </Button>
         </div>
       </div>
+
+      <RebindCredencialJuditDialog open={rebindOpen} onOpenChange={setRebindOpen} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card>
