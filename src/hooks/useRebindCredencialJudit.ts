@@ -43,9 +43,14 @@ export const useRebindCredencialJudit = () => {
         if (data?.success === false) throw new Error(data.error || 'Falha');
         return data;
       } catch (e: any) {
+        const isFetchErr =
+          e?.name === 'FunctionsFetchError' ||
+          /Failed to send a request/i.test(e?.message ?? '');
         toast({
           title: 'Falha no rebind',
-          description: e?.message ?? 'Erro desconhecido',
+          description: isFetchErr
+            ? 'Função indisponível (deploy em andamento ou offline). Aguarde alguns segundos e tente novamente.'
+            : e?.message ?? 'Erro desconhecido',
           variant: 'destructive',
         });
         return null;

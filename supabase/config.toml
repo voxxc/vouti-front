@@ -3,6 +3,9 @@ project_id = "ietjmyrelhijxyozcequ"
 [functions.admin-set-user-roles]
 verify_jwt = true
 
+[functions.judit-rebind-credencial-lote]
+verify_jwt = true
+
 [functions.vouti-gerar-resumo]
 verify_jwt = true
 
