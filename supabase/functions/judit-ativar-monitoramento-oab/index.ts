@@ -138,15 +138,19 @@ serve(async (req) => {
       }
 
       // Criar novo tracking COM credencial
+      // IMPORTANTE: A credencial DEVE ir em search.search_params.credential
+      // (formato oficial Judit). No nivel raiz ela e silenciosamente ignorada.
       const trackingPayload: any = {
         recurrence: 1, // Diario
         search: {
           search_type: 'lawsuit_cnj',
           search_key: numeroLimpo,
+          ...(customerKey && {
+            search_params: { credential: { customer_key: customerKey } },
+          }),
         },
         callback_url: webhookUrl,
         with_attachments: true,
-        ...(customerKey && { credential: { customer_key: customerKey } })
       };
 
       // Registrar log antes da chamada
