@@ -387,6 +387,7 @@ export const SuperAdminMigracaoAnexos = () => {
                 <TabsTrigger value="historico" className="text-xs">Histórico de Trackings ({historicoFull.length || '…'})</TabsTrigger>
                 <TabsTrigger value="auditoria" className="text-xs">Auditoria de Cobertura</TabsTrigger>
                 <TabsTrigger value="reconciliacao" className="text-xs">Reconciliação Judit</TabsTrigger>
+                <TabsTrigger value="rebind" className="text-xs">Recriar c/ credencial</TabsTrigger>
               </TabsList>
               {aba === 'execucoes' ? (
                 <Button variant="outline" size="sm" onClick={exportarCSV} disabled={historicoFiltrado.length === 0}>
@@ -408,7 +409,7 @@ export const SuperAdminMigracaoAnexos = () => {
               ) : null}
             </div>
           </Tabs>
-          {aba !== 'auditoria' && aba !== 'reconciliacao' && (
+          {aba !== 'auditoria' && aba !== 'reconciliacao' && aba !== 'rebind' && (
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
