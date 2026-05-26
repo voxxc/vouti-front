@@ -341,16 +341,19 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
           {patternsLoading && <Loader2 className="inline h-3 w-3 ml-2 animate-spin" />}
         </Label>
         <div className="flex gap-2 flex-wrap">
-          {patterns.map((p) => {
-            const full = `%.${p.pattern}.%`;
+          {mergedPatterns.map((p) => {
+            const full = `%.${p.jtr}.%`;
             return (
               <Button
-                key={p.pattern}
+                key={p.jtr}
                 size="sm"
                 variant={pattern === full ? 'default' : 'outline'}
                 onClick={() => setPattern(full)}
               >
-                {labelFor(p.pattern)} <span className="ml-1 opacity-70">({p.total})</span>
+                {labelFor(p.jtr)}
+                {typeof p.total === 'number' && (
+                  <span className="ml-1 opacity-70">({p.total})</span>
+                )}
               </Button>
             );
           })}
