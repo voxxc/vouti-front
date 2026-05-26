@@ -256,7 +256,14 @@ Deno.serve(async (req) => {
         });
 
         migrados++;
-        results.push({ numero_cnj: cnj, novoTrackingId, antigoPausado, compartilhado, status: 'migrado' });
+        results.push({
+          numero_cnj: cnj,
+          trackingAntigo: info.tracking_id,
+          novoTrackingId,
+          antigoPausado,
+          compartilhado,
+          status: 'migrado',
+        });
       } catch (e: any) {
         erros++;
         const msg = e?.message ?? String(e);
@@ -271,7 +278,7 @@ Deno.serve(async (req) => {
           customer_key: customerKey,
           motivo: 'rebind_credencial',
         });
-        results.push({ numero_cnj: cnj, status: 'erro', erro: msg });
+        results.push({ numero_cnj: cnj, trackingAntigo: info.tracking_id, status: 'erro', erro: msg });
       }
     }
 
