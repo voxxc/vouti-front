@@ -69,6 +69,7 @@ Deno.serve(async (req) => {
         .order('executado_em', { ascending: false })
         .limit(limit);
       if (customerKey) q = q.eq('customer_key', customerKey);
+      if (body.cnjPattern) q = q.ilike('numero_cnj', body.cnjPattern);
       const { data, error } = await q;
       if (error) throw error;
       return new Response(
