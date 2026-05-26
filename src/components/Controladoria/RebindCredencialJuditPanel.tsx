@@ -42,7 +42,15 @@ const labelFor = (jtr: string) => {
   return name ? `${name} (${jtr})` : jtr;
 };
 
-const TODOS = { pattern: '%', jtr: '__all__', label: 'Todos', total: undefined as number | undefined };
+// Lista-base sempre visível (todas as J.TR conhecidas). É mesclada com o
+// retorno do edge function `listPatterns` para somar contagens reais e
+// adicionar quaisquer J.TR descobertos no banco que não estejam aqui.
+const STATIC_JTRS: string[] = [
+  '8.16','8.26','8.13','8.24','8.22','8.27','8.21',
+  '8.04','8.06','8.09','8.11','8.14','8.19',
+  '4.03','4.04','4.06',
+  '5.09',
+];
 
 const BATCH_SIZES = [5, 10, 25, 50];
 
