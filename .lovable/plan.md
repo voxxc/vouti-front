@@ -1,53 +1,39 @@
+# Toast "Failed to send a request to the Edge Function"
+
 ## Causa raiz
 
-Na print, "**OABs a migrar (0/0) — Nenhuma OAB**". O botão "Executar lote" exige `oabsSelecionadas.size > 0`, então fica desabilitado.
+A função `judit-rebind-credencial-lote` **não está deployada** no Supabase. O `supabase-js` retorna o erro genérico `FunctionsFetchError: "Failed to send a request to the Edge Function"` quando o endpoint responde 404 (função inexistente) — foi exatamente o que o teste direto retornou:
 
-O painel busca OABs com `supabase.from('oabs_cadastradas').select(...).eq('tenant_id', X)` no client. Em `/super-admin`, o usuário super-admin **não é membro do tenant SOLVENZA**, e a RLS de `oabs_cadastradas` exige `has_role_in_tenant()` — por isso o SELECT volta vazio (silenciosamente). Funciona em Controladoria porque lá o usuário pertence ao tenant.
+```
+status 404, body {"code":"NOT_FOUND","message":"Requested function was not found"}
+```
 
-Sobre "auditoria": dry-run e execução já retornam dados úteis, mas a UI atual mostra muito pouco (só o número do CNJ + badge). O par **tracking antigo → tracking novo** não aparece em nenhuma lista; também não há exportação.
+O arquivo `supabase/functions/judit-rebind-credencial-lote/index.ts` existe no repo, compila normalmente e não tem erro de sintaxe — então o deploy automático simplesmente não rodou para essa função (provavelmente porque ela nunca foi tocada num ciclo de build que dispare o auto-deploy do Lovable Cloud, igual ocorre com outras ~40 funções que também estão no repo mas fora do `config.toml`).
 
 ## Correção
 
-### 1. Carregar OABs com privilégio de service-role
-Adicionar um modo `listOabs` à Edge Function `judit-rebind-credencial-lote` (já tem service-role). Retorna `[{id, nome_advogado, oab_numero, oab_uf}]` para o `tenantId`.
-
-No `RebindCredencialJuditPanel`: substituir o SELECT direto por chamada ao hook `useRebindCredencialJudit` em modo `listOabs`. Funciona tanto em Controladoria (já era service-role na Edge) quanto em Super-admin.
-
-### 2. Auditoria visível e exportável
-- **Dry-run:** adicionar coluna **"tracking antigo"** (fonte mono, truncada com tooltip) ao lado do CNJ; manter as badges de "compartilhado" e "pausa antigo / mantém antigo".
-- **Execução:** ampliar `runResult.results` na UI para mostrar `numero_cnj | tracking_antigo | → | tracking_novo | badge(status)` + badge "pausado" quando aplicável.
-- **Botão "Exportar auditoria (CSV)":** aparece quando há `dryResult` ou `runResult`. Gera CSV com colunas: `numero_cnj, tracking_antigo, tracking_novo, antigo_pausado, compartilhado_fora_filtro, status, erro`. Une dados de dry-run e da última execução (run sobrescreve dry para os CNJs em comum).
-- **Persistência server-side:** já temos `judit_migracao_attachments` com `motivo='rebind_credencial'`, `customer_key`, `tracking_id_antigo`, `tracking_id_novo`. Aproveitar para um botão **"Carregar histórico desta credencial"** que lê desse table filtrado por `tenant_id + motivo + customer_key`, garantindo que o usuário possa auditar a qualquer momento (não só logo após rodar).
-
-### 3. Hook
-`useRebindCredencialJudit.invoke(params, mode)` ganha o modo `'listOabs'`. Para esse modo, basta `tenantId` no body; retorna `{ oabs: [...] }`.
-
-Nenhuma migration de schema. Sem alteração de RLS. Sem alteração de payload das chamadas existentes (count/dry/run).
+1. **Forçar deploy** da função `judit-rebind-credencial-lote` (ação direta via tool de deploy de edge function).
+2. **Registrar a função em `supabase/config.toml`** com `verify_jwt = true` (padrão para funções chamadas do painel autenticado), garantindo que futuros deploys sempre a incluam.
+3. **Melhorar o toast** em `useRebindCredencialJudit.ts`: hoje só mostra `e.message`. Trocar para algo como:
+   - Se for `FunctionsFetchError` → "Função indisponível, tente novamente em alguns segundos (deploy em andamento)".
+   - Se vier `data.error` do servidor → mostrar esse texto.
+   - Caso contrário, mensagem genérica + `e.message`.
 
 ## Arquivos afetados
 
-- `supabase/functions/judit-rebind-credencial-lote/index.ts` — novo modo `listOabs` + um modo `history` (lê `judit_migracao_attachments`).
-- `src/hooks/useRebindCredencialJudit.ts` — tipos do `mode` ampliados; helper para `listOabs` e `history`.
-- `src/components/Controladoria/RebindCredencialJuditPanel.tsx`:
-  - troca SELECT direto por chamada ao edge `listOabs`;
-  - melhora tabelas de dry-run e execução com tracking antigo/novo;
-  - botão "Exportar auditoria CSV";
-  - botão "Carregar histórico" + lista com paginação simples.
+- `supabase/config.toml` — adicionar `[functions.judit-rebind-credencial-lote] verify_jwt = true`.
+- `src/hooks/useRebindCredencialJudit.ts` — refinar tratamento de erro do `invoke`.
+- Deploy: `supabase/functions/judit-rebind-credencial-lote/index.ts` (sem alteração de código, só redeploy).
 
 ## Impacto
 
-- **Usuário final (super-admin):** a aba "Recriar c/ credencial" passa a listar as OABs do tenant (Alan, Will, João etc.), com seleção padrão "todos exceto João" funcionando. O botão **Executar lote** habilita. Após dry-run/execução, vê a auditoria detalhada (tracking antigo → novo, pausa) e pode exportar CSV. Histórico das migrações anteriores também consultável pela própria tela.
-- **Usuário final (tenant — Controladoria):** mesmo comportamento, agora com auditoria mais rica e CSV. Não há regressão.
-- **Dados:** nenhum schema novo. Edge Function passa a fazer SELECTs adicionais (oabs_cadastradas, judit_migracao_attachments) com service-role — uso pontual, sem impacto de performance.
-- **Riscos colaterais:** baixos. A Edge Function continua exigindo `tenantId`; modos novos são read-only.
-- **Quem é afetado:** super-admins (correção do bloqueio + auditoria) e admins/advogados em Controladoria (só ganho de auditoria/CSV).
+1. **Para o usuário final (UX):** o botão **Contar** (e os demais — Dry-run, Executar lote, Executar até concluir) volta a responder. O toast vermelho some. Quando algo realmente falhar (ex.: credencial inválida, erro Judit), a mensagem fica legível em vez do genérico atual.
+2. **Para os dados:** zero. Nenhum schema, migration ou RLS muda. A função só lê `processos_oab` / `judit_migracao_attachments` e, em modo `count`, nem grava nada.
+3. **Riscos colaterais:** baixíssimos. Adicionar a função ao `config.toml` afeta apenas como ela é deployada (passa a ter `verify_jwt=true` explicitamente — o painel já envia JWT do super-admin, então continua funcionando). O ajuste no hook é puramente de mensagem.
+4. **Quem é afetado:** apenas super-admins que abrem o painel "Recriar tracking com credencial" na Controladoria. Nenhum tenant comum, nenhum advogado, nenhum dado de cliente é tocado.
 
 ## Validação
 
-1. `/super-admin` → aba **Recriar c/ credencial** → selecionar **SOLVENZA** → lista de OABs aparece com checagens; João desmarcado por padrão.
-2. **Contar** → mostra elegíveis ≈ 86 (TJPR Alan+Will).
-3. **Dry-run** → tabela lista CNJ + tracking_antigo + badge "pausa antigo / mantém antigo" + "compartilhado" quando aplicável.
-4. **Exportar auditoria CSV** → arquivo abre com colunas `numero_cnj, tracking_antigo, tracking_novo, antigo_pausado, compartilhado_fora_filtro, status, erro` (pós dry-run só tem antigo; pós run vem o novo também).
-5. **Executar lote (5)** → results mostra `antigo → novo` com badge pausado. Tabela `judit_migracao_attachments` recebe linhas com `motivo='rebind_credencial'`, `customer_key='alangeral'`.
-6. **Carregar histórico** → lista as execuções anteriores desta credencial para o tenant.
-7. Em conta tenant: Controladoria → Migração de Anexos → "Recriar com credencial" → mesmo fluxo, sem regressão.
+- Após o deploy, rodar `curl` POST para `/judit-rebind-credencial-lote` com `countOnly:true` e tenant válido — esperar `{ success: true, cnjs_elegiveis: 102, ... }` (número que já confirmamos no banco).
+- No painel, clicar **Contar** com TJPR (8.16) selecionado e a credencial `alangeral` → deve mostrar `Elegíveis: 102`, `Já migrados: 0`.
+- Conferir logs da função (link abaixo) para garantir boot limpo.
