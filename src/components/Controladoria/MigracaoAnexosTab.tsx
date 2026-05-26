@@ -6,10 +6,12 @@ import { Loader2, Paperclip, AlertTriangle, CheckCircle2, RefreshCw, KeyRound } 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState } from 'react';
 import { RebindCredencialJuditDialog } from './RebindCredencialJuditDialog';
+import { useTenantId } from '@/hooks/useTenantId';
 
 export const MigracaoAnexosTab = () => {
   const { stats, historico, loading, running, carregar, migrarLote } = useMigracaoAnexos();
   const [rebindOpen, setRebindOpen] = useState(false);
+  const { tenantId } = useTenantId();
 
   const totalPendentes = stats.oabPendentes + stats.cnpjPendentes;
   const totalMigrados = stats.oabMigrados + stats.cnpjMigrados;
@@ -50,7 +52,7 @@ export const MigracaoAnexosTab = () => {
         </div>
       </div>
 
-      <RebindCredencialJuditDialog open={rebindOpen} onOpenChange={setRebindOpen} />
+      <RebindCredencialJuditDialog open={rebindOpen} onOpenChange={setRebindOpen} tenantIdOverride={tenantId ?? undefined} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card>
