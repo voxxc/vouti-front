@@ -533,17 +533,18 @@ export const RebindCredencialJuditPanel = ({ tenantId }: Props) => {
         <Label className="text-sm">Histórico por padrão</Label>
         <Tabs value={histTab} onValueChange={setHistTab}>
           <TabsList className="flex-wrap h-auto">
-            {patterns.map((p) => {
-              const full = `%.${p.pattern}.%`;
+            {mergedPatterns.map((p) => {
+              const full = `%.${p.jtr}.%`;
               return (
                 <TabsTrigger key={full} value={full} className="text-xs">
-                  {labelFor(p.pattern)} ({p.total})
+                  {labelFor(p.jtr)}
+                  {typeof p.total === 'number' && ` (${p.total})`}
                 </TabsTrigger>
               );
             })}
             <TabsTrigger value="%" className="text-xs">Todos</TabsTrigger>
           </TabsList>
-          {[...patterns.map((p) => ({ pattern: `%.${p.pattern}.%`, label: labelFor(p.pattern) })), { pattern: '%', label: 'Todos' }].map((p) => {
+          {[...mergedPatterns.map((p) => ({ pattern: `%.${p.jtr}.%`, label: labelFor(p.jtr) })), { pattern: '%', label: 'Todos' }].map((p) => {
             const rows = histByPattern[p.pattern];
             const loading = histLoading === p.pattern;
             return (
