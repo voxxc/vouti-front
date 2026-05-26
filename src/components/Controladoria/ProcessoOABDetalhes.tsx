@@ -646,6 +646,108 @@ export const ProcessoOABDetalhes = ({
                 />
               </div>
             </div>
+
+            {/* Credencial Judit vinculada */}
+            <div className="mt-3 pt-3 border-t">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Credencial Judit
+                  </p>
+                  <p className="text-sm truncate">
+                    {processo.judit_system_name || (
+                      <span className="text-muted-foreground">Público (sem credencial)</span>
+                    )}
+                  </p>
+                </div>
+                {podeEditarCredencial && !processo.monitoramento_ativo && !editandoCredencial && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const atual = credenciaisJudit.find(
+                        (c) => c.customer_key === processo.judit_customer_key,
+                      );
+                      setCredencialDraft(atual?.id || '__publico__');
+                      setEditandoCredencial(true);
+                    }}
+                  >
+                    <Pencil className="w-3.5 h-3.5 mr-1" /> Editar
+                  </Button>
+                )}
+              </div>
+
+              {podeEditarCredencial && processo.monitoramento_ativo && (
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Desative o monitoramento para trocar a credencial. Ao reativar, um novo tracking será criado.
+                </p>
+              )}
+
+              {editandoCredencial && (
+                <div className="mt-2 space-y-2">
+                  <Select value={credencialDraft} onValueChange={setCredencialDraft}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__publico__">Público (sem credencial)</SelectItem>
+                      {credenciaisJudit.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.system_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setEditandoCredencial(false)}
+                      disabled={salvandoCredencial}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        setSalvandoCredencial(true);
+                        const sel = credenciaisJudit.find((c) => c.id === credencialDraft);
+                        const { error } = await supabase
+                          .from('processos_oab')
+                          .update({
+                            judit_system_name: sel?.system_name ?? null,
+                            judit_customer_key: sel?.customer_key ?? null,
+                          })
+                          .eq('id', processo.id);
+                        setSalvandoCredencial(false);
+                        if (error) {
+                          toast({
+                            title: 'Erro ao salvar credencial',
+                            description: error.message,
+                            variant: 'destructive',
+                          });
+                          return;
+                        }
+                        toast({
+                          title: 'Credencial atualizada',
+                          description: sel?.system_name || 'Público',
+                        });
+                        setEditandoCredencial(false);
+                        onRefreshProcessos?.();
+                      }}
+                      disabled={salvandoCredencial}
+                    >
+                      {salvandoCredencial ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Save className="w-3.5 h-3.5 mr-1" />
+                      )}
+                      Salvar
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
           </Card>
 
           {/* Modal de Confirmacao de Monitoramento */}
