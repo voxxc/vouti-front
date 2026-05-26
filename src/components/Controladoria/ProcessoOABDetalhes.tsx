@@ -700,7 +700,7 @@ export const ProcessoOABDetalhes = ({
                       <SelectItem value="__publico__">Público (sem credencial)</SelectItem>
                       {credenciaisJudit.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
-                          {c.system_name}
+                          {c.system_name} — {c.customer_key}
                         </SelectItem>
                       ))}
                     </SelectContent>
