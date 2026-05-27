@@ -9,6 +9,7 @@ import { TenantStatsDialog } from './TenantStatsDialog';
 import { TenantJuditLogsDialog } from './TenantJuditLogsDialog';
 import { SuperAdminBoletosDialog } from './SuperAdminBoletosDialog';
 import { TenantCredenciaisDialog } from './TenantCredenciaisDialog';
+import { CartaoCredencialDialog } from './CartaoCredencialDialog';
 import { TenantBancoIdsDialog } from './TenantBancoIdsDialog';
 import { CreateTenantAdminDialog } from './CreateTenantAdminDialog';
 import { TenantPushDocsDialog } from './TenantPushDocsDialog';
