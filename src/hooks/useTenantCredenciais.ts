@@ -48,6 +48,7 @@ interface EnviarParaJuditData {
   customerKey: string;
   systemName: string;
   oabId?: string;
+  apelido: string;
 }
 
 interface EnviarDiretoData {
@@ -56,6 +57,7 @@ interface EnviarDiretoData {
   secret: string;
   customerKey: string;
   systemName: string;
+  apelido: string;
 }
 
 export function useTenantCredenciais(tenantId: string | null) {
@@ -147,6 +149,7 @@ export function useTenantCredenciais(tenantId: string | null) {
           system_name: data.systemName,
           username: data.cpf,
           enviado_por: session.session.user.id,
+          apelido: data.apelido,
         });
 
       if (insertError) throw insertError;
@@ -216,6 +219,7 @@ export function useTenantCredenciais(tenantId: string | null) {
           system_name: data.systemName,
           username: data.cpf.replace(/\D/g, ''),
           enviado_por: session.session.user.id,
+          apelido: data.apelido,
         });
 
       if (insertError) throw insertError;

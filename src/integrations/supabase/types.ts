@@ -1516,6 +1516,7 @@ export type Database = {
       }
       credenciais_judit: {
         Row: {
+          apelido: string | null
           created_at: string | null
           credencial_cliente_id: string | null
           customer_key: string
@@ -1530,6 +1531,7 @@ export type Database = {
           username: string
         }
         Insert: {
+          apelido?: string | null
           created_at?: string | null
           credencial_cliente_id?: string | null
           customer_key: string
@@ -1544,6 +1546,7 @@ export type Database = {
           username: string
         }
         Update: {
+          apelido?: string | null
           created_at?: string | null
           credencial_cliente_id?: string | null
           customer_key?: string
@@ -11357,6 +11360,7 @@ export type Database = {
       list_judit_credentials: {
         Args: { p_tenant_id: string }
         Returns: {
+          apelido: string
           customer_key: string
           id: string
           system_name: string
@@ -11376,6 +11380,10 @@ export type Database = {
         Returns: undefined
       }
       truncate_minute: { Args: { ts: string }; Returns: string }
+      update_judit_credential_apelido: {
+        Args: { p_apelido: string; p_id: string }
+        Returns: undefined
+      }
       user_belongs_to_tenant: { Args: { _tenant_id: string }; Returns: boolean }
     }
     Enums: {
