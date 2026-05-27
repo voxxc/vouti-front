@@ -382,6 +382,13 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
         tenantName={tenant.name}
       />
 
+      <CartaoCredencialDialog
+        open={showCartao}
+        onOpenChange={setShowCartao}
+        tenantId={tenant.id}
+        tenantName={tenant.name}
+      />
+
       <TenantBancoIdsDialog
         open={showBancoIds}
         onOpenChange={setShowBancoIds}
