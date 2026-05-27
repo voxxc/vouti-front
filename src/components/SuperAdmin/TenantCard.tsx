@@ -266,6 +266,15 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
               variant="ghost" 
               size="icon"
               className="h-8 w-8"
+              onClick={() => setShowCartao(true)}
+              title="Cartão Credencial (apelidos)"
+            >
+              <IdCard className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-8 w-8"
               onClick={() => setShowPushDocs(true)}
               title="Push-Docs (Monitoramento)"
             >
