@@ -630,9 +630,11 @@ serve(async (req) => {
                 latestAndamentoDate = normalizedDate;
               }
 
-              // Demorais piloto: detectar decisão e auto-alimentar Publicações
+              // Persistir anexos de decisão para qualquer tenant com with_attachments=true.
+              // A criação de Publicação dentro de processarAnexosDeDecisao continua
+              // restrita ao piloto Demorais.
               if (
-                processo.tenant_id === DEMORAIS_TENANT_ID &&
+                processo.with_attachments === true &&
                 insertedAndamento?.id &&
                 isDecisao(stepContent)
               ) {
