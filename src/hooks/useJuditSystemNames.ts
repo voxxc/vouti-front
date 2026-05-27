@@ -24,6 +24,8 @@ export const useJuditSystemNames = (tenantId: string | null | undefined) => {
         .select('id, system_name, customer_key, apelido')
         .eq('tenant_id', tenantId!)
         .eq('status', 'active')
+        .not('apelido', 'is', null)
+        .neq('apelido', '')
         .order('apelido', { ascending: true, nullsFirst: false })
         .order('system_name', { ascending: true });
 
