@@ -5,6 +5,7 @@ export interface JuditCredencial {
   id: string;
   system_name: string;
   customer_key: string;
+  apelido: string | null;
 }
 
 /**

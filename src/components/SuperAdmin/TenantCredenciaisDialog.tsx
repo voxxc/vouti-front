@@ -34,6 +34,7 @@ export function TenantCredenciaisDialog({
   const [selectedCredencialId, setSelectedCredencialId] = useState<string>('');
   const [secret, setSecret] = useState('');
   const [customerKey, setCustomerKey] = useState('');
+  const [apelido, setApelido] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   
@@ -46,6 +47,7 @@ export function TenantCredenciaisDialog({
   const [diretoSecret, setDiretoSecret] = useState('');
   const [diretoCustomerKey, setDiretoCustomerKey] = useState('');
   const [diretoSystemName, setDiretoSystemName] = useState('');
+  const [diretoApelido, setDiretoApelido] = useState('');
   const [enviandoDireto, setEnviandoDireto] = useState(false);
 
   // Estados para edição de credenciais pendentes
@@ -77,8 +79,8 @@ export function TenantCredenciaisDialog({
   };
 
   const handleEnviarParaJudit = async () => {
-    if (!selectedCredencial || !customerKey || !systemName) {
-      toast.error('Selecione o tribunal/sistema');
+    if (!selectedCredencial || !customerKey || !systemName || !apelido.trim()) {
+      toast.error('Preencha o apelido e o tribunal/sistema');
       return;
     }
 
@@ -92,6 +94,7 @@ export function TenantCredenciaisDialog({
         customerKey,
         systemName,
         oabId: selectedCredencial.oab_id || undefined,
+        apelido: apelido.trim(),
       });
 
       setSelectedCredencialId('');
@@ -100,13 +103,14 @@ export function TenantCredenciaisDialog({
       setSecret('');
       setCustomerKey('');
       setSystemName('');
+      setApelido('');
     } finally {
       setEnviando(false);
     }
   };
 
   const handleEnviarDireto = async () => {
-    if (!diretoCpf || !diretoSenha || !diretoCustomerKey || !diretoSecret || !diretoSystemName) {
+    if (!diretoCpf || !diretoSenha || !diretoCustomerKey || !diretoSecret || !diretoSystemName || !diretoApelido.trim()) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
@@ -119,6 +123,7 @@ export function TenantCredenciaisDialog({
         secret: diretoSecret,
         customerKey: diretoCustomerKey,
         systemName: diretoSystemName,
+        apelido: diretoApelido.trim(),
       });
 
       // Limpar formulário após sucesso
@@ -127,6 +132,7 @@ export function TenantCredenciaisDialog({
       setDiretoSecret('');
       setDiretoCustomerKey('');
       setDiretoSystemName('');
+      setDiretoApelido('');
     } finally {
       setEnviandoDireto(false);
     }
@@ -431,6 +437,18 @@ export function TenantCredenciaisDialog({
                       </div>
 
                       <div className="space-y-2">
+                        <Label>Apelido da credencial *</Label>
+                        <Input
+                          value={apelido}
+                          onChange={(e) => setApelido(e.target.value)}
+                          placeholder="Ex.: PJE TJRO — Dr. Alan"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Nome amigável que aparecerá ao importar processos por CNJ.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
                         <Label>Secret (Token 2FA)*</Label>
                         <Input
                           type="password"
@@ -475,7 +493,7 @@ export function TenantCredenciaisDialog({
                       <Button
                         className="w-full"
                         onClick={handleEnviarParaJudit}
-                        disabled={!secret || !customerKey || !systemName || enviando}
+                        disabled={!secret || !customerKey || !systemName || !apelido.trim() || enviando}
                       >
                         {enviando ? (
                           <>
@@ -546,6 +564,18 @@ export function TenantCredenciaisDialog({
               </div>
 
               <div className="space-y-2">
+                <Label>Apelido da credencial *</Label>
+                <Input
+                  value={diretoApelido}
+                  onChange={(e) => setDiretoApelido(e.target.value)}
+                  placeholder="Ex.: PJE TJRO — Dr. Alan"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Nome amigável que aparecerá ao importar processos por CNJ.
+                </p>
+              </div>
+
+              <div className="space-y-2">
                 <Label>Secret (Token 2FA) *</Label>
                 <div className="flex gap-2">
                   <Input
@@ -597,7 +627,7 @@ export function TenantCredenciaisDialog({
               <Button
                 className="w-full"
                 onClick={handleEnviarDireto}
-                disabled={!diretoCpf || !diretoSenha || !diretoSecret || !diretoCustomerKey || !diretoSystemName || enviandoDireto}
+                disabled={!diretoCpf || !diretoSenha || !diretoSecret || !diretoCustomerKey || !diretoSystemName || !diretoApelido.trim() || enviandoDireto}
               >
                 {enviandoDireto ? (
                   <>

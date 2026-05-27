@@ -340,7 +340,7 @@ export const ImportarProcessoCNJDialog = ({
 
           {/* Seletor de credencial Judit — vale para os dois modos */}
           <div className="space-y-2 pt-4">
-            <Label htmlFor="credencial-judit">Tribunal / Credencial Judit</Label>
+            <Label htmlFor="credencial-judit">Tribunal / Credencial</Label>
             <Select value={credencialValue} onValueChange={setCredencialValue}>
               <SelectTrigger id="credencial-judit">
                 <SelectValue placeholder="Selecione" />
@@ -349,9 +349,11 @@ export const ImportarProcessoCNJDialog = ({
                 <SelectItem value={PUBLICO_VALUE}>Público (sem credencial)</SelectItem>
                 {credenciais.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.system_name === '*'
-                      ? `* (todos) — ${c.customer_key}`
-                      : `${c.system_name} — ${c.customer_key}`}
+                    {c.apelido
+                      ? `${c.apelido}${c.system_name && c.system_name !== '*' ? ` — ${c.system_name}` : ''}`
+                      : c.system_name === '*'
+                        ? `* (todos) — ${c.customer_key}`
+                        : `${c.system_name} — ${c.customer_key}`}
                   </SelectItem>
                 ))}
               </SelectContent>
