@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity,
   CreditCard, Key, Hash, ChevronRight, ChevronDown, UserPlus, FileStack,
-  Loader2, FileWarning, Clock, MoreHorizontal,
+  Loader2, FileWarning, Clock, MoreHorizontal, IdCard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import { TenantStatsDialog } from './TenantStatsDialog';
 import { TenantJuditLogsDialog } from './TenantJuditLogsDialog';
 import { SuperAdminBoletosDialog } from './SuperAdminBoletosDialog';
 import { TenantCredenciaisDialog } from './TenantCredenciaisDialog';
+import { CartaoCredencialDialog } from './CartaoCredencialDialog';
 import { TenantBancoIdsDialog } from './TenantBancoIdsDialog';
 import { CreateTenantAdminDialog } from './CreateTenantAdminDialog';
 import { TenantPushDocsDialog } from './TenantPushDocsDialog';
@@ -55,6 +56,7 @@ export function TenantRow({
   const [showJuditLogs, setShowJuditLogs] = useState(false);
   const [showBoletos, setShowBoletos] = useState(false);
   const [showCredenciais, setShowCredenciais] = useState(false);
+  const [showCartao, setShowCartao] = useState(false);
   const [showBancoIds, setShowBancoIds] = useState(false);
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
   const [showPushDocs, setShowPushDocs] = useState(false);
@@ -242,6 +244,7 @@ export function TenantRow({
 
               <ActionGroup label="Integrações">
                 <PillButton icon={Key} onClick={() => setShowCredenciais(true)}>Credenciais Judit</PillButton>
+                <PillButton icon={IdCard} onClick={() => setShowCartao(true)}>Cartão Credencial</PillButton>
                 <PillButton icon={Activity} onClick={() => setShowJuditLogs(true)}>Chamadas Judit</PillButton>
                 <PillButton
                   icon={CreditCard}
@@ -297,6 +300,7 @@ export function TenantRow({
       <TenantJuditLogsDialog tenant={tenant} open={showJuditLogs} onOpenChange={setShowJuditLogs} />
       <SuperAdminBoletosDialog tenant={tenant} open={showBoletos} onOpenChange={setShowBoletos} />
       <TenantCredenciaisDialog open={showCredenciais} onOpenChange={setShowCredenciais} tenantId={tenant.id} tenantName={tenant.name} />
+      <CartaoCredencialDialog open={showCartao} onOpenChange={setShowCartao} tenantId={tenant.id} tenantName={tenant.name} />
       <TenantBancoIdsDialog open={showBancoIds} onOpenChange={setShowBancoIds} tenantId={tenant.id} tenantName={tenant.name} />
       <CreateTenantAdminDialog open={showCreateAdmin} onOpenChange={setShowCreateAdmin} tenant={tenant} />
       <TenantPushDocsDialog open={showPushDocs} onOpenChange={setShowPushDocs} tenant={tenant} />
