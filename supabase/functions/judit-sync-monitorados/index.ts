@@ -89,7 +89,7 @@ async function downloadJuditAttachment(params: {
 async function extractPdfText(bytes: Uint8Array, maxChars = 50000): Promise<string | null> {
   try {
     // @ts-ignore
-    const pdfjs: any = await import('https://esm.sh/pdfjs-dist@3.11.174/legacy/build/pdf.mjs');
+    const pdfjs: any = await import('npm:pdfjs-dist@3.11.174/legacy/build/pdf.mjs');
     const loadingTask = pdfjs.getDocument({ data: bytes, disableWorker: true, isEvalSupported: false });
     const pdf = await loadingTask.promise;
     let out = '';
