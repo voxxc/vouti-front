@@ -1,28 +1,24 @@
 ## Causa raiz
-O botão "Cartão Credencial" foi adicionado apenas em `TenantCard.tsx`, mas a UI atual usa o layout em **linha expansível** (`TenantRow.tsx` desktop e `TenantRowMobile.tsx` mobile), que não foi atualizado. Por isso o botão não aparece na seção INTEGRAÇÕES.
+O `CartaoCredencialDialog` lista via RPC `list_judit_credentials`, que retorna vazio em algum cenário de auth (provavelmente a sessão `auth.uid()` não satisfaz `is_super_admin` no contexto da `SECURITY DEFINER`, ou o filtro `status='active'` exclui registros). Os outros dialogs (ex.: `TenantCredenciaisDialog`) leem `credenciais_judit` direto pela tabela e funcionam — confirma que o problema é o RPC, não a ausência de dados (verificado no DB: SOLVENZA tem dezenas de credenciais ativas).
 
 ## Correção
-Replicar o mesmo padrão já aplicado em `TenantCard.tsx` nos dois componentes de linha:
+Refatorar `CartaoCredencialDialog` para usar o mesmo caminho que já funciona:
 
-1. **`src/components/SuperAdmin/TenantRow.tsx`**
-   - Importar `IdCard` (lucide-react) e `CartaoCredencialDialog`.
-   - Adicionar estado `showCartao`.
-   - Na seção INTEGRAÇÕES (linha ~244), adicionar `<PillButton icon={IdCard} onClick={() => setShowCartao(true)}>Cartão Credencial</PillButton>` ao lado de "Credenciais Judit".
-   - Renderizar `<CartaoCredencialDialog ... />` junto aos outros dialogs (linha ~299).
-
-2. **`src/components/SuperAdmin/TenantRowMobile.tsx`**
-   - Mesmas alterações no equivalente mobile (linha ~211 / ~251).
+1. **Listar** via `supabase.from('credenciais_judit').select('id, system_name, customer_key, apelido, status, created_at').eq('tenant_id', tenantId).neq('status','removed').order('created_at',{ascending:false})`.
+2. **Salvar apelido** continuar usando o RPC `update_judit_credential_apelido` (já validado), mas com fallback para UPDATE direto na tabela caso o RPC falhe (RLS de super-admin permite).
+3. Mostrar coluna **Status** (active/error) como Badge para o usuário identificar credenciais com erro.
+4. Mensagem vazia só aparece quando `data.length===0` (após query real).
 
 ## Arquivos afetados
-- `src/components/SuperAdmin/TenantRow.tsx`
-- `src/components/SuperAdmin/TenantRowMobile.tsx`
+- `src/components/SuperAdmin/CartaoCredencialDialog.tsx` (refatorar query e adicionar coluna Status)
 
 ## Impacto
-- **Usuário final:** o botão "Cartão Credencial" passa a aparecer na faixa INTEGRAÇÕES de todos os tenants (desktop e mobile), abrindo o dialog já criado para gerenciar apelidos.
-- **Dados:** nenhum. Apenas UI.
-- **Riscos colaterais:** nenhum — reaproveita componente e RPC existentes.
-- **Quem é afetado:** apenas super-admins na tela `/super-admin`.
+- **Usuário final:** o cartão credencial passa a listar todas as credenciais Judit do tenant (SOLVENZA verá ~30+ registros) com sistema, customer key e status; o campo "Apelido" continua editável e o valor escolhido aparecerá no select de "Importar processo por CNJ" dentro da Controladoria.
+- **Dados:** nenhuma migration. Apenas leitura/escrita já permitidas.
+- **Riscos colaterais:** baixo — usa o mesmo padrão já em produção em `TenantCredenciaisDialog`. Apelido segue persistido via RPC `SECURITY DEFINER` (auditável).
+- **Quem é afetado:** apenas super-admins gerenciando tenants em `/super-admin`.
 
 ## Validação
-- Abrir `/super-admin`, expandir um tenant e confirmar que o botão aparece em INTEGRAÇÕES (entre "Credenciais Judit" e "Chamadas Judit") tanto em desktop quanto mobile.
-- Clicar e verificar que o `CartaoCredencialDialog` abre e lista credenciais com edição inline do apelido.
+- Em `/super-admin`, expandir SOLVENZA → INTEGRAÇÕES → "Cartão Credencial": confirmar lista completa de credenciais com sistema + customer key.
+- Editar um apelido (ex.: "PJE TJRO — Dr. Alan"), salvar, recarregar e confirmar que o valor persiste.
+- Em Controladoria → "Importar processo por CNJ", confirmar que o select mostra `{apelido} — {system_name}` para a credencial renomeada.

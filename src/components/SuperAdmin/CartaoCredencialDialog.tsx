@@ -21,6 +21,7 @@ interface CredencialRow {
   system_name: string;
   customer_key: string;
   apelido: string | null;
+  status: string;
 }
 
 export function CartaoCredencialDialog({ open, onOpenChange, tenantId, tenantName }: Props) {
@@ -32,7 +33,12 @@ export function CartaoCredencialDialog({ open, onOpenChange, tenantId, tenantNam
     queryKey: ['cartao-credenciais', tenantId],
     enabled: open && !!tenantId,
     queryFn: async (): Promise<CredencialRow[]> => {
-      const { data, error } = await supabase.rpc('list_judit_credentials', { p_tenant_id: tenantId });
+      const { data, error } = await supabase
+        .from('credenciais_judit')
+        .select('id, system_name, customer_key, apelido, status, created_at')
+        .eq('tenant_id', tenantId)
+        .neq('status', 'removed')
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return (data || []) as CredencialRow[];
     },
@@ -48,11 +54,19 @@ export function CartaoCredencialDialog({ open, onOpenChange, tenantId, tenantNam
 
   const saveMut = useMutation({
     mutationFn: async ({ id, apelido }: { id: string; apelido: string }) => {
-      const { error } = await supabase.rpc('update_judit_credential_apelido', {
+      const trimmed = apelido.trim();
+      const { error: rpcError } = await supabase.rpc('update_judit_credential_apelido', {
         p_id: id,
-        p_apelido: apelido,
+        p_apelido: trimmed,
       });
-      if (error) throw error;
+      if (rpcError) {
+        // Fallback: super-admin pode atualizar direto pela tabela
+        const { error: updError } = await supabase
+          .from('credenciais_judit')
+          .update({ apelido: trimmed || null })
+          .eq('id', id);
+        if (updError) throw updError;
+      }
     },
     onSuccess: () => {
       toast.success('Apelido atualizado');
@@ -97,6 +111,7 @@ export function CartaoCredencialDialog({ open, onOpenChange, tenantId, tenantNam
                 <TableHead>Apelido</TableHead>
                 <TableHead className="w-[140px]">Sistema</TableHead>
                 <TableHead>Customer Key</TableHead>
+                <TableHead className="w-[90px]">Status</TableHead>
                 <TableHead className="w-[100px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -119,6 +134,14 @@ export function CartaoCredencialDialog({ open, onOpenChange, tenantId, tenantNam
                     </TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground truncate max-w-[200px]" title={c.customer_key}>
                       {c.customer_key}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={c.status === 'active' ? 'default' : c.status === 'error' ? 'destructive' : 'secondary'}
+                        className="text-[10px]"
+                      >
+                        {c.status}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <Button
