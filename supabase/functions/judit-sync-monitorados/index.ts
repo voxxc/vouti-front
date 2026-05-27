@@ -409,7 +409,7 @@ serve(async (req) => {
     // Fetch all monitored processes
     let query = supabase
       .from('processos_oab')
-      .select('id, tracking_id, numero_cnj, tenant_id')
+      .select('id, tracking_id, numero_cnj, tenant_id, with_attachments')
       .eq('monitoramento_ativo', true)
       .not('tracking_id', 'is', null);
 
