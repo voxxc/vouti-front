@@ -1,40 +1,71 @@
 ## Causa raiz
 
-Hoje as abas de "Histórico por padrão" no `RebindCredencialJuditPanel` têm presets fixos (TJPR, TJSP, TJMG, TJSC, TJRO, TJTO, Todos, Custom). Não cobrem padrões como `4.04`, `5.09`, `8.22`, etc. O usuário quer ver dinamicamente **todos os padrões J.TR efetivamente monitorados**.
+No processo `4001400-13.2026.8.26.0408` (tenant `27492091…`), o tracking Judit está com `with_attachments=true` (rebind aplicado em 26/05), há 22 andamentos sincronizados, mas **0 linhas em `processos_oab_anexos`**. Última inserção de anexo desse tenant foi em **22/01/2026**.
+
+O `judit-sync-monitorados/index.ts` (linhas 628-631) só persiste anexos quando:
+
+```ts
+processo.tenant_id === DEMORAIS_TENANT_ID && isDecisao(stepContent)
+```
+
+Ou seja, mesmo com `with_attachments=true` no tracking e a Judit devolvendo os anexos no payload do sync, **qualquer tenant diferente do piloto Demorais é ignorado**. Os poucos anexos antigos vieram de chamadas manuais ao `judit-buscar-detalhes-processo`, não do sync automático.
 
 ## Correção
 
-1. **Edge function `judit-rebind-credencial-lote`** — novo modo `listPatterns`:
-   - Recebe `tenantId` e opcional `globalScope`.
-   - Query: `SELECT numero_cnj FROM processos_oab WHERE monitoramento_ativo=true AND tracking_id IS NOT NULL` (filtra por `tenant_id` se não global), paginado via helper.
-   - Extrai o segmento `J.TR` (5º campo do CNJ, regex `\.(\d\.\d+)\.\d+$`).
-   - Agrupa por J.TR, retorna `[{ pattern: '8.16', label: '%.8.16.%', total: 109 }, ...]` ordenado por `total desc`.
+1. **Remover o gate por tenant** em `judit-sync-monitorados/index.ts`. Trocar:
+   ```ts
+   if (processo.tenant_id === DEMORAIS_TENANT_ID && insertedAndamento?.id && isDecisao(stepContent))
+   ```
+   por:
+   ```ts
+   if (processo.with_attachments === true && insertedAndamento?.id && isDecisao(stepContent))
+   ```
+   Ler `with_attachments` do `processos_oab` no SELECT que já carrega `processo` (adicionar a coluna ao select se ainda não estiver).
 
-2. **Hook `useRebindCredencialJudit`** — adicionar modo `'listPatterns'` ao tipo `RebindMode` e flag `listPatterns: mode === 'listPatterns'` no body.
+2. **Manter `isDecisao`** como filtro (sentença, despacho decisório, liminar, intimação de decisão, julgo, homologo, defiro, indefiro, condeno, extingo, tutela). Petições continuam não baixando — é o desejado para economizar storage/CPU. Verificar a lista atual de keywords e confirmar que cobre "intimação de decisão" (adicionar `intimação` + `intimacao` se não estiverem).
 
-3. **`RebindCredencialJuditPanel.tsx`**:
-   - No mount (e quando `globalCount` muda), chama `listPatterns` e popula `patterns: { pattern, total }[]`.
-   - Renderiza uma `Tab` por padrão retornado (label: `J.TR (total)`, ex.: `8.16 (109)`), mantendo aba "Todos" e "Custom".
-   - Cada aba usa `cnjPattern = '%.' + pattern + '.%'` ao chamar `history`.
-   - Cache local por pattern continua igual.
-   - Remove a lista hardcoded de presets.
+3. **Auto-criação em `publicacoes`** dentro de `processarAnexosDeDecisao` (hoje específica do piloto Demorais): manter gated por `DEMORAIS_TENANT_ID` dentro da função, ou separar em duas etapas — upload do anexo para todos, criação de publicação só para Demorais. Padrão: separar.
+
+4. **Backfill manual** do processo em questão: invocar `judit-buscar-detalhes-processo` para `d909f408-…` puxar os anexos retroativos dos 22 andamentos já existentes (a partir daqui o sync automático cobre os novos).
 
 ## Arquivos afetados
 
-- `supabase/functions/judit-rebind-credencial-lote/index.ts` — novo modo `listPatterns`.
-- `src/hooks/useRebindCredencialJudit.ts` — adicionar `'listPatterns'` em `RebindMode`.
-- `src/components/Controladoria/RebindCredencialJuditPanel.tsx` — abas dinâmicas baseadas no retorno.
+- `supabase/functions/judit-sync-monitorados/index.ts` — remover gate de tenant, ajustar SELECT do `processos_oab` para incluir `with_attachments`, separar criação de Publicação da persistência do anexo.
+- Nenhuma migration. Nenhuma alteração de schema. Nenhuma alteração de frontend.
 
 ## Impacto
 
-- **Usuário final (UX):** ao abrir o painel, as abas refletem exatamente os tribunais/segmentos onde há tracking ativo. Ex.: hoje aparecerão `8.16 (109)`, `8.22 (98)`, `8.13 (59)`, `8.26 (35)`, `4.04 (12)`, `8.21 (8)`, `5.09 (7)`, `4.03 (3)`, etc. Com o switch global ligado, contempla todos os tenants.
-- **Dados:** zero migrações, zero RLS. Apenas leitura extra paginada em `processos_oab`.
-- **Riscos colaterais:** baixos. Se houver muitos padrões (>15), a lista de abas pode quebrar — usaremos `flex-wrap` no `TabsList` para acomodar.
-- **Quem é afetado:** apenas super-admins usando o painel na Controladoria.
+**1. Usuário final (UX/telas/fluxos):**
+- Em todos os tenants, quando um andamento de decisão chega via sync, o anexo aparece automaticamente no card do andamento (ícone de clipe) e fica baixável pelo `useProcessoAnexos`.
+- Nada muda visualmente — o componente já trata `anexosPorStep`. Só passa a ter dados.
+
+**2. Dados (migrations/RLS/performance):**
+- Sem migration, sem mudança de RLS (a tabela `processos_oab_anexos` já tem RLS por tenant_id).
+- **Aumento de uso do bucket `processo-documentos`**: cada decisão com PDF anexo passa a fazer upload. Estimativa: dezenas a centenas de PDFs/dia por tenant ativo. Storage e egress aumentam proporcionalmente.
+- **CPU/tempo do sync**: `extractPdfText` roda em PDFs de decisão (até 50 páginas, 50k chars). Cada anexo adiciona ~1-3s ao processamento do andamento. Pode aumentar duração do cron e risco de timeout em batches grandes.
+
+**3. Riscos colaterais:**
+- Se a função `judit-sync-monitorados` rodar em batch grande e muitos andamentos vierem com anexo, pode estourar o limite de tempo da edge function. Monitorar logs após deploy.
+- Se algum tenant tiver `with_attachments=true` indevidamente mas plano não cobrir storage, podemos gerar custo. Vale conferir antes do deploy se há tenants nessa condição (`SELECT DISTINCT tenant_id FROM processos_oab WHERE with_attachments=true`).
+- A criação automática em `publicacoes` continua restrita ao Demorais — nenhum tenant novo recebe publicações automáticas sem decisão explícita.
+
+**4. Quem é afetado:**
+- **Todos os tenants** com `with_attachments=true` em pelo menos um tracking (hoje: o piloto Demorais + os tenants migrados pelo painel de rebind, incluindo `27492091…`).
+- **Admin / Controladoria**: ganham visibilidade dos anexos sem precisar abrir cada processo manualmente.
+- **Advogado / Estagiário**: passam a ver clipes de anexo nos andamentos de decisão dos processos monitorados.
+- Demorais: comportamento inalterado (continua recebendo anexo + publicação automática).
 
 ## Validação
 
-1. Abrir painel sem global → ver abas só do tenant atual.
-2. Ativar global → abas recarregam mostrando todos os J.TR do sistema com contagem real.
-3. Clicar aba `4.04` → histórico filtrado por `%.4.04.%`.
-4. Aba "Todos" e "Custom" continuam funcionando.
+1. Deploy de `judit-sync-monitorados`.
+2. Invocar `judit-buscar-detalhes-processo` para `d909f408-b0ca-4a45-b5cc-41222a5f77bb` (backfill manual) e verificar que `processos_oab_anexos` recebe linhas.
+3. Forçar `judit-sync-monitorados` e checar logs por `[SYNC][anexo]`.
+4. Query de sanidade após 1 ciclo de sync:
+   ```sql
+   SELECT tenant_id, count(*), max(created_at)
+   FROM processos_oab_anexos
+   WHERE created_at > now() - interval '1 day'
+   GROUP BY tenant_id;
+   ```
+   Esperar ≥1 tenant não-Demorais com anexos recentes.
+5. UI: abrir o processo `4001400-13.2026.8.26.0408` e confirmar clipes nos andamentos de decisão.
