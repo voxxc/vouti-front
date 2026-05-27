@@ -359,8 +359,12 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
   return (
     <>
       <Dialog
-        open={open}
-        onOpenChange={onOpenChange}
+        open={open && !confirmCompleteId && !reopenDeadlineId}
+        onOpenChange={(next) => {
+          // Bloqueia o auto-close do Dialog quando um AlertDialog filho assume o foco
+          if (!next && (confirmCompleteId || reopenDeadlineId)) return;
+          onOpenChange(next);
+        }}
         modal={!confirmCompleteId && !reopenDeadlineId}
       >
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto z-[80]">
@@ -563,7 +567,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
 
       {/* Confirm complete dialog */}
       <AlertDialog open={!!confirmCompleteId} onOpenChange={(open) => { if (!open) { setConfirmCompleteId(null); setComentarioConclusao(""); setCriarSubtarefa(false); setSubtarefaDescricao(""); setCumprirEtapa(false); } }}>
-        <AlertDialogContent>
+        <AlertDialogContent className="z-[100]">
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Conclusão do Prazo</AlertDialogTitle>
             <AlertDialogDescription>Descreva o que foi realizado para concluir este prazo.</AlertDialogDescription>
@@ -610,7 +614,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
       </AlertDialog>
       {/* AlertDialog de reabertura */}
       <AlertDialog open={!!reopenDeadlineId} onOpenChange={(open) => { if (!open) { setReopenDeadlineId(null); setReopenMotivo(""); } }}>
-        <AlertDialogContent>
+        <AlertDialogContent className="z-[100]">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <RotateCcw className="h-5 w-5" /> Reabrir Prazo
