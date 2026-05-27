@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus, FileStack, Loader2, FileWarning, Clock } from 'lucide-react';
+import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus, FileStack, Loader2, FileWarning, Clock, IdCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { TenantStatsDialog } from './TenantStatsDialog';
 import { TenantJuditLogsDialog } from './TenantJuditLogsDialog';
 import { SuperAdminBoletosDialog } from './SuperAdminBoletosDialog';
 import { TenantCredenciaisDialog } from './TenantCredenciaisDialog';
+import { CartaoCredencialDialog } from './CartaoCredencialDialog';
 import { TenantBancoIdsDialog } from './TenantBancoIdsDialog';
 import { CreateTenantAdminDialog } from './CreateTenantAdminDialog';
 import { TenantPushDocsDialog } from './TenantPushDocsDialog';
@@ -53,6 +54,7 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
   const [showJuditLogs, setShowJuditLogs] = useState(false);
   const [showBoletos, setShowBoletos] = useState(false);
   const [showCredenciais, setShowCredenciais] = useState(false);
+  const [showCartao, setShowCartao] = useState(false);
   const [showBancoIds, setShowBancoIds] = useState(false);
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
   const [showPushDocs, setShowPushDocs] = useState(false);
@@ -264,6 +266,15 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
               variant="ghost" 
               size="icon"
               className="h-8 w-8"
+              onClick={() => setShowCartao(true)}
+              title="Cartão Credencial (apelidos)"
+            >
+              <IdCard className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-8 w-8"
               onClick={() => setShowPushDocs(true)}
               title="Push-Docs (Monitoramento)"
             >
@@ -367,6 +378,13 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
       <TenantCredenciaisDialog
         open={showCredenciais}
         onOpenChange={setShowCredenciais}
+        tenantId={tenant.id}
+        tenantName={tenant.name}
+      />
+
+      <CartaoCredencialDialog
+        open={showCartao}
+        onOpenChange={setShowCartao}
         tenantId={tenant.id}
         tenantName={tenant.name}
       />
