@@ -1,24 +1,31 @@
 ## Causa raiz
-O `CartaoCredencialDialog` lista via RPC `list_judit_credentials`, que retorna vazio em algum cenário de auth (provavelmente a sessão `auth.uid()` não satisfaz `is_super_admin` no contexto da `SECURITY DEFINER`, ou o filtro `status='active'` exclui registros). Os outros dialogs (ex.: `TenantCredenciaisDialog`) leem `credenciais_judit` direto pela tabela e funcionam — confirma que o problema é o RPC, não a ausência de dados (verificado no DB: SOLVENZA tem dezenas de credenciais ativas).
+`useJuditSystemNames` lista credenciais via RPC `list_judit_credentials`. O usuário logado na SOLVENZA não está conseguindo dados pelo RPC (mesmo cenário que vimos no Cartão Credencial — o RPC `SECURITY DEFINER` está devolvendo lista vazia neste contexto), então o select de "Tribunal / Credencial" mostra apenas "Público". O apelido salvo está correto no banco; o problema é só na leitura no front.
 
 ## Correção
-Refatorar `CartaoCredencialDialog` para usar o mesmo caminho que já funciona:
+Trocar o RPC por leitura direta de `credenciais_judit` (mesmo padrão usado em `useTenantCredenciais` e agora no `CartaoCredencialDialog`):
 
-1. **Listar** via `supabase.from('credenciais_judit').select('id, system_name, customer_key, apelido, status, created_at').eq('tenant_id', tenantId).neq('status','removed').order('created_at',{ascending:false})`.
-2. **Salvar apelido** continuar usando o RPC `update_judit_credential_apelido` (já validado), mas com fallback para UPDATE direto na tabela caso o RPC falhe (RLS de super-admin permite).
-3. Mostrar coluna **Status** (active/error) como Badge para o usuário identificar credenciais com erro.
-4. Mensagem vazia só aparece quando `data.length===0` (após query real).
+```ts
+const { data, error } = await supabase
+  .from('credenciais_judit')
+  .select('id, system_name, customer_key, apelido')
+  .eq('tenant_id', tenantId)
+  .eq('status', 'active')
+  .order('apelido', { ascending: true, nullsFirst: false })
+  .order('system_name', { ascending: true });
+```
+
+A RLS atual de `credenciais_judit` já permite leitura pelos roles do tenant, então funcionará para admin/controller/advogado etc. Mantém a interface `JuditCredencial` inalterada → nenhum consumidor precisa mudar.
 
 ## Arquivos afetados
-- `src/components/SuperAdmin/CartaoCredencialDialog.tsx` (refatorar query e adicionar coluna Status)
+- `src/hooks/useJuditSystemNames.ts`
 
 ## Impacto
-- **Usuário final:** o cartão credencial passa a listar todas as credenciais Judit do tenant (SOLVENZA verá ~30+ registros) com sistema, customer key e status; o campo "Apelido" continua editável e o valor escolhido aparecerá no select de "Importar processo por CNJ" dentro da Controladoria.
-- **Dados:** nenhuma migration. Apenas leitura/escrita já permitidas.
-- **Riscos colaterais:** baixo — usa o mesmo padrão já em produção em `TenantCredenciaisDialog`. Apelido segue persistido via RPC `SECURITY DEFINER` (auditável).
-- **Quem é afetado:** apenas super-admins gerenciando tenants em `/super-admin`.
+- **Usuário final:** o select "Tribunal / Credencial" em "Importar processo por CNJ" (e qualquer outro lugar que use o hook) volta a listar todas as credenciais ativas do tenant, com o apelido aparecendo primeiro (`{apelido} — {system_name}` conforme já implementado no dialog).
+- **Dados:** nenhuma migration. Apenas leitura.
+- **Riscos colaterais:** baixíssimo — RLS continua bloqueando acesso cross-tenant; pior caso, a lista fica vazia se a RLS negar (mesmo comportamento atual).
+- **Quem é afetado:** todos os usuários dos tenants que importam processos (admin, controller, advogado, agenda…).
 
 ## Validação
-- Em `/super-admin`, expandir SOLVENZA → INTEGRAÇÕES → "Cartão Credencial": confirmar lista completa de credenciais com sistema + customer key.
-- Editar um apelido (ex.: "PJE TJRO — Dr. Alan"), salvar, recarregar e confirmar que o valor persiste.
-- Em Controladoria → "Importar processo por CNJ", confirmar que o select mostra `{apelido} — {system_name}` para a credencial renomeada.
+- Como admin da SOLVENZA, abrir "Importar processo por CNJ" e confirmar que o select lista as credenciais Judit (apelidos primeiro, fallback `system_name — customer_key`).
+- Selecionar uma credencial e confirmar que o processo é importado vinculado a ela.
+- Verificar que outras telas que consomem o hook (drawer/edição) continuam funcionando.
