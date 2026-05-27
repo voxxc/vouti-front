@@ -19,6 +19,7 @@ const DECISAO_KEYWORDS = [
   'condeno', 'extingo', 'profiro decisão', 'profiro decisao',
   'antecipação de tutela', 'antecipacao de tutela',
   'liminar', 'tutela provisória', 'tutela provisoria',
+  'intimação', 'intimacao', 'intimação de decisão', 'intimacao de decisao',
 ];
 
 function isDecisao(text: string | null | undefined): boolean {
