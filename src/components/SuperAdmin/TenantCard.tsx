@@ -54,6 +54,7 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
   const [showJuditLogs, setShowJuditLogs] = useState(false);
   const [showBoletos, setShowBoletos] = useState(false);
   const [showCredenciais, setShowCredenciais] = useState(false);
+  const [showCartao, setShowCartao] = useState(false);
   const [showBancoIds, setShowBancoIds] = useState(false);
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
   const [showPushDocs, setShowPushDocs] = useState(false);
