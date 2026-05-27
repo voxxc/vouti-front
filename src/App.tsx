@@ -55,6 +55,7 @@ const MetalReports = lazy(() => import("@/pages/MetalReports"));
 const LinkAuth = lazy(() => import("@/pages/LinkAuth"));
 const LinkDashboard = lazy(() => import("@/pages/LinkDashboard"));
 import LinkPublicProfile from "@/pages/LinkPublicProfile";
+import TenantOrUsernameRoute from "@/components/Routing/TenantOrUsernameRoute";
 const BatinkLanding = lazy(() => import("@/pages/BatinkLanding"));
 const BatinkAuth = lazy(() => import("@/pages/BatinkAuth"));
 const BatinkDashboard = lazy(() => import("@/pages/BatinkDashboard"));
