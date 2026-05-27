@@ -12,6 +12,7 @@ import { NavigationLoadingProvider } from "@/contexts/NavigationLoadingContext";
 import { NavigationLoadingOverlay } from "@/components/Common/NavigationLoadingOverlay";
 import { BackgroundPrefetcher } from "@/components/Common/BackgroundPrefetcher";
 import { useState, useEffect, lazy, Suspense } from 'react';
+import type { ComponentType } from 'react';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,59 +24,97 @@ const queryClient = new QueryClient({
   },
 });
 
+type LazyPageModule<T extends ComponentType<any>> = { default: T };
+
+const BAD_LAZY_RELOAD_KEY = "__vouti_bad_lazy_reload__";
+
+const recoverFromBadLazyModule = async () => {
+  if (typeof window === 'undefined') return;
+  if (sessionStorage.getItem(BAD_LAZY_RELOAD_KEY)) return;
+  sessionStorage.setItem(BAD_LAZY_RELOAD_KEY, '1');
+
+  if ('caches' in window) {
+    await caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))).catch(() => undefined);
+  }
+
+  if ('serviceWorker' in navigator) {
+    await navigator.serviceWorker.getRegistrations()
+      .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister().catch(() => undefined))))
+      .catch(() => undefined);
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set('_r', Date.now().toString());
+  window.location.replace(url.toString());
+};
+
+const lazyPage = <T extends ComponentType<any>>(loader: () => Promise<LazyPageModule<T>>) =>
+  lazy(async () => {
+    const module = await loader().catch(async (error) => {
+      await recoverFromBadLazyModule();
+      throw error;
+    });
+
+    if (!module?.default) {
+      await recoverFromBadLazyModule();
+      throw new Error('Invalid lazy route module: missing default export');
+    }
+
+    return module;
+  });
+
 // Lazy-loaded pages — each page is code-split into its own chunk
-const Auth = lazy(() => import("@/pages/Auth"));
-const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
-const Dashboard = lazy(() => import("@/pages/Dashboard"));
-const Projects = lazy(() => import("@/pages/Projects"));
-const ProjectViewWrapper = lazy(() => import("@/pages/ProjectViewWrapper"));
-const Agenda = lazy(() => import("@/pages/Agenda"));
-const CRM = lazy(() => import("@/pages/CRM"));
-const WhatsApp = lazy(() => import("@/pages/WhatsApp"));
-const ClienteCadastro = lazy(() => import("@/pages/ClienteCadastro"));
-const AcordosViewWrapper = lazy(() => import("@/pages/AcordosViewWrapper"));
-const Financial = lazy(() => import("@/pages/Financial"));
-const Controladoria = lazy(() => import("@/pages/Controladoria"));
-const ControladoriaNovoProcesso = lazy(() => import("@/pages/ControladoriaNovoProcesso"));
-const ControladoriaProcessoDetalhes = lazy(() => import("@/pages/ControladoriaProcessoDetalhes"));
-const PrazosOf = lazy(() => import("@/pages/PrazosOf"));
-const Reunioes = lazy(() => import("@/pages/Reunioes"));
-const ReuniaoClientes = lazy(() => import("@/pages/ReuniaoClientes"));
-const ReuniaoMetricas = lazy(() => import("@/pages/ReuniaoMetricas"));
-const ReuniaoRelatorios = lazy(() => import("@/pages/ReuniaoRelatorios"));
-const AdminReuniaoStatus = lazy(() => import("@/pages/AdminReuniaoStatus"));
-const AdminBackendCode = lazy(() => import("@/pages/AdminBackendCode"));
-const HomePage = lazy(() => import("@/pages/HomePage"));
-const LandingPage1 = lazy(() => import("@/pages/LandingPage1"));
-const LandingPage2 = lazy(() => import("@/pages/LandingPage2"));
-const MetalAuth = lazy(() => import("@/pages/MetalAuth"));
-const MetalDashboard = lazy(() => import("@/pages/MetalDashboard"));
-const MetalAdminUsers = lazy(() => import("@/pages/MetalAdminUsers"));
-const MetalReports = lazy(() => import("@/pages/MetalReports"));
-const LinkAuth = lazy(() => import("@/pages/LinkAuth"));
-const LinkDashboard = lazy(() => import("@/pages/LinkDashboard"));
-import LinkPublicProfile from "@/pages/LinkPublicProfile";
+const Auth = lazyPage(() => import("@/pages/Auth"));
+const ResetPassword = lazyPage(() => import("@/pages/ResetPassword"));
+const Dashboard = lazyPage(() => import("@/pages/Dashboard"));
+const Projects = lazyPage(() => import("@/pages/Projects"));
+const ProjectViewWrapper = lazyPage(() => import("@/pages/ProjectViewWrapper"));
+const Agenda = lazyPage(() => import("@/pages/Agenda"));
+const CRM = lazyPage(() => import("@/pages/CRM"));
+const WhatsApp = lazyPage(() => import("@/pages/WhatsApp"));
+const ClienteCadastro = lazyPage(() => import("@/pages/ClienteCadastro"));
+const AcordosViewWrapper = lazyPage(() => import("@/pages/AcordosViewWrapper"));
+const Financial = lazyPage(() => import("@/pages/Financial"));
+const Controladoria = lazyPage(() => import("@/pages/Controladoria"));
+const ControladoriaNovoProcesso = lazyPage(() => import("@/pages/ControladoriaNovoProcesso"));
+const ControladoriaProcessoDetalhes = lazyPage(() => import("@/pages/ControladoriaProcessoDetalhes"));
+const PrazosOf = lazyPage(() => import("@/pages/PrazosOf"));
+const Reunioes = lazyPage(() => import("@/pages/Reunioes"));
+const ReuniaoClientes = lazyPage(() => import("@/pages/ReuniaoClientes"));
+const ReuniaoMetricas = lazyPage(() => import("@/pages/ReuniaoMetricas"));
+const ReuniaoRelatorios = lazyPage(() => import("@/pages/ReuniaoRelatorios"));
+const AdminReuniaoStatus = lazyPage(() => import("@/pages/AdminReuniaoStatus"));
+const AdminBackendCode = lazyPage(() => import("@/pages/AdminBackendCode"));
+const HomePage = lazyPage(() => import("@/pages/HomePage"));
+const LandingPage1 = lazyPage(() => import("@/pages/LandingPage1"));
+const LandingPage2 = lazyPage(() => import("@/pages/LandingPage2"));
+const MetalAuth = lazyPage(() => import("@/pages/MetalAuth"));
+const MetalDashboard = lazyPage(() => import("@/pages/MetalDashboard"));
+const MetalAdminUsers = lazyPage(() => import("@/pages/MetalAdminUsers"));
+const MetalReports = lazyPage(() => import("@/pages/MetalReports"));
+const LinkAuth = lazyPage(() => import("@/pages/LinkAuth"));
+const LinkDashboard = lazyPage(() => import("@/pages/LinkDashboard"));
 import TenantOrUsernameRoute from "@/components/Routing/TenantOrUsernameRoute";
-const BatinkLanding = lazy(() => import("@/pages/BatinkLanding"));
-const BatinkAuth = lazy(() => import("@/pages/BatinkAuth"));
-const BatinkDashboard = lazy(() => import("@/pages/BatinkDashboard"));
-const BatinkAdmin = lazy(() => import("@/pages/BatinkAdmin"));
-const SpnAuth = lazy(() => import("@/pages/SpnAuth"));
-const SpnDashboard = lazy(() => import("@/pages/SpnDashboard"));
-const VotechAuth = lazy(() => import("@/pages/VotechAuth"));
-const VotechDashboard = lazy(() => import("@/pages/VotechDashboard"));
-const VotechLanding = lazy(() => import("@/pages/VotechLanding"));
-const SuperAdmin = lazy(() => import("@/pages/SuperAdmin"));
-const SuperAdminWhatsApp = lazy(() => import("@/pages/SuperAdminWhatsApp"));
-const NotFound = lazy(() => import("@/pages/NotFound"));
-const Install = lazy(() => import("@/pages/Install"));
-const WhatsAppRedirect = lazy(() => import("@/pages/WhatsAppRedirect"));
-const Documentos = lazy(() => import("@/pages/Documentos"));
-const DocumentoEditar = lazy(() => import("@/pages/DocumentoEditar"));
-const CrmLogin = lazy(() => import("@/pages/CrmLogin"));
-const CrmApp = lazy(() => import("@/pages/CrmApp"));
-const CrmLanding = lazy(() => import("@/pages/CrmLanding"));
-const CrmSalesLanding = lazy(() => import("@/pages/CrmSalesLanding"));
+const BatinkLanding = lazyPage(() => import("@/pages/BatinkLanding"));
+const BatinkAuth = lazyPage(() => import("@/pages/BatinkAuth"));
+const BatinkDashboard = lazyPage(() => import("@/pages/BatinkDashboard"));
+const BatinkAdmin = lazyPage(() => import("@/pages/BatinkAdmin"));
+const SpnAuth = lazyPage(() => import("@/pages/SpnAuth"));
+const SpnDashboard = lazyPage(() => import("@/pages/SpnDashboard"));
+const VotechAuth = lazyPage(() => import("@/pages/VotechAuth"));
+const VotechDashboard = lazyPage(() => import("@/pages/VotechDashboard"));
+const VotechLanding = lazyPage(() => import("@/pages/VotechLanding"));
+const SuperAdmin = lazyPage(() => import("@/pages/SuperAdmin"));
+const SuperAdminWhatsApp = lazyPage(() => import("@/pages/SuperAdminWhatsApp"));
+const NotFound = lazyPage(() => import("@/pages/NotFound"));
+const Install = lazyPage(() => import("@/pages/Install"));
+const WhatsAppRedirect = lazyPage(() => import("@/pages/WhatsAppRedirect"));
+const Documentos = lazyPage(() => import("@/pages/Documentos"));
+const DocumentoEditar = lazyPage(() => import("@/pages/DocumentoEditar"));
+const CrmLogin = lazyPage(() => import("@/pages/CrmLogin"));
+const CrmApp = lazyPage(() => import("@/pages/CrmApp"));
+const CrmLanding = lazyPage(() => import("@/pages/CrmLanding"));
+const CrmSalesLanding = lazyPage(() => import("@/pages/CrmSalesLanding"));
 
 import Logo from "@/components/Logo";
 import { BatinkAuthProvider, useBatinkAuth } from "@/contexts/BatinkAuthContext";
