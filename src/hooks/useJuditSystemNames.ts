@@ -19,9 +19,13 @@ export const useJuditSystemNames = (tenantId: string | null | undefined) => {
     enabled: !!tenantId,
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<JuditCredencial[]> => {
-      const { data, error } = await supabase.rpc('list_judit_credentials', {
-        p_tenant_id: tenantId!,
-      });
+      const { data, error } = await supabase
+        .from('credenciais_judit')
+        .select('id, system_name, customer_key, apelido')
+        .eq('tenant_id', tenantId!)
+        .eq('status', 'active')
+        .order('apelido', { ascending: true, nullsFirst: false })
+        .order('system_name', { ascending: true });
 
       if (error) throw error;
       return (data || []) as JuditCredencial[];
