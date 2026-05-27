@@ -740,8 +740,8 @@ function App() {
             {/* Legacy redirect */}
             <Route path="/super-admin/bot" element={<Navigate to="/super-admin/crm" replace />} />
             
-            {/* Public Link-in-Bio Profile */}
-            <Route path="/:username" element={<LinkPublicProfile />} />
+            {/* /:slug → tenant auth (redireciona) ou Link-in-Bio público */}
+            <Route path="/:slug" element={<TenantOrUsernameRoute />} />
             
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
