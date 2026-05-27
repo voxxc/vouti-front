@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus, FileStack, Loader2, FileWarning, Clock } from 'lucide-react';
+import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus, FileStack, Loader2, FileWarning, Clock, IdCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
