@@ -199,6 +199,11 @@ async function processarAnexosDeDecisao(params: {
       const orgao = step?.court || step?.tribunal || step?.organ || null;
       const responsavel = step?.judge || step?.magistrado || null;
 
+      // Auto-criação de Publicação continua restrita ao piloto Demorais
+      if (tenantId !== DEMORAIS_TENANT_ID) {
+        continue;
+      }
+
       const { error: pubErr } = await supabase
         .from('publicacoes')
         .insert({
