@@ -19,6 +19,7 @@ const DECISAO_KEYWORDS = [
   'condeno', 'extingo', 'profiro decisão', 'profiro decisao',
   'antecipação de tutela', 'antecipacao de tutela',
   'liminar', 'tutela provisória', 'tutela provisoria',
+  'intimação', 'intimacao', 'intimação de decisão', 'intimacao de decisao',
 ];
 
 function isDecisao(text: string | null | undefined): boolean {
@@ -88,7 +89,7 @@ async function downloadJuditAttachment(params: {
 async function extractPdfText(bytes: Uint8Array, maxChars = 50000): Promise<string | null> {
   try {
     // @ts-ignore
-    const pdfjs: any = await import('https://esm.sh/pdfjs-dist@3.11.174/legacy/build/pdf.mjs');
+    const pdfjs: any = await import('npm:pdfjs-dist@3.11.174/legacy/build/pdf.mjs');
     const loadingTask = pdfjs.getDocument({ data: bytes, disableWorker: true, isEvalSupported: false });
     const pdf = await loadingTask.promise;
     let out = '';
@@ -197,6 +198,11 @@ async function processarAnexosDeDecisao(params: {
       const stepDateOnly = stepDate ? new Date(stepDate).toISOString().slice(0, 10) : null;
       const orgao = step?.court || step?.tribunal || step?.organ || null;
       const responsavel = step?.judge || step?.magistrado || null;
+
+      // Auto-criação de Publicação continua restrita ao piloto Demorais
+      if (tenantId !== DEMORAIS_TENANT_ID) {
+        continue;
+      }
 
       const { error: pubErr } = await supabase
         .from('publicacoes')
@@ -403,7 +409,7 @@ serve(async (req) => {
     // Fetch all monitored processes
     let query = supabase
       .from('processos_oab')
-      .select('id, tracking_id, numero_cnj, tenant_id')
+      .select('id, tracking_id, numero_cnj, tenant_id, with_attachments')
       .eq('monitoramento_ativo', true)
       .not('tracking_id', 'is', null);
 
@@ -624,9 +630,11 @@ serve(async (req) => {
                 latestAndamentoDate = normalizedDate;
               }
 
-              // Demorais piloto: detectar decisão e auto-alimentar Publicações
+              // Persistir anexos de decisão para qualquer tenant com with_attachments=true.
+              // A criação de Publicação dentro de processarAnexosDeDecisao continua
+              // restrita ao piloto Demorais.
               if (
-                processo.tenant_id === DEMORAIS_TENANT_ID &&
+                processo.with_attachments === true &&
                 insertedAndamento?.id &&
                 isDecisao(stepContent)
               ) {
