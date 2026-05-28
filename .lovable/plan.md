@@ -1,54 +1,40 @@
-## Causa raiz
-O erro é de empilhamento/portal de dialogs, não apenas de regra de negócio:
+# Processos sigilosos por tenant (super-admin)
 
-1. `DeadlineDetailDialog` abre o detalhe do prazo com `z-[80]`, mas o `EditarPrazoDialog` usa o `DialogContent` padrão (`z-50`). Então, ao clicar em “Editar”, o editor nasce atrás/embaixo do detalhe do prazo.
-2. No Planejador, `PlanejadorTaskDetail` é uma camada própria `absolute z-[60]`. Quando ele abre `EditarPrazoDialog`, o editor também usa `z-50`, ficando abaixo do painel de detalhe da tarefa.
-3. Os `AlertDialog` de concluir/reabrir têm `AlertDialogContent z-[100]`, mas o overlay padrão continua em `z-50`; além disso, o detalhe pai ainda compete com a camada ativa durante transições/foco.
+## Causa raiz
+Hoje não há visão dedicada para processos com `secrecy_level > 0` por tenant. O campo existe dentro do JSON `processos_oab.capa_completa` (`secrecy_level`: 0 público, 1 segredo de justiça, 5 sigilo absoluto). No painel super-admin já existem pills tipo "Processos parados" / "Processos incompletos", mas não há equivalente para sigilosos.
 
 ## Correção
-1. Ajustar `DeadlineDetailDialog` para tratar qualquer ação filha como camada exclusiva:
-   - `actionDialogOpen = !!confirmCompleteId || !!reopenDeadlineId || isEditDialogOpen`.
-   - Enquanto uma ação estiver aberta, o detalhe do prazo não deve ficar visualmente/interativamente por cima.
-   - O botão “Editar” passará a abrir o editor como modal principal, não como modal por baixo do detalhe.
+1. **RPC `get_tenant_processos_sigilosos(p_tenant_id uuid)`** (SECURITY DEFINER, restrita a super-admin via `is_super_admin(auth.uid())` no início) — retorna, para o tenant informado, todos os `processos_oab` onde `(capa_completa->>'secrecy_level')::int > 0`:
+   - `id`, `numero_cnj`, `oab_id`, `tribunal_sigla`, `parte_ativa`, `parte_passiva`, `secrecy_level`, `monitoramento_ativo`, `ultima_atualizacao_detalhes`, `created_at`.
+   - Ordena por `secrecy_level desc, ultima_atualizacao_detalhes desc nulls last`.
 
-2. Elevar e padronizar a camada do editor de prazo:
-   - Permitir que `EditarPrazoDialog` receba uma `contentClassName` opcional ou aplicar nele um z-index alto consistente (`z-[110]`/`z-[120]`).
-   - Garantir que `PopoverContent` do calendário e `SelectContent` internos do editor também fiquem acima do próprio editor, para não abrirem “cortados” ou atrás.
+2. **Hook** `src/hooks/useTenantProcessosSigilosos.ts` no mesmo padrão de `useTenantProcessosParados`: query habilitada quando o dialog abre.
 
-3. Corrigir o caso específico do Planejador:
-   - Quando `PlanejadorTaskDetail` abrir o editor de um prazo relacionado, o painel da tarefa não deve cobrir o editor.
-   - Aplicar z-index alto ao `EditarPrazoDialog` nesse fluxo e, se necessário, desabilitar/ocultar a camada visual do detalhe enquanto o editor estiver aberto.
+3. **Dialog** `src/components/SuperAdmin/TenantProcessosSigilososDialog.tsx`:
+   - Cabeçalho com nome do tenant e contagem total.
+   - Tabela: CNJ (mono), Partes (ativa x passiva), Tribunal, OAB vinculada, Nível de sigilo (badge: 1 = "Segredo de justiça" amarelo, 5 = "Sigilo absoluto" vermelho), Monitoramento (badge on/off), Última atualização (`formatRelativeDate`).
+   - Filtro local por nível (Todos / 1 / 5) e busca por CNJ/parte.
+   - Estado vazio amigável.
 
-4. Fortalecer os dialogs de confirmação:
-   - Subir também o overlay dos `AlertDialog` de concluir/reabrir/excluir quando usados dentro de detalhe de prazo/tarefa.
-   - Evitar que o detalhe pai capture clique/foco enquanto o modal de confirmação está aberto.
+4. **`src/components/SuperAdmin/TenantRow.tsx`** — adicionar pill `Processos sigilosos` (ícone `Lock` ou `ShieldAlert` do lucide) no `ActionGroup label="Auditoria"`, abrindo o novo dialog. Reaproveitar o estado `showSigilosos`.
+   - Replicar a mesma pill no `TenantRowMobile.tsx` e `TenantCard.tsx` para manter paridade visual (mesmos botões em mobile/desktop).
 
 ## Arquivos afetados
-- `src/components/Agenda/DeadlineDetailDialog.tsx`
-  - Controle de camada ativa para concluir, reabrir e editar.
-  - Ajuste do `EditarPrazoDialog` chamado pelo detalhe.
-  - Ajuste dos `AlertDialogContent` e possível overlay class.
-
-- `src/components/Agenda/EditarPrazoDialog.tsx`
-  - Aceitar classe opcional para camada do conteúdo.
-  - Subir `PopoverContent` e `SelectContent` internos acima do dialog.
-
-- `src/components/Planejador/PlanejadorTaskDetail.tsx`
-  - Garantir que o editor de prazo relacionado abra acima do detalhe da tarefa.
-  - Ajustar camada dos confirmations dentro do detalhe da tarefa.
-
-- Possivelmente `src/components/ui/alert-dialog.tsx`
-  - Se necessário, permitir `overlayClassName` no `AlertDialogContent` para controlar overlay e conteúdo juntos sem hacks locais.
+- novo: `supabase/migrations/<timestamp>_get_tenant_processos_sigilosos.sql`
+- novo: `src/hooks/useTenantProcessosSigilosos.ts`
+- novo: `src/components/SuperAdmin/TenantProcessosSigilososDialog.tsx`
+- edit: `src/components/SuperAdmin/TenantRow.tsx`
+- edit: `src/components/SuperAdmin/TenantRowMobile.tsx`
+- edit: `src/components/SuperAdmin/TenantCard.tsx`
 
 ## Impacto
-1. **Usuário final:** ao concluir, reabrir, excluir ou editar prazos pelo Planejador ou Dashboard, o modal correto aparece na frente, centralizado e clicável. O editor de prazo não abre mais “feio” por baixo do detalhe.
-2. **Dados:** nenhuma migration, RLS ou alteração de schema. A conclusão, reabertura, edição, comentários de auditoria, tags e notificações continuam usando as mesmas tabelas e updates atuais.
-3. **Riscos colaterais:** baixo a moderado. A mudança afeta empilhamento e foco de dialogs compartilhados por Agenda/Planejador; precisa validar calendário/select dentro do editor para não criar regressão visual.
-4. **Quem é afetado:** usuários que editam/concluem/reabrem prazos pela Agenda, Dashboard/Planejador e detalhe de tarefa do Planejador; principalmente admin, controller, agenda e advogados.
+1. **Usuário final (super-admin)**: nova pill na linha "Auditoria" de cada tenant; ao abrir, lista todos os processos sigilosos daquele cliente com nível, partes, OAB, status de monitoramento e última atualização. Nenhum tenant comum vê nada — é UI exclusiva do painel super-admin.
+2. **Dados**: nenhuma alteração estrutural. Apenas uma nova função RPC `SECURITY DEFINER` de leitura sobre `processos_oab` filtrando por `tenant_id` e por `secrecy_level > 0` lido do JSON `capa_completa`. Sem migrations destrutivas, sem mudança em RLS de tabelas existentes.
+3. **Riscos colaterais**: baixos. A RPC precisa do guard `is_super_admin` para não virar vazamento cross-tenant; sem o guard, qualquer usuário autenticado conseguiria ler processos sigilosos de outros tenants. Performance: o filtro depende de cast JSON; com volume atual (~700 processos no tenant testado) é trivial, mas para tenants grandes pode-se adicionar índice `((capa_completa->>'secrecy_level'))` em iteração futura se necessário.
+4. **Afetados**: somente super-admins. Advogados, admins de tenant, estagiários etc. não veem mudança nenhuma.
 
 ## Validação
-1. Abrir Planejador pelo dashboard e clicar em um prazo.
-2. No detalhe do prazo, clicar em “Marcar como Concluído” e confirmar que o modal aparece acima de tudo, aceita digitação e conclui sem erro.
-3. No detalhe do prazo, abrir “Editar” e confirmar que o editor aparece acima do detalhe, com calendário e selects abrindo corretamente.
-4. Abrir uma tarefa do Planejador com prazos relacionados e clicar no ícone de editar prazo; confirmar que o editor aparece acima do painel da tarefa.
-5. Testar reabrir prazo concluído e excluir prazo/tarefa para confirmar que os confirmations não ficam atrás.
+- Executar a RPC para o tenant Solvenza e conferir que retorna ~44 processos (39 nível 1 + 5 nível 5) batendo com a contagem atual do banco.
+- Conferir que usuário não super-admin recebe erro/array vazio ao chamar a RPC.
+- Abrir o dialog no card da Solvenza e validar contagem, filtro por nível e busca.
+- Smoke test em mobile (`TenantRowMobile`) e no `TenantCard`.
