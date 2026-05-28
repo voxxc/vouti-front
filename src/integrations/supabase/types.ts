@@ -11359,6 +11359,10 @@ export type Database = {
         Args: { _deadline_id: string; _user_id: string }
         Returns: boolean
       }
+      is_mentioned_in_deadline: {
+        Args: { _deadline_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_project_member: {
         Args: { project_id: string; uid?: string }
         Returns: boolean
