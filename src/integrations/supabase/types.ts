@@ -11227,6 +11227,21 @@ export type Database = {
           ultima_movimentacao: string
         }[]
       }
+      get_tenant_processos_sigilosos: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          monitoramento_ativo: boolean
+          numero_cnj: string
+          oab_id: string
+          parte_ativa: string
+          parte_passiva: string
+          secrecy_level: number
+          tribunal_sigla: string
+          ultima_atualizacao_detalhes: string
+        }[]
+      }
       get_tenant_trackings_live: {
         Args: { p_tenant_id: string }
         Returns: {
