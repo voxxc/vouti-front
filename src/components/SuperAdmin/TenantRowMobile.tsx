@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   Settings, ExternalLink, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash,
   ChevronRight, ChevronDown, UserPlus, FileStack, Loader2, FileWarning, Clock,
-  MoreHorizontal, Database, IdCard,
+  MoreHorizontal, Database, IdCard, ShieldAlert,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,7 @@ import { CreateTenantAdminDialog } from './CreateTenantAdminDialog';
 import { TenantPushDocsDialog } from './TenantPushDocsDialog';
 import { TenantProcessosIncompletosDialog } from './TenantProcessosIncompletosDialog';
 import { TenantProcessosParadosDialog } from './TenantProcessosParadosDialog';
+import { TenantProcessosSigilososDialog } from './TenantProcessosSigilososDialog';
 import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
 import CloudIcon from '@/components/CloudIcon';
 import { supabase } from '@/integrations/supabase/client';
@@ -60,6 +61,7 @@ export function TenantRowMobile({
   const [showPushDocs, setShowPushDocs] = useState(false);
   const [showProcessosIncompletos, setShowProcessosIncompletos] = useState(false);
   const [showParados, setShowParados] = useState(false);
+  const [showSigilosos, setShowSigilosos] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [whatsAppLoading, setWhatsAppLoading] = useState(false);
@@ -207,6 +209,7 @@ export function TenantRowMobile({
               <PillButton fullWidth icon={FileWarning} onClick={() => setShowProcessosIncompletos(true)} badge={incompleteProcessosCount}>Incompletos</PillButton>
               <PillButton fullWidth icon={FileStack} onClick={() => setShowPushDocs(true)}>Push-Docs</PillButton>
               <PillButton fullWidth icon={Hash} onClick={() => setShowBancoIds(true)}>Banco de IDs</PillButton>
+              <PillButton fullWidth icon={ShieldAlert} onClick={() => setShowSigilosos(true)}>Sigilosos</PillButton>
             </ActionGroup>
 
             <ActionGroup label="Integrações" variant="stacked">
@@ -258,6 +261,7 @@ export function TenantRowMobile({
       <TenantPushDocsDialog open={showPushDocs} onOpenChange={setShowPushDocs} tenant={tenant} />
       <TenantProcessosIncompletosDialog open={showProcessosIncompletos} onOpenChange={setShowProcessosIncompletos} tenant={tenant} onComplete={onIncompleteRefresh} />
       <TenantProcessosParadosDialog open={showParados} onOpenChange={setShowParados} tenant={tenant} />
+      <TenantProcessosSigilososDialog open={showSigilosos} onOpenChange={setShowSigilosos} tenant={tenant} />
     </>
   );
 }
