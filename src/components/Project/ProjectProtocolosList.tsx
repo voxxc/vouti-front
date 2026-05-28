@@ -163,8 +163,8 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
     if (found) {
       setSelectedProtocoloId(found.id);
       setView('detalhes');
+      onProtocoloConsumed?.();
     }
-    onProtocoloConsumed?.();
   }, [initialProtocoloId, loading, protocolos]);
 
   // Load carteiras
