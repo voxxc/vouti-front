@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus, FileStack, Loader2, FileWarning, Clock, IdCard } from 'lucide-react';
+import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus, FileStack, Loader2, FileWarning, Clock, IdCard, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,7 @@ import { CreateTenantAdminDialog } from './CreateTenantAdminDialog';
 import { TenantPushDocsDialog } from './TenantPushDocsDialog';
 import { TenantProcessosIncompletosDialog } from './TenantProcessosIncompletosDialog';
 import { TenantProcessosParadosDialog } from './TenantProcessosParadosDialog';
+import { TenantProcessosSigilososDialog } from './TenantProcessosSigilososDialog';
 import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
 import CloudIcon from '@/components/CloudIcon';
 import { supabase } from '@/integrations/supabase/client';
@@ -315,6 +316,15 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
             >
               <Clock className="h-4 w-4" />
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setShowSigilosos(true)}
+              title="Processos sigilosos"
+            >
+              <ShieldAlert className="h-4 w-4" />
+            </Button>
             <Button 
               variant="ghost" 
               size="icon"
@@ -418,6 +428,12 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
       <TenantProcessosParadosDialog
         open={showParados}
         onOpenChange={setShowParados}
+        tenant={tenant}
+      />
+
+      <TenantProcessosSigilososDialog
+        open={showSigilosos}
+        onOpenChange={setShowSigilosos}
         tenant={tenant}
       />
     </>
