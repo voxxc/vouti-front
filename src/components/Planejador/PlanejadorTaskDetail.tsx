@@ -478,7 +478,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                   <Plus className="h-3.5 w-3.5 mr-1" /> Definir data
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-3" align="start">
+              <PopoverContent className="w-auto p-3 z-[80]" align="start">
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-muted-foreground">Pausar até</label>
                   <Input
@@ -1025,7 +1025,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent>
+                <AlertDialogContent className="z-[120]" overlayClassName="z-[110]">
                   <AlertDialogHeader>
                     <AlertDialogTitle>Excluir tarefa</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -1110,6 +1110,8 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
           deadline={editingPrazoDeadline}
           open={editPrazoOpen}
           onOpenChange={setEditPrazoOpen}
+          contentClassName="z-[120]"
+          overlayClassName="z-[110]"
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['planejador-prazos'] });
             queryClient.invalidateQueries({ queryKey: ['planejador-tasks'] });

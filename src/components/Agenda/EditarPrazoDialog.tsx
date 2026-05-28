@@ -24,6 +24,8 @@ interface EditarPrazoDialogProps {
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
   tenantId: string;
+  contentClassName?: string;
+  overlayClassName?: string;
 }
 
 export const EditarPrazoDialog = ({
@@ -31,7 +33,9 @@ export const EditarPrazoDialog = ({
   open,
   onOpenChange,
   onSuccess,
-  tenantId
+  tenantId,
+  contentClassName,
+  overlayClassName
 }: EditarPrazoDialogProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -416,7 +420,7 @@ export const EditarPrazoDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent overlayClassName={overlayClassName} className={cn("max-w-md max-h-[90vh] overflow-y-auto z-[110]", contentClassName)}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="h-5 w-5" />
@@ -460,7 +464,7 @@ export const EditarPrazoDialog = ({
                   {date ? format(date, "dd/MM/yyyy", { locale: ptBR }) : "Selecionar data"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 z-[130]" align="start">
                 <Calendar
                   mode="single"
                   selected={date}
@@ -525,7 +529,7 @@ export const EditarPrazoDialog = ({
               <SelectTrigger className="mt-1">
                 <SelectValue placeholder="Sem projeto" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[130]">
                 <SelectItem value="none">Sem projeto</SelectItem>
                 {availableProjects.map(p => (
                   <SelectItem key={p.id} value={p.id}>{p.name} - {p.client}</SelectItem>
@@ -544,7 +548,7 @@ export const EditarPrazoDialog = ({
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Workspace padrão" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[130]">
                   <SelectItem value="default">Workspace padrão</SelectItem>
                   {availableWorkspaces.map(ws => (
                     <SelectItem key={ws.id} value={ws.id}>{ws.nome}</SelectItem>
@@ -564,7 +568,7 @@ export const EditarPrazoDialog = ({
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Sem protocolo" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[130]">
                   <SelectItem value="none">Sem protocolo</SelectItem>
                   {availableProtocolos.map(p => (
                     <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
@@ -584,7 +588,7 @@ export const EditarPrazoDialog = ({
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Sem etapa" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[130]">
                   <SelectItem value="none">Sem etapa</SelectItem>
                   {availableEtapas.map(e => (
                     <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>

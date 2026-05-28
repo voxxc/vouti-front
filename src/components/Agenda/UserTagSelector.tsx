@@ -130,7 +130,7 @@ const UserTagSelector = ({ selectedUsers, onChange, excludeCurrentUser = false }
           </Button>
         </PopoverTrigger>
         
-        <PopoverContent className="w-full p-0" align="start">
+        <PopoverContent className="w-full p-0 z-[130]" align="start">
           <div className="p-2 border-b">
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />

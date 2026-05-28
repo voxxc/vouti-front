@@ -356,16 +356,18 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
     }
   };
 
+  const actionDialogOpen = !!confirmCompleteId || !!reopenDeadlineId || isEditDialogOpen;
+
   return (
     <>
       <Dialog
-        open={open && !confirmCompleteId && !reopenDeadlineId}
+        open={open && !actionDialogOpen}
         onOpenChange={(next) => {
           // Bloqueia o auto-close do Dialog quando um AlertDialog filho assume o foco
-          if (!next && (confirmCompleteId || reopenDeadlineId)) return;
+          if (!next && actionDialogOpen) return;
           onOpenChange(next);
         }}
-        modal={!confirmCompleteId && !reopenDeadlineId}
+        modal={!actionDialogOpen}
       >
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto z-[80]">
           {loading && <div className="py-8 text-center text-muted-foreground">Carregando...</div>}
@@ -502,7 +504,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="z-[90]">
                           <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
                             <Pencil className="h-4 w-4 mr-2" /> Editar
                           </DropdownMenuItem>
@@ -513,7 +515,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                           </AlertDialogTrigger>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                      <AlertDialogContent>
+                      <AlertDialogContent className="z-[120]" overlayClassName="z-[110]">
                         <AlertDialogHeader>
                           <AlertDialogTitle>Excluir Prazo</AlertDialogTitle>
                           <AlertDialogDescription>Tem certeza que deseja excluir este prazo? Esta ação não pode ser desfeita.</AlertDialogDescription>
@@ -567,7 +569,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
 
       {/* Confirm complete dialog */}
       <AlertDialog open={!!confirmCompleteId} onOpenChange={(open) => { if (!open) { setConfirmCompleteId(null); setComentarioConclusao(""); setCriarSubtarefa(false); setSubtarefaDescricao(""); setCumprirEtapa(false); } }}>
-        <AlertDialogContent className="z-[100]">
+        <AlertDialogContent className="z-[120]" overlayClassName="z-[110]">
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Conclusão do Prazo</AlertDialogTitle>
             <AlertDialogDescription>Descreva o que foi realizado para concluir este prazo.</AlertDialogDescription>
@@ -614,7 +616,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
       </AlertDialog>
       {/* AlertDialog de reabertura */}
       <AlertDialog open={!!reopenDeadlineId} onOpenChange={(open) => { if (!open) { setReopenDeadlineId(null); setReopenMotivo(""); } }}>
-        <AlertDialogContent className="z-[100]">
+        <AlertDialogContent className="z-[120]" overlayClassName="z-[110]">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <RotateCcw className="h-5 w-5" /> Reabrir Prazo
@@ -639,6 +641,8 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
           deadline={deadline}
           open={isEditDialogOpen}
           onOpenChange={setIsEditDialogOpen}
+          contentClassName="z-[120]"
+          overlayClassName="z-[110]"
           onSuccess={() => {
             if (deadlineId) fetchDeadline(deadlineId);
           }}

@@ -56,14 +56,14 @@ const AdvogadoSelector = ({ value, onChange }: AdvogadoSelectorProps) => {
     <div>
       <Label htmlFor="advogado">Responsável</Label>
       <Select
-        value={value || undefined}
+        value={value || ''}
         onValueChange={onChange}
         disabled={loading}
       >
         <SelectTrigger>
           <SelectValue placeholder="Selecione o responsável" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="z-[130]">
           {advogados.map((advogado) => (
             <SelectItem key={advogado.id} value={advogado.id}>
               {advogado.full_name}
