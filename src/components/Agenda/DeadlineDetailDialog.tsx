@@ -162,6 +162,14 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
 
       if (error || !data) {
         console.error('[DeadlineDetailDialog] Error:', error);
+        if ((error as any)?.code === 'PGRST116') {
+          toast({
+            title: 'Prazo indisponível',
+            description: 'Você não tem mais acesso a este prazo ou ele foi removido.',
+            variant: 'destructive',
+          });
+          onOpenChange(false);
+        }
         setLoading(false);
         return;
       }
