@@ -41,6 +41,7 @@ window.addEventListener("error", (e) => {
 window.addEventListener("unhandledrejection", (e: PromiseRejectionEvent) => void recoverFromStaleAsset(String(e?.reason?.message || e?.reason || "")));
 window.addEventListener("load", () => {
   setTimeout(() => sessionStorage.removeItem(RELOAD_KEY), 3000);
+  setTimeout(() => sessionStorage.removeItem("__vouti_bad_lazy_reload__"), 3000);
 });
 
 createRoot(document.getElementById("root")!).render(

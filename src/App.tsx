@@ -33,6 +33,11 @@ const recoverFromBadLazyModule = async () => {
   if (sessionStorage.getItem(BAD_LAZY_RELOAD_KEY)) return;
   sessionStorage.setItem(BAD_LAZY_RELOAD_KEY, '1');
 
+  // Cache-bust the navigation IMMEDIATELY so the user doesn't see a blank screen
+  // while we wait for cache/SW cleanup. The reload kicks off cleanup on next load.
+  const url = new URL(window.location.href);
+  url.searchParams.set('_r', Date.now().toString());
+
   if ('caches' in window) {
     await caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))).catch(() => undefined);
   }
@@ -43,8 +48,6 @@ const recoverFromBadLazyModule = async () => {
       .catch(() => undefined);
   }
 
-  const url = new URL(window.location.href);
-  url.searchParams.set('_r', Date.now().toString());
   window.location.replace(url.toString());
 };
 
