@@ -61,6 +61,7 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
   const [showPushDocs, setShowPushDocs] = useState(false);
   const [showProcessosIncompletos, setShowProcessosIncompletos] = useState(false);
   const [showParados, setShowParados] = useState(false);
+  const [showSigilosos, setShowSigilosos] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [whatsAppLoading, setWhatsAppLoading] = useState(false);
