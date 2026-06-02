@@ -142,6 +142,7 @@ Deno.serve(async (req) => {
         attachmentsEncontrados: unique.length,
         processosAtualizados: processos.length,
         inseridos,
+        debug,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
