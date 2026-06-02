@@ -648,12 +648,53 @@ serve(async (req) => {
       }
     }
 
+    // === INSERIR/ATUALIZAR ANEXOS (attachments) ===
+    let anexosInseridos = 0;
+    if (attachments.length > 0) {
+      // Deduplica por attachment_id no batch
+      const seen = new Set<string>();
+      const uniqueAttachments = attachments.filter((a: any) => {
+        const id = String(a?.attachment_id || a?.id || '');
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+
+      const processIds = [processo.id, ...((processosCompartilhados || []).map((p: any) => p.id))];
+
+      for (const pid of processIds) {
+        for (const attachment of uniqueAttachments) {
+          const { error: anexoError } = await supabase
+            .from('processos_oab_anexos')
+            .upsert({
+              processo_oab_id: pid,
+              attachment_id: attachment.attachment_id || attachment.id,
+              attachment_name: attachment.attachment_name || attachment.name || 'Documento',
+              extension: attachment.extension || attachment.file_extension || null,
+              status: attachment.status || 'done',
+              content_description: attachment.content || attachment.description || null,
+              is_private: attachment.is_private || false,
+              step_id: attachment.step_id || null,
+              tenant_id: processo.tenant_id,
+            }, { onConflict: 'processo_oab_id,attachment_id' });
+
+          if (!anexoError) {
+            anexosInseridos++;
+          } else if (!anexoError.message?.includes('duplicate') && !anexoError.message?.includes('unique')) {
+            console.error('[Judit Webhook OAB] Erro inserindo anexo:', anexoError.message);
+          }
+        }
+      }
+      console.log('[Judit Webhook OAB] Anexos inseridos/atualizados:', anexosInseridos);
+    }
+
     console.log('[Judit Webhook OAB] ========== FIM WEBHOOK ==========');
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         novosAndamentos,
+        anexosInseridos,
         processosCompartilhados: processosCompartilhados?.length || 0,
         notificacoesEnviadas: novosAndamentos > 0
       }),
