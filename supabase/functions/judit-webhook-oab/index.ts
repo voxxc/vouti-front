@@ -279,11 +279,15 @@ serve(async (req) => {
 
     // Passo 2: Tentar extrair steps do payload direto (fallback)
     let steps: any[] = [];
+    let attachments: any[] = [];
     const responseDataDirect = payload.response_data || payload.payload?.response_data;
     
     if (responseDataDirect?.steps && responseDataDirect.steps.length > 0) {
       console.log('[Judit Webhook OAB] Dados encontrados direto no payload');
       steps = responseDataDirect.steps;
+      if (Array.isArray(responseDataDirect.attachments)) {
+        attachments = [...attachments, ...responseDataDirect.attachments];
+      }
     } else {
       // Passo 3: Buscar dados via API seguindo fluxo correto
       console.log('[Judit Webhook OAB] Buscando dados via API...');
@@ -301,6 +305,9 @@ serve(async (req) => {
           if (latestResponse.response_data?.steps) {
             console.log('[Judit Webhook OAB] Steps encontrados no historico do tracking');
             steps = latestResponse.response_data.steps;
+            if (Array.isArray(latestResponse.response_data.attachments)) {
+              attachments = [...attachments, ...latestResponse.response_data.attachments];
+            }
           } else if (latestResponse.request_id) {
             // 3b. GET /responses?request_id=... para dados completos
             console.log('[Judit Webhook OAB] Buscando responses para request_id:', latestResponse.request_id);
@@ -310,6 +317,9 @@ serve(async (req) => {
               for (const item of responsesData.page_data) {
                 if (item.response_data?.steps) {
                   steps = [...steps, ...item.response_data.steps];
+                }
+                if (Array.isArray(item.response_data?.attachments)) {
+                  attachments = [...attachments, ...item.response_data.attachments];
                 }
               }
             }
@@ -324,6 +334,9 @@ serve(async (req) => {
               if (item.response_data?.steps) {
                 steps = [...steps, ...item.response_data.steps];
               }
+              if (Array.isArray(item.response_data?.attachments)) {
+                attachments = [...attachments, ...item.response_data.attachments];
+              }
             }
           }
         } else if (trackingData.last_request_id) {
@@ -336,6 +349,9 @@ serve(async (req) => {
               if (item.response_data?.steps) {
                 steps = [...steps, ...item.response_data.steps];
               }
+              if (Array.isArray(item.response_data?.attachments)) {
+                attachments = [...attachments, ...item.response_data.attachments];
+              }
             }
           }
         }
@@ -343,6 +359,7 @@ serve(async (req) => {
     }
 
     console.log('[Judit Webhook OAB] Total de steps encontrados:', steps.length);
+    console.log('[Judit Webhook OAB] Total de attachments encontrados:', attachments.length);
 
     if (steps.length === 0) {
       console.log('[Judit Webhook OAB] Nenhum andamento encontrado');
@@ -631,12 +648,53 @@ serve(async (req) => {
       }
     }
 
+    // === INSERIR/ATUALIZAR ANEXOS (attachments) ===
+    let anexosInseridos = 0;
+    if (attachments.length > 0) {
+      // Deduplica por attachment_id no batch
+      const seen = new Set<string>();
+      const uniqueAttachments = attachments.filter((a: any) => {
+        const id = String(a?.attachment_id || a?.id || '');
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+
+      const processIds = [processo.id, ...((processosCompartilhados || []).map((p: any) => p.id))];
+
+      for (const pid of processIds) {
+        for (const attachment of uniqueAttachments) {
+          const { error: anexoError } = await supabase
+            .from('processos_oab_anexos')
+            .upsert({
+              processo_oab_id: pid,
+              attachment_id: attachment.attachment_id || attachment.id,
+              attachment_name: attachment.attachment_name || attachment.name || 'Documento',
+              extension: attachment.extension || attachment.file_extension || null,
+              status: attachment.status || 'done',
+              content_description: attachment.content || attachment.description || null,
+              is_private: attachment.is_private || false,
+              step_id: attachment.step_id || null,
+              tenant_id: processo.tenant_id,
+            }, { onConflict: 'processo_oab_id,attachment_id' });
+
+          if (!anexoError) {
+            anexosInseridos++;
+          } else if (!anexoError.message?.includes('duplicate') && !anexoError.message?.includes('unique')) {
+            console.error('[Judit Webhook OAB] Erro inserindo anexo:', anexoError.message);
+          }
+        }
+      }
+      console.log('[Judit Webhook OAB] Anexos inseridos/atualizados:', anexosInseridos);
+    }
+
     console.log('[Judit Webhook OAB] ========== FIM WEBHOOK ==========');
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         novosAndamentos,
+        anexosInseridos,
         processosCompartilhados: processosCompartilhados?.length || 0,
         notificacoesEnviadas: novosAndamentos > 0
       }),

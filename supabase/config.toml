@@ -42,6 +42,9 @@ verify_jwt = true
 [functions.judit-buscar-detalhes-processo]
 verify_jwt = true
 
+[functions.judit-backfill-anexos]
+verify_jwt = false
+
 [functions.judit-ativar-monitoramento-oab]
 verify_jwt = true
 
