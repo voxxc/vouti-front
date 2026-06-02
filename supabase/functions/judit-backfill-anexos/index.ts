@@ -60,41 +60,49 @@ Deno.serve(async (req) => {
     const tenantId = processos[0].tenant_id;
 
     // 1) Buscar tracking (histórico)
-    const trkRes = await fetch(`${TRACKING_URL}/${trackingId}`, {
-      headers: { 'api-key': juditApiKey, 'Content-Type': 'application/json' },
-    });
-    if (!trkRes.ok) {
-      const txt = await trkRes.text();
-      return new Response(JSON.stringify({ success: false, error: `tracking ${trkRes.status}`, body: txt.substring(0, 400) }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const trk = await trkRes.json();
-
-    // 2) Coletar attachments de todas as response_data disponíveis
+    // Coletar attachments do histórico de responses via /responses?tracking_id=...
+    // (Leitura do histórico já armazenado — sem custo Judit, sem nova consulta paga.)
     const attachments: any[] = [];
-    const pageData = Array.isArray(trk.page_data) ? trk.page_data : [];
+    const debug: any = { trackingMeta: null, pages: 0, totalResponses: 0, withAttachments: 0 };
 
-    for (const item of pageData) {
-      const rd = item.response_data;
-      if (rd?.attachments && Array.isArray(rd.attachments)) {
-        attachments.push(...rd.attachments);
-      } else if (item.request_id) {
-        // Buscar via responses
-        try {
-          const r = await fetch(`${REQUESTS_URL}?request_id=${item.request_id}`, {
-            headers: { 'api-key': juditApiKey, 'Content-Type': 'application/json' },
-          });
-          if (r.ok) {
-            const j = await r.json();
-            for (const it of (j.page_data || [])) {
-              if (Array.isArray(it.response_data?.attachments)) {
-                attachments.push(...it.response_data.attachments);
-              }
-            }
-          }
-        } catch (_) { /* noop */ }
+    // Meta do tracking (informativo)
+    try {
+      const trkRes = await fetch(`${TRACKING_URL}/${trackingId}`, {
+        headers: { 'api-key': juditApiKey, 'Content-Type': 'application/json' },
+      });
+      if (trkRes.ok) {
+        const trk = await trkRes.json();
+        debug.trackingMeta = { status: trk.status, recurrence: trk.recurrence, with_attachments: trk?.search?.search_params?.with_attachments };
       }
+    } catch (_) { /* noop */ }
+
+    // Paginar /responses por tracking_id
+    let page = 1;
+    const pageSize = 100;
+    while (page <= 20) { // safety cap
+      const url = `${REQUESTS_URL}?tracking_id=${trackingId}&page=${page}&page_size=${pageSize}`;
+      const r = await fetch(url, {
+        headers: { 'api-key': juditApiKey, 'Content-Type': 'application/json' },
+      });
+      if (!r.ok) {
+        const txt = await r.text();
+        console.log(`[backfill] responses page ${page} status=${r.status} body=${txt.substring(0,200)}`);
+        break;
+      }
+      const j = await r.json();
+      const items = Array.isArray(j.page_data) ? j.page_data : [];
+      debug.pages = page;
+      debug.totalResponses += items.length;
+      for (const it of items) {
+        const rd = it.response_data || it.responseData;
+        const atts = rd?.attachments;
+        if (Array.isArray(atts) && atts.length > 0) {
+          debug.withAttachments++;
+          attachments.push(...atts);
+        }
+      }
+      if (items.length < pageSize) break;
+      page++;
     }
 
     // Deduplicar por attachment_id
@@ -134,6 +142,7 @@ Deno.serve(async (req) => {
         attachmentsEncontrados: unique.length,
         processosAtualizados: processos.length,
         inseridos,
+        debug,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
