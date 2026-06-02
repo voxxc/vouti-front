@@ -279,11 +279,15 @@ serve(async (req) => {
 
     // Passo 2: Tentar extrair steps do payload direto (fallback)
     let steps: any[] = [];
+    let attachments: any[] = [];
     const responseDataDirect = payload.response_data || payload.payload?.response_data;
     
     if (responseDataDirect?.steps && responseDataDirect.steps.length > 0) {
       console.log('[Judit Webhook OAB] Dados encontrados direto no payload');
       steps = responseDataDirect.steps;
+      if (Array.isArray(responseDataDirect.attachments)) {
+        attachments = [...attachments, ...responseDataDirect.attachments];
+      }
     } else {
       // Passo 3: Buscar dados via API seguindo fluxo correto
       console.log('[Judit Webhook OAB] Buscando dados via API...');
@@ -301,6 +305,9 @@ serve(async (req) => {
           if (latestResponse.response_data?.steps) {
             console.log('[Judit Webhook OAB] Steps encontrados no historico do tracking');
             steps = latestResponse.response_data.steps;
+            if (Array.isArray(latestResponse.response_data.attachments)) {
+              attachments = [...attachments, ...latestResponse.response_data.attachments];
+            }
           } else if (latestResponse.request_id) {
             // 3b. GET /responses?request_id=... para dados completos
             console.log('[Judit Webhook OAB] Buscando responses para request_id:', latestResponse.request_id);
@@ -310,6 +317,9 @@ serve(async (req) => {
               for (const item of responsesData.page_data) {
                 if (item.response_data?.steps) {
                   steps = [...steps, ...item.response_data.steps];
+                }
+                if (Array.isArray(item.response_data?.attachments)) {
+                  attachments = [...attachments, ...item.response_data.attachments];
                 }
               }
             }
@@ -324,6 +334,9 @@ serve(async (req) => {
               if (item.response_data?.steps) {
                 steps = [...steps, ...item.response_data.steps];
               }
+              if (Array.isArray(item.response_data?.attachments)) {
+                attachments = [...attachments, ...item.response_data.attachments];
+              }
             }
           }
         } else if (trackingData.last_request_id) {
@@ -336,6 +349,9 @@ serve(async (req) => {
               if (item.response_data?.steps) {
                 steps = [...steps, ...item.response_data.steps];
               }
+              if (Array.isArray(item.response_data?.attachments)) {
+                attachments = [...attachments, ...item.response_data.attachments];
+              }
             }
           }
         }
@@ -343,6 +359,7 @@ serve(async (req) => {
     }
 
     console.log('[Judit Webhook OAB] Total de steps encontrados:', steps.length);
+    console.log('[Judit Webhook OAB] Total de attachments encontrados:', attachments.length);
 
     if (steps.length === 0) {
       console.log('[Judit Webhook OAB] Nenhum andamento encontrado');
