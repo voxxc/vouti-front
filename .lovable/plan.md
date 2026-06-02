@@ -1,66 +1,45 @@
 ## Causa raiz
 
-Quando um usuário é mencionado (`@`) em um comentário de prazo:
+Os anexos (`attachments`) chegam junto da resposta da Judit nos webhooks de tracking, mas **somente `judit-buscar-detalhes-processo` faz a leitura/inserção em `processos_oab_anexos`**. Os webhooks de tempo real (`judit-webhook-oab`, `judit-webhook-cnpj`, `judit-webhook`) processam apenas `steps` (movimentações) e descartam `responseData.attachments`.
 
-- A política RLS de `deadlines` **já permite** o acesso via `is_mentioned_in_deadline(id, auth.uid())` — por isso o Wesley consegue **abrir** o prazo pela notificação.
-- A política RLS de `deadline_comentarios` (`Users can view deadline comments`) **NÃO inclui** essa verificação. Só liberam leitura para: autor do comentário, dono/advogado do prazo, usuário em `deadline_tags`, membro do projeto ou admin.
-
-Resultado: o mencionado abre o prazo, mas a query de comentários retorna vazia (RLS bloqueia silenciosamente). Daí ele vê o prazo mas não vê nenhum comentário — nem o que o mencionou.
+Por isso o processo `0043825-70.2024.8.16.0021` (tracking `32cd1778-...`) já tem `with_attachments=true` e recebe novos andamentos por webhook, mas a tabela `processos_oab_anexos` está vazia. A UI usa `anexosPorStep.get(stepId)` em `ProcessoOABDetalhes.tsx` — sem registros, mostra "Esta movimentação não possui documentos anexados", mesmo quando o PDF existe na Judit.
 
 ## Correção
 
-Migration única para recriar a policy SELECT de `deadline_comentarios` adicionando o ramo de menção:
+1. **`judit-webhook-oab/index.ts`** — após inserir os `steps`, replicar o bloco de attachments de `judit-buscar-detalhes-processo` (linhas 435-468):
+   - Ler `responseDataDirect.attachments` (e também `latestResponse.response_data.attachments` / itens de `page_data`).
+   - Para cada `processo_oab` compartilhado pelo mesmo `numero_cnj`/`tenant_id`, fazer `upsert` em `processos_oab_anexos` com `onConflict: 'processo_oab_id,attachment_id'`, preservando `step_id`, `status`, `extension`, `is_private`, `content_description`.
+   - Logar contagem (`anexosInseridos`) e ignorar duplicatas.
 
-```sql
-DROP POLICY "Users can view deadline comments" ON public.deadline_comentarios;
+2. **`judit-webhook-cnpj/index.ts`** — mesma lógica, gravando em `processos_oab_anexos` para cada processo OAB derivado do CNPJ (mesma forma que ela já distribui andamentos).
 
-CREATE POLICY "Users can view deadline comments"
-ON public.deadline_comentarios
-FOR SELECT
-USING (
-  tenant_id IS NOT NULL
-  AND tenant_id = get_user_tenant_id()
-  AND (
-    user_id = auth.uid()
-    OR EXISTS (
-      SELECT 1 FROM deadlines d
-      WHERE d.id = deadline_comentarios.deadline_id
-        AND (d.user_id = auth.uid()
-             OR d.advogado_responsavel_id = auth.uid()
-             OR is_tagged_in_deadline(d.id, auth.uid()))
-    )
-    OR EXISTS (
-      SELECT 1 FROM deadlines d
-      JOIN projects p ON p.id = d.project_id
-      WHERE d.id = deadline_comentarios.deadline_id
-        AND is_project_member(p.id, auth.uid())
-    )
-    -- NOVO: usuário mencionado em qualquer comentário do prazo
-    OR is_mentioned_in_deadline(deadline_comentarios.deadline_id, auth.uid())
-    OR has_role_in_tenant(auth.uid(), 'admin', get_user_tenant_id())
-  )
-);
-```
+3. **`judit-webhook/index.ts`** (CNJ legado) — mesma adição, gravando no destino correspondente (`processo_anexos_judit` se existir, ou pular se essa tabela não é usada — verificar antes de gerar a migration).
 
-A função `is_mentioned_in_deadline` já existe e é `SECURITY DEFINER`, então não há recursão de RLS.
+4. **Backfill imediato do processo afetado** — Disparar `judit-buscar-detalhes-processo` para o `tracking_id 32cd1778-c2d7-4e9e-84fb-b1144eae0168` (tenant `27492091-...`, CNJ `0043825-70.2024.8.16.0021`) para puxar os attachments já existentes na Judit. Isso resolve o caso atual sem esperar a próxima movimentação.
 
-Nenhuma alteração de frontend é necessária: o fluxo de notificação → abrir prazo → ler comentários já está implementado e funcional; o que falta é só a permissão de leitura.
+5. **(opcional) Botão "Recarregar anexos" no detalhe da movimentação** — se um andamento existir mas `anexos.length === 0`, mostrar um link que chama `judit-buscar-detalhes-processo` daquele processo. Útil para casos onde o webhook chegou antes da correção. Pode ficar para um segundo passo.
 
 ## Arquivos afetados
 
-- **Nova migration** em `supabase/migrations/` recriando a policy `Users can view deadline comments`.
-- Nenhum arquivo de código TypeScript precisa ser alterado.
+- `supabase/functions/judit-webhook-oab/index.ts` (adicionar bloco de attachments)
+- `supabase/functions/judit-webhook-cnpj/index.ts` (adicionar bloco de attachments)
+- `supabase/functions/judit-webhook/index.ts` (verificar tabela destino e adicionar)
+- `src/components/Controladoria/MovimentacaoDetalhe.tsx` (opcional: botão recarregar anexos)
+- Sem migrations: tabelas, RLS e índices (`processo_oab_id,attachment_id`) já existem.
 
 ## Impacto
 
-1. **UX (usuário final):** quem for `@mencionado` num comentário de prazo passa a ver **todos** os comentários daquele prazo ao abri-lo pela notificação. O fluxo "notificação → prazo aberto → comentários visíveis" funciona para qualquer tenant.
-2. **Dados:** apenas troca de policy. Sem migração de dados, sem schema novo, sem mexer em índices. Performance praticamente idêntica (a função já é usada na policy de `deadlines`).
-3. **Riscos colaterais:** mínimo. O acesso de leitura aos comentários se amplia exatamente na mesma medida em que já se amplia o acesso ao próprio prazo (que já libera via menção). Não há vazamento entre tenants — o filtro `tenant_id = get_user_tenant_id()` permanece como gate obrigatório.
-4. **Quem é afetado:** todos os usuários de todos os tenants. Wesley passa a enxergar o comentário que o mencionou. Admins, donos, advogados, tagueados e membros de projeto continuam vendo como antes.
+- **Usuário final**: ao abrir uma movimentação que tenha PDFs anexos na Judit, o painel direito passa a listar os documentos com botão de download (igual ao que já acontece no processo `5e26c5c0-...`). Sem mudança visual fora dos casos com anexo.
+- **Dados**: novos `INSERT/UPSERT` em `processos_oab_anexos` a cada webhook (volume baixo, ~poucos por movimentação). Sem alteração de schema, RLS, índices ou performance.
+- **Riscos colaterais**: 
+  - Duplicatas são protegidas pelo `onConflict (processo_oab_id, attachment_id)`.
+  - Webhook de tenants sem `with_attachments=true` continua igual (campo `responseData.attachments` simplesmente virá vazio).
+  - Sem efeito em andamentos antigos — só passa a popular daqui pra frente, por isso o passo 4 (backfill imediato) cobre o caso reportado.
+- **Quem é afetado**: todos os tenants que já estão com `with_attachments=true` (OAB e CNPJ). Tenants antigos sem migração de attachments não veem mudança até rodar `judit-migrar-trackings-attachments`.
 
 ## Validação
 
-1. Aplicar a migration.
-2. Como usuário **não-admin**, **não-dono** e **não-tagueado** do prazo, mas mencionado em um comentário: clicar na notificação `comment_mention` → o `DeadlineDetailDialog` deve abrir e a aba "Comentários" deve listar os comentários (em especial o que contém a menção).
-3. Conferir que usuários **fora** do tenant continuam sem acesso (sanidade de isolamento).
-4. Conferir que um usuário sem nenhum vínculo nem menção **continua** sem ver comentários.
+1. Após deploy, executar manualmente `judit-buscar-detalhes-processo` para o tracking `32cd1778-...` e verificar `processos_oab_anexos` populada e UI mostrando documentos na movimentação JUNTADA DE PETIÇÃO DE CONTRARRAZÕES.
+2. Forçar um novo webhook (Judit envia automaticamente; ou simular com `judit-consultar-tracking` + reenvio) e confirmar nos logs do `judit-webhook-oab` a linha `Anexos inseridos: N`.
+3. Confirmar em outro tenant que processos sem anexo continuam funcionando normalmente (nenhum erro nos logs).
+4. Conferir que duplicatas não geram erro (rodar webhook duas vezes seguidas).
