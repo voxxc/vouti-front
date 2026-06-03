@@ -815,6 +815,26 @@ export const ProcessoOABDetalhes = ({
                   </div>
                 </AlertDialogDescription>
               </AlertDialogHeader>
+              <div className="space-y-2 pt-2">
+                <Label className="text-xs font-medium">Credencial Judit (para processos sigilosos)</Label>
+                <Select value={resetCredencialValue} onValueChange={setResetCredencialValue}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Escolha uma credencial..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__publico__">Público (sem credencial)</SelectItem>
+                    {credenciaisJudit.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.apelido || c.system_name} — {c.system_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Apenas a credencial escolhida será enviada à Judit. Para destravar sigilo,
+                  use a credencial vinculada ao tribunal correto.
+                </p>
+              </div>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                 <AlertDialogAction onClick={executarReset}>Atualizar e ressincronizar</AlertDialogAction>
