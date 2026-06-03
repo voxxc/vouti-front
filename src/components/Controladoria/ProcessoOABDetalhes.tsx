@@ -91,7 +91,11 @@ interface ProcessoOABDetalhesProps {
   onToggleMonitoramento: (processo: ProcessoOAB) => Promise<any>;
   onRefreshProcessos?: () => Promise<void>;
   onConsultarDetalhesRequest?: (processoId: string, requestId: string) => Promise<any>;
-  onResetarProcesso?: (processoId: string, numeroCnj: string) => Promise<any>;
+  onResetarProcesso?: (
+    processoId: string,
+    numeroCnj: string,
+    opts?: { juditCustomerKey?: string | null; juditSystemName?: string | null }
+  ) => Promise<any>;
   onCarregarDetalhes?: (processoId: string, numeroCnj: string) => Promise<any>;
   onAtualizarProcesso?: (processoId: string, dados: Partial<ProcessoOAB>) => Promise<boolean>;
   oab?: OABCadastrada | null;
@@ -220,6 +224,9 @@ export const ProcessoOABDetalhes = ({
   const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
   const [confirmMonitoramentoOpen, setConfirmMonitoramentoOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  // Credencial escolhida para o reset (CNJ sigiloso): valor "__publico__"
+  // significa sem credencial; senão é o id da credencial Judit do tenant.
+  const [resetCredencialValue, setResetCredencialValue] = useState<string>('__publico__');
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmacaoFinalOpen, setConfirmacaoFinalOpen] = useState(false);
   const [carregandoAndamentos, setCarregandoAndamentos] = useState(false);
@@ -365,6 +372,12 @@ export const ProcessoOABDetalhes = ({
 
   const handleRefreshAndamentos = async () => {
     if (!processo) return;
+    // Pré-selecionar credencial atualmente salva no processo (se houver)
+    const atual = processo.judit_customer_key || null;
+    const match = atual
+      ? credenciaisJudit.find((c) => c.customer_key === atual)
+      : null;
+    setResetCredencialValue(match?.id || '__publico__');
     setConfirmResetOpen(true);
   };
 
@@ -373,7 +386,14 @@ export const ProcessoOABDetalhes = ({
     setConfirmResetOpen(false);
     setRefreshingAndamentos(true);
     try {
-      const result = await onResetarProcesso(processo.id, processo.numero_cnj);
+      const credSel =
+        resetCredencialValue && resetCredencialValue !== '__publico__'
+          ? credenciaisJudit.find((c) => c.id === resetCredencialValue) || null
+          : null;
+      const result = await onResetarProcesso(processo.id, processo.numero_cnj, {
+        juditCustomerKey: credSel?.customer_key ?? null,
+        juditSystemName: credSel?.system_name ?? null,
+      });
       await fetchAndamentos();
       if (result?.monitoramentoDesativado && onAtualizarProcesso) {
         await onAtualizarProcesso(processo.id, { monitoramento_ativo: false, tracking_id: null });
@@ -795,6 +815,26 @@ export const ProcessoOABDetalhes = ({
                   </div>
                 </AlertDialogDescription>
               </AlertDialogHeader>
+              <div className="space-y-2 pt-2">
+                <Label className="text-xs font-medium">Credencial Judit (para processos sigilosos)</Label>
+                <Select value={resetCredencialValue} onValueChange={setResetCredencialValue}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Escolha uma credencial..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__publico__">Público (sem credencial)</SelectItem>
+                    {credenciaisJudit.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.apelido || c.system_name} — {c.system_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Apenas a credencial escolhida será enviada à Judit. Para destravar sigilo,
+                  use a credencial vinculada ao tribunal correto.
+                </p>
+              </div>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                 <AlertDialogAction onClick={executarReset}>Atualizar e ressincronizar</AlertDialogAction>
