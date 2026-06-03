@@ -150,9 +150,9 @@ export const ControladoriaIndicadores = () => {
       }>(
         () => supabase
           .from("processos_oab")
-          .select("tribunal_sigla, numero_cnj, parte_ativa, parte_passiva, city:capa_completa->>city, county:capa_completa->>county")
+          .select("tribunal_sigla, numero_cnj, parte_ativa, parte_passiva, city:capa_completa->>city, county:capa_completa->>county" as any)
           .eq("tenant_id", tenantId)
-          .order("id", { ascending: true })
+          .order("id", { ascending: true }) as any
       );
 
       if (error) { console.error(error); setLoading(false); return; }
