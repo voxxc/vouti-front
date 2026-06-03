@@ -91,7 +91,11 @@ interface ProcessoOABDetalhesProps {
   onToggleMonitoramento: (processo: ProcessoOAB) => Promise<any>;
   onRefreshProcessos?: () => Promise<void>;
   onConsultarDetalhesRequest?: (processoId: string, requestId: string) => Promise<any>;
-  onResetarProcesso?: (processoId: string, numeroCnj: string) => Promise<any>;
+  onResetarProcesso?: (
+    processoId: string,
+    numeroCnj: string,
+    opts?: { juditCustomerKey?: string | null; juditSystemName?: string | null }
+  ) => Promise<any>;
   onCarregarDetalhes?: (processoId: string, numeroCnj: string) => Promise<any>;
   onAtualizarProcesso?: (processoId: string, dados: Partial<ProcessoOAB>) => Promise<boolean>;
   oab?: OABCadastrada | null;
