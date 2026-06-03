@@ -17,7 +17,11 @@ import {
   Trash2,
   Pencil,
   FolderInput,
-  X
+  X,
+  MoreVertical,
+  Tag,
+  Check,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import {
@@ -27,6 +31,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 import {
   Select,
@@ -50,6 +58,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useTenantId } from '@/hooks/useTenantId';
 import { useToast } from '@/hooks/use-toast';
 import { fetchAllPaginated, fetchAllPaginatedIn } from '@/lib/supabasePagination';
+import { useProjectProtocoloMarcadores } from '@/hooks/useProjectProtocoloMarcadores';
+import { MarcadorDialog } from './MarcadorDialog';
+import type { ProjectWorkspace } from '@/hooks/useProjectWorkspaces';
 
 interface ProjectProtocolosListProps {
   projectId: string;
@@ -58,6 +69,7 @@ interface ProjectProtocolosListProps {
   isLocked?: boolean;
   initialProtocoloId?: string | null;
   onProtocoloConsumed?: () => void;
+  workspaces?: ProjectWorkspace[];
 }
 
 const STATUS_LABELS: Record<ProjectProtocolo['status'], string> = {
@@ -74,7 +86,7 @@ const STATUS_COLORS: Record<ProjectProtocolo['status'], string> = {
   cancelado: 'bg-muted text-muted-foreground border-muted'
 };
 
-export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspaceId, isLocked = true, initialProtocoloId, onProtocoloConsumed }: ProjectProtocolosListProps) {
+export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspaceId, isLocked = true, initialProtocoloId, onProtocoloConsumed, workspaces = [] }: ProjectProtocolosListProps) {
   const { protocolos, loading, refetch, createProtocolo, updateProtocolo, deleteProtocolo, addEtapa, updateEtapa, deleteEtapa, reorderProtocolos } = useProjectProtocolos(projectId, workspaceId, defaultWorkspaceId);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
@@ -117,6 +129,34 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
   const { tenantId } = useTenantId();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Marcadores
+  const protocoloIds = protocolos.map((p) => p.id);
+  const {
+    marcadores,
+    createMarcador,
+    updateMarcador,
+    deleteMarcador,
+    toggleAssignment,
+    getMarcadoresByProtocolo,
+  } = useProjectProtocoloMarcadores(projectId, protocoloIds);
+  const [marcadorDialogOpen, setMarcadorDialogOpen] = useState(false);
+  const [editingMarcador, setEditingMarcador] = useState<{ id: string; nome: string; cor: string } | null>(null);
+
+  const handleMoveToWorkspace = async (protocoloId: string, targetWorkspaceId: string) => {
+    try {
+      const { error } = await supabase
+        .from('project_protocolos')
+        .update({ workspace_id: targetWorkspaceId })
+        .eq('id', protocoloId);
+      if (error) throw error;
+      const target = workspaces.find((w) => w.id === targetWorkspaceId);
+      toast({ title: 'Processo movido', description: target ? `Para a aba "${target.nome}"` : undefined });
+      refetch();
+    } catch (e: any) {
+      toast({ title: 'Erro', description: e.message, variant: 'destructive' });
+    }
+  };
 
   const selectedProtocolo = selectedProtocoloId 
     ? protocolos.find(p => p.id === selectedProtocoloId) ?? null 
@@ -428,6 +468,9 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
     const carteiraAtualId = Object.entries(carteiraProtocolos).find(
       ([, ids]) => ids.includes(protocolo.id)
     )?.[0];
+    const protocoloMarcadores = getMarcadoresByProtocolo(protocolo.id);
+    const assignedIds = new Set(protocoloMarcadores.map((m) => m.id));
+    const otherWorkspaces = workspaces.filter((w) => w.id !== workspaceId);
     
     return (
       <Draggable
@@ -461,53 +504,173 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                       {etapasConcluidas}/{totalEtapas} etapas concluídas
                     </p>
                   )}
+                  {protocoloMarcadores.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {protocoloMarcadores.map((m) => (
+                        <Badge
+                          key={m.id}
+                          className="text-[10px] px-2 py-0 border-transparent text-white"
+                          style={{ backgroundColor: m.cor }}
+                        >
+                          {m.nome}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                {!isLocked && carteiras.length > 0 && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        title="Mover para carteira"
-                      >
-                        <FolderInput className="h-4 w-4 text-muted-foreground" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel>Mover para carteira</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      {carteiras.map((c) => (
-                        <DropdownMenuItem
-                          key={c.id}
-                          disabled={carteiraAtualId === c.id}
-                          onClick={() => handleMoverParaCarteira(protocolo.id, c.id)}
-                          className="gap-2"
-                        >
-                          <Briefcase className="h-3.5 w-3.5" style={{ color: c.cor }} />
-                          <span className="truncate">{c.nome}</span>
-                          {carteiraAtualId === c.id && (
-                            <Badge variant="secondary" className="ml-auto text-[10px]">atual</Badge>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      title="Mais ações"
+                    >
+                      <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-60">
+                    {/* Marcadores */}
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className="gap-2">
+                        <Tag className="h-4 w-4" />
+                        Adicionar Marcador
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuPortal>
+                        <DropdownMenuSubContent className="w-60 max-h-80 overflow-y-auto">
+                          {marcadores.length === 0 && (
+                            <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+                              Nenhum marcador criado
+                            </DropdownMenuLabel>
                           )}
-                        </DropdownMenuItem>
-                      ))}
-                      {carteiraAtualId && (
-                        <>
+                          {marcadores.map((m) => {
+                            const isAssigned = assignedIds.has(m.id);
+                            return (
+                              <DropdownMenuItem
+                                key={m.id}
+                                onSelect={(e) => {
+                                  e.preventDefault();
+                                  toggleAssignment(protocolo.id, m.id);
+                                }}
+                                className="gap-2"
+                              >
+                                <span
+                                  className="w-3 h-3 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: m.cor }}
+                                />
+                                <span className="flex-1 truncate">{m.nome}</span>
+                                {isAssigned && <Check className="h-3.5 w-3.5" />}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingMarcador({ id: m.id, nome: m.nome, cor: m.cor });
+                                    setMarcadorDialogOpen(true);
+                                  }}
+                                  className="opacity-60 hover:opacity-100"
+                                  title="Editar"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (confirm(`Excluir marcador "${m.nome}"?`)) {
+                                      deleteMarcador(m.id);
+                                    }
+                                  }}
+                                  className="opacity-60 hover:opacity-100 text-destructive"
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </DropdownMenuItem>
+                            );
+                          })}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            onClick={() => handleRemoverDeCarteira(protocolo.id, carteiraAtualId)}
-                            className="gap-2 text-destructive focus:text-destructive"
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setEditingMarcador(null);
+                              setMarcadorDialogOpen(true);
+                            }}
+                            className="gap-2"
                           >
-                            <X className="h-3.5 w-3.5" />
-                            Remover da carteira
+                            <Plus className="h-3.5 w-3.5" />
+                            Criar novo marcador
                           </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuPortal>
+                    </DropdownMenuSub>
+
+                    {/* Trocar de Workspace */}
+                    {otherWorkspaces.length > 0 && (
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger className="gap-2">
+                          <ArrowRightLeft className="h-4 w-4" />
+                          Trocar de Workspace
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuPortal>
+                          <DropdownMenuSubContent className="w-56">
+                            {otherWorkspaces.map((w) => (
+                              <DropdownMenuItem
+                                key={w.id}
+                                onClick={() => handleMoveToWorkspace(protocolo.id, w.id)}
+                                className="gap-2"
+                              >
+                                <FolderKanban className="h-3.5 w-3.5" />
+                                <span className="truncate">{w.nome}</span>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuPortal>
+                      </DropdownMenuSub>
+                    )}
+
+                    {/* Carteiras (mantém) */}
+                    {!isLocked && carteiras.length > 0 && (
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger className="gap-2">
+                          <FolderInput className="h-4 w-4" />
+                          Mover para carteira
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuPortal>
+                          <DropdownMenuSubContent className="w-56">
+                            {carteiras.map((c) => (
+                              <DropdownMenuItem
+                                key={c.id}
+                                disabled={carteiraAtualId === c.id}
+                                onClick={() => handleMoverParaCarteira(protocolo.id, c.id)}
+                                className="gap-2"
+                              >
+                                <Briefcase className="h-3.5 w-3.5" style={{ color: c.cor }} />
+                                <span className="truncate">{c.nome}</span>
+                                {carteiraAtualId === c.id && (
+                                  <Badge variant="secondary" className="ml-auto text-[10px]">atual</Badge>
+                                )}
+                              </DropdownMenuItem>
+                            ))}
+                            {carteiraAtualId && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleRemoverDeCarteira(protocolo.id, carteiraAtualId)}
+                                  className="gap-2 text-destructive focus:text-destructive"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                  Remover da carteira
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuPortal>
+                      </DropdownMenuSub>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Badge className={STATUS_COLORS[protocolo.status]}>
                   {STATUS_LABELS[protocolo.status]}
                 </Badge>
@@ -747,6 +910,22 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
           </div>
         </DialogContent>
       </Dialog>
+
+      <MarcadorDialog
+        open={marcadorDialogOpen}
+        onOpenChange={(o) => {
+          setMarcadorDialogOpen(o);
+          if (!o) setEditingMarcador(null);
+        }}
+        initial={editingMarcador}
+        onSubmit={async (nome, cor) => {
+          if (editingMarcador) {
+            await updateMarcador(editingMarcador.id, nome, cor);
+          } else {
+            await createMarcador(nome, cor);
+          }
+        }}
+      />
     </div>
   );
 }

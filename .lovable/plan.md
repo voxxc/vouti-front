@@ -1,54 +1,131 @@
+
 ## Objetivo
 
-Para o processo `5000609-66.2025.8.13.0685` (id `2ac98654-2690-4008-ba52-07bd072fafa1`), consultar o último `request_id` do `tracking_id` atual (GET gratuito), pegar as **últimas 5 movimentações** retornadas, e sincronizar os anexos dessas movimentações em `processos_oab_anexos` — atualizando `status`, `attachment_id` e demais campos a partir da resposta fresca da Judit.
+Adicionar um menu de 3 pontinhos (`MoreVertical`) em cada linha da lista de processos (`ProjectProtocolosList`) com duas funcionalidades:
 
-## Causa raiz
+1. **Adicionar Marcador...** — abre submenu listando marcadores já criados do projeto, permite criar novos (com nome + cor) e atribuir/remover. Marcadores atribuídos aparecem como **Badge** colorido na linha do processo (ao lado do status "Em Andamento").
+2. **Trocar de Workspace** — submenu listando as outras abas (workspaces) do projeto; ao escolher, o processo é movido para aquele workspace.
 
-Os 44 anexos do processo foram inseridos a partir de webhooks antigos com `status='pending'`. Não sabemos se a Judit já processou os PDFs desde então. Em vez de "chutar" `status='done'` em todos, vamos buscar o estado real diretamente da API (sem custo, pois é apenas leitura via `tracking_id` + `request_id`).
+## Causa raiz / contexto
+
+Hoje a linha do processo só tem o ícone `FolderInput` (Mover para carteira) + Badge de status. Não existe um menu unificado de ações por processo, nem conceito de "marcadores" (existe `project_carteiras`, que é agrupamento visual, não etiqueta).
 
 ## Correção
 
-Criar uma edge function descartável `judit-sync-ultimos-anexos` que:
+### 1. Banco de dados (nova migration)
 
-1. Recebe `{ processoId, limite=5 }` no body.
-2. Lê `tracking_id` do processo em `processos_oab`.
-3. `GET /tracking/{tracking_id}` → pega `last_request_id`.
-4. `GET /responses?request_id={last_request_id}&page_size=100` → pega `response_data`.
-5. Extrai `steps` (já vêm ordenados desc pela Judit, ou ordena por `step_date` desc) e fica com os 5 primeiros.
-6. Para cada step, lê `step.attachments[]` e faz `UPSERT` em `processos_oab_anexos` com `onConflict: 'processo_oab_id,attachment_id'`:
-   - `status` ← valor real da Judit (`done` / `pending`)
-   - `attachment_name`, `extension`, `content_description`, `is_private`, `step_id` (em lowercase para casar com a UI)
-7. Retorna um relatório: `stepsConsiderados`, `anexosAtualizados`, `pendingAntes/depois`, `doneAntes/depois`.
+Duas tabelas novas, escopadas por projeto (multi-tenant via `tenant_id`):
 
-A função **não cria registros novos do zero** se o anexo já existir — só atualiza. E **não toca em anexos de movimentações antigas** (fora das 5 últimas), preservando o histórico.
+```sql
+-- Definição dos marcadores (por projeto)
+create table public.project_protocolo_marcadores (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  tenant_id uuid not null,
+  nome text not null,
+  cor text not null default '#6366f1',
+  created_by uuid not null,
+  created_at timestamptz not null default now()
+);
+grant select, insert, update, delete on public.project_protocolo_marcadores to authenticated;
+grant all on public.project_protocolo_marcadores to service_role;
+alter table public.project_protocolo_marcadores enable row level security;
+-- Policies: SELECT/INSERT/UPDATE/DELETE para usuários do mesmo tenant
+--   usando has_role_in_tenant() (padrão do projeto)
+
+-- Atribuição de marcadores a protocolos
+create table public.project_protocolo_marcador_assignments (
+  id uuid primary key default gen_random_uuid(),
+  protocolo_id uuid not null references public.project_protocolos(id) on delete cascade,
+  marcador_id uuid not null references public.project_protocolo_marcadores(id) on delete cascade,
+  tenant_id uuid not null,
+  created_at timestamptz not null default now(),
+  unique (protocolo_id, marcador_id)
+);
+grant select, insert, delete on public.project_protocolo_marcador_assignments to authenticated;
+grant all on public.project_protocolo_marcador_assignments to service_role;
+alter table public.project_protocolo_marcador_assignments enable row level security;
+-- Policies: idem (mesmo tenant)
+create index on public.project_protocolo_marcador_assignments(protocolo_id);
+create index on public.project_protocolo_marcador_assignments(marcador_id);
+```
+
+### 2. Hook novo: `useProjectProtocoloMarcadores(projectId)`
+
+- `marcadores`, `assignments` (map `protocoloId → marcadorId[]`)
+- `createMarcador({ nome, cor })`
+- `updateMarcador(id, { nome, cor })`
+- `deleteMarcador(id)`
+- `assignMarcador(protocoloId, marcadorId)`
+- `unassignMarcador(protocoloId, marcadorId)`
+- Usa `fetchAllPaginated` para listagens (padrão do projeto).
+
+### 3. UI: alterar `ProjectProtocolosList.tsx`
+
+Em `renderProtocoloItem`, substituir o botão `FolderInput` por **um único `DropdownMenu` com ícone `MoreVertical`** contendo:
+
+```
+[•••]
+├─ Marcadores
+│   ├─ (lista de marcadores com checkbox + bolinha de cor)
+│   ├─ ─────────
+│   └─ + Criar novo marcador...   → abre Dialog
+├─ Mover para carteira          (mantém comportamento atual, só vira item)
+│   └─ submenu de carteiras
+├─ Trocar de Workspace
+│   └─ submenu de workspaces (oculta o atual)
+└─ ─────────
+   [demais ações futuras]
+```
+
+Renderizar os **badges de marcadores atribuídos** na linha do processo, entre o nome e o badge de status (ou logo abaixo do `etapas concluídas`), usando `<Badge>` com `style={{ backgroundColor: cor, color: '#fff' }}`.
+
+### 4. Dialog "Criar/Editar Marcador"
+
+Reaproveitar padrão do dialog de Carteira já existente: input de nome + input `type="color"` + botões Salvar/Cancelar. Permite também excluir marcador (com confirmação) e editar pelo mesmo dialog.
+
+### 5. Trocar de Workspace
+
+`ProjectProtocolosList` já recebe `workspaceId`. Precisamos receber também a lista de `workspaces` (vinda de `useProjectWorkspaces` no componente pai `ProjectDrawerContent` ou similar) e uma função `onMoveToWorkspace(protocoloId, targetWorkspaceId)`. Implementação: `update project_protocolos set workspace_id = $1 where id = $2`. Após sucesso: `refetch()` da lista (o processo some da aba atual) + toast.
 
 ## Arquivos afetados
 
-- `supabase/functions/judit-sync-ultimos-anexos/index.ts` (novo, descartável)
-- Nenhuma migration, nenhum schema novo, nenhuma alteração de UI.
+- `supabase/migrations/<timestamp>_marcadores_protocolo.sql` — nova migration
+- `src/hooks/useProjectProtocoloMarcadores.ts` — novo hook
+- `src/components/Project/ProjectProtocolosList.tsx` — menu 3 pontinhos + badges de marcadores + receber `workspaces` e handler de troca
+- `src/components/Project/MarcadorDialog.tsx` — novo (criar/editar marcador)
+- Componente pai que renderiza `ProjectProtocolosList` (`ProjectDrawerContent.tsx` ou `ProjectProtocoloDrawer.tsx`) — passar `workspaces` + `onMoveToWorkspace` por props
+- `src/integrations/supabase/types.ts` — regenerado automaticamente pela migration
 
 ## Impacto
 
-**UX/usuário final:**
-- Os anexos das últimas 5 movimentações do processo passam a refletir o estado real da Judit. Se a Judit já processou (provável, dado que faz tempo), o usuário consegue baixar os PDFs imediatamente.
-- Anexos antigos (fora das últimas 5) permanecem como estão — sem regressão.
+**1. Usuário final (UX/telas/fluxos)**
+- Cada linha de processo ganha um botão `•••` no canto direito (aparece sempre, não só com carteiras).
+- Pode criar marcadores ilimitados por projeto, com cor customizada — eles viram badges visíveis na linha (ex: 🟣 "Urgente", 🟢 "Aguardando cliente").
+- Mover processo entre abas (workspaces) deixa de exigir recriar/copiar: 1 clique no menu e o processo sai da aba atual e aparece na aba destino.
+- O botão atual `FolderInput` (Mover para carteira) é absorvido pelo menu, reduzindo poluição visual da linha.
 
-**Dados:**
-- Apenas `UPDATE` nos campos `status`, `attachment_name`, `extension`, `content_description`, `is_private`, `step_id` dos anexos das últimas 5 movimentações deste único processo (`processo_oab_id = '2ac98654-...'`).
-- Nenhuma deleção, nenhum INSERT novo (a menos que a Judit retorne um `attachment_id` que ainda não existe — nesse caso, o upsert cria, que é o comportamento desejado).
+**2. Dados (migrations/RLS/performance)**
+- Duas tabelas novas com RLS por tenant via `has_role_in_tenant()` — isolamento garantido.
+- Índices em `protocolo_id` e `marcador_id` para join rápido na renderização da lista.
+- `update workspace_id` em `project_protocolos` é uma única linha — sem impacto de performance. Já existe índice em `(project_id, workspace_id)` implicitamente usado pela query do hook.
 
-**Riscos colaterais:**
-- Nenhum. Escopo restrito a 1 processo + 5 steps.
-- 1 chamada paga? **Não** — `GET /tracking/{id}` e `GET /responses?request_id=...` são leituras gratuitas no plano Judit.
-- Se a Judit retornar `status='pending'` ainda, simplesmente confirmamos que o PDF não está pronto — sem dano.
+**3. Riscos colaterais**
+- Mover processo entre workspaces pode confundir se o usuário não notar que o item "sumiu" da aba atual → mitigado com toast "Processo movido para a aba X".
+- Marcadores são **por projeto**, não globais do tenant — se o usuário esperar reaproveitar marcadores entre projetos, vai precisar recriar. (Decisão consciente; é o mesmo padrão de `project_carteiras`.)
+- Carteiras (já existentes) continuam funcionando normalmente; marcadores são uma camada paralela.
 
-**Quem é afetado:**
-- Apenas usuários do tenant dono deste processo, na visualização deste processo específico.
+**4. Quem é afetado**
+- Todos os usuários com acesso a projetos (todos os roles que já enxergam `ProjectProtocolosList`).
+- Sem mudança para admin/financeiro/comercial específica — é melhoria de UX geral.
+- Multi-tenant: cada tenant cria seus próprios marcadores; nada vaza entre tenants (RLS).
 
 ## Validação
 
-1. Antes: `SELECT status, COUNT(*) FROM processos_oab_anexos WHERE processo_oab_id='2ac98654-...' GROUP BY status;`
-2. Invocar a função via `supabase.functions.invoke('judit-sync-ultimos-anexos', { body: { processoId: '2ac98654-2690-4008-ba52-07bd072fafa1' } })`.
-3. Conferir a resposta JSON com `stepsConsiderados` e `anexosAtualizados`.
-4. Depois: rodar a mesma query de contagem e comparar.
-5. Abrir o processo na UI e tentar baixar um anexo que tenha virado `done`.
+1. Criar 2 marcadores ("Urgente" vermelho, "Aguardando" amarelo) → aparecem no submenu.
+2. Atribuir ambos a um processo → 2 badges coloridos renderizam na linha.
+3. Desmarcar um → badge some imediatamente.
+4. Excluir marcador "Urgente" → todas as atribuições caem em cascata (FK `on delete cascade`).
+5. Trocar processo de "Aba Principal" para "Aba 2" → processo some da Principal, aparece na Aba 2 após selecionar.
+6. Tentar acessar marcadores de outro tenant via SQL direto → bloqueado pelo RLS.
+7. Verificar que o menu não quebra layout em viewport mobile (testar < 640px).

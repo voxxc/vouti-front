@@ -6243,6 +6243,86 @@ export type Database = {
           },
         ]
       }
+      project_protocolo_marcador_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          marcador_id: string
+          protocolo_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          marcador_id: string
+          protocolo_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          marcador_id?: string
+          protocolo_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_protocolo_marcador_assignments_marcador_id_fkey"
+            columns: ["marcador_id"]
+            isOneToOne: false
+            referencedRelation: "project_protocolo_marcadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_protocolo_marcador_assignments_protocolo_id_fkey"
+            columns: ["protocolo_id"]
+            isOneToOne: false
+            referencedRelation: "project_protocolos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_protocolo_marcadores: {
+        Row: {
+          cor: string
+          created_at: string
+          created_by: string
+          id: string
+          nome: string
+          project_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          cor?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          nome: string
+          project_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          cor?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          nome?: string
+          project_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_protocolo_marcadores_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_protocolos: {
         Row: {
           created_at: string | null
