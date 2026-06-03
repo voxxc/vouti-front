@@ -234,6 +234,9 @@ serve(async (req) => {
 
     // 8. Atualizar processos_oab (campos só se vierem preenchidos)
     const parties = responseData?.parties || [];
+    const secrecyLevel = Number(responseData?.secrecy_level || 0);
+    const destravou = parties.length > 0 && secrecyLevel < 5;
+
     const updateFields: Record<string, unknown> = {
       detalhes_request_id: newRequestId,
       detalhes_request_data: new Date().toISOString(),
@@ -249,6 +252,34 @@ serve(async (req) => {
     if (responseData?.phase) updateFields.fase_processual = responseData.phase;
     if (responseData?.related_links || responseData?.link) {
       updateFields.link_tribunal = responseData.related_links || responseData.link;
+    }
+
+    // Se destravou (resposta veio com dados reais), atualizar também cabeçalho
+    // e capa para o processo deixar de aparecer como "(Processo em sigilo...)".
+    if (destravou) {
+      const ativa = parties.find((p: any) => {
+        const t = (p?.side || p?.person_type || p?.type || '').toString().toUpperCase();
+        return t.includes('ATIVO') || t.includes('AUTOR') || t.includes('REQUERENTE');
+      });
+      const passiva = parties.find((p: any) => {
+        const t = (p?.side || p?.person_type || p?.type || '').toString().toUpperCase();
+        return t.includes('PASSIVO') || t.includes('REU') || t.includes('REQUERIDO') || t.includes('RÉU');
+      });
+      if (ativa?.name) updateFields.parte_ativa = ativa.name;
+      if (passiva?.name) updateFields.parte_passiva = passiva.name;
+      if (responseData?.tribunal_acronym) updateFields.tribunal_sigla = responseData.tribunal_acronym;
+      if (responseData?.tribunal) updateFields.tribunal = String(responseData.tribunal);
+
+      // Mesclar capa: pega a nova resposta como base e remove flag de sigilo
+      const novaCapa = { ...(responseData || {}) };
+      delete (novaCapa as any).sigilo;
+      updateFields.capa_completa = novaCapa;
+
+      // Guardar credencial que destravou para reuso futuro
+      if (customerKey) {
+        updateFields.judit_customer_key = customerKey;
+        if (systemNameUsada) updateFields.judit_system_name = systemNameUsada;
+      }
     }
 
     await supabase.from('processos_oab').update(updateFields).eq('id', processoOabId);
@@ -276,6 +307,12 @@ serve(async (req) => {
         success: true,
         requestId: newRequestId,
         andamentosNovos,
+        destravou,
+        motivo: destravou
+          ? 'destravado'
+          : (customerKey ? 'credencial_sem_acesso' : 'sem_credencial'),
+        secrecyLevel,
+        customerKeyUsada: customerKey,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
