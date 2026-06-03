@@ -103,16 +103,22 @@ serve(async (req) => {
         .eq('tenant_id', tenantId)
         .eq('status', 'active');
       
-      if (credenciais && credenciais.length > 0) {
-        // Tentar casar credencial pelo tribunal
+      if (credenciais && credenciais.length > 0 && tribunalSigla) {
+        // Auto-match estrito: só envia credencial se houver uma vinculada ao
+        // tribunal do CNJ. Sem fallback para "primeira credencial qualquer" —
+        // isso causava 401 USER_NOT_FOUND e respostas sigilo silenciosas.
         const tribunalLower = tribunalSigla.toLowerCase();
         const matched = credenciais.find(c => {
           const sn = (c.system_name || '').toLowerCase();
           return sn.includes(tribunalLower) || tribunalLower.includes(sn.replace('rodrigo', ''));
         });
-        customerKey = matched?.customer_key || credenciais[0].customer_key;
-        systemNameFinal = matched?.system_name || credenciais[0].system_name;
-        console.log('[Judit Import CNJ] Credencial selecionada:', customerKey, '- tribunal:', tribunalSigla);
+        if (matched) {
+          customerKey = matched.customer_key;
+          systemNameFinal = matched.system_name;
+          console.log('[Judit Import CNJ] Credencial auto-match:', customerKey, '- tribunal:', tribunalSigla);
+        } else {
+          console.log('[Judit Import CNJ] Sem credencial casável para', tribunalSigla, '- enviando público.');
+        }
       }
     }
 
