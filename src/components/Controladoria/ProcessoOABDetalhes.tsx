@@ -224,6 +224,9 @@ export const ProcessoOABDetalhes = ({
   const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
   const [confirmMonitoramentoOpen, setConfirmMonitoramentoOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  // Credencial escolhida para o reset (CNJ sigiloso): valor "__publico__"
+  // significa sem credencial; senão é o id da credencial Judit do tenant.
+  const [resetCredencialValue, setResetCredencialValue] = useState<string>('__publico__');
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmacaoFinalOpen, setConfirmacaoFinalOpen] = useState(false);
   const [carregandoAndamentos, setCarregandoAndamentos] = useState(false);
