@@ -1,51 +1,54 @@
+## Objetivo
+
+Para o processo `5000609-66.2025.8.13.0685` (id `2ac98654-2690-4008-ba52-07bd072fafa1`), consultar o último `request_id` do `tracking_id` atual (GET gratuito), pegar as **últimas 5 movimentações** retornadas, e sincronizar os anexos dessas movimentações em `processos_oab_anexos` — atualizando `status`, `attachment_id` e demais campos a partir da resposta fresca da Judit.
+
 ## Causa raiz
 
-Webhooks antigos do Judit (`judit-webhook`, `judit-webhook-oab`, `judit-webhook-cnpj`) descartavam o campo `attachments` ao processar respostas. A correção anterior fez com que **novas** atualizações já gravem anexos em `processos_oab_anexos`, mas o **histórico** continua vazio — mesmo com PDFs disponíveis no Judit.
+Os 44 anexos do processo foram inseridos a partir de webhooks antigos com `status='pending'`. Não sabemos se a Judit já processou os PDFs desde então. Em vez de "chutar" `status='done'` em todos, vamos buscar o estado real diretamente da API (sem custo, pois é apenas leitura via `tracking_id` + `request_id`).
 
 ## Correção
 
-Rodar a edge function `judit-backfill-anexos` (já criada) para tenants ativos com `with_attachments=true`, em modo **idempotente e não-destrutivo**:
+Criar uma edge function descartável `judit-sync-ultimos-anexos` que:
 
-1. **Levantamento prévio (dry-run / read-only)** — Query `supabase--read_query` para listar:
-   - Tenants ativos com pelo menos 1 processo monitorado com `with_attachments=true`.
-   - Total de trackings elegíveis por tenant.
-   - Total atual de linhas em `processos_oab_anexos` por tenant (baseline).
+1. Recebe `{ processoId, limite=5 }` no body.
+2. Lê `tracking_id` do processo em `processos_oab`.
+3. `GET /tracking/{tracking_id}` → pega `last_request_id`.
+4. `GET /responses?request_id={last_request_id}&page_size=100` → pega `response_data`.
+5. Extrai `steps` (já vêm ordenados desc pela Judit, ou ordena por `step_date` desc) e fica com os 5 primeiros.
+6. Para cada step, lê `step.attachments[]` e faz `UPSERT` em `processos_oab_anexos` com `onConflict: 'processo_oab_id,attachment_id'`:
+   - `status` ← valor real da Judit (`done` / `pending`)
+   - `attachment_name`, `extension`, `content_description`, `is_private`, `step_id` (em lowercase para casar com a UI)
+7. Retorna um relatório: `stepsConsiderados`, `anexosAtualizados`, `pendingAntes/depois`, `doneAntes/depois`.
 
-2. **Execução escalonada por tenant** — Chamar `judit-backfill-anexos` em lotes pequenos (por tenant), começando pelo tenant `27492091-…` (caso original do Wesley) como canário. A função:
-   - Lê o histórico Judit de cada tracking.
-   - Faz `UPSERT` com `onConflict: 'processo_oab_id,attachment_id'` → **nunca duplica**, **nunca apaga**.
-   - Não toca em `steps`, `movimentacoes`, nem em metadados do processo.
-
-3. **Validação após cada tenant** — Comparar contagem antes/depois em `processos_oab_anexos`; abrir o processo `0043825-70.2024.8.16.0021` no Vouti e confirmar PDFs visíveis na movimentação.
-
-4. **Rollback** — Como a operação é apenas `INSERT` via upsert e nada é sobrescrito/apagado, rollback é simplesmente "não rodar novamente". Caso queira reverter um lote específico, é possível deletar pelo `created_at` do batch (faremos esse `DELETE` apenas se você pedir).
+A função **não cria registros novos do zero** se o anexo já existir — só atualiza. E **não toca em anexos de movimentações antigas** (fora das 5 últimas), preservando o histórico.
 
 ## Arquivos afetados
 
-Nenhum arquivo de código. Apenas execução da edge function existente `supabase/functions/judit-backfill-anexos/index.ts` (ainda preciso confirmar que está deployada e respondendo — última verificação retornava `NOT_FOUND`; se persistir, redeploy antes de executar).
+- `supabase/functions/judit-sync-ultimos-anexos/index.ts` (novo, descartável)
+- Nenhuma migration, nenhum schema novo, nenhuma alteração de UI.
 
 ## Impacto
 
-1. **UX / Usuário final**: Movimentações antigas que tinham PDFs no Judit passam a exibir os anexos clicáveis em "Documentos". Nenhuma tela é alterada visualmente além disso. Nenhum dado existente desaparece.
-2. **Dados**: Apenas `INSERT` em `processos_oab_anexos` via `UPSERT` idempotente. Sem migrations, sem mudança de RLS, sem mudança de schema. Crescimento estimado: dezenas a centenas de linhas por tenant (depende do volume). Índice já existe no `onConflict`.
-3. **Riscos colaterais**:
-   - **Custo Judit**: o backfill **lê** o histórico já armazenado nas respostas anteriores do tracking — não dispara novas requisições pagas ao Judit (a função usa `responses` já persistidas). Confirmar isso na primeira execução com 1 tracking.
-   - **Carga DB**: insignificante (upserts em lote pequeno).
-   - **Realtime**: clientes com a tela do processo aberta podem ver anexos aparecerem em tempo real — comportamento esperado, não quebra nada.
-4. **Quem é afetado**: Apenas tenants com `with_attachments=true` no monitoramento Judit. Demais tenants ficam inalterados. Admins veem o resultado; advogados/estagiários ganham acesso aos PDFs históricos respeitando as RLS já existentes de `processos_oab_anexos`.
+**UX/usuário final:**
+- Os anexos das últimas 5 movimentações do processo passam a refletir o estado real da Judit. Se a Judit já processou (provável, dado que faz tempo), o usuário consegue baixar os PDFs imediatamente.
+- Anexos antigos (fora das últimas 5) permanecem como estão — sem regressão.
+
+**Dados:**
+- Apenas `UPDATE` nos campos `status`, `attachment_name`, `extension`, `content_description`, `is_private`, `step_id` dos anexos das últimas 5 movimentações deste único processo (`processo_oab_id = '2ac98654-...'`).
+- Nenhuma deleção, nenhum INSERT novo (a menos que a Judit retorne um `attachment_id` que ainda não existe — nesse caso, o upsert cria, que é o comportamento desejado).
+
+**Riscos colaterais:**
+- Nenhum. Escopo restrito a 1 processo + 5 steps.
+- 1 chamada paga? **Não** — `GET /tracking/{id}` e `GET /responses?request_id=...` são leituras gratuitas no plano Judit.
+- Se a Judit retornar `status='pending'` ainda, simplesmente confirmamos que o PDF não está pronto — sem dano.
+
+**Quem é afetado:**
+- Apenas usuários do tenant dono deste processo, na visualização deste processo específico.
 
 ## Validação
 
-- Baseline de contagem por tenant antes e depois.
-- Teste canário no processo `0043825-70.2024.8.16.0021` (tenant `27492091-…`): abrir a movimentação e confirmar PDFs.
-- Logs da edge function: verificar `anexosInseridos` > 0 e ausência de erros.
-- Confirmar que nenhuma linha de `steps`/`movimentacoes` foi alterada (contagem antes/depois).
-- Se algo soar estranho em qualquer etapa, **paro imediatamente** antes de avançar para o próximo tenant.
-
-## Plano de execução resumido
-
-1. Confirmar deploy de `judit-backfill-anexos` (redeploy se `NOT_FOUND`).
-2. Listar tenants elegíveis + baseline de anexos.
-3. Rodar canário no tenant do Wesley → validar visualmente.
-4. Rodar nos demais tenants, um por um, com checagem após cada.
-5. Relatório final: linhas inseridas por tenant, processos beneficiados, eventuais erros.
+1. Antes: `SELECT status, COUNT(*) FROM processos_oab_anexos WHERE processo_oab_id='2ac98654-...' GROUP BY status;`
+2. Invocar a função via `supabase.functions.invoke('judit-sync-ultimos-anexos', { body: { processoId: '2ac98654-2690-4008-ba52-07bd072fafa1' } })`.
+3. Conferir a resposta JSON com `stepsConsiderados` e `anexosAtualizados`.
+4. Depois: rodar a mesma query de contagem e comparar.
+5. Abrir o processo na UI e tentar baixar um anexo que tenha virado `done`.
