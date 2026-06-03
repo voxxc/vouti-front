@@ -602,6 +602,12 @@ export function ProjectProtocoloContent({
                       <p className="mt-1 font-medium">{protocolo.responsavelNome}</p>
                     </div>
                   )}
+                  {processoVinculado?.capa_completa?.county && (
+                    <div className="sm:col-span-2">
+                      <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1"><Scale className="h-3 w-3" /> Comarca</Label>
+                      <p className="mt-1 font-medium">{processoVinculado.capa_completa.county}</p>
+                    </div>
+                  )}
                 </div>
                 {protocolo.observacoes && (
                   <div>
