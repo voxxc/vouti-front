@@ -165,22 +165,44 @@ export const useAllProcessosOAB = () => {
     return { success: true };
   };
 
-  const resetarProcesso = async (processoId: string, numeroCnj: string) => {
+  const resetarProcesso = async (
+    processoId: string,
+    numeroCnj: string,
+    opts?: { juditCustomerKey?: string | null; juditSystemName?: string | null }
+  ) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase.functions.invoke('judit-resetar-processo', {
-        body: { processoOabId: processoId, userId: user?.id }
+        body: {
+          processoOabId: processoId,
+          userId: user?.id,
+          juditCustomerKey: opts?.juditCustomerKey ?? null,
+          juditSystemName: opts?.juditSystemName ?? null,
+        }
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Falha ao resetar processo');
 
       const novos = data.andamentosNovos ?? 0;
-      toast({
-        title: novos > 0 ? `${novos} novo(s) andamento(s)` : 'Nenhuma novidade',
-        description: data.monitoramentoDesativado
-          ? `${numeroCnj} — monitoramento desativado, reative para retomar.`
-          : `${numeroCnj} — atualização concluída.`,
-      });
+      if (data.motivo === 'credencial_sem_acesso') {
+        toast({
+          title: 'Credencial não destravou',
+          description: `${numeroCnj} — a credencial enviada não tem acesso a este processo sigiloso. Tente outra credencial.`,
+          variant: 'destructive',
+        });
+      } else if (data.motivo === 'sem_credencial' && novos === 0) {
+        toast({
+          title: 'Processo em sigilo',
+          description: `${numeroCnj} — sem credencial selecionada. Escolha uma credencial em "Atualizar com…" para destravar.`,
+        });
+      } else {
+        toast({
+          title: novos > 0 ? `${novos} novo(s) andamento(s)` : 'Atualizado',
+          description: data.destravou
+            ? `${numeroCnj} — processo destravado com sucesso.`
+            : `${numeroCnj} — atualização concluída.`,
+        });
+      }
 
       await fetchProcessos();
       return data;
