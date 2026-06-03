@@ -504,7 +504,118 @@ export const ControladoriaIndicadores = () => {
 
   const maxCount = data[0]?.count || 1;
 
-  const [activeSubTab, setActiveSubTab] = useState<'prazos' | 'tribunal'>('prazos');
+  const [activeSubTab, setActiveSubTab] = useState<'prazos' | 'tribunal' | 'comarca'>('prazos');
+
+  // Aggregate processes by comarca
+  const comarcaData = useMemo<ComarcaGroup[]>(() => {
+    const map = new Map<string, ComarcaGroup>();
+    allProcessos.forEach((p) => {
+      let name: string | null = null;
+      if (p.city && p.city.trim()) {
+        name = p.city.trim();
+      } else {
+        name = extractComarcaFromCounty(p.county);
+      }
+      const key = name ? name.toUpperCase().replace(/\s+/g, ' ').trim() : '__SEM_COMARCA__';
+      const label = name ? capitalizeWords(name) : 'Sem comarca identificada';
+      const existing = map.get(key);
+      if (existing) {
+        existing.count += 1;
+        existing.processos.push(p);
+      } else {
+        map.set(key, {
+          key,
+          label,
+          count: 1,
+          percentage: 0,
+          processos: [p],
+          isUnknown: !name,
+        });
+      }
+    });
+    const totalProcs = allProcessos.length;
+    const arr = Array.from(map.values()).map((g) => ({
+      ...g,
+      percentage: totalProcs > 0 ? (g.count / totalProcs) * 100 : 0,
+    }));
+    // Known comarcas sorted by count desc; "Sem comarca" always last
+    arr.sort((a, b) => {
+      if (a.isUnknown && !b.isUnknown) return 1;
+      if (!a.isUnknown && b.isUnknown) return -1;
+      return b.count - a.count;
+    });
+    return arr;
+  }, [allProcessos]);
+
+  const filteredComarcas = useMemo(() => {
+    const q = comarcaSearch.trim().toLowerCase();
+    if (!q) return comarcaData;
+    return comarcaData.filter((c) => c.label.toLowerCase().includes(q));
+  }, [comarcaData, comarcaSearch]);
+
+  const comarcaStats = useMemo(() => {
+    const totalProcs = allProcessos.length;
+    const semComarca = comarcaData.find((c) => c.isUnknown)?.count || 0;
+    const totalComarcas = comarcaData.filter((c) => !c.isUnknown).length;
+    return { totalProcs, totalComarcas, semComarca };
+  }, [allProcessos, comarcaData]);
+
+  const maxComarcaCount = comarcaData.find((c) => !c.isUnknown)?.count || 1;
+
+  const handlePrintComarcas = () => {
+    const logoHtml = logoEscritorio ? `<div style="text-align:center;margin-bottom:12px;"><img src="${logoEscritorio}" style="max-height:160px;" /></div>` : "";
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Processos por Comarca</title>
+          <style>
+            body { font-family: system-ui, sans-serif; padding: 20px; color: #111; font-size: 12px; }
+            h1 { font-size: 18px; margin-bottom: 4px; }
+            h2 { font-size: 14px; margin-top: 18px; margin-bottom: 6px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+            .meta { font-size: 11px; color: #555; margin-bottom: 12px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+            th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; font-size: 11px; }
+            th { background: #e5e7eb; font-weight: 700; }
+            tr:nth-child(even) { background: #f9fafb; }
+            .summary { display: flex; gap: 12px; margin-bottom: 12px; }
+            .stat { border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; min-width: 100px; }
+            .stat-label { font-size: 10px; color: #666; }
+            .stat-value { font-size: 18px; font-weight: 700; }
+            .count-badge { display: inline-block; background: #e5e7eb; padding: 1px 8px; border-radius: 10px; font-weight: 600; }
+          </style>
+        </head>
+        <body>
+          ${logoHtml}
+          <h1>Processos por Comarca</h1>
+          <p class="meta">Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}</p>
+          <div class="summary">
+            <div class="stat"><div class="stat-label">Processos</div><div class="stat-value">${comarcaStats.totalProcs}</div></div>
+            <div class="stat"><div class="stat-label">Comarcas</div><div class="stat-value">${comarcaStats.totalComarcas}</div></div>
+            <div class="stat"><div class="stat-label">Sem comarca</div><div class="stat-value">${comarcaStats.semComarca}</div></div>
+          </div>
+          ${filteredComarcas.map((g) => `
+            <h2>${g.label} <span class="count-badge">${g.count}</span> <span style="font-size:10px;color:#666;font-weight:normal;">(${g.percentage.toFixed(1)}%)</span></h2>
+            <table>
+              <thead><tr><th style="width:200px;">CNJ</th><th>Partes</th><th style="width:80px;">Tribunal</th></tr></thead>
+              <tbody>
+                ${g.processos.map((p) => `
+                  <tr>
+                    <td>${p.numero_cnj || '—'}</td>
+                    <td>${(p.parte_ativa || '—')} <span style="color:#888;">×</span> ${(p.parte_passiva || '—')}</td>
+                    <td>${p.tribunal_sigla || '—'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `).join('')}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
 
   return (
     <div className="space-y-6" ref={printRef}>
