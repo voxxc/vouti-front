@@ -24,6 +24,42 @@ interface TribunalCount {
   percentage: number;
 }
 
+interface ProcessoComarca {
+  numero_cnj: string;
+  parte_ativa: string | null;
+  parte_passiva: string | null;
+  tribunal_sigla: string | null;
+  city: string | null;
+  county: string | null;
+}
+
+interface ComarcaGroup {
+  key: string;            // normalized key for grouping
+  label: string;          // display label
+  count: number;
+  percentage: number;
+  processos: ProcessoComarca[];
+  isUnknown?: boolean;
+}
+
+/** Capitalize each word: "VICOSA" -> "Vicosa", "1ª VARA CIVEL" -> "1ª Vara Civel". */
+const capitalizeWords = (s: string) =>
+  s.toLowerCase().replace(/(^|\s|-|\/)([\p{L}\p{N}])/gu, (_, sep, ch) => sep + ch.toUpperCase());
+
+/** Try to extract comarca name from a `county` string like "1ª VARA CÍVEL DA COMARCA DE VIÇOSA" or "CASCAVEL - VARA DA FAZENDA". */
+const extractComarcaFromCounty = (county: string | null): string | null => {
+  if (!county) return null;
+  const c = county.trim();
+  if (!c) return null;
+  // pattern: "...COMARCA DE X" (optionally followed by ", / -")
+  const m1 = c.match(/comarca\s+(?:de|do|da|dos|das)\s+([^,\/\-]+)/i);
+  if (m1) return m1[1].trim();
+  // pattern: "X - VARA ..." -> take X
+  const m2 = c.match(/^([^\-]+?)\s*-\s*.*vara/i);
+  if (m2) return m2[1].trim();
+  return null;
+};
+
 interface RawDeadline {
   id: string;
   title: string;
@@ -49,6 +85,11 @@ export const ControladoriaIndicadores = () => {
   const [data, setData] = useState<TribunalCount[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Comarca aggregation
+  const [allProcessos, setAllProcessos] = useState<ProcessoComarca[]>([]);
+  const [comarcaSearch, setComarcaSearch] = useState("");
+  const [expandedComarca, setExpandedComarca] = useState<string | null>(null);
 
   // Raw data
   const [allDeadlines, setAllDeadlines] = useState<RawDeadline[]>([]);
@@ -99,29 +140,54 @@ export const ControladoriaIndicadores = () => {
 
     const fetchProcessos = async () => {
       setLoading(true);
-      const { data: processos, error } = await fetchAllPaginated<{ tribunal_sigla: string | null; numero_cnj: string | null }>(
+      const { data: processos, error } = await fetchAllPaginated<{
+        tribunal_sigla: string | null;
+        numero_cnj: string | null;
+        parte_ativa: string | null;
+        parte_passiva: string | null;
+        city: string | null;
+        county: string | null;
+      }>(
         () => supabase
           .from("processos_oab")
-          .select("tribunal_sigla, numero_cnj")
+          .select("tribunal_sigla, numero_cnj, parte_ativa, parte_passiva, city:capa_completa->>city, county:capa_completa->>county" as any)
           .eq("tenant_id", tenantId)
-          .order("id", { ascending: true })
+          .order("id", { ascending: true }) as any
       );
 
       if (error) { console.error(error); setLoading(false); return; }
 
-      const map = new Map<string, number>();
+      // Deduplicate by numero_cnj so same process under multiple OABs counts once.
+      const cnjSeen = new Set<string>();
+      const dedupedRaw: typeof processos = [];
       (processos || []).forEach((p) => {
+        const key = p.numero_cnj || `__noCnj_${dedupedRaw.length}`;
+        if (cnjSeen.has(key)) return;
+        cnjSeen.add(key);
+        dedupedRaw.push(p);
+      });
+
+      const map = new Map<string, number>();
+      dedupedRaw.forEach((p) => {
         const sigla = p.tribunal_sigla || (p.numero_cnj ? extrairTribunalDoNumeroProcesso(p.numero_cnj) : "Desconhecido");
         map.set(sigla, (map.get(sigla) || 0) + 1);
       });
 
-      const totalCount = processos?.length || 0;
+      const totalCount = dedupedRaw.length;
       const sorted = Array.from(map.entries())
         .map(([sigla, count]) => ({ sigla, count, percentage: totalCount > 0 ? (count / totalCount) * 100 : 0 }))
         .sort((a, b) => b.count - a.count);
 
       setData(sorted);
       setTotal(totalCount);
+      setAllProcessos(dedupedRaw.map(p => ({
+        numero_cnj: p.numero_cnj || "",
+        parte_ativa: p.parte_ativa,
+        parte_passiva: p.parte_passiva,
+        tribunal_sigla: p.tribunal_sigla,
+        city: p.city,
+        county: p.county,
+      })));
       setLoading(false);
     };
 
@@ -438,7 +504,118 @@ export const ControladoriaIndicadores = () => {
 
   const maxCount = data[0]?.count || 1;
 
-  const [activeSubTab, setActiveSubTab] = useState<'prazos' | 'tribunal'>('prazos');
+  const [activeSubTab, setActiveSubTab] = useState<'prazos' | 'tribunal' | 'comarca'>('prazos');
+
+  // Aggregate processes by comarca
+  const comarcaData = useMemo<ComarcaGroup[]>(() => {
+    const map = new Map<string, ComarcaGroup>();
+    allProcessos.forEach((p) => {
+      let name: string | null = null;
+      if (p.city && p.city.trim()) {
+        name = p.city.trim();
+      } else {
+        name = extractComarcaFromCounty(p.county);
+      }
+      const key = name ? name.toUpperCase().replace(/\s+/g, ' ').trim() : '__SEM_COMARCA__';
+      const label = name ? capitalizeWords(name) : 'Sem comarca identificada';
+      const existing = map.get(key);
+      if (existing) {
+        existing.count += 1;
+        existing.processos.push(p);
+      } else {
+        map.set(key, {
+          key,
+          label,
+          count: 1,
+          percentage: 0,
+          processos: [p],
+          isUnknown: !name,
+        });
+      }
+    });
+    const totalProcs = allProcessos.length;
+    const arr = Array.from(map.values()).map((g) => ({
+      ...g,
+      percentage: totalProcs > 0 ? (g.count / totalProcs) * 100 : 0,
+    }));
+    // Known comarcas sorted by count desc; "Sem comarca" always last
+    arr.sort((a, b) => {
+      if (a.isUnknown && !b.isUnknown) return 1;
+      if (!a.isUnknown && b.isUnknown) return -1;
+      return b.count - a.count;
+    });
+    return arr;
+  }, [allProcessos]);
+
+  const filteredComarcas = useMemo(() => {
+    const q = comarcaSearch.trim().toLowerCase();
+    if (!q) return comarcaData;
+    return comarcaData.filter((c) => c.label.toLowerCase().includes(q));
+  }, [comarcaData, comarcaSearch]);
+
+  const comarcaStats = useMemo(() => {
+    const totalProcs = allProcessos.length;
+    const semComarca = comarcaData.find((c) => c.isUnknown)?.count || 0;
+    const totalComarcas = comarcaData.filter((c) => !c.isUnknown).length;
+    return { totalProcs, totalComarcas, semComarca };
+  }, [allProcessos, comarcaData]);
+
+  const maxComarcaCount = comarcaData.find((c) => !c.isUnknown)?.count || 1;
+
+  const handlePrintComarcas = () => {
+    const logoHtml = logoEscritorio ? `<div style="text-align:center;margin-bottom:12px;"><img src="${logoEscritorio}" style="max-height:160px;" /></div>` : "";
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Processos por Comarca</title>
+          <style>
+            body { font-family: system-ui, sans-serif; padding: 20px; color: #111; font-size: 12px; }
+            h1 { font-size: 18px; margin-bottom: 4px; }
+            h2 { font-size: 14px; margin-top: 18px; margin-bottom: 6px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+            .meta { font-size: 11px; color: #555; margin-bottom: 12px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+            th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; font-size: 11px; }
+            th { background: #e5e7eb; font-weight: 700; }
+            tr:nth-child(even) { background: #f9fafb; }
+            .summary { display: flex; gap: 12px; margin-bottom: 12px; }
+            .stat { border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; min-width: 100px; }
+            .stat-label { font-size: 10px; color: #666; }
+            .stat-value { font-size: 18px; font-weight: 700; }
+            .count-badge { display: inline-block; background: #e5e7eb; padding: 1px 8px; border-radius: 10px; font-weight: 600; }
+          </style>
+        </head>
+        <body>
+          ${logoHtml}
+          <h1>Processos por Comarca</h1>
+          <p class="meta">Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}</p>
+          <div class="summary">
+            <div class="stat"><div class="stat-label">Processos</div><div class="stat-value">${comarcaStats.totalProcs}</div></div>
+            <div class="stat"><div class="stat-label">Comarcas</div><div class="stat-value">${comarcaStats.totalComarcas}</div></div>
+            <div class="stat"><div class="stat-label">Sem comarca</div><div class="stat-value">${comarcaStats.semComarca}</div></div>
+          </div>
+          ${filteredComarcas.map((g) => `
+            <h2>${g.label} <span class="count-badge">${g.count}</span> <span style="font-size:10px;color:#666;font-weight:normal;">(${g.percentage.toFixed(1)}%)</span></h2>
+            <table>
+              <thead><tr><th style="width:200px;">CNJ</th><th>Partes</th><th style="width:80px;">Tribunal</th></tr></thead>
+              <tbody>
+                ${g.processos.map((p) => `
+                  <tr>
+                    <td>${p.numero_cnj || '—'}</td>
+                    <td>${(p.parte_ativa || '—')} <span style="color:#888;">×</span> ${(p.parte_passiva || '—')}</td>
+                    <td>${p.tribunal_sigla || '—'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `).join('')}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
 
   return (
     <div className="space-y-6" ref={printRef}>
@@ -469,6 +646,20 @@ export const ControladoriaIndicadores = () => {
         >
           Processos por Tribunal
           {activeSubTab === 'tribunal' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveSubTab('comarca')}
+          className={cn(
+            "pb-2 text-sm font-medium transition-colors relative",
+            activeSubTab === 'comarca'
+              ? "text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Processos por Comarca
+          {activeSubTab === 'comarca' && (
             <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
           )}
         </button>
@@ -880,6 +1071,126 @@ export const ControladoriaIndicadores = () => {
             Total: {total} processos
           </CardFooter>
         )}
+      </Card>
+      )}
+
+      {activeSubTab === 'comarca' && (
+      <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-primary" />
+            Processos por Comarca
+          </CardTitle>
+          <Button variant="outline" size="sm" onClick={handlePrintComarcas} className="gap-1.5" disabled={loading || comarcaData.length === 0}>
+            <Printer className="h-3.5 w-3.5" />
+            Imprimir / PDF
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Resumo */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-lg border bg-card p-3 space-y-1">
+              <div className="text-xs text-muted-foreground">Processos</div>
+              <p className="text-2xl font-bold tabular-nums">{comarcaStats.totalProcs}</p>
+            </div>
+            <div className="rounded-lg border bg-card p-3 space-y-1">
+              <div className="text-xs text-muted-foreground">Comarcas distintas</div>
+              <p className="text-2xl font-bold tabular-nums">{comarcaStats.totalComarcas}</p>
+            </div>
+            <div className="rounded-lg border bg-card p-3 space-y-1">
+              <div className="text-xs text-muted-foreground">Sem comarca</div>
+              <p className="text-2xl font-bold tabular-nums text-muted-foreground">{comarcaStats.semComarca}</p>
+            </div>
+          </div>
+
+          {/* Busca */}
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Buscar comarca..."
+              value={comarcaSearch}
+              onChange={(e) => setComarcaSearch(e.target.value)}
+              className="h-9 max-w-xs"
+            />
+            {comarcaSearch && (
+              <Button variant="ghost" size="sm" onClick={() => setComarcaSearch('')}>Limpar</Button>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="space-y-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="space-y-1.5">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-2.5 w-full" />
+                </div>
+              ))}
+            </div>
+          ) : filteredComarcas.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              {comarcaSearch ? 'Nenhuma comarca encontrada para a busca.' : 'Nenhum processo encontrado.'}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {filteredComarcas.map((g) => {
+                const isExpanded = expandedComarca === g.key;
+                return (
+                  <div key={g.key} className={cn("rounded-md border", g.isUnknown && "bg-muted/20")}>
+                    <button
+                      onClick={() => setExpandedComarca(isExpanded ? null : g.key)}
+                      className="w-full text-left p-3 hover:bg-muted/30 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {isExpanded ? (
+                            <ChevronUp className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          )}
+                          <span className={cn("font-medium truncate text-sm", g.isUnknown && "text-muted-foreground italic")}>
+                            {g.label}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant="secondary" className="tabular-nums">{g.count}</Badge>
+                          <span className="text-xs text-muted-foreground tabular-nums w-12 text-right">
+                            {g.percentage.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                      <Progress value={(g.count / maxComarcaCount) * 100} className="h-1.5" />
+                    </button>
+                    {isExpanded && (
+                      <div className="border-t bg-muted/10">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-52">CNJ</TableHead>
+                              <TableHead>Partes</TableHead>
+                              <TableHead className="w-20">Tribunal</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {g.processos.map((p, idx) => (
+                              <TableRow key={`${g.key}-${p.numero_cnj}-${idx}`}>
+                                <TableCell className="font-mono text-xs">{p.numero_cnj || '—'}</TableCell>
+                                <TableCell className="text-xs">
+                                  <span>{p.parte_ativa || '—'}</span>
+                                  <span className="text-muted-foreground mx-1">×</span>
+                                  <span>{p.parte_passiva || '—'}</span>
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">{p.tribunal_sigla || '—'}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
       </Card>
       )}
 
