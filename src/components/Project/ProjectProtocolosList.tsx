@@ -17,7 +17,11 @@ import {
   Trash2,
   Pencil,
   FolderInput,
-  X
+  X,
+  MoreVertical,
+  Tag,
+  Check,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import {
@@ -27,6 +31,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 import {
   Select,
@@ -50,6 +58,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useTenantId } from '@/hooks/useTenantId';
 import { useToast } from '@/hooks/use-toast';
 import { fetchAllPaginated, fetchAllPaginatedIn } from '@/lib/supabasePagination';
+import { useProjectProtocoloMarcadores } from '@/hooks/useProjectProtocoloMarcadores';
+import { MarcadorDialog } from './MarcadorDialog';
+import type { ProjectWorkspace } from '@/hooks/useProjectWorkspaces';
 
 interface ProjectProtocolosListProps {
   projectId: string;
@@ -58,6 +69,7 @@ interface ProjectProtocolosListProps {
   isLocked?: boolean;
   initialProtocoloId?: string | null;
   onProtocoloConsumed?: () => void;
+  workspaces?: ProjectWorkspace[];
 }
 
 const STATUS_LABELS: Record<ProjectProtocolo['status'], string> = {
@@ -74,7 +86,7 @@ const STATUS_COLORS: Record<ProjectProtocolo['status'], string> = {
   cancelado: 'bg-muted text-muted-foreground border-muted'
 };
 
-export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspaceId, isLocked = true, initialProtocoloId, onProtocoloConsumed }: ProjectProtocolosListProps) {
+export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspaceId, isLocked = true, initialProtocoloId, onProtocoloConsumed, workspaces = [] }: ProjectProtocolosListProps) {
   const { protocolos, loading, refetch, createProtocolo, updateProtocolo, deleteProtocolo, addEtapa, updateEtapa, deleteEtapa, reorderProtocolos } = useProjectProtocolos(projectId, workspaceId, defaultWorkspaceId);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
@@ -117,6 +129,34 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
   const { tenantId } = useTenantId();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Marcadores
+  const protocoloIds = protocolos.map((p) => p.id);
+  const {
+    marcadores,
+    createMarcador,
+    updateMarcador,
+    deleteMarcador,
+    toggleAssignment,
+    getMarcadoresByProtocolo,
+  } = useProjectProtocoloMarcadores(projectId, protocoloIds);
+  const [marcadorDialogOpen, setMarcadorDialogOpen] = useState(false);
+  const [editingMarcador, setEditingMarcador] = useState<{ id: string; nome: string; cor: string } | null>(null);
+
+  const handleMoveToWorkspace = async (protocoloId: string, targetWorkspaceId: string) => {
+    try {
+      const { error } = await supabase
+        .from('project_protocolos')
+        .update({ workspace_id: targetWorkspaceId })
+        .eq('id', protocoloId);
+      if (error) throw error;
+      const target = workspaces.find((w) => w.id === targetWorkspaceId);
+      toast({ title: 'Processo movido', description: target ? `Para a aba "${target.nome}"` : undefined });
+      refetch();
+    } catch (e: any) {
+      toast({ title: 'Erro', description: e.message, variant: 'destructive' });
+    }
+  };
 
   const selectedProtocolo = selectedProtocoloId 
     ? protocolos.find(p => p.id === selectedProtocoloId) ?? null 
