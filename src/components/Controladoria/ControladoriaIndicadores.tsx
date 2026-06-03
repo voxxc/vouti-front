@@ -1074,6 +1074,126 @@ export const ControladoriaIndicadores = () => {
       </Card>
       )}
 
+      {activeSubTab === 'comarca' && (
+      <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-primary" />
+            Processos por Comarca
+          </CardTitle>
+          <Button variant="outline" size="sm" onClick={handlePrintComarcas} className="gap-1.5" disabled={loading || comarcaData.length === 0}>
+            <Printer className="h-3.5 w-3.5" />
+            Imprimir / PDF
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Resumo */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-lg border bg-card p-3 space-y-1">
+              <div className="text-xs text-muted-foreground">Processos</div>
+              <p className="text-2xl font-bold tabular-nums">{comarcaStats.totalProcs}</p>
+            </div>
+            <div className="rounded-lg border bg-card p-3 space-y-1">
+              <div className="text-xs text-muted-foreground">Comarcas distintas</div>
+              <p className="text-2xl font-bold tabular-nums">{comarcaStats.totalComarcas}</p>
+            </div>
+            <div className="rounded-lg border bg-card p-3 space-y-1">
+              <div className="text-xs text-muted-foreground">Sem comarca</div>
+              <p className="text-2xl font-bold tabular-nums text-muted-foreground">{comarcaStats.semComarca}</p>
+            </div>
+          </div>
+
+          {/* Busca */}
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Buscar comarca..."
+              value={comarcaSearch}
+              onChange={(e) => setComarcaSearch(e.target.value)}
+              className="h-9 max-w-xs"
+            />
+            {comarcaSearch && (
+              <Button variant="ghost" size="sm" onClick={() => setComarcaSearch('')}>Limpar</Button>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="space-y-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="space-y-1.5">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-2.5 w-full" />
+                </div>
+              ))}
+            </div>
+          ) : filteredComarcas.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              {comarcaSearch ? 'Nenhuma comarca encontrada para a busca.' : 'Nenhum processo encontrado.'}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {filteredComarcas.map((g) => {
+                const isExpanded = expandedComarca === g.key;
+                return (
+                  <div key={g.key} className={cn("rounded-md border", g.isUnknown && "bg-muted/20")}>
+                    <button
+                      onClick={() => setExpandedComarca(isExpanded ? null : g.key)}
+                      className="w-full text-left p-3 hover:bg-muted/30 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {isExpanded ? (
+                            <ChevronUp className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          )}
+                          <span className={cn("font-medium truncate text-sm", g.isUnknown && "text-muted-foreground italic")}>
+                            {g.label}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant="secondary" className="tabular-nums">{g.count}</Badge>
+                          <span className="text-xs text-muted-foreground tabular-nums w-12 text-right">
+                            {g.percentage.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                      <Progress value={(g.count / maxComarcaCount) * 100} className="h-1.5" />
+                    </button>
+                    {isExpanded && (
+                      <div className="border-t bg-muted/10">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-52">CNJ</TableHead>
+                              <TableHead>Partes</TableHead>
+                              <TableHead className="w-20">Tribunal</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {g.processos.map((p, idx) => (
+                              <TableRow key={`${g.key}-${p.numero_cnj}-${idx}`}>
+                                <TableCell className="font-mono text-xs">{p.numero_cnj || '—'}</TableCell>
+                                <TableCell className="text-xs">
+                                  <span>{p.parte_ativa || '—'}</span>
+                                  <span className="text-muted-foreground mx-1">×</span>
+                                  <span>{p.parte_passiva || '—'}</span>
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">{p.tribunal_sigla || '—'}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      )}
+
       {/* Dialog de configuração de logo */}
       <Dialog open={showLogoConfig} onOpenChange={setShowLogoConfig}>
         <DialogContent className="max-w-sm">
