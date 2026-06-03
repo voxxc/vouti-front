@@ -58,7 +58,12 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    const { processoOabId, userId } = await req.json();
+    const {
+      processoOabId,
+      userId,
+      juditCustomerKey: customerKeyOverride,
+      juditSystemName: systemNameOverride,
+    } = await req.json();
     if (!processoOabId) throw new Error('processoOabId obrigatorio');
 
     console.log('[Judit Reset] Iniciando reset para processo:', processoOabId);
@@ -66,7 +71,7 @@ serve(async (req) => {
     // 1. Buscar processo
     const { data: processo, error: procError } = await supabase
       .from('processos_oab')
-      .select('id, tenant_id, oab_id, numero_cnj, tracking_id, monitoramento_ativo')
+      .select('id, tenant_id, oab_id, numero_cnj, tracking_id, monitoramento_ativo, judit_customer_key, capa_completa')
       .eq('id', processoOabId)
       .single();
 
@@ -81,30 +86,23 @@ serve(async (req) => {
       .update({ detalhes_request_data: new Date().toISOString() })
       .eq('id', processoOabId);
 
-    // 2. Buscar credencial sigilosa
-    // Nota: o tracking permanece ativo durante o reset. Request on_demand e
-    // tracking são serviços independentes na Judit (faturados separadamente).
-    let customerKey: string | null = null;
-    const tribunalSigla = tribunalSiglaFromCnj(numeroCnj).toLowerCase();
-    const { data: credenciais } = await supabase
-      .from('credenciais_judit')
-      .select('customer_key, system_name')
-      .eq('tenant_id', tenantId)
-      .eq('status', 'active');
-    if (credenciais && credenciais.length > 0 && tribunalSigla) {
-      const matched = credenciais.find((c) => {
-        const sn = (c.system_name || '').toLowerCase();
-        return sn.includes(tribunalSigla) || tribunalSigla.includes(sn);
-      });
-      // Só envia customer_key se houver credencial específica do tribunal.
-      // Enviar credencial de outro tribunal causa 401 USER_NOT_FOUND na Judit.
-      customerKey = matched?.customer_key || null;
-    }
+    // 2. Definir credencial a ser usada:
+    //    - Prioridade 1: credencial explícita escolhida pelo usuário no dialog.
+    //    - Prioridade 2: credencial salva no processo (última que funcionou).
+    //    - Sem fallback automático: nunca tentar "outra credencial qualquer".
+    let customerKey: string | null = customerKeyOverride || (processo as any).judit_customer_key || null;
+    let systemNameUsada: string | null = systemNameOverride || null;
+    console.log('[Judit Reset] Credencial a usar:', customerKey, '(override:', !!customerKeyOverride, ')');
 
     // 4. POST novo (forçando on_demand, ignorando cache)
+    // Shape confirmado: credential vai dentro de search.search_params.credential
     const requestPayload: Record<string, unknown> = {
-      search: { search_type: 'lawsuit_cnj', search_key: numeroLimpo, on_demand: true },
-      ...(customerKey ? { credential: { customer_key: customerKey } } : {}),
+      search: {
+        search_type: 'lawsuit_cnj',
+        search_key: numeroLimpo,
+        on_demand: true,
+        ...(customerKey ? { search_params: { credential: { customer_key: customerKey } } } : {}),
+      },
     };
 
     const { data: postLog } = await supabase
@@ -127,27 +125,6 @@ serve(async (req) => {
       headers: { 'Content-Type': 'application/json', 'api-key': juditApiKey.trim() },
       body: JSON.stringify(requestPayload),
     });
-
-    // Retry sem credential se USER_NOT_FOUND (credencial inválida p/ tribunal)
-    if (!postRes.ok && customerKey) {
-      const errText = await postRes.text();
-      if (errText.includes('USER_NOT_FOUND') || postRes.status === 401) {
-        console.warn('[Judit Reset] Credencial inválida, tentando sem customer_key');
-        delete (requestPayload as any).credential;
-        postRes = await fetch(`${REQUESTS_API_URL}/requests`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'api-key': juditApiKey.trim() },
-          body: JSON.stringify(requestPayload),
-        });
-      } else {
-        if (postLog?.id) {
-          await supabase.from('judit_api_logs').update({
-            sucesso: false, resposta_status: postRes.status, erro_mensagem: errText,
-          }).eq('id', postLog.id);
-        }
-        throw new Error(`Erro POST Judit: ${postRes.status} ${errText.substring(0, 200)}`);
-      }
-    }
 
     if (!postRes.ok) {
       const errText = await postRes.text();
