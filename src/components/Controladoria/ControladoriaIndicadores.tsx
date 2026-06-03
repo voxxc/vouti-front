@@ -24,6 +24,42 @@ interface TribunalCount {
   percentage: number;
 }
 
+interface ProcessoComarca {
+  numero_cnj: string;
+  parte_ativa: string | null;
+  parte_passiva: string | null;
+  tribunal_sigla: string | null;
+  city: string | null;
+  county: string | null;
+}
+
+interface ComarcaGroup {
+  key: string;            // normalized key for grouping
+  label: string;          // display label
+  count: number;
+  percentage: number;
+  processos: ProcessoComarca[];
+  isUnknown?: boolean;
+}
+
+/** Capitalize each word: "VICOSA" -> "Vicosa", "1ª VARA CIVEL" -> "1ª Vara Civel". */
+const capitalizeWords = (s: string) =>
+  s.toLowerCase().replace(/(^|\s|-|\/)([\p{L}\p{N}])/gu, (_, sep, ch) => sep + ch.toUpperCase());
+
+/** Try to extract comarca name from a `county` string like "1ª VARA CÍVEL DA COMARCA DE VIÇOSA" or "CASCAVEL - VARA DA FAZENDA". */
+const extractComarcaFromCounty = (county: string | null): string | null => {
+  if (!county) return null;
+  const c = county.trim();
+  if (!c) return null;
+  // pattern: "...COMARCA DE X" (optionally followed by ", / -")
+  const m1 = c.match(/comarca\s+(?:de|do|da|dos|das)\s+([^,\/\-]+)/i);
+  if (m1) return m1[1].trim();
+  // pattern: "X - VARA ..." -> take X
+  const m2 = c.match(/^([^\-]+?)\s*-\s*.*vara/i);
+  if (m2) return m2[1].trim();
+  return null;
+};
+
 interface RawDeadline {
   id: string;
   title: string;
@@ -49,6 +85,11 @@ export const ControladoriaIndicadores = () => {
   const [data, setData] = useState<TribunalCount[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Comarca aggregation
+  const [allProcessos, setAllProcessos] = useState<ProcessoComarca[]>([]);
+  const [comarcaSearch, setComarcaSearch] = useState("");
+  const [expandedComarca, setExpandedComarca] = useState<string | null>(null);
 
   // Raw data
   const [allDeadlines, setAllDeadlines] = useState<RawDeadline[]>([]);
@@ -99,29 +140,54 @@ export const ControladoriaIndicadores = () => {
 
     const fetchProcessos = async () => {
       setLoading(true);
-      const { data: processos, error } = await fetchAllPaginated<{ tribunal_sigla: string | null; numero_cnj: string | null }>(
+      const { data: processos, error } = await fetchAllPaginated<{
+        tribunal_sigla: string | null;
+        numero_cnj: string | null;
+        parte_ativa: string | null;
+        parte_passiva: string | null;
+        city: string | null;
+        county: string | null;
+      }>(
         () => supabase
           .from("processos_oab")
-          .select("tribunal_sigla, numero_cnj")
+          .select("tribunal_sigla, numero_cnj, parte_ativa, parte_passiva, city:capa_completa->>city, county:capa_completa->>county")
           .eq("tenant_id", tenantId)
           .order("id", { ascending: true })
       );
 
       if (error) { console.error(error); setLoading(false); return; }
 
-      const map = new Map<string, number>();
+      // Deduplicate by numero_cnj so same process under multiple OABs counts once.
+      const cnjSeen = new Set<string>();
+      const dedupedRaw: typeof processos = [];
       (processos || []).forEach((p) => {
+        const key = p.numero_cnj || `__noCnj_${dedupedRaw.length}`;
+        if (cnjSeen.has(key)) return;
+        cnjSeen.add(key);
+        dedupedRaw.push(p);
+      });
+
+      const map = new Map<string, number>();
+      dedupedRaw.forEach((p) => {
         const sigla = p.tribunal_sigla || (p.numero_cnj ? extrairTribunalDoNumeroProcesso(p.numero_cnj) : "Desconhecido");
         map.set(sigla, (map.get(sigla) || 0) + 1);
       });
 
-      const totalCount = processos?.length || 0;
+      const totalCount = dedupedRaw.length;
       const sorted = Array.from(map.entries())
         .map(([sigla, count]) => ({ sigla, count, percentage: totalCount > 0 ? (count / totalCount) * 100 : 0 }))
         .sort((a, b) => b.count - a.count);
 
       setData(sorted);
       setTotal(totalCount);
+      setAllProcessos(dedupedRaw.map(p => ({
+        numero_cnj: p.numero_cnj || "",
+        parte_ativa: p.parte_ativa,
+        parte_passiva: p.parte_passiva,
+        tribunal_sigla: p.tribunal_sigla,
+        city: p.city,
+        county: p.county,
+      })));
       setLoading(false);
     };
 
