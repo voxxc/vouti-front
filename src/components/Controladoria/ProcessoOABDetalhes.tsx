@@ -372,6 +372,12 @@ export const ProcessoOABDetalhes = ({
 
   const handleRefreshAndamentos = async () => {
     if (!processo) return;
+    // Pré-selecionar credencial atualmente salva no processo (se houver)
+    const atual = processo.judit_customer_key || null;
+    const match = atual
+      ? credenciaisJudit.find((c) => c.customer_key === atual)
+      : null;
+    setResetCredencialValue(match?.id || '__publico__');
     setConfirmResetOpen(true);
   };
 
@@ -380,7 +386,14 @@ export const ProcessoOABDetalhes = ({
     setConfirmResetOpen(false);
     setRefreshingAndamentos(true);
     try {
-      const result = await onResetarProcesso(processo.id, processo.numero_cnj);
+      const credSel =
+        resetCredencialValue && resetCredencialValue !== '__publico__'
+          ? credenciaisJudit.find((c) => c.id === resetCredencialValue) || null
+          : null;
+      const result = await onResetarProcesso(processo.id, processo.numero_cnj, {
+        juditCustomerKey: credSel?.customer_key ?? null,
+        juditSystemName: credSel?.system_name ?? null,
+      });
       await fetchAndamentos();
       if (result?.monitoramentoDesativado && onAtualizarProcesso) {
         await onAtualizarProcesso(processo.id, { monitoramento_ativo: false, tracking_id: null });
