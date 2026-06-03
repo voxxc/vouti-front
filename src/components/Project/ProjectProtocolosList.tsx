@@ -910,6 +910,22 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
           </div>
         </DialogContent>
       </Dialog>
+
+      <MarcadorDialog
+        open={marcadorDialogOpen}
+        onOpenChange={(o) => {
+          setMarcadorDialogOpen(o);
+          if (!o) setEditingMarcador(null);
+        }}
+        initial={editingMarcador}
+        onSubmit={async (nome, cor) => {
+          if (editingMarcador) {
+            await updateMarcador(editingMarcador.id, nome, cor);
+          } else {
+            await createMarcador(nome, cor);
+          }
+        }}
+      />
     </div>
   );
 }
