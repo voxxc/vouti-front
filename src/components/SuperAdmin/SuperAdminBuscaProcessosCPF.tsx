@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Search, Loader2, FileText, ChevronDown, ChevronUp, Users } from 'lucide-react';
+import { Search, Loader2, FileText, ChevronDown, ChevronUp, Users, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -30,17 +31,30 @@ interface Processo {
 }
 
 export function SuperAdminBuscaProcessosCPF() {
+  const [tipo, setTipo] = useState<'cpf' | 'name'>('cpf');
   const [cpf, setCpf] = useState('');
+  const [nome, setNome] = useState('');
   const [loading, setLoading] = useState(false);
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [total, setTotal] = useState<number | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
   const handleSearch = async () => {
-    const digits = cpf.replace(/\D/g, '');
-    if (digits.length !== 11) {
-      toast({ title: 'CPF inválido', description: 'Digite um CPF com 11 dígitos', variant: 'destructive' });
-      return;
+    let body: { cpf?: string; name?: string } = {};
+    if (tipo === 'cpf') {
+      const digits = cpf.replace(/\D/g, '');
+      if (digits.length !== 11) {
+        toast({ title: 'CPF inválido', description: 'Digite um CPF com 11 dígitos', variant: 'destructive' });
+        return;
+      }
+      body = { cpf: digits };
+    } else {
+      const nomeTrim = nome.trim();
+      if (nomeTrim.length < 3) {
+        toast({ title: 'Nome inválido', description: 'Digite ao menos 3 caracteres', variant: 'destructive' });
+        return;
+      }
+      body = { name: nomeTrim };
     }
 
     setLoading(true);
@@ -50,7 +64,7 @@ export function SuperAdminBuscaProcessosCPF() {
 
     try {
       const { data, error } = await supabase.functions.invoke('judit-buscar-processos-cpf', {
-        body: { cpf: digits },
+        body,
       });
 
       if (error) throw error;
@@ -97,9 +111,9 @@ export function SuperAdminBuscaProcessosCPF() {
   return (
     <div className="space-y-6">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-foreground mb-2">Busca de Processos por CPF</h2>
+        <h2 className="text-2xl font-bold text-foreground mb-2">Busca de Processos por CPF ou Nome</h2>
         <p className="text-muted-foreground">
-          Consulte todos os processos judiciais associados a um CPF via Judit
+          Consulte processos judiciais por CPF ou por Nome via Judit
         </p>
       </div>
 
@@ -107,25 +121,52 @@ export function SuperAdminBuscaProcessosCPF() {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Consultar CPF
+            Consultar
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-3 items-end">
-            <div className="flex-1 max-w-xs">
-              <Input
-                placeholder="000.000.000-00"
-                value={cpf}
-                onChange={(e) => setCpf(maskCPF(e.target.value))}
-                disabled={loading}
-                onKeyDown={(e) => e.key === 'Enter' && !loading && handleSearch()}
-              />
+          <div className="flex gap-3 items-end flex-wrap">
+            <div className="w-40">
+              <Select value={tipo} onValueChange={(v) => setTipo(v as 'cpf' | 'name')} disabled={loading}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cpf">CPF</SelectItem>
+                  <SelectItem value="name">Nome</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1 min-w-[240px] max-w-md">
+              {tipo === 'cpf' ? (
+                <Input
+                  placeholder="000.000.000-00"
+                  value={cpf}
+                  onChange={(e) => setCpf(maskCPF(e.target.value))}
+                  disabled={loading}
+                  onKeyDown={(e) => e.key === 'Enter' && !loading && handleSearch()}
+                />
+              ) : (
+                <Input
+                  placeholder="Nome completo"
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  disabled={loading}
+                  onKeyDown={(e) => e.key === 'Enter' && !loading && handleSearch()}
+                />
+              )}
             </div>
             <Button onClick={handleSearch} disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
               {loading ? 'Buscando...' : 'Buscar Processos'}
             </Button>
           </div>
+          {tipo === 'name' && (
+            <div className="mt-3 flex items-start gap-2 text-sm text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <span>Busca por nome pode retornar homônimos. Confira polos e tribunal antes de associar.</span>
+            </div>
+          )}
           {loading && (
             <p className="text-sm text-muted-foreground mt-3">
               A busca pode levar até 90 segundos. Aguarde...

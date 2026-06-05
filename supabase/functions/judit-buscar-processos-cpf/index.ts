@@ -21,16 +21,30 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { cpf } = await req.json()
-    if (!cpf) {
-      return new Response(JSON.stringify({ error: 'CPF é obrigatório' }), {
+    const { cpf, name } = await req.json()
+    if (!cpf && !name) {
+      return new Response(JSON.stringify({ error: 'Informe CPF ou Nome' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const cpfFormatado = formatCPF(cpf)
-    console.log(`Buscando processos para CPF: ${cpfFormatado}`)
+    let searchPayload: { search_type: string; search_key: string }
+    if (name && !cpf) {
+      const nomeTrim = String(name).trim()
+      if (nomeTrim.length < 3) {
+        return new Response(JSON.stringify({ error: 'Nome deve ter ao menos 3 caracteres' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      searchPayload = { search_type: 'name', search_key: nomeTrim }
+      console.log(`Buscando processos por NOME: ${nomeTrim}`)
+    } else {
+      const cpfFormatado = formatCPF(cpf)
+      searchPayload = { search_type: 'cpf', search_key: cpfFormatado }
+      console.log(`Buscando processos para CPF: ${cpfFormatado}`)
+    }
 
     // 1. Criar request na Judit
     const createRes = await fetch('https://requests.prod.judit.io/requests', {
@@ -39,12 +53,7 @@ Deno.serve(async (req) => {
         'api-key': JUDIT_API_KEY,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        search: {
-          search_type: 'cpf',
-          search_key: cpfFormatado,
-        },
-      }),
+      body: JSON.stringify({ search: searchPayload }),
     })
 
     if (!createRes.ok) {
