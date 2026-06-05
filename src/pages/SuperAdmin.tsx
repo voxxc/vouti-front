@@ -357,7 +357,7 @@ export default function SuperAdmin() {
                   <FlaskConical className="h-4 w-4" /> Teste Publicação CNJ
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setMainTab('busca-cpf-processos')} className="gap-2">
-                  <Users className="h-4 w-4" /> Busca CPF (Processos)
+                  <Users className="h-4 w-4" /> Busca Processos (CPF/Nome)
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
