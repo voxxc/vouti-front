@@ -30,8 +30,10 @@ const BAD_LAZY_RELOAD_KEY = "__vouti_bad_lazy_reload__";
 
 const recoverFromBadLazyModule = async () => {
   if (typeof window === 'undefined') return;
-  if (sessionStorage.getItem(BAD_LAZY_RELOAD_KEY)) return;
-  sessionStorage.setItem(BAD_LAZY_RELOAD_KEY, '1');
+  // Allow up to 2 recovery attempts per session to handle multi-chunk stale caches.
+  const attempts = Number(sessionStorage.getItem(BAD_LAZY_RELOAD_KEY) || '0');
+  if (attempts >= 2) return;
+  sessionStorage.setItem(BAD_LAZY_RELOAD_KEY, String(attempts + 1));
 
   // Cache-bust the navigation IMMEDIATELY so the user doesn't see a blank screen
   // while we wait for cache/SW cleanup. The reload kicks off cleanup on next load.
