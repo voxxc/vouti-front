@@ -504,12 +504,16 @@ export const ControladoriaIndicadores = () => {
 
   const maxCount = data[0]?.count || 1;
 
-  const [activeSubTab, setActiveSubTab] = useState<'prazos' | 'tribunal' | 'comarca'>('prazos');
+  const [activeSubTab, setActiveSubTab] = useState<'prazos' | 'tribunal'>('prazos');
 
-  // Aggregate processes by comarca
-  const comarcaData = useMemo<ComarcaGroup[]>(() => {
+  // Drill-down state for tribunal -> comarca -> processos
+  const [selectedTribunal, setSelectedTribunal] = useState<string | null>(null);
+  const [selectedComarcaKey, setSelectedComarcaKey] = useState<string | null>(null);
+
+  // Build comarca groups from an arbitrary process list (reusable across levels)
+  const buildComarcaGroups = (processos: ProcessoComarca[]): ComarcaGroup[] => {
     const map = new Map<string, ComarcaGroup>();
-    allProcessos.forEach((p) => {
+    processos.forEach((p) => {
       let name: string | null = null;
       if (p.city && p.city.trim()) {
         name = p.city.trim();
@@ -533,34 +537,45 @@ export const ControladoriaIndicadores = () => {
         });
       }
     });
-    const totalProcs = allProcessos.length;
+    const totalProcs = processos.length;
     const arr = Array.from(map.values()).map((g) => ({
       ...g,
       percentage: totalProcs > 0 ? (g.count / totalProcs) * 100 : 0,
     }));
-    // Known comarcas sorted by count desc; "Sem comarca" always last
     arr.sort((a, b) => {
       if (a.isUnknown && !b.isUnknown) return 1;
       if (!a.isUnknown && b.isUnknown) return -1;
       return b.count - a.count;
     });
     return arr;
-  }, [allProcessos]);
+  };
 
-  const filteredComarcas = useMemo(() => {
+  // Processos do tribunal selecionado
+  const tribunalProcessos = useMemo<ProcessoComarca[]>(() => {
+    if (!selectedTribunal) return [];
+    return allProcessos.filter((p) => {
+      const sigla = p.tribunal_sigla || (p.numero_cnj ? extrairTribunalDoNumeroProcesso(p.numero_cnj) : 'Desconhecido');
+      return sigla === selectedTribunal;
+    });
+  }, [allProcessos, selectedTribunal]);
+
+  const tribunalComarcas = useMemo<ComarcaGroup[]>(
+    () => buildComarcaGroups(tribunalProcessos),
+    [tribunalProcessos]
+  );
+
+  const filteredTribunalComarcas = useMemo(() => {
     const q = comarcaSearch.trim().toLowerCase();
-    if (!q) return comarcaData;
-    return comarcaData.filter((c) => c.label.toLowerCase().includes(q));
-  }, [comarcaData, comarcaSearch]);
+    if (!q) return tribunalComarcas;
+    return tribunalComarcas.filter((c) => c.label.toLowerCase().includes(q));
+  }, [tribunalComarcas, comarcaSearch]);
 
-  const comarcaStats = useMemo(() => {
-    const totalProcs = allProcessos.length;
-    const semComarca = comarcaData.find((c) => c.isUnknown)?.count || 0;
-    const totalComarcas = comarcaData.filter((c) => !c.isUnknown).length;
-    return { totalProcs, totalComarcas, semComarca };
-  }, [allProcessos, comarcaData]);
+  const maxTribunalComarcaCount = tribunalComarcas.find((c) => !c.isUnknown)?.count || 1;
 
-  const maxComarcaCount = comarcaData.find((c) => !c.isUnknown)?.count || 1;
+  const selectedComarca = useMemo(
+    () => tribunalComarcas.find((c) => c.key === selectedComarcaKey) || null,
+    [tribunalComarcas, selectedComarcaKey]
+  );
 
   const handlePrintComarcas = () => {
     const logoHtml = logoEscritorio ? `<div style="text-align:center;margin-bottom:12px;"><img src="${logoEscritorio}" style="max-height:160px;" /></div>` : "";
