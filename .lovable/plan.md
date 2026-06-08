@@ -1,43 +1,42 @@
 ## Causa raiz
 
-A busca de processos por **CPF** existe num componente separado (`SuperAdminBuscaProcessosCPF`) e já tem um item no dropdown **Ferramentas** ("Busca CPF (Processos)"). Mas a busca por **Nome** (que existia antes) não está mais ativa em lugar nenhum. Você quer manter tudo **separado** da "Busca Geral" (cadastrais), porém com **um item próprio no dropdown** para acessar.
+A aba "Por Tribunal" hoje só mostra barras estáticas por sigla, e a aba "Por Comarca" lista comarcas de todos os tribunais misturados. Precisamos transformar a aba "Por Tribunal" em um drill-down: Tribunal → Comarcas daquele tribunal → Processos da comarca.
 
 ## Correção
 
-1. **Estender** `SuperAdminBuscaProcessosCPF` para aceitar **CPF ou Nome**:
-   - Adicionar um seletor "Tipo de busca" (CPF / Nome) no topo do componente.
-   - Quando "Nome", o input deixa de mascarar CPF e mostra aviso de homônimos.
-   - Renomear o componente/título para **"Busca de Processos por CPF ou Nome"**.
+Refatorar `activeSubTab === 'tribunal'` em `ControladoriaIndicadores.tsx` para ter 3 níveis de navegação dentro do mesmo card:
 
-2. **Estender** a Edge Function `judit-buscar-processos-cpf` para aceitar opcionalmente `{ name: string }` além de `{ cpf }`, enviando à Judit `search_type: 'name'` quando vier nome. CPF continua funcionando exatamente igual.
+1. **Nível 1 — Lista de tribunais** (estado atual): barras com sigla, contagem e %. Cada linha vira clicável. Mantém ordenação por contagem desc.
 
-3. **No dropdown "Ferramentas"** do Super Admin:
-   - Renomear o item atual "Busca CPF (Processos)" para **"Busca Processos (CPF/Nome)"**.
-   - Continua apontando para a mesma aba `busca-cpf-processos`.
+2. **Nível 2 — Comarcas do tribunal selecionado**: ao clicar em um tribunal (ex.: TJPR), filtra `allProcessos` por `tribunal_sigla === sigla` e agrupa por comarca usando a mesma lógica de `extractComarcaFromCounty` / `city` já existente. Mostra:
+   - Header com botão "← Voltar aos tribunais" + nome do tribunal + total de processos.
+   - Campo de busca de comarca (reaproveita `comarcaSearch`).
+   - Cards/linhas de comarca com nome, contagem e barra de progresso. Cada comarca é clicável.
 
-Nada é mesclado com a "Busca Geral" (cadastrais) — ela continua intocada.
+3. **Nível 3 — Processos da comarca**: ao clicar em uma comarca, mostra tabela com CNJ, partes (ativa × passiva), city/county originais. Header com breadcrumb "← Voltar às comarcas de TJPR" + nome da comarca + contagem. CNJ clicável abre o processo (mesmo padrão usado em outros pontos: `/controladoria/processo/:id` — verificar rota existente; senão apenas exibe).
+
+Estados novos:
+- `selectedTribunal: string | null`
+- `selectedComarcaKey: string | null`
+
+A aba "Por Comarca" (agregada geral) **é removida** — sua função fica embutida no drill-down do tribunal. O botão da subtab "Processos por Comarca" some.
 
 ## Arquivos afetados
 
-- `src/components/SuperAdmin/SuperAdminBuscaProcessosCPF.tsx` — adicionar Select de tipo (CPF/Nome), input adaptativo, payload condicional, aviso de homônimos.
-- `src/pages/SuperAdmin.tsx` — renomear label do item no `DropdownMenu` Ferramentas.
-- `supabase/functions/judit-buscar-processos-cpf/index.ts` — aceitar `name` no body, montar `search` correspondente.
-
-Nenhuma migration / RLS.
+- `src/components/Controladoria/ControladoriaIndicadores.tsx` — única alteração. Refatora bloco `activeSubTab === 'tribunal'`, remove bloco `activeSubTab === 'comarca'` e o botão da subtab correspondente. Reaproveita `comarcaData` extraindo a função de agrupamento para receber uma lista de processos como parâmetro (memoizada por tribunal selecionado).
 
 ## Impacto
 
-1. **Usuário final (Super Admin):** volta a poder buscar processos por nome (além de CPF) num lugar dedicado, acessível por **um clique no dropdown Ferramentas → Busca Processos (CPF/Nome)**. A Busca Geral (cadastrais) permanece separada e idêntica.
-2. **Dados:** sem mudança de schema, sem migrations, sem novas tabelas. A função apenas passa a aceitar mais um tipo de payload.
-3. **Riscos colaterais:**
-   - Busca por nome pode retornar muitos resultados / homônimos — mitigado por aviso visual e pela tabela já existente (mostra polos e tribunal).
-   - Tempo de resposta da Judit por nome pode chegar a ~90s; o loader e mensagem já existem.
-   - Compatibilidade preservada: chamadas antigas com `{ cpf }` continuam funcionando.
-4. **Quem é afetado:** apenas **Super Admin**. Nenhum tenant, advogado, cliente ou módulo de CRM/Controladoria é tocado.
+1. **UX**: aba "Indicadores > Por Tribunal" passa a ser navegável em 3 níveis (tribunal → comarcas do tribunal → processos da comarca) com breadcrumb/voltar. Aba separada "Processos por Comarca" deixa de existir; quem usava a visão geral de comarcas agora precisa entrar via tribunal.
+2. **Dados**: nenhuma alteração — sem migration, sem RLS, sem novas queries. Continua usando `fetchAllPaginated` em `processos_oab` já carregado.
+3. **Riscos colaterais**: usuários que dependiam da lista global de comarcas (todos os tribunais juntos) perdem essa visão consolidada. Impressão "Processos por Comarca" do botão dedicado some — se precisar, podemos reimplementar imprimindo o nível atual do drill-down. Atualmente não está no escopo.
+4. **Quem é afetado**: somente usuários com acesso a Controladoria > Indicadores no tenant atual. Multi-tenant intacto (filtro por `tenant_id` mantido).
 
 ## Validação
 
-- Abrir Super Admin → Ferramentas → "Busca Processos (CPF/Nome)".
-- Selecionar **CPF**, digitar um CPF conhecido → tabela de processos aparece (igual hoje).
-- Selecionar **Nome**, digitar um nome conhecido → tabela de processos aparece + alerta de homônimos.
-- Confirmar que a aba **Busca Geral** continua mostrando apenas dados cadastrais (CPF/CNPJ/Nome) sem misturar processos.
+- Abrir Controladoria > Indicadores > Por Tribunal: lista mostra TJPR, TJSP, etc.
+- Clicar em TJPR: mostra comarcas do PR com contagens; busca filtra; total bate com a contagem do TJPR no nível 1.
+- Clicar em uma comarca: mostra processos com CNJ + partes; contagem bate com a comarca.
+- Botão "Voltar" em cada nível retorna ao anterior preservando rolagem/busca.
+- Subtab "Processos por Comarca" não aparece mais.
+- Aba "Prazos" continua funcionando normal.
