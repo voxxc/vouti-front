@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import DOMPurify from 'dompurify';
 import { useSpnAuth } from '@/contexts/SpnAuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -92,7 +93,7 @@ const SectionViewer = ({ unitId, unitName }: SectionViewerProps) => {
     return (
       <div className="space-y-4">
         {content.text && (
-          <div className="prose prose-sm max-w-none text-foreground" dangerouslySetInnerHTML={{ __html: content.text }} />
+          <div className="prose prose-sm max-w-none text-foreground" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content.text, { ALLOWED_TAGS: ['p','br','strong','em','u','ul','ol','li','h1','h2','h3','h4','span','a','blockquote','code','pre'], ALLOWED_ATTR: ['class','href','target','rel'] }) }} />
         )}
         {content.audio_url && (
           <audio controls className="w-full">
