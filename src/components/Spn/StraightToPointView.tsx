@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import DOMPurify from 'dompurify';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 
@@ -41,7 +42,7 @@ const StraightToPointView = ({ unitId }: { unitId: string }) => {
                   [&_strong]:text-emerald-600 [&_em]:text-muted-foreground
                   [&_ul]:space-y-1 [&_ol]:space-y-1
                   [&_p]:mb-2"
-                dangerouslySetInnerHTML={{ __html: b.content_html }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(b.content_html, { ALLOWED_TAGS: ['p','br','strong','em','u','ul','ol','li','h1','h2','h3','h4','span','a','blockquote','code','pre'], ALLOWED_ATTR: ['class','href','target','rel'] }) }}
               />
             ) : (
               <p className="text-muted-foreground italic">No content.</p>
