@@ -60,6 +60,22 @@ export function ReunioesContent({ onCloseDrawer }: ReunioesContentProps = {}) {
   const [clienteDetalhesId, setClienteDetalhesId] = useState<string | null>(null);
   const [showClienteDetalhes, setShowClienteDetalhes] = useState(false);
   const [loadingLeadReuniaoId, setLoadingLeadReuniaoId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Deep link: /reunioes?cliente=<id> abre automaticamente o detalhe do lead
+  useEffect(() => {
+    const clienteParam = searchParams.get('cliente');
+    if (!clienteParam) return;
+    setClienteDetalhesId(clienteParam);
+    setShowClienteDetalhes(true);
+    // Garante que a lista local tenha o cliente
+    fetchClientes().catch(() => {});
+    // Limpa o param para não reabrir em refresh/navegações
+    const next = new URLSearchParams(searchParams);
+    next.delete('cliente');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const goTo = (path: string) => {
     onCloseDrawer?.();
