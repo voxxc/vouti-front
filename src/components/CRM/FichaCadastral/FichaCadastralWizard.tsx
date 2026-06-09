@@ -528,7 +528,7 @@ function SectionCard({
   title, icon: Icon, accent, children,
 }: {
   title: string;
-  icon?: React.ComponentType<{ size?: number; className?: string }>;
+  icon?: React.ElementType;
   accent?: 'destructive';
   children: React.ReactNode;
 }) {
@@ -593,7 +593,7 @@ function AddButton({ onClick, children }: { onClick: () => void; children: React
   );
 }
 
-function EmptyState({ icon: Icon, text }: { icon: React.ComponentType<{ size?: number; className?: string }>; text: string }) {
+function EmptyState({ icon: Icon, text }: { icon: React.ElementType; text: string }) {
   return (
     <div className="rounded-lg border border-dashed bg-muted/30 py-8 flex flex-col items-center gap-2 text-muted-foreground">
       <Icon size={24} />
