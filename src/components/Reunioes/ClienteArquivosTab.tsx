@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Upload, Download, Trash2, FileText } from 'lucide-react';
+import { Upload, Download, Trash2, FileText, Loader2 } from 'lucide-react';
 import { useReuniaoClienteArquivos } from '@/hooks/useReuniaoClienteArquivos';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -12,7 +12,7 @@ interface ClienteArquivosTabProps {
 
 export const ClienteArquivosTab = ({ clienteId }: ClienteArquivosTabProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { arquivos, loading, uploading, uploadArquivo, deleteArquivo, downloadArquivo } = 
+  const { arquivos, loading, uploading, uploadArquivo, deleteArquivo, downloadArquivo, downloadingIds } = 
     useReuniaoClienteArquivos(clienteId);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,8 +96,14 @@ export const ClienteArquivosTab = ({ clienteId }: ClienteArquivosTabProps) => {
                     variant="ghost"
                     size="icon"
                     onClick={() => downloadArquivo(arquivo)}
+                    disabled={downloadingIds.has(arquivo.id)}
+                    title={downloadingIds.has(arquivo.id) ? 'Baixando...' : 'Baixar'}
                   >
-                    <Download className="h-4 w-4" />
+                    {downloadingIds.has(arquivo.id) ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
                   </Button>
                   <Button
                     variant="ghost"

@@ -12,7 +12,8 @@ import {
   File,
   X,
   RotateCw,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -31,6 +32,7 @@ export const ReuniaoArquivos = ({ reuniaoId }: ReuniaoArquivosProps) => {
     dismissUpload,
     deleteArquivo,
     downloadArquivo,
+    downloadingIds,
     getPreviewUrl
   } = useReuniaoArquivos(reuniaoId);
 
@@ -203,10 +205,20 @@ export const ReuniaoArquivos = ({ reuniaoId }: ReuniaoArquivosProps) => {
                       variant="outline"
                       size="sm"
                       onClick={() => downloadArquivo(arquivo)}
+                      disabled={downloadingIds.has(arquivo.id)}
                       className="flex-1"
                     >
-                      <Download className="h-3 w-3 mr-1" />
-                      Baixar
+                      {downloadingIds.has(arquivo.id) ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          Baixando...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-3 w-3 mr-1" />
+                          Baixar
+                        </>
+                      )}
                     </Button>
                     <Button
                       variant="outline"
