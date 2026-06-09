@@ -7,6 +7,8 @@ import { Users, ArrowLeft, Loader2, User, DollarSign, TrendingUp } from "lucide-
 import { CRMContent } from "./CRMContent";
 import { ClienteDetails } from "./ClienteDetails";
 import { ClienteForm } from "./ClienteForm";
+import { FichaCadastralWizard } from "@/components/CRM/FichaCadastral/FichaCadastralWizard";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useClientes } from "@/hooks/useClientes";
 import { useProjectsOptimized } from "@/hooks/useProjectsOptimized";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +29,7 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [loadingCliente, setLoadingCliente] = useState(false);
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [tipoCadastro, setTipoCadastro] = useState<'comum' | 'formulario'>('comum');
   
   // Estados para criar projeto vinculado
   const [criarProjeto, setCriarProjeto] = useState(true);
@@ -57,6 +60,7 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
       setCliente(null);
       setCriarProjeto(true);
       setNomeProjeto('');
+      setTipoCadastro('comum');
     }
   }, [open]);
 
@@ -83,6 +87,7 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
     setIsEditing(false);
     setCriarProjeto(true);
     setNomeProjeto('');
+    setTipoCadastro('comum');
   };
 
   const handleBack = () => {
@@ -92,6 +97,7 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
     setCliente(null);
     setCriarProjeto(true);
     setNomeProjeto('');
+    setTipoCadastro('comum');
   };
 
   const handleFormSuccess = async (clienteId?: string, nomeCliente?: string) => {
@@ -234,15 +240,35 @@ export function CRMDrawer({ open, onOpenChange }: CRMDrawerProps) {
             
             {/* View: Novo cliente */}
             {view === 'novo' && (
-              <ClienteForm
-                onSuccess={handleFormSuccess}
-                onCancel={handleBack}
-                showCreateProject={true}
-                criarProjeto={criarProjeto}
-                setCriarProjeto={setCriarProjeto}
-                nomeProjeto={nomeProjeto}
-                setNomeProjeto={setNomeProjeto}
-              />
+              <div className="space-y-4">
+                <div className="max-w-xs">
+                  <label className="text-sm font-medium mb-1.5 block">Tipo de cadastro</label>
+                  <Select value={tipoCadastro} onValueChange={(v) => setTipoCadastro(v as 'comum' | 'formulario')}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="comum">Comum — cadastro padrão</SelectItem>
+                      <SelectItem value="formulario">Formulário — Ficha Cadastral completa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {tipoCadastro === 'comum' ? (
+                  <ClienteForm
+                    onSuccess={handleFormSuccess}
+                    onCancel={handleBack}
+                    showCreateProject={true}
+                    criarProjeto={criarProjeto}
+                    setCriarProjeto={setCriarProjeto}
+                    nomeProjeto={nomeProjeto}
+                    setNomeProjeto={setNomeProjeto}
+                  />
+                ) : (
+                  <FichaCadastralWizard
+                    onSuccess={handleFormSuccess}
+                    onCancel={handleBack}
+                  />
+                )}
+              </div>
             )}
             
             {/* View: Detalhes - Loading */}
