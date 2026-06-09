@@ -163,16 +163,35 @@ const ClienteCadastro = () => {
         
         <Card>
           <CardContent className="p-6">
-            <ClienteForm
-              cliente={cliente}
-              onSuccess={handleFormSuccess}
-              onCancel={handleClose}
-              showCreateProject={isNewCliente}
-              criarProjeto={criarProjeto}
-              setCriarProjeto={setCriarProjeto}
-              nomeProjeto={nomeProjeto}
-              setNomeProjeto={setNomeProjeto}
-            />
+            <div className="mb-6 max-w-xs">
+              <label className="text-sm font-medium mb-1.5 block">Tipo de cadastro</label>
+              <Select value={tipoCadastro} onValueChange={(v) => setTipoCadastro(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="comum">Comum — cadastro padrão</SelectItem>
+                  <SelectItem value="formulario">Formulário — Ficha Cadastral completa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {tipoCadastro === 'comum' ? (
+              <ClienteForm
+                cliente={cliente}
+                onSuccess={handleFormSuccess}
+                onCancel={handleClose}
+                showCreateProject={isNewCliente}
+                criarProjeto={criarProjeto}
+                setCriarProjeto={setCriarProjeto}
+                nomeProjeto={nomeProjeto}
+                setNomeProjeto={setNomeProjeto}
+              />
+            ) : (
+              <FichaCadastralWizard
+                cliente={cliente}
+                onSuccess={handleFormSuccess}
+                onCancel={handleClose}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
