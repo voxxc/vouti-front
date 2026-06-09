@@ -1,76 +1,56 @@
 ## Causa raiz
 
-O módulo SPN já tem a base (`spn_books`, `spn_units`, `spn_sections`, `spn_word_bank_items`, `spn_straight_to_point`, `spn_progress`, etc.) e o `SectionViewer` já roteia por `section.type` (word_bank, grammar, quiz, glossary…). Faltam:
+As notificações da Fabieli são todas do tipo `lead_comment` (comentários de leads do módulo Reuniões/CRM). Há dois problemas combinados:
 
-1. Conteúdo: Book 1 / Unit 1 não está populado com as 3 páginas dos prints.
-2. Dois tipos de seção interativos que ainda não existem: **Easy to Understand** (pares de frases-modelo + linha do aluno) e **Exercises** (banco genérico de exercícios para completar).
-3. Tabelas para persistir as respostas do aluno desses dois novos tipos.
+1. **Trigger não preenche referência** — As funções `notify_lead_creator_on_reuniao_comentario` e `notify_lead_creator_on_cliente_comentario` inserem em `notifications` sem `related_task_id` nem `related_project_id`. Resultado: a notificação não sabe qual lead abrir.
+2. **`NotificationCenter` não trata `lead_comment`** — Em `handleNotificationClick` não existe nenhum `case` para `lead_comment`. Como `related_project_id` é `null`, o fallback default `if (notification.related_project_id && onProjectNavigation)` não dispara. A notificação é só marcada como lida e nada abre. É exatamente o que a Fabieli está vendo.
 
 ## Correção
 
-### 1. Banco de dados (migration)
+### 1. Backend (migration)
+- Atualizar as duas funções do trigger para incluir `related_task_id = cliente_id` (o id do lead em `reuniao_clientes`) na inserção em `notifications`.
+- Backfill best-effort das notificações `lead_comment` antigas da Fabieli (e de todos os tenants): para cada notificação onde `related_task_id IS NULL`, tentar localizar `reuniao_clientes.id` pelo `tenant_id` + nome extraído do `title`/`content` (prefixo antes do `:`). Quando houver match único, gravar. Quando não houver, deixar como está (o frontend cai num fallback que abre a lista de leads).
 
-Criar 4 tabelas novas, com RLS e GRANTs:
+### 2. Frontend — `NotificationCenter.tsx`
+- Adicionar prop `onLeadNavigation?: (leadId: string) => void`.
+- Em `handleNotificationClick`, antes do fallback default, tratar `type === 'lead_comment'`:
+  - Se `related_task_id` existir → `onLeadNavigation(related_task_id)`.
+  - Caso contrário → `onLeadNavigation('')` (abre só a tela de Reuniões).
+- Adicionar emoji no `getNotificationIcon` para `lead_comment`.
 
-- `spn_easy_to_understand_items` — `unit_id`, `pair_index` (agrupa esquerda/direita), `side` (`left`|`right`), `prompt_html` (frase-modelo em negrito tipo "Hello. / Hi."), `placeholder` (frase pequena ex.: "How are you?"), `sort_order`.  
-  Leitura: aluno autenticado. Escrita: admin/professor.
-- `spn_easy_to_understand_answers` — `item_id`, `user_id`, `answer`. Único por (item_id,user_id). Aluno só vê/edita as próprias.
-- `spn_exercises` — `unit_id`, `kind` (`fill_blank`|`short_answer`|`translate`), `prompt_html` (com `___` marcando a lacuna), `correct_answer` (opcional, texto), `hint` (opcional), `sort_order`. Leitura aluno, escrita admin.
-- `spn_exercise_answers` — `exercise_id`, `user_id`, `answer`, `is_correct` (calculado se houver `correct_answer`). Único por (exercise_id,user_id).
+### 3. Frontend — `DashboardLayout.tsx`
+- Passar `onLeadNavigation={(leadId) => navigate(tenantPath('/reunioes' + (leadId ? `?cliente=${leadId}` : '')))}`.
 
-Sem alterações destrutivas em tabelas existentes; só novas. Não há `tenant_id` no SPN (módulo standalone), seguindo o padrão das tabelas `spn_*` já existentes (RLS por `user_id` ou role).
-
-### 2. Frontend
-
-- **Novos viewers** em `src/components/Spn/`:
-  - `EasyToUnderstandView.tsx` — renderiza grid 2 colunas (left/right por `pair_index`), cada item mostra `prompt_html` em destaque + linha (`Input` com underline) que salva no `onBlur` em `spn_easy_to_understand_answers`. Mesmo padrão do `WordBankStudentView`.
-  - `ExercisesView.tsx` — lista de cards; cada exercício mostra `prompt_html` com a lacuna substituída por um `Input` inline; salva no `onBlur`; se `correct_answer` existir, mostra ✓/✗ ao desfocar.
-- **`SectionViewer.tsx`**: adicionar `easy_to_understand` e `exercises` ao `sectionIcons` e ao roteamento (`if (section.type === 'easy_to_understand') return <EasyToUnderstandView unitId={unitId} />` etc.). Para esses tipos, o botão "Mark as Complete" continua disponível (igual ao Word Bank atual).
-- **`AdminBooksManager.tsx`**: incluir os dois novos tipos no `Select` de tipo de seção quando o professor criar manualmente (mudança pequena no dropdown — sem refator).
-
-### 3. Conteúdo da Unit 1 (seed via insert tool, não migration)
-
-Garantir 1 row em `spn_books` (Book 1) e 1 em `spn_units` (Unit 1) e popular:
-
-- **Section 1 — Word Bank** (`word_bank`): 12 itens em `spn_word_bank_items` exatamente como o print  
-  (Red meat, Cheese pizza, Tomato salad, Chocolate cake, Rice and beans, Hot French fries, Cold water, Apple juice, Sweet wine, A bottle of beer, A cup of coffee, A glass of soda).
-- **Section 2 — Straight to the Point** (`straight_to_point`): 1 bloco "Simple Present" em `spn_straight_to_point` com o HTML dos exemplos `I drink cold water. / I don't drink cold water. / I drink a cup of coffee. And you? / I drink a cup of coffee too. / I drink ____. And you?` (e o par com `eat`).
-- **Section 3 — Easy to Understand** (`easy_to_understand`): 4 pares em `spn_easy_to_understand_items`:  
-  L: "Hello. / Hi." · R: "Bye. / See you."  
-  L: "How are you?" · R: "I'm great, and you?"
-- **Section 4 — Exercises** (`exercises`): 6–8 itens em `spn_exercises` combinando vocabulário + Simple Present, por exemplo:  
-  - "I ___ cold water every morning." (drink)  
-  - "She ___ chocolate cake on Sundays." (eats)  
-  - "We don't ___ rice and beans for breakfast." (eat)  
-  - Tradução curta: "A cup of coffee" → ___ (deixar `correct_answer` opcional).
-
-A seção `Reading/Culture` (Louisiana) **fica fora deste MVP** conforme escolha "Word Bank / Easy to Understand / Straight to the Point / Exercises".
+### 4. Frontend — `ReunioesContent.tsx`
+- Ler `useSearchParams()`, se `cliente` estiver presente: carregar o cliente correspondente (já está em `clientes`, ou via fetch) e abrir `ClienteDetalhesDialog` automaticamente. Limpar o param depois para não reabrir ao navegar.
 
 ## Arquivos afetados
-
-- `supabase/migrations/<novo>.sql` — cria as 4 tabelas + RLS + GRANTs.
-- Insert tool — popula `spn_books`/`spn_units`/`spn_sections` + itens das 4 seções.
-- `src/components/Spn/EasyToUnderstandView.tsx` (novo).
-- `src/components/Spn/ExercisesView.tsx` (novo).
-- `src/components/Spn/SectionViewer.tsx` — roteamento dos novos tipos.
-- `src/components/Spn/AdminBooksManager.tsx` — adiciona os tipos no dropdown.
-- `src/integrations/supabase/types.ts` — regenerado automaticamente após a migration.
+- `supabase/migrations/<novo>.sql` (atualizar 2 funções + backfill)
+- `src/components/Communication/NotificationCenter.tsx`
+- `src/components/Dashboard/DashboardLayout.tsx`
+- `src/components/Reunioes/ReunioesContent.tsx`
 
 ## Impacto
 
-1. **Usuário final (aluno)**: ao abrir Sidebar → Books → Book 1 → Unit 1, encontra 4 seções clicáveis. Cada uma renderiza UI interativa (campos de input que salvam sozinhos), com botão "Mark as Complete" que dá +20 pontos e atualiza streak — igual ao fluxo atual de Word Bank. Mobile-friendly (mesmo padrão `Card` já usado).
-2. **Usuário final (professor/admin)**: no AdminBooksManager passa a poder criar seções dos dois novos tipos; a edição de itens em si (Easy/Exercises) pode ser feita inicialmente via SQL — UI de edição visual fica para iteração seguinte (avise-me se quiser já incluir).
-3. **Dados**: +4 tabelas pequenas no schema `public`. Nenhuma tabela existente é alterada. RLS escopa por `user_id` (respostas) e role de professor (conteúdo). Performance trivial (volumes baixos). Sem impacto em multi-tenant (SPN é standalone — não usa `tenant_id`).
-4. **Riscos colaterais**: baixos. O `SectionViewer` cai num fallback genérico se um tipo novo chegar sem viewer, então mesmo sem deploy do front a navegação não quebra. Cuidado único: garantir que o ícone `sectionIcons` tenha entrada para os novos tipos (senão usa `BookOpen` default — aceitável).
-5. **Quem é afetado**: apenas usuários do SPN (alunos e professores). Nenhum impacto nos módulos CRM/Jurídico/WhatsApp.
+**Usuário final (UX/telas/fluxos):**
+- Clicar numa notificação "Novo comentário no lead" agora navega para `/reunioes` e abre automaticamente o `ClienteDetalhesDialog` do lead correspondente, mostrando histórico e comentários.
+- Antes: o clique apenas marcava como lida e o popover fechava — sensação de "notificação quebrada" (relato da Fabieli).
+- Aplicável a qualquer comercial/admin que recebe `lead_comment` (Fabieli é o caso reportado, mas todos os tenants do CRM ganham o fix).
+
+**Dados (migrations/RLS/perf):**
+- Migration apenas reescreve duas funções `SECURITY DEFINER` e roda um `UPDATE` único na tabela `notifications`. Sem mudança de schema, sem RLS, sem GRANT novo.
+- Backfill toca só linhas com `type='lead_comment' AND related_task_id IS NULL` — volume pequeno (dezenas/centenas), executa em segundos.
+- Notificações novas passam a carregar `related_task_id` (já existe a coluna).
+
+**Riscos colaterais:**
+- O backfill por nome pode marcar o lead errado quando dois leads no mesmo tenant têm o mesmo nome — por isso só grava em match único; o resto fica intocado e cai no fallback (abre só `/reunioes`). Sem regressão.
+- Deep link em `/reunioes?cliente=...` precisa limpar o searchParam para não reabrir o dialog em refresh — tratado no `useEffect`.
+
+**Quem é afetado:**
+- Todos os usuários do módulo Reuniões que recebem comentários em leads que criaram (Fabieli, demais comerciais, admin). Nenhum outro tipo de notificação muda. Sem impacto em outros tenants/módulos.
 
 ## Validação
-
-1. Migration roda sem erro; `\d` mostra as 4 tabelas com RLS habilitado e GRANTs corretos.
-2. Logar como aluno → Sidebar → Books → Book 1 → Unit 1 mostra 4 seções na ordem certa.
-3. Word Bank: digitar tradução, recarregar, valor persiste.
-4. Straight to the Point: mostra bloco "Simple Present" formatado.
-5. Easy to Understand: 2 colunas, 4 pares, escrever e recarregar mantém a resposta.
-6. Exercises: preencher lacuna, ver feedback ✓/✗ quando há `correct_answer`, persistência ok.
-7. Botão "Mark as Complete" em qualquer seção credita +20 pts e atualiza streak.
-8. Confirmar isolamento RLS: outro user não vê respostas do primeiro (`spn_*_answers`/`spn_word_translations`).
+1. Rodar migration → conferir definição das funções e contagem de linhas atualizadas no backfill.
+2. Logar como Fabieli → sino → clicar numa notificação `lead_comment` recente (backfill) → confere que abre `/solvenza/reunioes` com o `ClienteDetalhesDialog` do lead certo aberto.
+3. Criar um novo comentário num lead da Fabieli a partir de outra conta → notificação chega com `related_task_id` populado → clique abre o dialog correto.
+4. Conferir que clicar em notificações de outros tipos (`comment_mention`, `deadline_assigned`, etc.) continua funcionando exatamente como antes.
