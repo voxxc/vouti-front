@@ -776,6 +776,53 @@ export type Database = {
           },
         ]
       }
+      clientes_ficha_cadastral: {
+        Row: {
+          cliente_id: string
+          contas: Json
+          created_at: string
+          created_by: string | null
+          dados_contrato: Json
+          dividas: Json
+          id: string
+          outros_clientes: Json
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          cliente_id: string
+          contas?: Json
+          created_at?: string
+          created_by?: string | null
+          dados_contrato?: Json
+          dividas?: Json
+          id?: string
+          outros_clientes?: Json
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          cliente_id?: string
+          contas?: Json
+          created_at?: string
+          created_by?: string | null
+          dados_contrato?: Json
+          dividas?: Json
+          id?: string
+          outros_clientes?: Json
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clientes_ficha_cadastral_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: true
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cnpjs_cadastrados: {
         Row: {
           cnpj: string
