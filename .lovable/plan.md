@@ -1,56 +1,43 @@
 ## Causa raiz
 
-As notificações da Fabieli são todas do tipo `lead_comment` (comentários de leads do módulo Reuniões/CRM). Há dois problemas combinados:
+Os buckets `reuniao-attachments` e `reuniao-cliente-attachments` são privados e a policy de SELECT em `storage.objects` exige que `auth.uid()::text = (storage.foldername(name))[1]`, ou seja: **só o próprio autor do upload consegue baixar o arquivo**.
 
-1. **Trigger não preenche referência** — As funções `notify_lead_creator_on_reuniao_comentario` e `notify_lead_creator_on_cliente_comentario` inserem em `notifications` sem `related_task_id` nem `related_project_id`. Resultado: a notificação não sabe qual lead abrir.
-2. **`NotificationCenter` não trata `lead_comment`** — Em `handleNotificationClick` não existe nenhum `case` para `lead_comment`. Como `related_project_id` é `null`, o fallback default `if (notification.related_project_id && onProjectNavigation)` não dispara. A notificação é só marcada como lida e nada abre. É exatamente o que a Fabieli está vendo.
+Como o upload grava o caminho como `{uploader_id}/{reuniao_id}/...`, qualquer outro usuário do mesmo tenant (advogado, admin, comercial) que clicar em "Baixar" recebe 400/403 do Storage → cai no `catch` → toast "Erro ao baixar arquivo". Para o usuário, o clique simplesmente "não baixa".
+
+No bucket `reuniao-cliente-attachments` há uma exceção parcial para admin (`has_role_in_tenant(... 'admin' ...)`), mas qualquer não-admin do mesmo tenant continua bloqueado. No bucket `reuniao-attachments` (arquivos vinculados à reunião) **nem o admin consegue**.
 
 ## Correção
 
-### 1. Backend (migration)
-- Atualizar as duas funções do trigger para incluir `related_task_id = cliente_id` (o id do lead em `reuniao_clientes`) na inserção em `notifications`.
-- Backfill best-effort das notificações `lead_comment` antigas da Fabieli (e de todos os tenants): para cada notificação onde `related_task_id IS NULL`, tentar localizar `reuniao_clientes.id` pelo `tenant_id` + nome extraído do `title`/`content` (prefixo antes do `:`). Quando houver match único, gravar. Quando não houver, deixar como está (o frontend cai num fallback que abre a lista de leads).
+Migration ajustando as duas policies de SELECT do `storage.objects` para autorizar download a qualquer usuário do **mesmo tenant** do arquivo:
 
-### 2. Frontend — `NotificationCenter.tsx`
-- Adicionar prop `onLeadNavigation?: (leadId: string) => void`.
-- Em `handleNotificationClick`, antes do fallback default, tratar `type === 'lead_comment'`:
-  - Se `related_task_id` existir → `onLeadNavigation(related_task_id)`.
-  - Caso contrário → `onLeadNavigation('')` (abre só a tela de Reuniões).
-- Adicionar emoji no `getNotificationIcon` para `lead_comment`.
+- **`reuniao-attachments`** → permite SELECT quando existe `reuniao_arquivos` com `file_path = name` e `tenant_id = get_user_tenant_id()`.
+- **`reuniao-cliente-attachments`** → permite SELECT quando existe `reuniao_cliente_arquivos` com `file_path = name` e `tenant_id = get_user_tenant_id()` (mantém o caso do uploader e do admin como fallback).
 
-### 3. Frontend — `DashboardLayout.tsx`
-- Passar `onLeadNavigation={(leadId) => navigate(tenantPath('/reunioes' + (leadId ? `?cliente=${leadId}` : '')))}`.
-
-### 4. Frontend — `ReunioesContent.tsx`
-- Ler `useSearchParams()`, se `cliente` estiver presente: carregar o cliente correspondente (já está em `clientes`, ou via fetch) e abrir `ClienteDetalhesDialog` automaticamente. Limpar o param depois para não reabrir ao navegar.
+O prefixo `{uploader_id}/` continua intacto — não muda upload, delete, listagem nem o front-end.
 
 ## Arquivos afetados
-- `supabase/migrations/<novo>.sql` (atualizar 2 funções + backfill)
-- `src/components/Communication/NotificationCenter.tsx`
-- `src/components/Dashboard/DashboardLayout.tsx`
-- `src/components/Reunioes/ReunioesContent.tsx`
+- `supabase/migrations/<novo>.sql` (DROP + CREATE das duas policies de SELECT em `storage.objects`)
 
 ## Impacto
 
 **Usuário final (UX/telas/fluxos):**
-- Clicar numa notificação "Novo comentário no lead" agora navega para `/reunioes` e abre automaticamente o `ClienteDetalhesDialog` do lead correspondente, mostrando histórico e comentários.
-- Antes: o clique apenas marcava como lida e o popover fechava — sensação de "notificação quebrada" (relato da Fabieli).
-- Aplicável a qualquer comercial/admin que recebe `lead_comment` (Fabieli é o caso reportado, mas todos os tenants do CRM ganham o fix).
+- Botão "Baixar" nos anexos de Reuniões (aba de arquivos da reunião e aba de arquivos do lead/cliente) passa a funcionar para todos do mesmo tenant — não só para quem subiu.
+- Antes: clique não fazia nada visível (toast de erro silenciado/instável) — relato do usuário.
+- Visualização da listagem dos anexos no banco já funcionava (RLS em `reuniao_arquivos` por tenant) — só o Storage estava bloqueando.
 
-**Dados (migrations/RLS/perf):**
-- Migration apenas reescreve duas funções `SECURITY DEFINER` e roda um `UPDATE` único na tabela `notifications`. Sem mudança de schema, sem RLS, sem GRANT novo.
-- Backfill toca só linhas com `type='lead_comment' AND related_task_id IS NULL` — volume pequeno (dezenas/centenas), executa em segundos.
-- Notificações novas passam a carregar `related_task_id` (já existe a coluna).
+**Dados (migrations/RLS/performance):**
+- Sem mudança de schema, sem GRANT novo. Apenas substitui 2 policies em `storage.objects`.
+- Cada download passa a fazer um lookup leve (`select 1 from reuniao_(cliente_)arquivos where file_path = name and tenant_id = ...`). Indexação em `file_path` é desejável; se não existir, custo é desprezível dado o volume.
 
 **Riscos colaterais:**
-- O backfill por nome pode marcar o lead errado quando dois leads no mesmo tenant têm o mesmo nome — por isso só grava em match único; o resto fica intocado e cai no fallback (abre só `/reunioes`). Sem regressão.
-- Deep link em `/reunioes?cliente=...` precisa limpar o searchParam para não reabrir o dialog em refresh — tratado no `useEffect`.
+- Amplia leitura do arquivo de "apenas o uploader" para "qualquer usuário do mesmo tenant". É o comportamento esperado para anexos de reuniões/leads compartilhados internamente. Sem vazamento entre tenants — o filtro `tenant_id = get_user_tenant_id()` é estrito.
+- Upload, delete e listagem permanecem inalterados.
 
 **Quem é afetado:**
-- Todos os usuários do módulo Reuniões que recebem comentários em leads que criaram (Fabieli, demais comerciais, admin). Nenhum outro tipo de notificação muda. Sem impacto em outros tenants/módulos.
+- Todos os usuários autenticados de todos os tenants que recebem ou enviam anexos em Reuniões e em Leads (Fabieli, demais comerciais, admins, advogados). Nenhum impacto em outros módulos/buckets.
 
 ## Validação
-1. Rodar migration → conferir definição das funções e contagem de linhas atualizadas no backfill.
-2. Logar como Fabieli → sino → clicar numa notificação `lead_comment` recente (backfill) → confere que abre `/solvenza/reunioes` com o `ClienteDetalhesDialog` do lead certo aberto.
-3. Criar um novo comentário num lead da Fabieli a partir de outra conta → notificação chega com `related_task_id` populado → clique abre o dialog correto.
-4. Conferir que clicar em notificações de outros tipos (`comment_mention`, `deadline_assigned`, etc.) continua funcionando exatamente como antes.
+1. Aplicar migration → conferir que apenas as duas policies de SELECT foram trocadas.
+2. Logar como usuário B do mesmo tenant que subiu o arquivo (usuário A) → abrir a reunião/lead → clicar "Baixar" → download dispara e arquivo abre.
+3. Logar como usuário de outro tenant → não consegue baixar (verificação de isolamento).
+4. Confirmar que upload, exclusão e visualização continuam funcionando normalmente.
