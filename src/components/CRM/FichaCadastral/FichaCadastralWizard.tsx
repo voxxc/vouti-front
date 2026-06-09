@@ -94,7 +94,6 @@ export const FichaCadastralWizard = ({ cliente, onSuccess, onCancel }: Props) =>
       profissao: cp.profissao || null,
       data_fechamento: d.data_fechamento || null,
       vendedor: d.consultor || null,
-      origem_tipo: d.forma_captacao || null,
     };
     if (clienteId) {
       const upd = await updateCliente(clienteId, payload);
