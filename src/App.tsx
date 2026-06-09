@@ -24,7 +24,7 @@ const queryClient = new QueryClient({
   },
 });
 
-type LazyPageModule<T extends ComponentType<any>> = { default: T };
+type LazyPageModule<T extends ComponentType<any>> = { default?: T };
 
 const BAD_LAZY_RELOAD_KEY = "__vouti_bad_lazy_reload__";
 
@@ -62,10 +62,10 @@ const lazyPage = <T extends ComponentType<any>>(loader: () => Promise<LazyPageMo
 
     if (!module?.default) {
       await recoverFromBadLazyModule();
-      throw new Error('Invalid lazy route module: missing default export');
+      return { default: PageFallback as unknown as T };
     }
 
-    return module;
+    return module as LazyPageModule<T> & { default: T };
   });
 
 // Lazy-loaded pages — each page is code-split into its own chunk
