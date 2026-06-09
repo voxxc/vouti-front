@@ -15,6 +15,9 @@ import { useProjectsOptimized } from '@/hooks/useProjectsOptimized';
 import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 import { useToast } from '@/hooks/use-toast';
 import { Cliente } from '@/types/cliente';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { FichaCadastralWizard } from '@/components/CRM/FichaCadastral/FichaCadastralWizard';
+import { supabase } from '@/integrations/supabase/client';
 
 const ClienteCadastro = () => {
   const { id } = useParams();
@@ -27,6 +30,7 @@ const ClienteCadastro = () => {
   const [cliente, setCliente] = useState<Cliente | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [tipoCadastro, setTipoCadastro] = useState<'comum' | 'formulario'>('comum');
   
   // Criar projeto
   const [criarProjeto, setCriarProjeto] = useState(true);
@@ -46,6 +50,13 @@ const ClienteCadastro = () => {
     if (data) {
       setCliente(data);
       setNomeProjeto(data.nome_pessoa_fisica || data.nome_pessoa_juridica || '');
+      // Se já existe ficha cadastral para esse cliente, abrir no modo formulário
+      const { data: ficha } = await supabase
+        .from('clientes_ficha_cadastral')
+        .select('id')
+        .eq('cliente_id', clienteId)
+        .maybeSingle();
+      if (ficha) setTipoCadastro('formulario');
     }
     setLoading(false);
   };
