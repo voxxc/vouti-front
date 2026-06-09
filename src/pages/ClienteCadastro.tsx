@@ -17,7 +17,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Cliente } from '@/types/cliente';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FichaCadastralWizard } from '@/components/CRM/FichaCadastral/FichaCadastralWizard';
-import { supabase } from '@/integrations/supabase/client';
 
 const ClienteCadastro = () => {
   const { id } = useParams();
