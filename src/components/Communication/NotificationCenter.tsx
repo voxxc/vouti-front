@@ -22,6 +22,7 @@ interface NotificationCenterProps {
   onProtocoloNavigation?: (projectId: string, protocoloId: string) => void;
   onEtapaNavigation?: (etapaId: string) => void;
   onPlanejadorTaskNavigation?: (taskId: string) => void;
+  onLeadNavigation?: (leadId: string) => void;
 }
 
 const NotificationCenter: React.FC<NotificationCenterProps> = ({
@@ -31,7 +32,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   onDeadlineNavigation,
   onProtocoloNavigation,
   onEtapaNavigation,
-  onPlanejadorTaskNavigation
+  onPlanejadorTaskNavigation,
+  onLeadNavigation
 }) => {
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications(userId);
   const [shouldPing, setShouldPing] = useState(false);
@@ -81,6 +83,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
         return <span className="text-lg">🔄</span>;
       case 'planejador_chat_message':
         return <span className="text-lg">📝</span>;
+      case 'lead_comment':
+        return <span className="text-lg">💬</span>;
       default:
         return <span className="text-lg">📢</span>;
     }
@@ -105,6 +109,13 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
     // Planejador chat message → open planejador task
     if (notification.type === 'planejador_chat_message' && notification.related_task_id && onPlanejadorTaskNavigation) {
       onPlanejadorTaskNavigation(notification.related_task_id);
+      setIsOpen(false);
+      return;
+    }
+
+    // Lead comment → open lead detail in Reuniões
+    if (notification.type === 'lead_comment' && onLeadNavigation) {
+      onLeadNavigation(notification.related_task_id || '');
       setIsOpen(false);
       return;
     }

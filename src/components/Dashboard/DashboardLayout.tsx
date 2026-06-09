@@ -485,6 +485,7 @@ const DashboardLayout = ({
                       setPendingPlanejadorTaskId(taskId);
                       setActiveDrawer('planejador');
                     }}
+                    onLeadNavigation={(leadId) => navigate(tenantPath('/reunioes' + (leadId ? `?cliente=${leadId}` : '')))}
                   />
                   <DeadlineDetailDialog
                     deadlineId={deadlineDetailId || null}
