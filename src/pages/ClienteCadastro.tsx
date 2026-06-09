@@ -15,6 +15,8 @@ import { useProjectsOptimized } from '@/hooks/useProjectsOptimized';
 import { useTenantNavigation } from '@/hooks/useTenantNavigation';
 import { useToast } from '@/hooks/use-toast';
 import { Cliente } from '@/types/cliente';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { FichaCadastralWizard } from '@/components/CRM/FichaCadastral/FichaCadastralWizard';
 
 const ClienteCadastro = () => {
   const { id } = useParams();
@@ -27,6 +29,7 @@ const ClienteCadastro = () => {
   const [cliente, setCliente] = useState<Cliente | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [tipoCadastro, setTipoCadastro] = useState<'comum' | 'formulario'>('comum');
   
   // Criar projeto
   const [criarProjeto, setCriarProjeto] = useState(true);
@@ -46,6 +49,13 @@ const ClienteCadastro = () => {
     if (data) {
       setCliente(data);
       setNomeProjeto(data.nome_pessoa_fisica || data.nome_pessoa_juridica || '');
+      // Se já existe ficha cadastral para esse cliente, abrir no modo formulário
+      const { data: ficha } = await supabase
+        .from('clientes_ficha_cadastral')
+        .select('id')
+        .eq('cliente_id', clienteId)
+        .maybeSingle();
+      if (ficha) setTipoCadastro('formulario');
     }
     setLoading(false);
   };
@@ -153,16 +163,35 @@ const ClienteCadastro = () => {
         
         <Card>
           <CardContent className="p-6">
-            <ClienteForm
-              cliente={cliente}
-              onSuccess={handleFormSuccess}
-              onCancel={handleClose}
-              showCreateProject={isNewCliente}
-              criarProjeto={criarProjeto}
-              setCriarProjeto={setCriarProjeto}
-              nomeProjeto={nomeProjeto}
-              setNomeProjeto={setNomeProjeto}
-            />
+            <div className="mb-6 max-w-xs">
+              <label className="text-sm font-medium mb-1.5 block">Tipo de cadastro</label>
+              <Select value={tipoCadastro} onValueChange={(v) => setTipoCadastro(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="comum">Comum — cadastro padrão</SelectItem>
+                  <SelectItem value="formulario">Formulário — Ficha Cadastral completa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {tipoCadastro === 'comum' ? (
+              <ClienteForm
+                cliente={cliente}
+                onSuccess={handleFormSuccess}
+                onCancel={handleClose}
+                showCreateProject={isNewCliente}
+                criarProjeto={criarProjeto}
+                setCriarProjeto={setCriarProjeto}
+                nomeProjeto={nomeProjeto}
+                setNomeProjeto={setNomeProjeto}
+              />
+            ) : (
+              <FichaCadastralWizard
+                cliente={cliente}
+                onSuccess={handleFormSuccess}
+                onCancel={handleClose}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
