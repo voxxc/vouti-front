@@ -97,9 +97,11 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } },
     );
-    const { data: userData, error: userErr } = await userClient.auth.getUser(token);
-    const userId = userData?.user?.id;
-    if (userErr || !userId) return jsonResp({ error: "unauthorized" }, 401);
+    const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
+    const userId = claimsData?.claims?.sub;
+    if (claimsErr || !userId) {
+      return jsonResp({ error: "unauthorized", detail: claimsErr?.message }, 401);
+    }
     const user = { id: userId };
 
     if (!rateLimit(user.id)) return jsonResp({ error: "rate_limited" }, 429);
