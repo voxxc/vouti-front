@@ -7598,6 +7598,155 @@ export type Database = {
         }
         Relationships: []
       }
+      spn_easy_to_understand_answers: {
+        Row: {
+          answer: string
+          id: string
+          item_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          answer?: string
+          id?: string
+          item_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          answer?: string
+          id?: string
+          item_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_easy_to_understand_answers_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "spn_easy_to_understand_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_easy_to_understand_items: {
+        Row: {
+          created_at: string
+          id: string
+          pair_index: number
+          placeholder: string | null
+          prompt_html: string
+          side: string
+          sort_order: number
+          unit_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pair_index?: number
+          placeholder?: string | null
+          prompt_html: string
+          side: string
+          sort_order?: number
+          unit_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pair_index?: number
+          placeholder?: string | null
+          prompt_html?: string
+          side?: string
+          sort_order?: number
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_easy_to_understand_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "spn_book_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_exercise_answers: {
+        Row: {
+          answer: string
+          exercise_id: string
+          id: string
+          is_correct: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          answer?: string
+          exercise_id: string
+          id?: string
+          is_correct?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          answer?: string
+          exercise_id?: string
+          id?: string
+          is_correct?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_exercise_answers_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "spn_exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_exercises: {
+        Row: {
+          correct_answer: string | null
+          created_at: string
+          hint: string | null
+          id: string
+          kind: string
+          prompt_html: string
+          sort_order: number
+          unit_id: string
+        }
+        Insert: {
+          correct_answer?: string | null
+          created_at?: string
+          hint?: string | null
+          id?: string
+          kind?: string
+          prompt_html: string
+          sort_order?: number
+          unit_id: string
+        }
+        Update: {
+          correct_answer?: string | null
+          created_at?: string
+          hint?: string | null
+          id?: string
+          kind?: string
+          prompt_html?: string
+          sort_order?: number
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_exercises_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "spn_book_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       spn_glossary: {
         Row: {
           audio_url: string | null
