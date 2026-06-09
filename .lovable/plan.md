@@ -1,42 +1,120 @@
-## Causa raiz
+# Aba "Administrativo (Daniel)" no Extras
 
-A aba "Por Tribunal" hoje só mostra barras estáticas por sigla, e a aba "Por Comarca" lista comarcas de todos os tribunais misturados. Precisamos transformar a aba "Por Tribunal" em um drill-down: Tribunal → Comarcas daquele tribunal → Processos da comarca.
+Nova aba em `Extras` exclusiva para `danieldemorais.e@gmail.com` no tenant SOLVENZA, mostrando o andamento da etapa Administrativa em protocolos Revisionais e Mandamentais, com exportação em PDF detalhado.
 
-## Correção
+## Regras de visibilidade
 
-Refatorar `activeSubTab === 'tribunal'` em `ControladoriaIndicadores.tsx` para ter 3 níveis de navegação dentro do mesmo card:
+- Renderizar a aba **somente** se `user.email === 'danieldemorais.e@gmail.com'` E `tenant.slug === 'solvenza'`.
+- Demais usuários não veem o botão nem o conteúdo.
 
-1. **Nível 1 — Lista de tribunais** (estado atual): barras com sigla, contagem e %. Cada linha vira clicável. Mantém ordenação por contagem desc.
+## Classificação dos protocolos
 
-2. **Nível 2 — Comarcas do tribunal selecionado**: ao clicar em um tribunal (ex.: TJPR), filtra `allProcessos` por `tribunal_sigla === sigla` e agrupa por comarca usando a mesma lógica de `extractComarcaFromCounty` / `city` já existente. Mostra:
-   - Header com botão "← Voltar aos tribunais" + nome do tribunal + total de processos.
-   - Campo de busca de comarca (reaproveita `comarcaSearch`).
-   - Cards/linhas de comarca com nome, contagem e barra de progresso. Cada comarca é clicável.
+Cada `project_protocolos.nome` é classificado pelo prefixo (case-insensitive, ignorando acentos/hífens):
 
-3. **Nível 3 — Processos da comarca**: ao clicar em uma comarca, mostra tabela com CNJ, partes (ativa × passiva), city/county originais. Header com breadcrumb "← Voltar às comarcas de TJPR" + nome da comarca + contagem. CNJ clicável abre o processo (mesmo padrão usado em outros pontos: `/controladoria/processo/:id` — verificar rota existente; senão apenas exibe).
+- **Revisional** → começa com `REVISIONAL`
+- **Mandamental** → começa com `MANDAMENTAL` (inclui "AÇÃO DECLARATÓRIA C/C MANDAMENTAL")
+- Outros (Execução, etc.) ficam fora deste painel.
 
-Estados novos:
-- `selectedTribunal: string | null`
-- `selectedComarcaKey: string | null`
+## Definição de "etapa Administrativa"
 
-A aba "Por Comarca" (agregada geral) **é removida** — sua função fica embutida no drill-down do tribunal. O botão da subtab "Processos por Comarca" some.
+Em `project_protocolo_etapas.nome`, considerar qualquer etapa cujo nome normalizado (UPPER + sem acento) **comece com** `ADMINISTRATIV` — cobre as variações encontradas:
+`ADMINISTRATIVA`, `ADMINISTRATIVO`, `ADMINISTRATITVO`, `ADMINISTRATIIVA`, `ADMINISTRATIVA (SOLICITAÇÃO DE DOCUMENTOS/ENVIO DE NOTIFICAÇÕES)`.
+
+Status:
+- **Concluída**: `status = 'concluido'` (usar `data_conclusao` quando existir).
+- **Pendente**: qualquer outro status (`pendente`, em andamento, null).
+
+Se um protocolo tiver mais de uma etapa administrativa, considera-se **concluída** somente quando **todas** estiverem concluídas; caso contrário, pendente. (Confirmar essa regra na 1ª revisão visual — fácil de inverter para "qualquer concluída".)
+
+## Layout da aba
+
+```text
+┌───────────────────────────────────────────────────────────┐
+│ Administrativo - Daniel                    [Exportar PDF] │
+│ Visão das etapas administrativas sob sua responsabilidade │
+├───────────────────────────────────────────────────────────┤
+│ ┌─ Revisionais ─────────┐  ┌─ Mandamentais ────────────┐  │
+│ │ Concluídos   141      │  │ Concluídos   42           │  │
+│ │ Pendentes    128      │  │ Pendentes     37          │  │
+│ │ Total        269      │  │ Total         79          │  │
+│ │ [██████░░░░] 52%      │  │ [█████░░░░░] 53%          │  │
+│ └───────────────────────┘  └───────────────────────────┘  │
+│                                                           │
+│ Tabs: [Revisionais] [Mandamentais]                        │
+│                                                           │
+│ Tabela (do tab ativo):                                    │
+│  Cliente | Protocolo | Etapa Adm | Status | Concluído em  │
+│  ────────────────────────────────────────────────────────  │
+│  ...                                                      │
+│                                                           │
+│ Filtros: [Concluídos | Pendentes | Todos]  [Busca: ___]   │
+└───────────────────────────────────────────────────────────┘
+```
+
+- Cards de KPI no topo (Revisionais e Mandamentais).
+- Abas internas para alternar a tabela.
+- Filtro por status (Concluídos/Pendentes/Todos) e busca por cliente/protocolo.
+- Linha clicável abre o protocolo em nova aba (`/projects/{project_id}` ou rota existente do protocolo) — verificar rota atual.
+
+## Exportação PDF
+
+Botão "Exportar PDF" usa `jspdf` + `jspdf-autotable` (já no projeto; senão adicionar) e gera:
+
+1. **Capa**: Logo Solvenza, título "Relatório de Etapas Administrativas", responsável "Daniel Pereira de Morais", data de geração.
+2. **Resumo executivo**: tabela com totais (Revisionais e Mandamentais — Concluídos, Pendentes, Total, % conclusão).
+3. **Seção Revisionais**:
+   - Subseção Concluídos: tabela `Cliente | Protocolo | Data de Conclusão`.
+   - Subseção Pendentes: tabela `Cliente | Protocolo | Última atualização`.
+4. **Seção Mandamentais**: idem.
+5. Rodapé com numeração e data em todas as páginas.
+
+Cabeçalhos com fundo na cor primária do tenant, zebra striping, fontes consistentes com a UI.
 
 ## Arquivos afetados
 
-- `src/components/Controladoria/ControladoriaIndicadores.tsx` — única alteração. Refatora bloco `activeSubTab === 'tribunal'`, remove bloco `activeSubTab === 'comarca'` e o botão da subtab correspondente. Reaproveita `comarcaData` extraindo a função de agrupamento para receber uma lista de processos como parâmetro (memoizada por tribunal selecionado).
+- `src/pages/Extras.tsx` — adicionar tab condicional `'admin-daniel'`.
+- `src/components/Extras/AdministrativoDanielTab.tsx` (novo) — UI + queries + filtros + abas internas.
+- `src/components/Extras/AdministrativoDanielPDF.ts` (novo) — geração do PDF.
+- (Opcional) `package.json` — adicionar `jspdf-autotable` se ausente.
+
+## Queries (Supabase)
+
+Uma única consulta paginada via `fetchAllPaginated`:
+
+```sql
+SELECT pe.id, pe.nome AS etapa_nome, pe.status, pe.data_conclusao, pe.updated_at,
+       pp.id AS protocolo_id, pp.nome AS protocolo_nome,
+       p.id AS project_id, p.name AS cliente_nome
+FROM project_protocolo_etapas pe
+JOIN project_protocolos pp ON pp.id = pe.protocolo_id
+JOIN projects p             ON p.id = pp.project_id
+WHERE pe.tenant_id = '<solvenza>'
+  AND UPPER(unaccent(pe.nome)) LIKE 'ADMINISTRATIV%'
+  AND (UPPER(pp.nome) LIKE 'REVISIONAL%' OR UPPER(pp.nome) LIKE '%MANDAMENTAL%');
+```
+
+Como o cliente JS não tem `unaccent`, a normalização é feita no front (já existe padrão no projeto). A classificação Revisional/Mandamental também é no front pelo prefixo.
 
 ## Impacto
 
-1. **UX**: aba "Indicadores > Por Tribunal" passa a ser navegável em 3 níveis (tribunal → comarcas do tribunal → processos da comarca) com breadcrumb/voltar. Aba separada "Processos por Comarca" deixa de existir; quem usava a visão geral de comarcas agora precisa entrar via tribunal.
-2. **Dados**: nenhuma alteração — sem migration, sem RLS, sem novas queries. Continua usando `fetchAllPaginated` em `processos_oab` já carregado.
-3. **Riscos colaterais**: usuários que dependiam da lista global de comarcas (todos os tribunais juntos) perdem essa visão consolidada. Impressão "Processos por Comarca" do botão dedicado some — se precisar, podemos reimplementar imprimindo o nível atual do drill-down. Atualmente não está no escopo.
-4. **Quem é afetado**: somente usuários com acesso a Controladoria > Indicadores no tenant atual. Multi-tenant intacto (filtro por `tenant_id` mantido).
+1. **Usuário final (UX)**:
+   - Apenas Daniel (em SOLVENZA) vê uma nova aba "Administrativo" em Extras.
+   - Nenhum outro usuário/tenant é afetado visualmente.
+   - Botão "Exportar PDF" gera um relatório pronto para envio.
+2. **Dados**:
+   - Apenas leitura. Sem migrations, sem mudanças de RLS, sem novas tabelas.
+   - Carga: somente etapas administrativas + joins de protocolo/projeto, filtrado por tenant — volume modesto (centenas de linhas).
+3. **Riscos colaterais**:
+   - Variações de nome de etapa fora do padrão `ADMINISTRATIV*` ficam de fora — citamos as variantes atuais para mitigar.
+   - Se um protocolo tiver mais de uma etapa Administrativa, a regra "todas concluídas = concluído" pode subestimar; ajustável.
+   - Verificar se `jspdf-autotable` já está instalado para evitar bloqueio.
+4. **Quem é afetado**:
+   - Apenas `danieldemorais.e@gmail.com` no tenant SOLVENZA. Sem efeito em admin, outros usuários, ou outros tenants.
 
 ## Validação
 
-- Abrir Controladoria > Indicadores > Por Tribunal: lista mostra TJPR, TJSP, etc.
-- Clicar em TJPR: mostra comarcas do PR com contagens; busca filtra; total bate com a contagem do TJPR no nível 1.
-- Clicar em uma comarca: mostra processos com CNJ + partes; contagem bate com a comarca.
-- Botão "Voltar" em cada nível retorna ao anterior preservando rolagem/busca.
-- Subtab "Processos por Comarca" não aparece mais.
-- Aba "Prazos" continua funcionando normal.
+- Login como Daniel em SOLVENZA → ver a aba; KPIs batem com `SELECT COUNT` direto.
+- Login como admin do mesmo tenant e como usuário de outro tenant → aba **não** aparece.
+- Filtros (Concluídos/Pendentes/Todos) e busca retornam os subconjuntos esperados.
+- Exportar PDF: abrir o arquivo, conferir capa, totais, seções Revisionais e Mandamentais, paginação e rodapé.
+- Conferir contagem com SQL direto contra a base.
