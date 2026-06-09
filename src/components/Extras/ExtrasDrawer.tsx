@@ -8,10 +8,11 @@ import { GoogleAgendaTab } from "./GoogleAgendaTab";
 import { TimezoneTab } from "./TimezoneTab";
 import { ControleTab } from "./ControleTab";
 import { PublicacoesTab } from "./PublicacoesTab";
+import { AdministrativoDanielTab } from "./AdministrativoDanielTab";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
-type TabType = 'perfil' | 'aniversarios' | 'google-agenda' | 'timezone' | 'controle' | 'publicacoes';
+type TabType = 'perfil' | 'aniversarios' | 'google-agenda' | 'timezone' | 'controle' | 'publicacoes' | 'admin-daniel';
 
 interface ExtrasDrawerProps {
   open: boolean;
@@ -45,8 +46,11 @@ const TabButton = ({
 
 export function ExtrasDrawer({ open, onOpenChange }: ExtrasDrawerProps) {
   const [activeTab, setActiveTab] = useState<TabType>('perfil');
-  const { userRole } = useAuth();
+  const { userRole, user, tenantId } = useAuth();
   const isAdmin = userRole === 'admin';
+  const isDanielSolvenza =
+    user?.email?.toLowerCase() === 'danieldemorais.e@gmail.com' &&
+    tenantId === '27492091-e05d-46a8-9ee8-b3b47ec894e4';
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
@@ -113,6 +117,14 @@ export function ExtrasDrawer({ open, onOpenChange }: ExtrasDrawerProps) {
                   Publicações
                 </TabButton>
               )}
+              {isDanielSolvenza && (
+                <TabButton
+                  active={activeTab === 'admin-daniel'}
+                  onClick={() => setActiveTab('admin-daniel')}
+                >
+                  Administrativo
+                </TabButton>
+              )}
             </div>
 
             {/* Conteúdo da tab */}
@@ -123,6 +135,7 @@ export function ExtrasDrawer({ open, onOpenChange }: ExtrasDrawerProps) {
               {activeTab === 'timezone' && isAdmin && <TimezoneTab />}
               {activeTab === 'controle' && isAdmin && <ControleTab />}
               {activeTab === 'publicacoes' && isAdmin && <PublicacoesTab />}
+              {activeTab === 'admin-daniel' && isDanielSolvenza && <AdministrativoDanielTab />}
             </div>
           </div>
         </ScrollArea>
