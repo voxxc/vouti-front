@@ -1,18 +1,22 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
-import { BookOpen, Layers, ArrowLeft, Type, FileText, ChevronRight } from 'lucide-react';
+import { BookOpen, Layers, ArrowLeft, Type, FileText, ChevronRight, MessageSquare, PenTool } from 'lucide-react';
 import WordBankStudentView from './WordBankStudentView';
 import StraightToPointView from './StraightToPointView';
+import EasyToUnderstandView from './EasyToUnderstandView';
+import ExercisesView from './ExercisesView';
 
 interface Book { id: string; name: string; description: string | null; cover_color: string; sort_order: number; }
 interface Unit { id: string; book_id: string; name: string; sort_order: number; }
 
-type ViewState = 
+type ViewState =
   | { type: 'books' }
   | { type: 'units'; book: Book }
   | { type: 'wordbank'; unit: Unit; book: Book }
-  | { type: 'stp'; unit: Unit; book: Book };
+  | { type: 'stp'; unit: Unit; book: Book }
+  | { type: 'easy'; unit: Unit; book: Book }
+  | { type: 'exercises'; unit: Unit; book: Book };
 
 const BooksView = () => {
   const [books, setBooks] = useState<Book[]>([]);
@@ -87,6 +91,48 @@ const BooksView = () => {
     );
   }
 
+  // Easy to Understand view
+  if (view.type === 'easy') {
+    return (
+      <div className="space-y-4">
+        <button onClick={() => setView({ type: 'units', book: view.book })} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Back to {view.book.name}
+        </button>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: view.book.cover_color }}>
+            <MessageSquare className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <h2 className="font-bold text-foreground text-lg">{view.unit.name}</h2>
+            <p className="text-xs text-muted-foreground">Easy to Understand</p>
+          </div>
+        </div>
+        <EasyToUnderstandView unitId={view.unit.id} />
+      </div>
+    );
+  }
+
+  // Exercises view
+  if (view.type === 'exercises') {
+    return (
+      <div className="space-y-4">
+        <button onClick={() => setView({ type: 'units', book: view.book })} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Back to {view.book.name}
+        </button>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: view.book.cover_color }}>
+            <PenTool className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <h2 className="font-bold text-foreground text-lg">{view.unit.name}</h2>
+            <p className="text-xs text-muted-foreground">Exercises</p>
+          </div>
+        </div>
+        <ExercisesView unitId={view.unit.id} />
+      </div>
+    );
+  }
+
   // Units list
   if (view.type === 'units') {
     return (
@@ -119,7 +165,7 @@ const BooksView = () => {
                   </div>
                   <h3 className="font-semibold text-foreground">{u.name}</h3>
                 </div>
-                <div className="grid grid-cols-2 gap-2 ml-11">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 ml-11">
                   <Card className="cursor-pointer hover:shadow-md transition-all active:scale-[0.98]" onClick={() => setView({ type: 'wordbank', unit: u, book: view.book })}>
                     <CardContent className="p-3 flex items-center gap-2">
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-emerald-100 dark:bg-emerald-900/30">
@@ -138,6 +184,28 @@ const BooksView = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground">Straight to the Point</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </CardContent>
+                  </Card>
+                  <Card className="cursor-pointer hover:shadow-md transition-all active:scale-[0.98]" onClick={() => setView({ type: 'easy', unit: u, book: view.book })}>
+                    <CardContent className="p-3 flex items-center gap-2">
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-orange-100 dark:bg-orange-900/30">
+                        <MessageSquare className="h-4 w-4 text-orange-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">Easy to Understand</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </CardContent>
+                  </Card>
+                  <Card className="cursor-pointer hover:shadow-md transition-all active:scale-[0.98]" onClick={() => setView({ type: 'exercises', unit: u, book: view.book })}>
+                    <CardContent className="p-3 flex items-center gap-2">
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-purple-100 dark:bg-purple-900/30">
+                        <PenTool className="h-4 w-4 text-purple-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">Exercises</p>
                       </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </CardContent>
