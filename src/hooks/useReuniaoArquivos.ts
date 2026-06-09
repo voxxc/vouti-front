@@ -20,6 +20,7 @@ export const useReuniaoArquivos = (reuniaoId: string) => {
   const [arquivos, setArquivos] = useState<ReuniaoArquivo[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
+  const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
 
   const fetchArquivos = async () => {
     if (!reuniaoId) return;
@@ -175,6 +176,12 @@ export const useReuniaoArquivos = (reuniaoId: string) => {
   };
 
   const downloadArquivo = async (arquivo: ReuniaoArquivo) => {
+    if (downloadingIds.has(arquivo.id)) return;
+    setDownloadingIds((prev) => {
+      const next = new Set(prev);
+      next.add(arquivo.id);
+      return next;
+    });
     try {
       const { data, error } = await supabase.storage
         .from('reuniao-attachments')
@@ -194,6 +201,12 @@ export const useReuniaoArquivos = (reuniaoId: string) => {
     } catch (error: any) {
       console.error('Erro ao baixar arquivo:', error);
       toast.error('Erro ao baixar arquivo');
+    } finally {
+      setDownloadingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(arquivo.id);
+        return next;
+      });
     }
   };
 
@@ -222,6 +235,7 @@ export const useReuniaoArquivos = (reuniaoId: string) => {
     dismissUpload,
     deleteArquivo,
     downloadArquivo,
+    downloadingIds,
     getPreviewUrl,
     refetch: fetchArquivos
   };
