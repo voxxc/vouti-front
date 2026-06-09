@@ -6,11 +6,10 @@ import { GoogleAgendaTab } from "@/components/Extras/GoogleAgendaTab";
 import { TimezoneTab } from "@/components/Extras/TimezoneTab";
 import { ControleTab } from "@/components/Extras/ControleTab";
 import { PublicacoesTab } from "@/components/Extras/PublicacoesTab";
-import { AdministrativoDanielTab } from "@/components/Extras/AdministrativoDanielTab";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
-type TabType = 'perfil' | 'aniversarios' | 'google-agenda' | 'timezone' | 'controle' | 'publicacoes' | 'admin-daniel';
+type TabType = 'perfil' | 'aniversarios' | 'google-agenda' | 'timezone' | 'controle' | 'publicacoes';
 
 const TabButton = ({ 
   active, 
@@ -39,12 +38,9 @@ const TabButton = ({
 
 const Extras = () => {
   const [activeTab, setActiveTab] = useState<TabType>('perfil');
-  const { userRole, user, tenantId } = useAuth();
+  const { userRole } = useAuth();
 
   const isAdmin = userRole === 'admin';
-  const isDanielSolvenza =
-    user?.email?.toLowerCase() === 'danieldemorais.e@gmail.com' &&
-    tenantId === '27492091-e05d-46a8-9ee8-b3b47ec894e4';
 
   return (
     <DashboardLayout currentPage="extras">
@@ -101,14 +97,6 @@ const Extras = () => {
               Publicações
             </TabButton>
           )}
-          {isDanielSolvenza && (
-            <TabButton
-              active={activeTab === 'admin-daniel'}
-              onClick={() => setActiveTab('admin-daniel')}
-            >
-              Administrativo
-            </TabButton>
-          )}
         </div>
 
         {/* Conteúdo */}
@@ -119,7 +107,6 @@ const Extras = () => {
           {activeTab === 'timezone' && isAdmin && <TimezoneTab />}
           {activeTab === 'controle' && isAdmin && <ControleTab />}
           {activeTab === 'publicacoes' && isAdmin && <PublicacoesTab />}
-          {activeTab === 'admin-daniel' && isDanielSolvenza && <AdministrativoDanielTab />}
         </div>
       </div>
     </DashboardLayout>
