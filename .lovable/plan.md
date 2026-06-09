@@ -1,88 +1,79 @@
-# Cadastro de Cliente com Dropdown: "Comum" vs "Formulário (Ficha Cadastral)"
+# Redesign Mobile — Wizard "Ficha Cadastral"
 
-## Causa raiz / motivação
-Hoje o `/:tenant/clientes/novo` abre direto o `ClienteForm` (cadastro comum). Para Solvenza, é necessário um cadastro mais completo no molde da Ficha Cadastral (.xlsx enviada), com clientes secundários, contas bancárias contratadas, dívidas e dados do contrato — e poder exportar tudo em `.xlsx`.
+Hoje o wizard usa `Tabs` em grid de 4 colunas, inputs `md:grid-cols-2/3`, e barra de ações horizontal. No mobile (<640px) os títulos das tabs ficam apertados, cada seção vira uma pilha gigante de inputs sem hierarquia, o checklist quebra mal (3 colunas viram empilhadas sem rótulo claro) e a barra de salvar fica solta no fim da rolagem.
 
-## Correção (UX)
+## Objetivo
+Manter **100% dos campos atuais** (contrato, checklist, cliente principal, outros clientes, contas, dívidas), mas com layout pensado mobile-first: navegação por passos clara, cards compactos, ações sempre acessíveis. Sem mexer em lógica, schema, hooks ou export.
 
-Na tela **Novo Cliente** (`ClienteCadastro.tsx`), antes de mostrar o formulário, exibir um seletor de tipo:
+## Estrutura nova (mobile)
 
 ```text
-┌──────────────────────────────────────────┐
-│ Como deseja cadastrar?                   │
-│ [ Comum ▼ ]                              │
-│   • Comum — cadastro padrão (existente)  │
-│   • Formulário — Ficha Cadastral completa│
-└──────────────────────────────────────────┘
+┌──────────────────────────────┐
+│ Ficha Cadastral              │  ← header sticky com nome do cliente
+│ Passo 2 de 4 · Clientes      │
+│ ▓▓▓▓▓▓░░░░░░░░░░░░  50%      │  ← progress bar
+├──────────────────────────────┤
+│ ● Contrato                   │  ← stepper horizontal scrollável
+│ ● Clientes  ○ Contas ○ Dívi…│     (chips, ativo destacado)
+├──────────────────────────────┤
+│                              │
+│  [conteúdo do passo em       │
+│   cards arredondados]        │
+│                              │
+├──────────────────────────────┤
+│ ← Voltar   |   Avançar →     │  ← footer sticky
+│ ⋯ Salvar / Exportar (menu)   │
+└──────────────────────────────┘
 ```
 
-- **Comum** → mantém exatamente o fluxo atual (`ClienteForm`).
-- **Formulário** → abre o wizard "Ficha Cadastral" (multi-etapa, baseado no XLSX).
+### Passo 1 — Contrato
+- Card "Dados do contrato": 6 inputs em 1 coluna no mobile, 2 colunas em ≥sm.
+- Card "Serviços contratados" com textarea full width.
+- Card "Checklist" reformulado: cada item vira um mini-card com label em cima, 3 chips segmentados (Sim / Não / N/A) em vez de Select, e campo "observação" colapsável (aparece só se resposta ≠ N/A).
+- Card "Observações" com as duas textareas empilhadas, ícone de alerta na de urgências.
 
-Edição de cliente existente: se o cliente foi criado via Ficha, abre direto a Ficha; caso contrário, fluxo comum (com botão "Migrar para Ficha Cadastral" opcional — fica para depois).
+### Passo 2 — Clientes
+- Card destacado "Cliente principal" (badge "Principal", avatar com iniciais geradas do nome).
+- Inputs reagrupados em subgrupos com microtítulos: Identificação (Nome/CPF/RG), Pessoal (Estado civil/Profissão), Contato (Tel/E-mail/Endereço), toggle "Responsável pelo contrato" como Switch grande.
+- Lista de "Outros clientes" como cards colapsáveis (Accordion): fechado mostra nome + CPF + botão lixeira; aberto mostra o PessoaFields completo. Botão "+ Adicionar cliente" full width, tracejado.
 
-## Wizard da Ficha Cadastral (4 passos)
+### Passo 3 — Contas
+- Empty state ilustrado quando 0 contas.
+- Cada conta vira card com titular em destaque, banco e agência abaixo, botão lixeira no canto. Botão "+ Adicionar conta" full width tracejado.
 
-1. **Dados do contrato**: forma de captação, consultor, advogado responsável, datas (fechamento, pagamento entrada), responsável financeiro, serviços contratados, checklist Sim/Não/Obs (procurações, execução, citação, leilão, avalistas, alienação), observação geral e situações urgentes.
-2. **Cliente principal + outros clientes** (lista dinâmica): nome, CPF, RG, estado civil, profissão, telefone, e-mail, endereço, "responsável pelo contrato".
-3. **Contas contratadas** (lista dinâmica): titular, banco, ag/cc.
-4. **Resumo de endividamento** (lista dinâmica, 2ª aba do XLSX): banco, ag/cc, titular, anos de movimentação, valor da dívida, situação das parcelas, bens em garantia, avalistas, observação.
+### Passo 4 — Dívidas
+- Cada dívida = card colapsável (Accordion). Header fechado: banco + valor formatado + chip de situação. Aberto: todos os 9 campos atuais agrupados em 3 blocos (Identificação / Valores / Garantias) + observação.
+- Resumo no topo: total de dívidas + soma simples dos valores (parseFloat tolerante).
 
-Validação com `zod` (CPF, e-mail, valores). Auto-save de rascunho em `localStorage` por usuário.
-
-Ao concluir:
-- Cria/atualiza o `clientes` (cliente principal) com os campos compatíveis (nome, CPF, telefone, e-mail, endereço) — reaproveita o cadastro existente para não duplicar.
-- Salva o restante (clientes secundários, contas, dívidas, checklist, datas, etc.) na nova tabela `clientes_ficha_cadastral` ligada ao `cliente_id`.
-- Botão **"Exportar XLSX"** gera o arquivo no layout original (2 abas: `DADOS PRINCIPAIS`, `RESUMO ENDIVIDAMENTO`).
+## Componentes/UX
+- Stepper horizontal com scroll-snap, chip ativo em `bg-primary text-primary-foreground`, concluídos com check.
+- Footer sticky (`sticky bottom-0`, safe-area-inset-bottom) com 2 botões grandes Voltar/Avançar; no último passo, "Avançar" vira "Salvar". Ações secundárias (Exportar XLSX, Salvar+Exportar, Cancelar) num `DropdownMenu` "Mais".
+- Inputs com `h-11` (touch friendly), labels acima, font-size ≥ 16px para evitar zoom iOS.
+- Chips segmentados via `ToggleGroup` do shadcn para checklist.
+- Todos os tokens semânticos (`bg-card`, `border`, `text-muted-foreground`, `bg-primary`), zero cor hardcoded.
+- Desktop (≥md) mantém visual atual de tabs/colunas — o redesign é progressive enhancement mobile sem regressão.
 
 ## Arquivos afetados
+- `src/components/CRM/FichaCadastral/FichaCadastralWizard.tsx` — reescrita do layout (mesma API, mesmos estados).
+- Novo `src/components/CRM/FichaCadastral/parts/`:
+  - `MobileStepper.tsx`
+  - `ChecklistItem.tsx` (com ToggleGroup)
+  - `PessoaCard.tsx` (Accordion + PessoaFields existente reaproveitado)
+  - `DividaCard.tsx`
+  - `ContaCard.tsx`
+  - `WizardFooter.tsx` (footer sticky + DropdownMenu)
 
-- `src/pages/ClienteCadastro.tsx` — adicionar dropdown e roteamento condicional para o wizard.
-- `src/components/CRM/FichaCadastral/` (novo)
-  - `FichaCadastralWizard.tsx`
-  - `Steps/DadosContratoStep.tsx`
-  - `Steps/ClientesStep.tsx`
-  - `Steps/ContasStep.tsx`
-  - `Steps/DividasStep.tsx`
-  - `Steps/RevisaoStep.tsx`
-- `src/lib/fichaCadastral/schema.ts` — zod + tipos.
-- `src/lib/fichaCadastral/exportXlsx.ts` — geração `.xlsx` com `exceljs` (lazy import).
-- `src/hooks/useFichaCadastral.ts` — CRUD da ficha.
-- Migration: tabela `public.clientes_ficha_cadastral` (tenant-isolada, RLS por `has_role_in_tenant`).
-- Dependência: `exceljs`.
-
-## Modelo de dados (resumo)
-
-```text
-clientes_ficha_cadastral
-  id, tenant_id, cliente_id (FK clientes), created_by,
-  dados_contrato jsonb,  -- captação, consultor, datas, checklists, observação
-  outros_clientes jsonb, -- array de clientes secundários
-  contas jsonb,          -- array {titular, banco, ag_cc}
-  dividas jsonb,         -- array de itens do resumo de endividamento
-  created_at, updated_at
-```
-
-RLS: `SELECT/INSERT/UPDATE/DELETE` apenas para usuários com role no `tenant_id`. GRANTs para `authenticated` e `service_role`.
+Nenhum schema, hook, RPC, RLS ou export modificado. Sem nova migration.
 
 ## Impacto
-
-- **Usuário final (Solvenza):** ao clicar "Novo Cliente" agora escolhe entre **Comum** (igual hoje) ou **Formulário** (wizard novo de 4 passos com export `.xlsx`). Quem só usa o cadastro comum não sente diferença — o dropdown vem pré-selecionado em "Comum". A lista de clientes continua igual; clientes salvos via Ficha mostram um badge "Ficha completa" e abrem direto no wizard.
-- **Dados:** nova tabela `clientes_ficha_cadastral` (1:1 com `clientes`). Sem migrar dados antigos. `payload jsonb` mantém os dados ricos sem inflar `clientes`. Sem impacto em performance (tabela nova, indexada por `cliente_id` e `tenant_id`).
-- **Riscos colaterais:** baixos. Nada muda em processos, financeiro, projetos. Único ponto de atenção: a criação de projeto que hoje acontece no `handleFormSuccess` precisa funcionar igual após o wizard (vou reaproveitar a mesma lógica).
-- **Quem é afetado:** todos os usuários de todos os tenants veem o dropdown (não é restrito ao Solvenza). Se preferir limitar ao Solvenza, basta gatilho por slug do tenant — me diga.
+1. **Usuário final**: no celular, o cadastro fica navegável por passos com progresso visível, ações sempre na tela (footer sticky), checklist mais rápido de responder (chips em vez de dropdown), dívidas/clientes recolhidos para não rolar página infinita. Desktop praticamente igual.
+2. **Dados**: zero mudança — mesmos campos, mesmo payload, mesmo `clientes_ficha_cadastral`, mesmo XLSX.
+3. **Riscos colaterais**: baixos. Risco principal é regressão visual no desktop — mitigado mantendo grid responsivo `md:` e testando na largura atual. Validação de "nome obrigatório" continua ativa e leva ao passo Clientes.
+4. **Afetados**: qualquer usuário do tenant que usar "Novo Cliente → modo Formulário" (CRM). Sem efeito em outros tenants/módulos.
 
 ## Validação
-
-- Cadastro **Comum** funciona idêntico ao atual (criar/editar/excluir cliente).
-- Wizard **Formulário** salva cliente principal em `clientes` + ficha em `clientes_ficha_cadastral`.
-- Reabrir cliente criado via Ficha → wizard pré-preenchido em todos os passos.
-- Botão "Exportar XLSX" baixa arquivo com 2 abas e rótulos exatamente nas posições da planilha original.
-- RLS: ficha criada no tenant A não aparece no tenant B.
-- Sem regressão na criação automática de projeto vinculado.
-
-## Perguntas rápidas
-
-1. Dropdown disponível para **todos os tenants** ou só para **Solvenza**?
-2. Em "Editar cliente": clientes antigos (sem ficha) devem ter botão **"Migrar para Ficha Cadastral"** ou deixo essa migração para depois?
-3. Quem pode usar o tipo **Formulário**: todos os papéis com acesso ao CRM, ou restringir (ex.: admin/comercial/advogado)?
+- Abrir `/crm/.../cadastro` em 375px e 414px: navegar pelos 4 passos, conferir que todos os campos aparecem.
+- Comparar payload salvo (antes/depois) num cliente novo — deve ser idêntico.
+- Exportar XLSX e abrir: layout do template inalterado.
+- Desktop ≥1024px: layout não deve "achatar"; tabs continuam usáveis.
+- Editar cliente existente com ficha: carrega corretamente nos passos.
