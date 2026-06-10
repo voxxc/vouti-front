@@ -225,6 +225,12 @@ export const CentralAndamentosNaoLidos = () => {
                   >
                     <TableCell>
                       <div className="font-mono text-sm">{processo.numero_cnj}</div>
+                      {canUseApartados && processo.apartado && (
+                        <Badge variant="secondary" className="mt-1 text-[10px] font-normal">
+                          <FolderInput className="h-3 w-3 mr-1" />
+                          Apartado
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="max-w-[200px]">
