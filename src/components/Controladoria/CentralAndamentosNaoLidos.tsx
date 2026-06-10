@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bell, Search, Scale, Eye, CheckCheck, AlertCircle } from "lucide-react";
+import { Bell, Search, Scale, Eye, CheckCheck, AlertCircle, FolderInput } from "lucide-react";
 import { useAndamentosNaoLidosGlobal, ProcessoComNaoLidos } from "@/hooks/useAndamentosNaoLidosGlobal";
+import { useCanUseApartados } from "@/hooks/useCanUseApartados";
 import { ProcessoOABDetalhes } from "@/components/Controladoria/ProcessoOABDetalhes";
 import { toast } from "sonner";
 import {
@@ -34,8 +35,10 @@ const ITEMS_PER_PAGE = 20;
 
 export const CentralAndamentosNaoLidos = () => {
   const { processos, loading, oabs, totalNaoLidos, marcarTodosComoLidos, marcarTodosGlobalComoLidos, refetch } = useAndamentosNaoLidosGlobal();
+  const { canUse: canUseApartados } = useCanUseApartados();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterOabId, setFilterOabId] = useState<string>("all");
+  const [filterApartado, setFilterApartado] = useState<"todos" | "apartados" | "nao_apartados">("todos");
   const [selectedProcesso, setSelectedProcesso] = useState<ProcessoComNaoLidos | null>(null);
   const [confirmMarkAll, setConfirmMarkAll] = useState<string | null>(null);
   const [confirmMarkAllGlobal, setConfirmMarkAllGlobal] = useState(false);
@@ -49,13 +52,19 @@ export const CentralAndamentosNaoLidos = () => {
       p.parte_passiva?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesOab = filterOabId === "all" || p.oab_id === filterOabId;
-    
-    return matchesSearch && matchesOab;
+
+    const matchesApartado =
+      !canUseApartados ||
+      filterApartado === "todos" ||
+      (filterApartado === "apartados" && p.apartado) ||
+      (filterApartado === "nao_apartados" && !p.apartado);
+
+    return matchesSearch && matchesOab && matchesApartado;
   });
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterOabId]);
+  }, [searchTerm, filterOabId, filterApartado]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProcessos.length / ITEMS_PER_PAGE));
   const safePage = Math.min(currentPage, totalPages);
@@ -165,6 +174,19 @@ export const CentralAndamentosNaoLidos = () => {
             ))}
           </SelectContent>
         </Select>
+        {canUseApartados && (
+          <Select value={filterApartado} onValueChange={(v) => setFilterApartado(v as any)}>
+            <SelectTrigger className="w-[200px]">
+              <FolderInput className="h-4 w-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="apartados">Apartados</SelectItem>
+              <SelectItem value="nao_apartados">Não apartados</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Tabela */}
