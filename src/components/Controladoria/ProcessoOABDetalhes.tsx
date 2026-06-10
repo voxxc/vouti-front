@@ -1151,6 +1151,12 @@ export const ProcessoOABDetalhes = ({
 
                   {/* CARD DE AUTOMACAO DE PRAZOS */}
                   <Separator />
+                  {canUseApartados && (
+                    <>
+                      <ApartadoCard processoOabId={processo.id} />
+                      <Separator />
+                    </>
+                  )}
                   <AutomacaoPrazosCard
                     processoOabId={processo.id}
                     prazoAutomaticoAtivo={processo.prazo_automatico_ativo || false}
