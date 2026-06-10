@@ -7,10 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, Trash2, MessageSquare, ExternalLink, Flag, RotateCcw, Pencil, MoreVertical } from "lucide-react";
+import { CheckCircle2, Trash2, MessageSquare, ExternalLink, Flag, RotateCcw, Pencil, MoreVertical, History } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import EditarPrazoDialog from "./EditarPrazoDialog";
 import { DeadlineComentarios } from "./DeadlineComentarios";
+import { DeadlineHistorico } from "./DeadlineHistorico";
 import { Deadline } from "@/types/agenda";
 import { format, isPast, isValid, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -388,7 +389,7 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                 )}
               </DialogHeader>
               <Tabs defaultValue="info" className="w-full">
-                <TabsList className={cn("grid w-full", deadline.completed ? "grid-cols-3" : "grid-cols-2")}>
+                <TabsList className={cn("grid w-full", deadline.completed ? "grid-cols-4" : "grid-cols-3")}>
                   <TabsTrigger value="info">Informações</TabsTrigger>
                   {deadline.completed && (
                     <TabsTrigger value="conclusao">
@@ -397,6 +398,9 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                   )}
                   <TabsTrigger value="comments">
                     <MessageSquare className="h-4 w-4 mr-2" /> Comentários
+                  </TabsTrigger>
+                  <TabsTrigger value="historico">
+                    <History className="h-4 w-4 mr-2" /> Histórico
                   </TabsTrigger>
                 </TabsList>
                 <TabsContent value="info" className="space-y-4 mt-4">
@@ -568,6 +572,9 @@ export function DeadlineDetailDialog({ deadlineId, open, onOpenChange }: Deadlin
                 )}
                 <TabsContent value="comments" className="mt-4">
                   <DeadlineComentarios deadlineId={deadline.id} currentUserId={user?.id || ''} />
+                </TabsContent>
+                <TabsContent value="historico" className="mt-4">
+                  <DeadlineHistorico deadlineId={deadline.id} />
                 </TabsContent>
               </Tabs>
             </>
