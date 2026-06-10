@@ -1,50 +1,64 @@
-
-# Histórico de edições de prazos
-
-A partir da implementação, toda edição em um prazo passa a registrar: campo alterado, valor anterior, valor novo, quem alterou e quando. Isso vale especialmente para a descrição — o texto antigo fica preservado mesmo após uma nova edição.
+# Plano: Processos "Apartados" em Andamentos Não Lidos
 
 ## Causa raiz
-
-A tabela `deadlines` hoje sofre `UPDATE` destrutivo: só guarda o estado atual. Não existe `deadline_historico` nem trigger de auditoria, então alterações como a que ocorreu hoje no prazo "(FATAL 09/06) DEVEMOS APRESENTAR EXCEÇÃO..." são irrecuperáveis.
+Hoje não existe forma de sinalizar um processo OAB como "apartado" e separar suas atualizações na Central de Andamentos Não Lidos. Você precisa de:
+1. Um toggle no detalhe do processo para marcá-lo como apartado.
+2. Um filtro/aba "Apartados" na Central de Andamentos Não Lidos que mostre apenas esses processos.
+3. Visibilidade restrita ao usuário Daniel (super_admin) num primeiro momento.
 
 ## Correção
 
-1. **Nova tabela `deadline_historico`** (multi-tenant, com RLS por `tenant_id` + `has_role_in_tenant`):
-   - `deadline_id`, `tenant_id`
-   - `campo_alterado` (ex.: `title`, `description`, `due_date`, `status`, `priority`, `responsible_id`, `deadline_category`)
-   - `valor_anterior` (text), `valor_novo` (text)
-   - `alterado_por` (uuid → profiles), `alterado_em` (timestamptz)
-   - Índice `(deadline_id, alterado_em DESC)`
+### 1. Banco de dados (migration)
+- Adicionar coluna `apartado BOOLEAN NOT NULL DEFAULT false` em `processos_oab`.
+- Adicionar `apartado_em TIMESTAMPTZ NULL` e `apartado_por UUID NULL` (referência a profile) para auditoria simples de quem marcou e quando.
+- Índice parcial `CREATE INDEX ... ON processos_oab (tenant_id) WHERE apartado = true` para acelerar o filtro.
+- Atualizar a RPC `get_central_andamentos_nao_lidos` para também retornar a coluna `apartado` (sem mudar o filtro — continua trazendo todos os processos com não lidos; o filtro acontece no frontend).
+- Sem mudança em RLS (a coluna herda das policies existentes).
 
-2. **Trigger `AFTER UPDATE` em `deadlines`** comparando OLD/NEW dos campos relevantes. Insere uma linha por campo alterado, capturando `auth.uid()`. Bloco com `EXCEPTION WHEN OTHERS` para nunca bloquear o update original.
+### 2. Gate de visibilidade ("apenas Daniel")
+- Criar helper SQL `public.can_use_apartados(_user_id uuid) returns boolean` que hoje retorna `true` apenas para `user_id = '8eda80fa-0319-4791-923e-551052282e62'` (Daniel de Morais, super_admin). Quando você liberar para admins/controllers, basta editar essa função (zero alteração de UI).
+- No frontend, hook `useCanUseApartados()` chama a função uma vez e expõe `boolean`.
+- O toggle no detalhe do processo e a opção "Apartados" no filtro só aparecem quando `canUseApartados === true`.
 
-3. **Hook `useDeadlineHistorico(deadlineId)`** — busca paginada ordenada por data DESC, com join em `profiles` para exibir nome do autor.
+### 3. UI — Detalhe do processo (`ProcessoOABDetalhes.tsx`)
+- Acima do `AutomacaoPrazosCard` (linha ~1150), inserir um novo bloco `ApartadoCard`:
+  - Switch "Marcar como apartado" + descrição curta.
+  - Quando ligado: badge "Apartado desde DD/MM/AAAA por <nome>".
+  - Update em `processos_oab` com `apartado`, `apartado_em = now()`, `apartado_por = auth.uid()`.
+- Renderização condicionada a `canUseApartados`.
 
-4. **Aba "Histórico" no modal de detalhe do prazo** (ao lado de Comentários/Subtarefas):
-   - Linha do tempo agrupada por edição (mesma data + autor)
-   - Para `description` e `title`: exibe "Antes" e "Depois" em blocos colapsáveis com diff visual simples
-   - Para campos curtos (status, prioridade, data): exibe "X → Y" em uma linha
+### 4. UI — Central de Andamentos Não Lidos (`CentralAndamentosNaoLidos.tsx`)
+- Novo estado `filterApartado: 'todos' | 'apartados' | 'nao_apartados'` (default `'todos'`).
+- Adicionar um `Select` ao lado do filtro de OAB com as opções acima (visível só se `canUseApartados`).
+- Aplicar filtro em `filteredProcessos` usando o campo `apartado` retornado pela RPC.
+- Coluna extra opcional na tabela com um ícone/badge "Apartado" quando aplicável (visível só para quem pode usar).
+- Atualizar `useAndamentosNaoLidosGlobal` e `ProcessoComNaoLidos` para incluir `apartado: boolean`.
 
 ## Arquivos afetados
-
-- `supabase/migrations/<novo>.sql` — tabela, GRANTs, RLS, trigger e função
-- `src/hooks/useDeadlineHistorico.ts` — novo hook
-- `src/components/Deadlines/DeadlineHistorico.tsx` — nova aba
-- Modal de detalhe do prazo existente — adicionar a aba (vou identificar o arquivo exato na implementação)
+- `supabase/migrations/<nova>.sql` — coluna + função `can_use_apartados` + RPC atualizada.
+- `src/hooks/useAndamentosNaoLidosGlobal.ts` — incluir `apartado` no tipo e mapeamento.
+- `src/hooks/useCanUseApartados.ts` — novo hook.
+- `src/components/Controladoria/CentralAndamentosNaoLidos.tsx` — filtro "Apartados" + coluna.
+- `src/components/Controladoria/ApartadoCard.tsx` — novo, com switch.
+- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — inserção acima do `AutomacaoPrazosCard`.
 
 ## Impacto
-
-**Usuário final:** ganha nova aba "Histórico" nos prazos mostrando todas as edições com "de → para", autor e data. Para descrições longas, o texto anterior fica preservado integralmente. Nenhuma mudança em fluxos existentes.
-
-**Dados:** nova tabela com crescimento proporcional ao volume de edições. Para tenants grandes, prever ~1 linha por edição × ~7 campos monitorados. Índice em `(deadline_id, alterado_em DESC)` mantém leitura rápida. RLS isola por tenant.
-
-**Riscos colaterais:** trigger `AFTER UPDATE` com `EXCEPTION WHEN OTHERS` para não quebrar updates caso a tabela de histórico falhe. Captura de `auth.uid()` retorna NULL em updates feitos por Edge Functions com service_role — nesses casos o autor fica como "Sistema".
-
-**Quem é afetado:** todos os tenants. Não há histórico retroativo — o registro começa a partir da migração. **A edição feita hoje no prazo da exceção de pré-executividade não é recuperável.**
+1. **Usuário final (UX):**
+   - Daniel: passa a ver um switch "Marcar como apartado" no detalhe de cada processo OAB e um filtro "Apartados/Não apartados/Todos" na Central. Demais usuários: nenhuma mudança visível.
+   - Quando liberar para admins/controllers no futuro: basta editar `can_use_apartados` — nada na UI precisa mudar.
+2. **Dados:**
+   - Migration adiciona 3 colunas em `processos_oab` com defaults seguros (sem backfill). Sem reescrita de linhas grandes.
+   - Índice parcial pequeno (só linhas com `apartado=true`).
+   - RPC ganha um campo a mais no retorno — payload aumenta marginalmente.
+3. **Riscos colaterais:**
+   - Baixos. A RPC já existe e é só `SELECT` adicional; a coluna nova com default `false` não quebra inserts existentes.
+   - Hook `useCanUseApartados` faz 1 chamada por sessão — irrelevante.
+4. **Quem é afetado:**
+   - Imediato: apenas Daniel (super_admin), em todos os tenants onde ele tem acesso.
+   - Demais usuários e tenants: zero impacto até você liberar a função `can_use_apartados`.
 
 ## Validação
-
-- Editar a descrição de um prazo de teste e conferir se aparece "Antes/Depois" na aba Histórico
-- Alterar status, prioridade e data e conferir registros individuais por campo
-- Confirmar isolamento entre tenants (usuário de outro tenant não vê o histórico)
-- Confirmar que advogado/estagiário só vê histórico de prazos a que tem acesso (mesmas regras de RLS dos `deadlines`)
+- Após migration: verificar via SQL que `processos_oab.apartado` existe e que `SELECT can_use_apartados('8eda80fa-...')` retorna `true` e qualquer outro UUID retorna `false`.
+- Logar como Daniel: abrir detalhe de um processo OAB, ligar o toggle, conferir badge e persistência após reload.
+- Na Central: filtrar por "Apartados" e confirmar que só os marcados aparecem; filtrar por "Não apartados" e por "Todos".
+- Logar como outro usuário (não-super_admin): confirmar que nem o switch nem o filtro aparecem.
