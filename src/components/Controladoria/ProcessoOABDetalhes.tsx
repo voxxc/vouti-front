@@ -74,6 +74,8 @@ import { MovimentacaoDetalhe, MovimentacaoSelecionada } from './MovimentacaoDeta
 import { useProcessoAnexos } from '@/hooks/useProcessoAnexos';
 import { parseIntimacao, countIntimacoesUrgentes } from '@/utils/intimacaoParser';
 import AutomacaoPrazosCard from './AutomacaoPrazosCard';
+import ApartadoCard from './ApartadoCard';
+import { useCanUseApartados } from '@/hooks/useCanUseApartados';
 import { PrazosCasoTab } from './PrazosCasoTab';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
