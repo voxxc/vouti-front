@@ -1894,6 +1894,47 @@ export type Database = {
           },
         ]
       }
+      deadline_historico: {
+        Row: {
+          alterado_em: string
+          alterado_por: string | null
+          campo_alterado: string
+          deadline_id: string
+          id: string
+          tenant_id: string
+          valor_anterior: string | null
+          valor_novo: string | null
+        }
+        Insert: {
+          alterado_em?: string
+          alterado_por?: string | null
+          campo_alterado: string
+          deadline_id: string
+          id?: string
+          tenant_id: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Update: {
+          alterado_em?: string
+          alterado_por?: string | null
+          campo_alterado?: string
+          deadline_id?: string
+          id?: string
+          tenant_id?: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deadline_historico_deadline_id_fkey"
+            columns: ["deadline_id"]
+            isOneToOne: false
+            referencedRelation: "deadlines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deadline_subtarefas: {
         Row: {
           atribuido_a: string | null
