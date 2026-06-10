@@ -5288,6 +5288,9 @@ export type Database = {
           ai_enabled: boolean | null
           ai_summary: string | null
           ai_summary_data: Json | null
+          apartado: boolean
+          apartado_em: string | null
+          apartado_por: string | null
           api_provider: string
           capa_completa: Json | null
           created_at: string | null
@@ -5332,6 +5335,9 @@ export type Database = {
           ai_enabled?: boolean | null
           ai_summary?: string | null
           ai_summary_data?: Json | null
+          apartado?: boolean
+          apartado_em?: string | null
+          apartado_por?: string | null
           api_provider?: string
           capa_completa?: Json | null
           created_at?: string | null
@@ -5376,6 +5382,9 @@ export type Database = {
           ai_enabled?: boolean | null
           ai_summary?: string | null
           ai_summary_data?: Json | null
+          apartado?: boolean
+          apartado_em?: string | null
+          apartado_por?: string | null
           api_provider?: string
           capa_completa?: Json | null
           created_at?: string | null
@@ -11378,6 +11387,7 @@ export type Database = {
         }
         Returns: string
       }
+      can_use_apartados: { Args: { _user_id: string }; Returns: boolean }
       classify_deadline_category: { Args: { p_title: string }; Returns: string }
       cleanup_landing_lead_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_sync_signals: { Args: never; Returns: undefined }
@@ -11446,6 +11456,7 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: {
           andamentos_nao_lidos: number
+          apartado: boolean
           id: string
           monitoramento_ativo: boolean
           nome_advogado: string

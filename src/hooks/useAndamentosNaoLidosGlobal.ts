@@ -14,6 +14,7 @@ export interface ProcessoComNaoLidos {
   capa_completa: any;
   andamentos_nao_lidos: number;
   ultima_movimentacao: string | null;
+  apartado: boolean;
   oab: {
     id: string;
     oab_numero: string;
@@ -91,6 +92,7 @@ export const useAndamentosNaoLidosGlobal = () => {
           capa_completa: null,
           andamentos_nao_lidos: Number(row.andamentos_nao_lidos) || 0,
           ultima_movimentacao: row.ultima_movimentacao,
+          apartado: !!row.apartado,
           oab: {
             id: row.oab_id,
             oab_numero: row.oab_numero,

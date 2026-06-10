@@ -74,6 +74,8 @@ import { MovimentacaoDetalhe, MovimentacaoSelecionada } from './MovimentacaoDeta
 import { useProcessoAnexos } from '@/hooks/useProcessoAnexos';
 import { parseIntimacao, countIntimacoesUrgentes } from '@/utils/intimacaoParser';
 import AutomacaoPrazosCard from './AutomacaoPrazosCard';
+import ApartadoCard from './ApartadoCard';
+import { useCanUseApartados } from '@/hooks/useCanUseApartados';
 import { PrazosCasoTab } from './PrazosCasoTab';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -214,6 +216,7 @@ export const ProcessoOABDetalhes = ({
   const { anexosPorStep, downloading, downloadAnexo } = useProcessoAnexos(processo?.id || null);
   const { user, tenantId } = useAuth();
   const { data: credenciaisJudit = [] } = useJuditSystemNames(tenantId);
+  const { canUse: canUseApartados } = useCanUseApartados();
   const podeEditarCredencial =
     (user?.email || '').toLowerCase() === EDIT_CREDENCIAL_EMAIL;
   const [editandoCredencial, setEditandoCredencial] = useState(false);
@@ -1148,6 +1151,12 @@ export const ProcessoOABDetalhes = ({
 
                   {/* CARD DE AUTOMACAO DE PRAZOS */}
                   <Separator />
+                  {canUseApartados && (
+                    <>
+                      <ApartadoCard processoOabId={processo.id} />
+                      <Separator />
+                    </>
+                  )}
                   <AutomacaoPrazosCard
                     processoOabId={processo.id}
                     prazoAutomaticoAtivo={processo.prazo_automatico_ativo || false}
