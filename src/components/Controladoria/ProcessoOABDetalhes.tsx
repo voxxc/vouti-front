@@ -216,6 +216,7 @@ export const ProcessoOABDetalhes = ({
   const { anexosPorStep, downloading, downloadAnexo } = useProcessoAnexos(processo?.id || null);
   const { user, tenantId } = useAuth();
   const { data: credenciaisJudit = [] } = useJuditSystemNames(tenantId);
+  const { canUse: canUseApartados } = useCanUseApartados();
   const podeEditarCredencial =
     (user?.email || '').toLowerCase() === EDIT_CREDENCIAL_EMAIL;
   const [editandoCredencial, setEditandoCredencial] = useState(false);
