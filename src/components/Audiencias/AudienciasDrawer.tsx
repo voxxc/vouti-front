@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/popover";
 import {
   Gavel, Search, RefreshCw, MapPin, Clock, Plus, X, MessageSquare,
-  History, FileText, Send, Trash2, Calendar as CalendarIcon, ExternalLink,
+  History, FileText, Send, Trash2, Calendar as CalendarIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
