@@ -14,6 +14,192 @@ export type Database = {
   }
   public: {
     Tables: {
+      audiencia_comentarios: {
+        Row: {
+          audiencia_id: string
+          comentario: string
+          created_at: string
+          id: string
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audiencia_id: string
+          comentario: string
+          created_at?: string
+          id?: string
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audiencia_id?: string
+          comentario?: string
+          created_at?: string
+          id?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audiencia_comentarios_audiencia_id_fkey"
+            columns: ["audiencia_id"]
+            isOneToOne: false
+            referencedRelation: "audiencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audiencia_historico: {
+        Row: {
+          acao: string
+          audiencia_id: string
+          created_at: string
+          de: Json | null
+          id: string
+          para: Json | null
+          tenant_id: string
+          user_id: string | null
+        }
+        Insert: {
+          acao: string
+          audiencia_id: string
+          created_at?: string
+          de?: Json | null
+          id?: string
+          para?: Json | null
+          tenant_id: string
+          user_id?: string | null
+        }
+        Update: {
+          acao?: string
+          audiencia_id?: string
+          created_at?: string
+          de?: Json | null
+          id?: string
+          para?: Json | null
+          tenant_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audiencia_historico_audiencia_id_fkey"
+            columns: ["audiencia_id"]
+            isOneToOne: false
+            referencedRelation: "audiencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audiencia_responsaveis: {
+        Row: {
+          audiencia_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          papel: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          audiencia_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          papel?: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          audiencia_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          papel?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audiencia_responsaveis_audiencia_id_fkey"
+            columns: ["audiencia_id"]
+            isOneToOne: false
+            referencedRelation: "audiencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audiencias: {
+        Row: {
+          andamento_origem_id: string | null
+          created_at: string
+          criado_por: string | null
+          data_audiencia: string
+          descricao_origem: string | null
+          hora_conhecida: boolean
+          id: string
+          local: string | null
+          modalidade: string | null
+          observacoes: string | null
+          processo_oab_id: string
+          status: string
+          tenant_id: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          andamento_origem_id?: string | null
+          created_at?: string
+          criado_por?: string | null
+          data_audiencia: string
+          descricao_origem?: string | null
+          hora_conhecida?: boolean
+          id?: string
+          local?: string | null
+          modalidade?: string | null
+          observacoes?: string | null
+          processo_oab_id: string
+          status?: string
+          tenant_id: string
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          andamento_origem_id?: string | null
+          created_at?: string
+          criado_por?: string | null
+          data_audiencia?: string
+          descricao_origem?: string | null
+          hora_conhecida?: boolean
+          id?: string
+          local?: string | null
+          modalidade?: string | null
+          observacoes?: string | null
+          processo_oab_id?: string
+          status?: string
+          tenant_id?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audiencias_andamento_origem_id_fkey"
+            columns: ["andamento_origem_id"]
+            isOneToOne: false
+            referencedRelation: "processos_oab_andamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audiencias_processo_oab_id_fkey"
+            columns: ["processo_oab_id"]
+            isOneToOne: false
+            referencedRelation: "processos_oab"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auditoria_andamentos: {
         Row: {
           acao_tomada: string | null
@@ -11725,6 +11911,10 @@ export type Database = {
       support_assume_tenant: {
         Args: { p_tenant_id: string }
         Returns: undefined
+      }
+      sync_audiencias_oab: {
+        Args: { p_payload: Json; p_tenant_id: string }
+        Returns: number
       }
       truncate_minute: { Args: { ts: string }; Returns: string }
       update_judit_credential_apelido: {
