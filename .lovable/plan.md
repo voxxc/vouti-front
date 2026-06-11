@@ -1,64 +1,32 @@
-# Plano: Processos "Apartados" em Andamentos Não Lidos
-
 ## Causa raiz
-Hoje não existe forma de sinalizar um processo OAB como "apartado" e separar suas atualizações na Central de Andamentos Não Lidos. Você precisa de:
-1. Um toggle no detalhe do processo para marcá-lo como apartado.
-2. Um filtro/aba "Apartados" na Central de Andamentos Não Lidos que mostre apenas esses processos.
-3. Visibilidade restrita ao usuário Daniel (super_admin) num primeiro momento.
+
+As três Edge Functions que ativam monitoramento na Judit estão enviando `with_attachments: true`, o que cria monitoramento com anexos (mais caro/pesado). O usuário quer monitoramento comum (sem anexos) sempre que for ativado.
+
+Ocorrências encontradas:
+- `supabase/functions/judit-ativar-monitoramento/index.ts` (linhas 76 e 125)
+- `supabase/functions/judit-ativar-monitoramento-oab/index.ts` (linhas 157 e 227)
+- `supabase/functions/judit-ativar-monitoramento-cnpj/index.ts` (linhas 51 e 72)
 
 ## Correção
 
-### 1. Banco de dados (migration)
-- Adicionar coluna `apartado BOOLEAN NOT NULL DEFAULT false` em `processos_oab`.
-- Adicionar `apartado_em TIMESTAMPTZ NULL` e `apartado_por UUID NULL` (referência a profile) para auditoria simples de quem marcou e quando.
-- Índice parcial `CREATE INDEX ... ON processos_oab (tenant_id) WHERE apartado = true` para acelerar o filtro.
-- Atualizar a RPC `get_central_andamentos_nao_lidos` para também retornar a coluna `apartado` (sem mudar o filtro — continua trazendo todos os processos com não lidos; o filtro acontece no frontend).
-- Sem mudança em RLS (a coluna herda das policies existentes).
+Trocar todos os `with_attachments: true` por `with_attachments: false` nas três funções, tanto no payload enviado para a API da Judit quanto no `update` que grava a flag na nossa tabela (`processos.with_attachments` no caso da função principal).
 
-### 2. Gate de visibilidade ("apenas Daniel")
-- Criar helper SQL `public.can_use_apartados(_user_id uuid) returns boolean` que hoje retorna `true` apenas para `user_id = '8eda80fa-0319-4791-923e-551052282e62'` (Daniel de Morais, super_admin). Quando você liberar para admins/controllers, basta editar essa função (zero alteração de UI).
-- No frontend, hook `useCanUseApartados()` chama a função uma vez e expõe `boolean`.
-- O toggle no detalhe do processo e a opção "Apartados" no filtro só aparecem quando `canUseApartados === true`.
-
-### 3. UI — Detalhe do processo (`ProcessoOABDetalhes.tsx`)
-- Acima do `AutomacaoPrazosCard` (linha ~1150), inserir um novo bloco `ApartadoCard`:
-  - Switch "Marcar como apartado" + descrição curta.
-  - Quando ligado: badge "Apartado desde DD/MM/AAAA por <nome>".
-  - Update em `processos_oab` com `apartado`, `apartado_em = now()`, `apartado_por = auth.uid()`.
-- Renderização condicionada a `canUseApartados`.
-
-### 4. UI — Central de Andamentos Não Lidos (`CentralAndamentosNaoLidos.tsx`)
-- Novo estado `filterApartado: 'todos' | 'apartados' | 'nao_apartados'` (default `'todos'`).
-- Adicionar um `Select` ao lado do filtro de OAB com as opções acima (visível só se `canUseApartados`).
-- Aplicar filtro em `filteredProcessos` usando o campo `apartado` retornado pela RPC.
-- Coluna extra opcional na tabela com um ícone/badge "Apartado" quando aplicável (visível só para quem pode usar).
-- Atualizar `useAndamentosNaoLidosGlobal` e `ProcessoComNaoLidos` para incluir `apartado: boolean`.
+Nenhuma alteração de schema, RLS ou frontend. Monitoramentos já ativos hoje (com anexo) permanecem como estão — a regra vale para futuras ativações. Se quiser, num passo seguinte podemos rodar um update em massa para desligar `with_attachments` nos já ativos e cancelar/reativar na Judit, mas isso não está no pedido.
 
 ## Arquivos afetados
-- `supabase/migrations/<nova>.sql` — coluna + função `can_use_apartados` + RPC atualizada.
-- `src/hooks/useAndamentosNaoLidosGlobal.ts` — incluir `apartado` no tipo e mapeamento.
-- `src/hooks/useCanUseApartados.ts` — novo hook.
-- `src/components/Controladoria/CentralAndamentosNaoLidos.tsx` — filtro "Apartados" + coluna.
-- `src/components/Controladoria/ApartadoCard.tsx` — novo, com switch.
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — inserção acima do `AutomacaoPrazosCard`.
+
+- `supabase/functions/judit-ativar-monitoramento/index.ts`
+- `supabase/functions/judit-ativar-monitoramento-oab/index.ts`
+- `supabase/functions/judit-ativar-monitoramento-cnpj/index.ts`
 
 ## Impacto
-1. **Usuário final (UX):**
-   - Daniel: passa a ver um switch "Marcar como apartado" no detalhe de cada processo OAB e um filtro "Apartados/Não apartados/Todos" na Central. Demais usuários: nenhuma mudança visível.
-   - Quando liberar para admins/controllers no futuro: basta editar `can_use_apartados` — nada na UI precisa mudar.
-2. **Dados:**
-   - Migration adiciona 3 colunas em `processos_oab` com defaults seguros (sem backfill). Sem reescrita de linhas grandes.
-   - Índice parcial pequeno (só linhas com `apartado=true`).
-   - RPC ganha um campo a mais no retorno — payload aumenta marginalmente.
-3. **Riscos colaterais:**
-   - Baixos. A RPC já existe e é só `SELECT` adicional; a coluna nova com default `false` não quebra inserts existentes.
-   - Hook `useCanUseApartados` faz 1 chamada por sessão — irrelevante.
-4. **Quem é afetado:**
-   - Imediato: apenas Daniel (super_admin), em todos os tenants onde ele tem acesso.
-   - Demais usuários e tenants: zero impacto até você liberar a função `can_use_apartados`.
+
+1. **Usuário final (UX):** nenhuma mudança visível. O botão "Ativar monitoramento" continua igual; só passa a criar tracking sem anexos.
+2. **Dados:** novos monitoramentos serão gravados com `with_attachments = false`. Reduz custo de API Judit e volume de anexos baixados. Monitoramentos antigos não são tocados.
+3. **Riscos colaterais:** funções/automação que dependem de receber anexos automáticos via tracking (ex.: backfill de anexos, push-docs) não recebem mais via novos trackings — só por demanda manual. Se houver fluxo crítico que assume anexo automático, ele precisará de revisão.
+4. **Quem é afetado:** todos os tenants e todos os perfis que ativam monitoramento (CNJ, OAB, CNPJ).
 
 ## Validação
-- Após migration: verificar via SQL que `processos_oab.apartado` existe e que `SELECT can_use_apartados('8eda80fa-...')` retorna `true` e qualquer outro UUID retorna `false`.
-- Logar como Daniel: abrir detalhe de um processo OAB, ligar o toggle, conferir badge e persistência após reload.
-- Na Central: filtrar por "Apartados" e confirmar que só os marcados aparecem; filtrar por "Não apartados" e por "Todos".
-- Logar como outro usuário (não-super_admin): confirmar que nem o switch nem o filtro aparecem.
+
+- Ativar um monitoramento de teste em cada um dos três fluxos (CNJ, OAB, CNPJ) e conferir nos logs da Edge Function que o payload enviado à Judit contém `with_attachments: false`.
+- Verificar no banco que o registro correspondente foi gravado com `with_attachments = false`.
