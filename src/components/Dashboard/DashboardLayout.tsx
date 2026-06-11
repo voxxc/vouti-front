@@ -40,6 +40,7 @@ import { ProjectDrawer } from "@/components/Project/ProjectDrawer";
 // Drawers
 import { ProjectsDrawer } from "@/components/Projects/ProjectsDrawer";
 import { ControladoriaDrawer } from "@/components/Controladoria/ControladoriaDrawer";
+import { AudienciasDrawer } from "@/components/Audiencias/AudienciasDrawer";
 import { CRMDrawer } from "@/components/CRM/CRMDrawer";
 import { FinancialDrawer } from "@/components/Financial/FinancialDrawer";
 import { ReunioesDrawer } from "@/components/Reunioes/ReunioesDrawer";
@@ -598,6 +599,10 @@ const DashboardLayout = ({
       <ControladoriaDrawer 
         open={activeDrawer === 'controladoria'} 
         onOpenChange={handleDrawerClose} 
+      />
+      <AudienciasDrawer
+        open={activeDrawer === 'audiencias'}
+        onOpenChange={handleDrawerClose}
       />
       <CRMDrawer 
         open={activeDrawer === 'clientes'} 
