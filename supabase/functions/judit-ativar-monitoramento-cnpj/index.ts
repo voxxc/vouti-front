@@ -48,7 +48,7 @@ serve(async (req) => {
             search_key: cnpjLimpo,
           },
           callback_url: webhookUrl,
-          with_attachments: true,
+          with_attachments: false,
         }),
       });
 
@@ -69,7 +69,7 @@ serve(async (req) => {
         .update({
           tracking_id: trackingId,
           monitoramento_ativo: true,
-          with_attachments: true,
+          with_attachments: false,
           updated_at: new Date().toISOString(),
         })
         .eq('id', cnpjId);

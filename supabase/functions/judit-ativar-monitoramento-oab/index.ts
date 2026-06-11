@@ -154,7 +154,7 @@ serve(async (req) => {
           }),
         },
         callback_url: webhookUrl,
-        with_attachments: true,
+        with_attachments: false,
       };
 
       // Registrar log antes da chamada
@@ -224,7 +224,7 @@ serve(async (req) => {
         .update({
           tracking_id: trackingId,
           monitoramento_ativo: true,
-          with_attachments: true,
+          with_attachments: false,
           updated_at: new Date().toISOString()
         })
         .eq('numero_cnj', numeroCnj);
