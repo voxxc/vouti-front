@@ -444,6 +444,12 @@ export const GeralTab = () => {
                                 {processo.capa_completa.related_lawsuits.length} recurso(s)
                               </Badge>
                             )}
+                            {canUseApartados && (processo as any).apartado && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                <FolderInput className="w-2.5 h-2.5 mr-0.5" />
+                                Apartado
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       </TableCell>
