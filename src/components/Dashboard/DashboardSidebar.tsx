@@ -19,15 +19,17 @@ import {
   FileText,
   MessageSquare,
   Newspaper,
-  LayoutGrid
+  LayoutGrid,
+  Gavel
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupportSheet } from "@/components/Support/SupportSheet";
 import { usePrefetchPages } from "@/hooks/usePrefetchPages";
 import { useNavigationLoading } from "@/contexts/NavigationLoadingContext";
 import { useTenantFeatures } from "@/hooks/useTenantFeatures";
+import { useIsDaniel } from "@/hooks/useIsDaniel";
 
-export type ActiveDrawer = 'projetos' | 'planejador' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'reunioes' | 'documentos' | 'whatsapp' | 'publicacoes' | 'extras' | null;
+export type ActiveDrawer = 'projetos' | 'planejador' | 'agenda' | 'clientes' | 'financeiro' | 'controladoria' | 'audiencias' | 'reunioes' | 'documentos' | 'whatsapp' | 'publicacoes' | 'extras' | null;
 
 interface DashboardSidebarProps {
   currentPage?: string;
@@ -44,6 +46,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange, flatTopba
   const { userRoles = [] } = useAuth();
   const { tenant: tenantSlug } = useParams<{ tenant: string }>();
   const { isWhatsAppEnabled } = useTenantFeatures();
+  const { isDaniel } = useIsDaniel();
   const { 
     prefetchDashboard, 
     prefetchProjects, 
@@ -130,7 +133,12 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange, flatTopba
     if (itemId === 'publicacoes') {
       return tenantSlug === 'demorais' && (userRoles.includes('admin') || userRoles.includes('controller'));
     }
-    
+
+    // Audiências - apenas Daniel por enquanto
+    if (itemId === 'audiencias') {
+      return isDaniel;
+    }
+
     return hasAccess(itemId);
   };
 
@@ -142,6 +150,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange, flatTopba
     { id: 'clientes', icon: Users, label: 'Clientes', route: '/clientes' },
     { id: 'financeiro', icon: DollarSign, label: 'Financeiro', route: '/financial' },
     { id: 'controladoria', icon: FileCheck, label: 'Controladoria', route: '/controladoria' },
+    { id: 'audiencias', icon: Gavel, label: 'Audiências', route: '/audiencias' },
     { id: 'documentos', icon: FileText, label: 'Documentos', route: '/documentos' },
     { id: 'reunioes', icon: Video, label: 'Reuniões', route: '/reunioes' },
     { id: 'whatsapp', icon: MessageSquare, label: 'Vouti.CRM', route: '/crm' },
@@ -169,7 +178,7 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange, flatTopba
   };
 
   // IDs que abrem drawers
-  const drawerItems = ['projetos', 'planejador', 'agenda', 'clientes', 'financeiro', 'controladoria', 'reunioes', 'documentos', 'whatsapp', 'publicacoes', 'extras'];
+  const drawerItems = ['projetos', 'planejador', 'agenda', 'clientes', 'financeiro', 'controladoria', 'audiencias', 'reunioes', 'documentos', 'whatsapp', 'publicacoes', 'extras'];
 
   return (
     <>
