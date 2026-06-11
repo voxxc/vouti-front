@@ -38,7 +38,7 @@ export const CentralAndamentosNaoLidos = () => {
   const { canUse: canUseApartados } = useCanUseApartados();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterOabId, setFilterOabId] = useState<string>("all");
-  const [filterApartado, setFilterApartado] = useState<"todos" | "apartados" | "nao_apartados">("todos");
+  const [filterApartado, setFilterApartado] = useState<"todos" | "apartados" | "apartados_geral" | "nao_apartados">("todos");
   const [selectedProcesso, setSelectedProcesso] = useState<ProcessoComNaoLidos | null>(null);
   const [confirmMarkAll, setConfirmMarkAll] = useState<string | null>(null);
   const [confirmMarkAllGlobal, setConfirmMarkAllGlobal] = useState(false);
@@ -51,12 +51,14 @@ export const CentralAndamentosNaoLidos = () => {
       p.parte_ativa?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.parte_passiva?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesOab = filterOabId === "all" || p.oab_id === filterOabId;
+    const oabEfetiva = filterApartado === "apartados_geral" ? "all" : filterOabId;
+    const matchesOab = oabEfetiva === "all" || p.oab_id === oabEfetiva;
 
     const matchesApartado =
       !canUseApartados ||
       filterApartado === "todos" ||
       (filterApartado === "apartados" && p.apartado) ||
+      (filterApartado === "apartados_geral" && p.apartado) ||
       (filterApartado === "nao_apartados" && !p.apartado);
 
     return matchesSearch && matchesOab && matchesApartado;
@@ -162,8 +164,15 @@ export const CentralAndamentosNaoLidos = () => {
             />
           </div>
         </div>
-        <Select value={filterOabId} onValueChange={setFilterOabId}>
-          <SelectTrigger className="w-[280px]">
+        <Select
+          value={filterApartado === "apartados_geral" ? "all" : filterOabId}
+          onValueChange={setFilterOabId}
+          disabled={filterApartado === "apartados_geral"}
+        >
+          <SelectTrigger
+            className="w-[280px]"
+            title={filterApartado === "apartados_geral" ? "Desabilitado: 'Apartados Geral' mostra todas as OABs" : undefined}
+          >
             <Scale className="h-4 w-4 mr-2" />
             <SelectValue placeholder="Filtrar por OAB" />
           </SelectTrigger>
@@ -183,6 +192,7 @@ export const CentralAndamentosNaoLidos = () => {
             <SelectContent>
               <SelectItem value="todos">Todos</SelectItem>
               <SelectItem value="apartados">Apartados</SelectItem>
+              <SelectItem value="apartados_geral">Apartados Geral</SelectItem>
               <SelectItem value="nao_apartados">Não apartados</SelectItem>
             </SelectContent>
           </Select>

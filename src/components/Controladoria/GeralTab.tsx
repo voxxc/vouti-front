@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
-  Eye, Bell, Loader2, FileText, Search, X, Filter, ChevronLeft, ChevronRight, Trash2, Scale, Link2, Users
+  Eye, Bell, Loader2, FileText, Search, X, Filter, ChevronLeft, ChevronRight, Trash2, Scale, Link2, Users, FolderInput
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProcessoOAB, OABCadastrada } from '@/hooks/useOABs';
 import { useAllProcessosOAB, ProcessoOABComOAB } from '@/hooks/useAllProcessosOAB';
+import { useCanUseApartados } from '@/hooks/useCanUseApartados';
 import { ProcessoOABDetalhes } from './ProcessoOABDetalhes';
 import { toast as sonnerToast } from 'sonner';
 
@@ -65,6 +66,8 @@ export const GeralTab = () => {
   }, [processos]);
 
   const [filtroUF, setFiltroUF] = useState<string>('todos');
+  const { canUse: canUseApartados } = useCanUseApartados();
+  const [filtroApartado, setFiltroApartado] = useState<'todos' | 'apartados' | 'nao_apartados'>('todos');
   const [processoParaExcluir, setProcessoParaExcluir] = useState<ProcessoOABComOAB | null>(null);
   const [excluindo, setExcluindo] = useState(false);
   const [inputBusca, setInputBusca] = useState('');
@@ -92,7 +95,7 @@ export const GeralTab = () => {
   useEffect(() => { setPage(0); }, [filtroUF, setPage]);
 
   // Reset selection on filter/page/search changes
-  useEffect(() => { setSelectedIds(new Set()); }, [filtroUF, page, searchTerm]);
+  useEffect(() => { setSelectedIds(new Set()); }, [filtroUF, filtroApartado, page, searchTerm]);
 
   const naoLidosCount = useMemo(() => processos.filter(p => (p.andamentos_nao_lidos || 0) > 0).length, [processos]);
   const monitoradosCount = useMemo(() => processos.filter(p => p.monitoramento_ativo).length, [processos]);
@@ -132,8 +135,13 @@ export const GeralTab = () => {
     } else if (filtroUF !== 'todos') {
       resultado = resultado.filter(p => extrairUF(p.tribunal_sigla, p.numero_cnj) === filtroUF);
     }
+    if (canUseApartados && filtroApartado !== 'todos') {
+      resultado = resultado.filter(p =>
+        filtroApartado === 'apartados' ? !!(p as any).apartado : !(p as any).apartado
+      );
+    }
     return resultado;
-  }, [processos, filtroUF]);
+  }, [processos, filtroUF, filtroApartado, canUseApartados]);
 
   const handleVerDetalhes = async (processo: ProcessoOABComOAB) => {
     setSelectedProcesso(processo);
@@ -315,6 +323,20 @@ export const GeralTab = () => {
             </Badge>
           )}
 
+          {canUseApartados && (
+            <Select value={filtroApartado} onValueChange={(v) => setFiltroApartado(v as any)}>
+              <SelectTrigger className="w-44">
+                <FolderInput className="h-4 w-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos (apartados)</SelectItem>
+                <SelectItem value="apartados">Apartados</SelectItem>
+                <SelectItem value="nao_apartados">Não apartados</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+
           {loading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
         </div>
 
@@ -420,6 +442,12 @@ export const GeralTab = () => {
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-purple-500 text-purple-600">
                                 <Link2 className="w-2.5 h-2.5 mr-0.5" />
                                 {processo.capa_completa.related_lawsuits.length} recurso(s)
+                              </Badge>
+                            )}
+                            {canUseApartados && (processo as any).apartado && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                <FolderInput className="w-2.5 h-2.5 mr-0.5" />
+                                Apartado
                               </Badge>
                             )}
                           </div>

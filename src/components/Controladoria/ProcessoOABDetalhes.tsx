@@ -1154,7 +1154,6 @@ export const ProcessoOABDetalhes = ({
                   {canUseApartados && (
                     <>
                       <ApartadoCard processoOabId={processo.id} />
-                      <Separator />
                     </>
                   )}
                   <AutomacaoPrazosCard

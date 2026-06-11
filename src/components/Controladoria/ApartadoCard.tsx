@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { FolderInput } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -93,35 +91,34 @@ export default function ApartadoCard({ processoOabId }: ApartadoCardProps) {
   };
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <FolderInput className="h-4 w-4 text-primary" />
-          Apartado
-        </CardTitle>
-        <CardDescription>
-          Sinalize que este processo é um apartado. Aparecerá no filtro "Apartados" da Central de Andamentos Não Lidos.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="apartado-switch" className="cursor-pointer">
-            Marcar como apartado
-          </Label>
-          <Switch
-            id="apartado-switch"
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="flex items-center gap-2 px-1 py-1 text-xs text-muted-foreground">
+          <Checkbox
+            id={`apartado-${processoOabId}`}
             checked={state.apartado}
             disabled={saving}
-            onCheckedChange={toggle}
+            onCheckedChange={(v) => toggle(v === true)}
+            className="h-3.5 w-3.5"
           />
+          <label
+            htmlFor={`apartado-${processoOabId}`}
+            className="cursor-pointer flex items-center gap-1.5 select-none"
+          >
+            <FolderInput className="h-3 w-3" />
+            Marcar como apartado
+          </label>
+          {state.apartado && state.apartado_em && (
+            <span className="text-[11px] opacity-80">
+              · desde {format(new Date(state.apartado_em), "dd/MM/yyyy", { locale: ptBR })}
+              {state.apartado_por_nome ? ` por ${state.apartado_por_nome}` : ""}
+            </span>
+          )}
         </div>
-        {state.apartado && state.apartado_em && (
-          <Badge variant="secondary" className="font-normal">
-            Apartado desde {format(new Date(state.apartado_em), "dd/MM/yyyy", { locale: ptBR })}
-            {state.apartado_por_nome ? ` por ${state.apartado_por_nome}` : ""}
-          </Badge>
-        )}
-      </CardContent>
-    </Card>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs max-w-xs">
+        Aparece no filtro "Apartados" da Central de Andamentos Não Lidos e da aba Geral.
+      </TooltipContent>
+    </Tooltip>
   );
 }
