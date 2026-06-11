@@ -323,6 +323,20 @@ export const GeralTab = () => {
             </Badge>
           )}
 
+          {canUseApartados && (
+            <Select value={filtroApartado} onValueChange={(v) => setFiltroApartado(v as any)}>
+              <SelectTrigger className="w-44">
+                <FolderInput className="h-4 w-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos (apartados)</SelectItem>
+                <SelectItem value="apartados">Apartados</SelectItem>
+                <SelectItem value="nao_apartados">Não apartados</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+
           {loading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
         </div>
 
