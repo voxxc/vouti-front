@@ -1,29 +1,16 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
-const DANIEL_UUID = "8eda80fa-0319-4791-923e-551052282e62";
+const DANIEL_EMAIL = "danieldemorais.e@gmail.com";
+const SOLVENZA_TENANT_ID = "27492091-e05d-46a8-9ee8-b3b47ec894e4";
 
 /**
- * Gate de visibilidade restrito ao usuário Daniel de Morais.
- * Usado para liberar features em fase experimental antes de expandir
- * para admins/controllers.
+ * Gate de visibilidade restrito ao Daniel de Morais no tenant Solvenza.
+ * Mesmo padrão usado em ExtrasDrawer (`isDanielSolvenza`).
  */
 export function useIsDaniel() {
-  const [isDaniel, setIsDaniel] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (cancelled) return;
-      setIsDaniel(data?.user?.id === DANIEL_UUID);
-      setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return { isDaniel, loading };
+  const { user, tenantId, isLoading } = useAuth();
+  const isDaniel =
+    user?.email?.toLowerCase() === DANIEL_EMAIL &&
+    tenantId === SOLVENZA_TENANT_ID;
+  return { isDaniel, loading: isLoading };
 }
