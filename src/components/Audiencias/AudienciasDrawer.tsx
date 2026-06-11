@@ -359,16 +359,7 @@ function ProcessoBloco({ audiencia }: { audiencia: AudienciaRow }) {
     <section>
       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Processo</h3>
       <div className="rounded-lg border bg-card p-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="font-mono text-sm font-medium">{audiencia.numero_cnj ?? "—"}</div>
-          {audiencia.processo_oab_id && (
-            <Button asChild variant="ghost" size="sm" className="h-7 gap-1 text-xs">
-              <a href={`/solvenza/processos/${audiencia.processo_oab_id}`} target="_blank" rel="noreferrer">
-                Abrir <ExternalLink className="h-3 w-3" />
-              </a>
-            </Button>
-          )}
-        </div>
+        <div className="font-mono text-sm font-medium">{audiencia.numero_cnj ?? "—"}</div>
         {(audiencia.parte_ativa || audiencia.parte_passiva) && (
           <div className="text-sm text-muted-foreground mt-1">
             {audiencia.parte_ativa ?? "—"} <span className="mx-1.5 opacity-50">×</span> {audiencia.parte_passiva ?? "—"}
