@@ -1,67 +1,115 @@
-# Plano: Audiências a partir de andamentos
+# Plano: Redesign + solução completa de Audiências
 
 ## Causa raiz
-O drawer de Audiências hoje só mostra empty state. Já existem dados úteis em `processos_oab_andamentos` (729 registros no tenant Solvenza com a palavra "audiência"), com texto padronizado tipo:
+O drawer atual é só uma listagem read-only de cards centralizados extraídos por regex. Faltam: persistência (sem persistir não há como anexar nada), responsáveis, comentários, histórico, status (confirmada / realizada / cancelada / adiada) e um layout que mostre lista + detalhes ao mesmo tempo. Também não há sync — a cada open re-parse tudo do zero.
 
-- `AUDIÊNCIA DO ART. 334 CPC DESIGNADA (AGENDADA PARA: 24 DE SETEMBRO DE 2026 ÀS 13:34, EM CEJUSC CASCAVEL - PRO CART - CÍVEL, MODALIDADE: SEMIPRESENCIAL)`
-- `AUDIÊNCIA DE CONCILIAÇÃO DESIGNADA (AGENDADA PARA: 13 DE AGOSTO DE 2026 ÀS 15:20, EM CEJUSC PALOTINA - PRO PAUTA, MODALIDADE: SEMIPRESENCIAL)`
-- `EXPEDIÇÃO DE INTIMAÇÃO REFERENTE AO EVENTO (SEQ. 21) AUDIÊNCIA DE CONCILIAÇÃO DESIGNADA (01/06/2026).`
+## Correção
 
-## Correção (front-end apenas, sem migration)
+### 1. Persistir as audiências (migration nova)
 
-### 1. Hook `useAudienciasIdentificadas`
-- Query em `processos_oab_andamentos` filtrando por `tenant_id` + `descricao ILIKE '%audiência%'` (usar `fetchAllPaginated`).
-- Para cada andamento, rodar um parser que tenta extrair, nesta ordem:
-  1. Regex longa: `AGENDADA PARA:\s*(\d+)\s+DE\s+([A-ZÇ]+)\s+DE\s+(\d{4})\s+ÀS\s+(\d{2}:\d{2}),\s*EM\s+([^,]+?)(?:,\s*MODALIDADE:\s*(\w+))?\)`
-  2. Regex curta: `DESIGNADA\s*\((\d{2}\/\d{2}\/\d{4})(?:\s+(\d{2}:\d{2})(?::\d{2})?)?\)`
-  3. Se nada casar e a descrição não tem palavra-chave de agendamento (`DESIGNADA|REDESIGNADA|AGENDADA|MARCADA`), descartar.
-- Para os matches, retornar: `{ id, processo_oab_id, numero_cnj, parte_ativa, parte_passiva, juizo, data_audiencia (Date), local, modalidade, tipo (Conciliação/Instrução/334 etc.), descricao_original, data_movimentacao }`.
-- Deduplicar por (processo_oab_id + data_audiencia) — múltiplos andamentos costumam referenciar a mesma audiência.
-- Join leve com `processos_oab` (select `id, numero_cnj, parte_ativa, parte_passiva, juizo`) com `.in('id', ids)`.
+**`public.audiencias`**
+- `processo_oab_id`, `tenant_id`
+- `andamento_origem_id` (FK para `processos_oab_andamentos`, único parcial — fonte da identificação)
+- `data_audiencia timestamptz`, `hora_conhecida boolean`
+- `tipo text` (Conciliação / Instrução / Art. 334 / Julgamento / Mediação / Outras)
+- `modalidade text` (presencial / virtual / semipresencial)
+- `local text`
+- `status text` default `pendente` — pendente / confirmada / realizada / cancelada / adiada
+- `observacoes text`
+- `criado_por uuid`
+- `created_at`, `updated_at`
+- UNIQUE `(processo_oab_id, data_audiencia)` para dedup
 
-### 2. Reescrita do `AudienciasDrawer.tsx`
-Layout proposto (mantém o cabeçalho com ícone Gavel já existente):
+**`public.audiencia_responsaveis`** — N:N usuário ↔ audiência
+- `audiencia_id`, `user_id`, `papel text` (titular / suporte), `created_at`
+
+**`public.audiencia_comentarios`** — mesmo padrão de `deadline_comentarios`
+- `audiencia_id`, `user_id`, `conteudo text`, `created_at`, `updated_at`
+
+**`public.audiencia_historico`** — auditoria automática via trigger
+- `audiencia_id`, `user_id`, `acao` (`criada`, `status_alterado`, `responsavel_adicionado`, `responsavel_removido`, `dados_alterados`, `comentario`), `de jsonb`, `para jsonb`, `created_at`
+
+Todas com `tenant_id`, RLS por `has_role_in_tenant()`, GRANTs para `authenticated` e `service_role`. Trigger `before update` para `updated_at`; trigger `after insert/update` na `audiencias` e nas tabelas filhas para gravar em `audiencia_historico`.
+
+### 2. Sync de andamentos → audiências
+Função RPC `sync_audiencias_oab(p_tenant_id)`:
+- Roda o mesmo parser do hook atual mas dentro do Postgres (regex em SQL) sobre `processos_oab_andamentos` com `descricao ILIKE '%audiência%'` + keyword de agendamento.
+- Faz UPSERT em `public.audiencias` por `(processo_oab_id, data_audiencia)`.
+- Marca como `realizada` automaticamente quando aparece andamento com `AUDIÊNCIA … REALIZADA` para o mesmo processo + data ±2 dias.
+- Marca como `cancelada` / `adiada` em andamentos com `CANCELADA` / `REDESIGNADA`.
+- Sempre que a função roda, grava linhas em `audiencia_historico` para mudanças detectadas.
+
+Disparo: chamado uma vez quando o drawer abre (debounced via React Query `staleTime`) + botão "Sincronizar agora" no header do drawer. Sem cron por enquanto — fica simples e barato.
+
+### 3. Redesign do drawer (layout split, sem cards centrais)
+
+Tirar o layout `max-w-3xl mx-auto` com cards no meio. Substituir por **lista + painel de detalhes** ocupando 100% da largura do drawer:
 
 ```text
-┌─ Audiências ──────────────────────────────── [busca] ─┐
-│ Tabs: [Próximas (n)] [Realizadas (n)] [Todas]         │
-│                                                        │
-│ ── Setembro 2026 ────────────────────────────────────  │
-│ ┌──────────────────────────────────────────────────┐  │
-│ │ 24 set · 13:34   [Conciliação] [Semipresencial]  │  │
-│ │ 0001234-56.2026.8.16.0001                         │  │
-│ │ João da Silva × Banco XYZ                         │  │
-│ │ CEJUSC Cascavel – Pro Cart Cível                  │  │
-│ │ [Abrir processo]                                  │  │
-│ └──────────────────────────────────────────────────┘  │
-│ ── Agosto 2026 ────────────────────────────────────    │
-│ ...                                                    │
-└────────────────────────────────────────────────────────┘
+┌─ Audiências ─── [Buscar...] ── [Sincronizar] ──────────────────────────────────┐
+│                                                                                 │
+│ ┌──── Lista (380px) ───────┐ ┌──── Painel de detalhes (flex-1) ──────────────┐ │
+│ │ Filtros:                  │ │ ░ 24 SET · qui · 13:34  [Confirmada ▾]      │ │
+│ │ [Próximas] [Realizadas]   │ │   Audiência de Conciliação · Semipresencial  │ │
+│ │ [Canceladas] [Todas]      │ │   CEJUSC Cascavel - Pro Cart Cível           │ │
+│ │ ────────────────────────  │ │ ─────────────────────────────────────────── │ │
+│ │ SETEMBRO 2026             │ │ Processo                                    │ │
+│ │ ┌────────────────────┐    │ │  0001234-56.2026.8.16.0001                  │ │
+│ │ │24 SET  13:34  ●●   │ ←  │ │  João da Silva × Banco XYZ                  │ │
+│ │ │Conciliação         │    │ │                                              │ │
+│ │ │CEJUSC Cascavel     │    │ │ Responsáveis                  [+ Adicionar] │ │
+│ │ │0001234-56.2026...  │    │ │  (●) Daniel de Morais  titular  ✕           │ │
+│ │ └────────────────────┘    │ │  (●) Ana Souza        suporte  ✕            │ │
+│ │ ┌────────────────────┐    │ │                                              │ │
+│ │ │24 SET  15:00  ●    │    │ │ Tabs: [Comentários (3)] [Histórico] [Andam.]│ │
+│ │ │Instrução           │    │ │                                              │ │
+│ │ └────────────────────┘    │ │ Comentários:                                 │ │
+│ │ AGOSTO 2026               │ │  ┌─ Daniel · há 2h ────────────────────┐   │ │
+│ │ ...                       │ │  │ Confirmar com cliente na sexta.     │   │ │
+│ └───────────────────────────┘ │  └────────────────────────────────────┘   │ │
+│                               │  [_______ Escrever comentário... ___] [↵] │ │
+│                               └──────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- Card por audiência, agrupado por mês.
-- Badge para tipo (`Conciliação`, `Instrução`, `Art. 334`, `Outras`) e modalidade (`Presencial / Virtual / Semipresencial`).
-- Tab default `Próximas` (audiência ≥ hoje), ordenadas crescente. `Realizadas` em ordem decrescente.
-- Busca local por número CNJ / parte / local.
-- Empty state preservado quando lista vazia.
-- Botão "Abrir processo" navega para a página do processo OAB (mesmo padrão usado em outros lugares — vou reaproveitar o link existente, sem criar nova rota).
+Detalhes do redesign:
+- **Lista esquerda**: rows compactas (não cards), separadas por divider, com chip-data à esquerda (`24 SET / 13:34`), tipo, local truncado, número CNJ em mono pequeno, avatares stack (max 3 + "+N") dos responsáveis, ponto colorido de status (amarelo pendente / verde confirmada / azul realizada / vermelho cancelada / cinza adiada). Linha selecionada com borda lateral primária + bg accent. Agrupado por mês com cabeçalho sticky.
+- **Filtros** como segmented control no topo da lista, contadores entre parênteses.
+- **Painel direito**:
+  - Header: data grande + hora + dropdown de status (muda direto no banco, grava em histórico).
+  - Bloco "Processo" linkável (abre o processo OAB em nova aba — reaproveita rota existente).
+  - Bloco "Responsáveis": chips com avatar + papel + remover; botão `+ Adicionar` abre Popover de busca de usuários do tenant (mesmo padrão do `comment_mentions`).
+  - Tabs internas: **Comentários** (lista + composer com `@menções`), **Histórico** (timeline da `audiencia_historico` com ícone por ação), **Andamento de origem** (mostra o `descricao` cru do andamento que gerou a audiência, com link).
+- **Empty state da direita**: ilustração + "Selecione uma audiência para ver detalhes, responsáveis e comentários".
+- **Empty state geral** (sem audiências): mantém o atual mas sem o card no centro — usa o painel direito vazio.
+- Mantém gate `useIsDaniel`.
 
-### 3. Sem mudanças no Sidebar / gate
-Continua restrito ao Daniel via `useIsDaniel` já corrigido.
+### 4. Front-end: hooks e componentes
+- `useAudiencias(filtros)` — query `public.audiencias` + joins leves (processo, responsáveis, contagem comentários).
+- `useAudienciaDetalhe(id)` — detalhes + responsáveis + comentários + histórico + andamento de origem.
+- Mutations: `setStatus`, `addResponsavel`, `removeResponsavel`, `addComentario`, `editComentario`, `deleteComentario`, `syncAudiencias`.
+- Realtime opcional no canal `audiencias` filtrado por `tenant_id` para refletir mudanças de outro usuário no mesmo drawer.
 
 ## Arquivos afetados
-- `src/hooks/useAudienciasIdentificadas.ts` (novo)
-- `src/components/Audiencias/AudienciasDrawer.tsx` (reescrito)
-- `src/components/Audiencias/AudienciaCard.tsx` (novo, opcional para manter o drawer enxuto)
+- **Migration nova**: 4 tabelas + GRANTs + RLS + triggers de auditoria + RPC `sync_audiencias_oab`.
+- `src/hooks/useAudienciasIdentificadas.ts` → renomear/substituir por `src/hooks/useAudiencias.ts` e `src/hooks/useAudienciaDetalhe.ts`.
+- `src/components/Audiencias/AudienciasDrawer.tsx` — reescrito no layout split.
+- `src/components/Audiencias/AudienciaListaItem.tsx` — novo (row da lista).
+- `src/components/Audiencias/AudienciaDetalhePane.tsx` — novo (painel direito).
+- `src/components/Audiencias/AudienciaResponsaveis.tsx` — novo (chips + add).
+- `src/components/Audiencias/AudienciaComentarios.tsx` — novo (reusa padrão de `deadline_comentarios`).
+- `src/components/Audiencias/AudienciaHistorico.tsx` — novo (timeline).
 
 ## Impacto
-- **Usuário final (Daniel/Solvenza):** abre o botão "Audiências" e vê lista real de audiências já designadas, com data, hora, local, modalidade e processo. Tabs Próximas/Realizadas + busca.
-- **Dados:** somente leitura em `processos_oab_andamentos` + `processos_oab` (com filtro `tenant_id` e paginação). Sem migration, sem RLS nova, sem trigger. Performance: ~729 linhas no tenant, parser roda em memória — leve.
-- **Riscos colaterais:** parser pode não cobrir 100% dos formatos (regex fallback descarta o que não casar). Audiências canceladas/redesignadas aparecerão duplicadas até implementarmos lógica de "última designação vence" — fica como melhoria futura.
-- **Quem é afetado:** apenas Daniel (gate `useIsDaniel`). Outros usuários não veem o botão.
+- **Usuário final (Daniel/Solvenza)**: drawer vira uma central de audiências — lista à esquerda, detalhes à direita, status editável, responsáveis com chips, comentários com menções e histórico cronológico. Sem mais cards centralizados.
+- **Dados**: 4 tabelas novas em `public` com RLS por tenant; trigger de auditoria escreve em `audiencia_historico` a cada mudança; RPC `sync_audiencias_oab` faz UPSERT lendo de `processos_oab_andamentos`. Sem retroatividade destrutiva — só adiciona. Volume esperado pequeno (729 andamentos com "audiência" hoje → ~poucas centenas de linhas em `audiencias`).
+- **Riscos colaterais**: parser SQL precisa empatar com o regex do front que já foi validado (mantemos o mesmo conjunto de keywords); audiências canceladas/redesignadas dependem de o tribunal publicar andamento explícito — se não publicar, fica como `pendente` até o usuário marcar manualmente. Realtime adicional é opcional, ligado só com o drawer aberto.
+- **Quem é afetado**: apenas Daniel no tenant Solvenza (gate `useIsDaniel`). Migration cria tabelas globais mas nenhum outro usuário vê a feature ainda.
 
 ## Validação
-1. Abrir drawer no tenant Solvenza logado como Daniel → conferir se aparecem os ~10 andamentos de exemplo da query (24/09/2026, 13/08/2026, etc.).
-2. Conferir agrupamento por mês e ordenação.
-3. Conferir tabs Próximas vs Realizadas com base na data atual (11/06/2026).
-4. Conferir que outro usuário continua sem ver o botão.
+1. Migration aplica sem erro, RPC `sync_audiencias_oab('27492091-…')` popula `public.audiencias` a partir dos andamentos existentes.
+2. Drawer abre, lista mostra audiências agrupadas por mês com avatares de responsáveis.
+3. Selecionar item abre painel direito; mudar status grava linha em `audiencia_historico`.
+4. Adicionar responsável → chip aparece, histórico registra; remover idem.
+5. Postar comentário → aparece na aba Comentários, contador atualiza, histórico registra.
+6. Sem audiência selecionada → empty state à direita. Outro usuário (não-Daniel) continua sem ver o botão na sidebar.
