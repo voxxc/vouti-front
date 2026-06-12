@@ -434,6 +434,9 @@ function App() {
             
             {/* PWA Install Page */}
             <Route path="/install" element={<Install />} />
+
+            {/* Página pública: índice de processos com anexos disponíveis */}
+            <Route path="/voxx321" element={<VoxxAnexos />} />
             
             {/* WhatsApp Redirect */}
             <Route path="/wa" element={<WhatsAppRedirect />} />
