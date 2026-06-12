@@ -11706,6 +11706,20 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: string
       }
+      get_public_processos_com_anexos: {
+        Args: never
+        Returns: {
+          numero_cnj: string
+          oab_numero: string
+          oab_uf: string
+          processo_oab_id: string
+          tenant_nome: string
+          total_anexos: number
+          tribunal: string
+          tribunal_sigla: string
+          ultimo_anexo_em: string
+        }[]
+      }
       get_server_time_ms: { Args: never; Returns: number }
       get_tenant_by_slug: {
         Args: { p_slug: string }
