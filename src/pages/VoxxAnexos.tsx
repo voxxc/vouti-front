@@ -37,7 +37,9 @@ const VoxxAnexos = () => {
   useEffect(() => {
     document.title = 'Processos com anexos disponíveis';
     (async () => {
-      const { data, error } = await supabasePublic.rpc('get_public_processos_com_anexos');
+      const { data, error } = await (supabasePublic as any).rpc(
+        'get_public_processos_com_anexos',
+      );
       if (error) {
         setErro(error.message);
       } else {
