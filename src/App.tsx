@@ -439,6 +439,10 @@ function App() {
 
             {/* Página pública: índice de processos com anexos disponíveis */}
             <Route path="/voxx321" element={<VoxxAnexos />} />
+
+            {/* Landing pública: aulas de inglês 1 a 1 */}
+            <Route path="/lp" element={<LpIngles />} />
+            <Route path="/adminlp" element={<AdminLp />} />
             
             {/* WhatsApp Redirect */}
             <Route path="/wa" element={<WhatsAppRedirect />} />
