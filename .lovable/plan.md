@@ -1,56 +1,92 @@
-# Página pública `/voxx321` — Processos com anexos disponíveis
 
-## Objetivo
-Página acessível sem login em `/voxx321` exibindo a lista de processos que receberam anexos **visíveis ao usuário** (status `done`), provenientes do fluxo de monitoramento Judit (origem attachment).
+## Landing /lp + Painel /adminlp para aulas de inglês 1:1
 
-## Critério dos dados
-Buscar em `processos_oab_anexos` filtrando:
-- `status = 'done'` (documento processado e pronto para visualização — `pending` é excluído pois usuário não consegue abrir)
-- `is_private = false`
-- `attachment_name` sem "Restrição na Visualização"
+### Direção visual escolhida
+- Paleta **Paper & Ink** (off-white `#f5f3ee`, areia `#e8e4dd`, ink `#2d2d2d`, deep black `#0d0d0d`) — editorial, clean.
+- Tipografia **Outfit (heading) + Figtree (body)** — moderna, amigável, ótima leitura mobile.
+- Layout **Hero Grid** — hero forte + grid de benefícios, ideal para mobile-first.
+- Form mínimo: **Nome + WhatsApp** (maior conversão).
 
-Agrupar por `processo_oab_id`, juntando com `processos_oab` para mostrar `numero_cnj`, OAB, tribunal, classe, e o `tenant` (nome do escritório). Trazer também a contagem de anexos `done` e a data do anexo mais recente.
+### Correção / o que será construído
 
-Sem filtro de janela (mostrar histórico completo). Ordenar pelo anexo mais recente desc.
+**1. `/lp` — Landing page pública (mobile-first)**
 
-## Implementação técnica
+Seções verticais, edge-to-edge no mobile:
+1. **Hero** — Headline "Inglês 1 a 1, do seu jeito.", sub copy curta, CTA primário "Quero minha aula experimental", foto/ilustração editorial em moldura serif.
+2. **Selo de confiança** — linha discreta com prova social ("+200 alunos", "aulas via Zoom/Meet", "professores nativos/certificados").
+3. **Grid de benefícios** (3-4 cards) — Aulas 1 a 1, horário flexível, material personalizado, foco no objetivo (viagem/trabalho/fluência).
+4. **Como funciona** (3 passos) — diagnóstico → plano → aulas.
+5. **Depoimentos** (2 cards com aspas serifadas grandes — estética editorial).
+6. **FAQ** (accordion shadcn) — duração, preço, plataforma, cancelamento.
+7. **CTA final + Form** — Nome + WhatsApp, botão "Falar com a gente". Após envio: mensagem de obrigado e link "abrir WhatsApp" (deep link `https://wa.me/...?text=...` com número configurável — placeholder por enquanto).
+8. **Footer** mínimo com © e link discreto para política.
 
-### 1. RPC pública `get_public_processos_com_anexos`
-Como `processos_oab` / `processos_oab_anexos` têm RLS por tenant, criar uma RPC `SECURITY DEFINER` que devolve apenas campos não sensíveis:
+Detalhes de craft:
+- Headlines em **Outfit 700/800** com tracking apertado; serifa decorativa (Cormorant Garamond, já carregada) em uma palavra-chave para reforçar a estética editorial "Paper & Ink".
+- Body em **Figtree**, line-height generoso.
+- Bordas finas `1px solid hsl(var(--border))`, cantos retos ou levemente arredondados (radius 4–6px), sem sombras pesadas; uso de divisores horizontais editoriais.
+- Animações sutis on-scroll com `IntersectionObserver` + classes de fade/translate (sem libs novas).
+- Botão primário: ink sólido (`#0d0d0d`) com texto Paper; secundário: contorno fino.
+- 100% responsivo, foco mobile (max-w-md de conteúdo, hero full-bleed).
 
-```
-numero_cnj, oab_numero, oab_uf, tribunal, classe,
-total_anexos, ultimo_anexo_em, tenant_nome
-```
+Validação client + server-side:
+- `zod` para nome (2–80 chars) e telefone (10–15 dígitos, normalizado para `+55…`).
+- Insert direto via `supabasePublic` em `landing_leads` com `origem='lp-ingles'`, `status='novo'` (policy `Anyone can insert landing leads` já existe).
+- Toast de sucesso, reset do form.
 
-Conceder `EXECUTE` para `anon` e `authenticated`. Sem PII de cliente (sem nome de parte, sem valor da causa, sem documentos).
+**2. `/adminlp` — Painel de leads (público, padrão `/voxx321`)**
 
-### 2. Rota `/voxx321`
-Adicionar em `src/App.tsx` rota pública (fora de qualquer guard de auth), apontando para nova página `src/pages/VoxxAnexos.tsx`. Usar `supabasePublic` (`src/integrations/supabase/publicClient.ts`) para não disparar fluxo de sessão.
+Acesso sem login (mesma abordagem aprovada para `/voxx321`).
+- Header simples "Leads – Inglês 1 a 1" + contador total + busca por nome/telefone.
+- Cards/lista responsiva com: nome, telefone (com botão "Abrir no WhatsApp" via `wa.me`), data de criação, status (Novo / Em contato / Convertido / Descartado).
+- Ao clicar num card: drawer/sheet com campo de notas e select de status; salvar via RPC.
+- Realtime simples com `setInterval` de 30s para refetch (sem subscription pra manter leve).
 
-### 3. Página `VoxxAnexos.tsx`
-- Header simples com título "Processos com documentos disponíveis"
-- Tabela (`@/components/ui/table`): CNJ · OAB · Tribunal · Escritório · Qtd anexos · Último anexo
-- Busca por CNJ/OAB no client-side
-- Paginação simples (50/página) ou scroll
-- Loading state e empty state
-- Sem links de download (página é só índice; download continua exigindo auth no app)
+Dados via duas RPCs `SECURITY DEFINER` (já criadas via migration):
+- `get_english_lp_leads()` → retorna leads `origem='lp-ingles'` (até 1000).
+- `update_english_lp_lead_status(_id, _status, _notas)` → atualiza status/notas.
 
-## Arquivos afetados
-- **Nova migration**: cria função `public.get_public_processos_com_anexos()` SECURITY DEFINER + GRANT EXECUTE para `anon, authenticated`
-- **Nova página**: `src/pages/VoxxAnexos.tsx`
-- **Edit**: `src/App.tsx` — adicionar `<Route path="/voxx321" element={<VoxxAnexos />} />` antes da rota catch-all `/:slug`
+**3. Roteamento**
+- Em `src/App.tsx`, adicionar `LpIngles` e `AdminLp` como `lazyPage` e registrar **antes** do catch-all `/:tenant`:
+  ```tsx
+  <Route path="/lp" element={<LpIngles />} />
+  <Route path="/adminlp" element={<AdminLp />} />
+  ```
 
-## Impacto
-1. **Usuário final (UX)**: nova URL pública `/voxx321` mostra índice agregado dos processos que já têm documento legível. Útil para validar visualmente quais processos foram efetivamente alimentados pelo monitoramento. Sem login, sem ação de download.
-2. **Dados**: nova função SQL apenas de leitura, sem alteração de schema, sem mudança em RLS existente. A função expõe campos agregados não sensíveis cruzando todos os tenants — é uma exposição pública intencional.
-3. **Riscos colaterais**:
-   - Vazamento de metadados cross-tenant (CNJ + nome do escritório). Como CNJ judicial é público e a página não expõe partes/valores/clientes, o risco é baixo, mas vale o aviso.
-   - Rota `/voxx321` precisa ser registrada **antes** de `/:slug` (TenantOrUsernameRoute) para não ser interpretada como slug de tenant ou username.
-4. **Quem é afetado**: qualquer visitante anônimo com o link. Nenhum impacto em usuários autenticados ou em outros fluxos do app.
+**4. Fontes**
+- Adicionar `Outfit` e `Figtree` ao `<link>` do Google Fonts em `index.html` (sem remover as existentes).
+- Definir variáveis CSS escopadas dentro das próprias páginas (não tocar no theme global da app):
+  ```css
+  .lp-ingles, .lp-ingles * { font-family: 'Figtree', system-ui, sans-serif; }
+  .lp-ingles h1, .lp-ingles h2, .lp-ingles h3 { font-family: 'Outfit', sans-serif; }
+  ```
+  Isso evita impacto no resto da Vouti.
 
-## Validação
-- Abrir `/voxx321` deslogado e ver a lista renderizada
-- Conferir que aparece apenas anexos com `status='done'` (contagens batem com query de diagnóstico)
-- Conferir que a rota `/algum-tenant-real` ainda redireciona para `/algum-tenant-real/auth`
-- Conferir que nenhum dado de parte/cliente aparece na resposta da RPC
+### Arquivos afetados
+- **Novo**: `src/pages/LpIngles.tsx` (landing pública).
+- **Novo**: `src/pages/AdminLp.tsx` (painel de leads).
+- **Novo**: `src/pages/LpIngles.css` (escopo de fonts/cores Paper & Ink, só dentro de `.lp-ingles`).
+- **Editado**: `src/App.tsx` (2 lazy imports + 2 rotas antes de `/:tenant`).
+- **Editado**: `index.html` (acrescentar `Outfit` e `Figtree` ao Google Fonts).
+- **Migration**: já aplicada — `get_english_lp_leads()` e `update_english_lp_lead_status()` com `EXECUTE` para `anon` e `authenticated`.
+- **Reuso**: tabela `landing_leads` já existente, com `origem='lp-ingles'` para isolar do funil principal da Vouti.
+
+### Impacto
+- **Usuário final (visitante de `/lp`)**: nova landing pública mobile-first; pode enviar lead com nome+WhatsApp; recebe confirmação e (opcional) link direto pro WhatsApp do negócio.
+- **Usuário final (você, em `/adminlp`)**: lista todos os leads vindos do `/lp`, marca status, anota observações, clica para abrir WhatsApp. Sem login — basta saber a URL.
+- **Dados**: nenhuma tabela nova; usa `landing_leads` com `origem='lp-ingles'` (não conflita com leads existentes da Vouti). Duas funções `SECURITY DEFINER` adicionadas, ambas restritas via `WHERE origem='lp-ingles'` (não vazam outros leads).
+- **Riscos colaterais**:
+  - `/adminlp` é público — qualquer um com a URL vê e edita leads dessa landing. Se virar incômodo, dá pra trocar por uma senha simples no `localStorage` ou auth. Mesmo trade-off já aceito em `/voxx321`.
+  - Insert público em `landing_leads` já é permitido hoje (policy existente) — risco de spam continua o mesmo. Mitigação: validação `zod` + simples rate limit no front (debounce). Se aumentar abuso, plugar `landing_lead_rate_limits` que já existe.
+  - Carregamento extra de 2 fontes no `index.html` — peso pequeno (~30KB total gzip).
+- **Quem é afetado**: visitantes anônimos de `/lp` e `/adminlp`. Restante da Vouti não muda (CSS escopado em `.lp-ingles` / `.admin-lp`).
+
+### Validação
+1. Acessar `/lp` no mobile (DevTools 375px) → conferir hero, grid, form; preencher e enviar → toast de sucesso.
+2. Conferir no banco: `SELECT * FROM landing_leads WHERE origem='lp-ingles' ORDER BY created_at DESC LIMIT 5;`.
+3. Acessar `/adminlp` → o lead aparece, busca filtra, abrir card → mudar status para "Em contato" e salvar nota → conferir update via RPC.
+4. Confirmar que `/adminlp` **não** mostra leads de outras origens (filtro `origem='lp-ingles'` na RPC).
+5. Conferir `/` (Vouti homepage) e qualquer rota de tenant não sofreu impacto visual (CSS escopado).
+6. Lighthouse mobile em `/lp` ≥ 90 (perf + a11y).
+
+Confirma que parto para implementação?

@@ -121,6 +121,8 @@ const CrmApp = lazyPage(() => import("@/pages/CrmApp"));
 const CrmLanding = lazyPage(() => import("@/pages/CrmLanding"));
 const CrmSalesLanding = lazyPage(() => import("@/pages/CrmSalesLanding"));
 const VoxxAnexos = lazyPage(() => import("@/pages/VoxxAnexos"));
+const LpIngles = lazyPage(() => import("@/pages/LpIngles"));
+const AdminLp = lazyPage(() => import("@/pages/AdminLp"));
 
 import Logo from "@/components/Logo";
 import { BatinkAuthProvider, useBatinkAuth } from "@/contexts/BatinkAuthContext";
@@ -437,6 +439,10 @@ function App() {
 
             {/* Página pública: índice de processos com anexos disponíveis */}
             <Route path="/voxx321" element={<VoxxAnexos />} />
+
+            {/* Landing pública: aulas de inglês 1 a 1 */}
+            <Route path="/lp" element={<LpIngles />} />
+            <Route path="/adminlp" element={<AdminLp />} />
             
             {/* WhatsApp Redirect */}
             <Route path="/wa" element={<WhatsAppRedirect />} />
