@@ -11665,6 +11665,17 @@ export type Database = {
         Returns: Json
       }
       get_dashboard_processos_count: { Args: never; Returns: number }
+      get_english_lp_leads: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          nome: string
+          notas: string
+          status: string
+          telefone: string
+        }[]
+      }
       get_incomplete_processos_by_tenant: {
         Args: { p_tenant_id: string }
         Returns: {
@@ -11931,6 +11942,10 @@ export type Database = {
         Returns: number
       }
       truncate_minute: { Args: { ts: string }; Returns: string }
+      update_english_lp_lead_status: {
+        Args: { _id: string; _notas?: string; _status: string }
+        Returns: undefined
+      }
       update_judit_credential_apelido: {
         Args: { p_apelido: string; p_id: string }
         Returns: undefined
