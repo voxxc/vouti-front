@@ -121,6 +121,8 @@ const CrmApp = lazyPage(() => import("@/pages/CrmApp"));
 const CrmLanding = lazyPage(() => import("@/pages/CrmLanding"));
 const CrmSalesLanding = lazyPage(() => import("@/pages/CrmSalesLanding"));
 const VoxxAnexos = lazyPage(() => import("@/pages/VoxxAnexos"));
+const LpIngles = lazyPage(() => import("@/pages/LpIngles"));
+const AdminLp = lazyPage(() => import("@/pages/AdminLp"));
 
 import Logo from "@/components/Logo";
 import { BatinkAuthProvider, useBatinkAuth } from "@/contexts/BatinkAuthContext";
