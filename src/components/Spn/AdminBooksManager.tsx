@@ -390,6 +390,18 @@ const AdminBooksManager = () => {
                             )}
                           </p>
                         )}
+                        <div className="flex items-center gap-1 mt-1 flex-wrap">
+                          {w.category && w.category !== 'other' && (
+                            <span className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-full bg-foreground/10 text-foreground">
+                              {CATEGORY_OPTIONS.find(o => o.value === w.category)?.label || w.category}
+                            </span>
+                          )}
+                          {w.is_featured_verb && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-400 text-amber-950">
+                              ⭐ Destaque
+                            </span>
+                          )}
+                        </div>
                       </div>
                       {w.audio_url && <Volume2 className="h-4 w-4 text-emerald-500 shrink-0" />}
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
