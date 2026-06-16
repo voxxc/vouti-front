@@ -8180,6 +8180,86 @@ export type Database = {
         }
         Relationships: []
       }
+      spn_practice_questions: {
+        Row: {
+          correct_index: number
+          created_at: string
+          difficulty: string
+          id: string
+          kind: string
+          options: Json
+          question: string
+          sort_order: number
+          unit_id: string | null
+        }
+        Insert: {
+          correct_index: number
+          created_at?: string
+          difficulty?: string
+          id?: string
+          kind: string
+          options: Json
+          question: string
+          sort_order?: number
+          unit_id?: string | null
+        }
+        Update: {
+          correct_index?: number
+          created_at?: string
+          difficulty?: string
+          id?: string
+          kind?: string
+          options?: Json
+          question?: string
+          sort_order?: number
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_practice_questions_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "spn_book_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spn_practice_sessions: {
+        Row: {
+          correct: number
+          created_at: string
+          difficulty: string
+          id: string
+          scope: string
+          total: number
+          unit_id: string | null
+          user_id: string
+          xp_earned: number
+        }
+        Insert: {
+          correct: number
+          created_at?: string
+          difficulty: string
+          id?: string
+          scope: string
+          total: number
+          unit_id?: string | null
+          user_id: string
+          xp_earned?: number
+        }
+        Update: {
+          correct?: number
+          created_at?: string
+          difficulty?: string
+          id?: string
+          scope?: string
+          total?: number
+          unit_id?: string | null
+          user_id?: string
+          xp_earned?: number
+        }
+        Relationships: []
+      }
       spn_profiles: {
         Row: {
           avatar_url: string | null
