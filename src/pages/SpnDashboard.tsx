@@ -20,7 +20,7 @@ import { Settings, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const SpnDashboard = () => {
-  const { isAdmin, isTeacher } = useSpnAuth();
+  const { isAdmin, isTeacher, profile, signOut } = useSpnAuth();
   const isMobile = useIsMobile();
   const [activeView, setActiveView] = useState<SpnView>('dashboard');
   const [viewData, setViewData] = useState<any>(null);
