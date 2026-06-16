@@ -1,111 +1,113 @@
+# Book 1A — Word Bank visual interativo (réplica + prática + XP)
+
 ## Causa raiz
-
-1. **Exercises sem feedback pedagógico**: hoje só registra resposta; aluno não vê o gabarito, não entende o erro, não recebe explicação. Não há corretor consolidado nem "aprendizado do dia".
-2. **Straight to the Point ainda genérico**: blocos de regra + Q/A− /A+ não impõem estrutura curricular. Cada unit pode ter qualquer coisa, sem garantia de 2 verbos novos, sem question word, sem phrasal verb, sem expressão. Visual é texto centralizado, não parece conversa real.
-3. **Word Bank não tem taxonomia**: tudo é tratado igual, não dá pra exigir "2 verbos novos por unit" nem destacar question words/phrasal verbs/expressões na UI.
-4. **Não existe prática guiada inline**: aluno lê o exemplo pronto mas não tem onde aplicar a palavra nova imediatamente, dentro do próprio STP.
-
----
+Não existe Book 1A pronto, nem uma visão tipo "página de caderno" do Word Bank como na imagem. Além disso, o Word Bank atual é só leitura — o aluno não pratica nem ganha XP por palavra aprendida.
 
 ## Correção
 
-### 1. Word Bank — nova taxonomia por categoria
-Adicionar coluna `category` em `spn_word_bank_items` com enum:
-- `verb` (alvo: 2 por unit, marcados como `is_featured_verb=true`)
-- `question_word` (what, where, when, why, how, who — 1 por unit recomendado)
-- `phrasal_verb` (get up, look for…)
-- `expression` (idioms / chunks)
-- `noun` / `adjective` / `adverb` / `other` (palavras de apoio)
+### 1. Seed do conteúdo (Book 1A → Unit 7 → 10 palavras)
+Migration idempotente cria:
+- **Book 1A** (`code = '1A'`, level A1, `order_index = 1`).
+- **Unit 7** "Food & Drinks" dentro de 1A.
+- **10 itens** em `spn_word_bank_items` (categoria `noun`), com a palavra-foco em vermelho:
 
-Admin ganha seletor de categoria + toggle "Verbo destaque desta unit" (com validação: máx 2 por unit).
-Word Bank do aluno passa a agrupar por categoria com chips coloridos (Verbos / Question Word / Phrasal Verb / Expressão / Vocabulário).
+  | Frase | Foco (vermelho) |
+  |---|---|
+  | Red meat | meat |
+  | Cheese pizza | pizza |
+  | Tomato salad | salad |
+  | Chocolate cake | cake |
+  | Rice and beans | linha inteira |
+  | Cold water | water |
+  | Apple juice | juice |
+  | Sweet wine | wine |
+  | A bottle of beer | beer |
+  | A cup of coffee | coffee |
 
-### 2. Straight to the Point — formato chat + fill-in
-Estender `spn_straight_to_point` com novo `block_type = 'chat_dialogue'` (mantém compat com `dialogue` e `html` antigos) e campos:
-- `chat_title` (ex: "No restaurante")
-- `chat_situation` (1 frase de contexto)
-- `chat_messages` (jsonb array): `[{ speaker: 'A'|'B', en, pt, highlight_words: ['eat','at'] }]`
-- `target_words` (jsonb array): lista das palavras novas usadas no diálogo, referenciando `spn_word_bank_items.id` quando possível
-- `fill_in_practice` (jsonb array): `[{ sentence_template: "I ___ pizza every day.", correct_answer: 'eat', options: ['eat','eats','eating'], hint_pt: "use o verbo na 1ª pessoa" }]` — 2 a 4 frases logo abaixo do diálogo
+### 2. Pequeno ajuste de schema
+Adicionar em `spn_word_bank_items`:
+- `focus_word text` — qual parte fica vermelha (fallback: última palavra).
+- `full_highlight boolean default false` — caso "Rice and beans".
 
-Visual no aluno (`StraightToPointView`):
-- Header com `chat_title` + `chat_situation`
-- Balões alternados esquerda/direita (estilo WhatsApp), foto/avatar A e B, TTS por balão
-- Palavras em `highlight_words` ficam sublinhadas + tooltip com tradução
-- Bloco "Sua vez" com cards de completar (input ou botões de opção), validação inline (verde/vermelho + tradução completa após acerto)
+Criar tabela nova **`spn_word_bank_attempts`**:
+- `id`, `user_id`, `item_id` (fk word_bank), `unit_id`, `answer text`, `is_correct bool`, `viewed_answer bool`, `xp_awarded int default 0`, `created_at`.
+- RLS: aluno só vê/insere as próprias tentativas. GRANTs para `authenticated` e `service_role`.
+- Único por (user_id, item_id) na **primeira** tentativa correta para garantir XP único; tentativas extras são logadas mas não pagam XP.
 
-### 3. Exercises — validação híbrida + aprendizado
-Estender `spn_exercises` com:
-- `correct_answer` (texto/jsonb conforme tipo)
-- `explanation_pt` (texto curto explicando POR QUE é aquela resposta)
-- `learning_tip_pt` (1 linha de "aprendizado")
+### 3. Componente novo: `WordBankPageView` (réplica da imagem)
+- Triângulo preto no canto superior esquerdo (clip-path), losango coral "UN / IT / 7" no canto superior direito.
+- Título gigantesco "Word / Bank" em coral, peso black.
+- Grid 2 colunas (1 no mobile/390px), 10 linhas, cada uma com:
+  - Texto preto bold + palavra-foco em coral (ou linha inteira coral se `full_highlight`).
+  - Linha horizontal cinza embaixo (estilo caderno).
+  - Ícone speaker à direita → toca a frase via `spnSpeech.speak()`.
+  - Clicar na palavra coral → toca só a palavra-foco.
+- Botão "Tocar tudo" no rodapé (sequencial, sem sobreposição).
 
-Componente `ExercisesView`:
-- **Modo prática (imediato)**: cada item tem botão "Verificar" → mostra ✓/✗ + resposta correta + `explanation_pt`. Botão "Ver resposta" disponível sem penalidade (marca como "vi resposta", não conta acerto).
-- **Modo prova (final)**: aluno responde todos, clica "Corrigir tudo" → pontuação X/Y, lista de revisão com cada erro destacado e `explanation_pt`.
-- **Aprendizado do dia**: card no topo após corrigir, agregando `learning_tip_pt` dos itens errados (ou os 3 mais importantes da unit).
-- **Filtros**: chips no topo — Todos / Não respondidos / Errados / Acertados / Vi resposta. Persiste estado da sessão via `spn_exercise_answers`.
+### 4. Modo Prática interativo (dentro da mesma página)
+Toggle no topo da página: **Estudar** | **Praticar**.
 
-### 4. Estrutura obrigatória da Unit (validação no admin)
-Painel admin de cada unit mostra checklist visual:
-- [ ] 2 verbos novos cadastrados (Word Bank `category=verb` + `is_featured_verb=true`)
-- [ ] 1 question word (opcional mas sugerido)
-- [ ] 1 phrasal verb (opcional)
-- [ ] 1 expressão (opcional)
-- [ ] Pelo menos 1 bloco Straight to the Point usando os 2 verbos novos
+No modo **Praticar**:
+- A palavra-foco vira uma **lacuna** (input inline minimalista sobre a mesma linha do caderno) — ex.: `Red ____` com input.
+- "Rice and beans" (full_highlight) vira input para a frase inteira.
+- Cada linha tem ações: **Verificar** (Enter), **Ver resposta** (revela sem ganhar XP), **🔊 Ouvir** (TTS da frase completa como dica).
+- Validação imediata (normaliza: trim, lower, sem pontuação):
+  - **Certo** → linha fica verde, exibe ✓, marca `is_correct=true`, **concede +5 XP** se for o primeiro acerto daquele item para esse aluno. Toca a frase inteira como reforço.
+  - **Errado** → linha fica âmbar, ✗, contador "Tentativa 2/∞", permite tentar de novo.
+  - **Ver resposta** → mostra a palavra correta em coral, marca `viewed_answer=true`, **não dá XP**, mas libera prosseguir.
+- Barra de progresso da unit: "X / 10 corretas" + XP ganho na sessão.
+- Filtros (chips no topo): **Todos** • **Pendentes** • **Acertados** • **Errados** • **Vi resposta**.
 
-Sem bloquear save, mas com aviso "Unit incompleta".
+### 5. Concessão de XP
+- Aproveitar a tabela existente `spn_points` (já usada no SPN) inserindo `+5` por primeiro acerto. Source: `'word_bank'`, ref: `item_id`.
+- Trigger no `spn_word_bank_attempts`: ao inserir com `is_correct=true` e ainda não existir tentativa correta anterior para esse `(user_id, item_id)`, inserir linha em `spn_points` com 5 XP. Idempotente.
+- Toast `+5 XP — meat ✓` ao acertar.
 
----
+### 6. Integração com a UI existente
+- No `WordBankStudentView`, adicionar toggle de visualização: **Lista (atual)** | **Caderno (novo)**.
+- A "Caderno" carrega `WordBankPageView` e respeita os 2 modos (Estudar/Praticar).
+- Admin (`AdminBooksManager`): adicionar campos `focus_word` e `full_highlight` opcionais ao editar item — itens antigos seguem funcionando com fallback.
 
 ## Arquivos afetados
-
-**Migrations (Supabase):**
-- `spn_word_bank_items`: add `category text default 'other'`, `is_featured_verb boolean default false`; trigger valida máx 2 verbos destaque por unit.
-- `spn_straight_to_point`: add `chat_title`, `chat_situation`, `chat_messages jsonb`, `target_words jsonb`, `fill_in_practice jsonb`; expande check de `block_type` para incluir `'chat_dialogue'`.
-- `spn_exercises`: add `correct_answer jsonb`, `explanation_pt text`, `learning_tip_pt text`.
-- `spn_exercise_answers`: add `viewed_answer boolean default false`, `is_correct boolean`.
-
-**Frontend:**
-- `src/components/Spn/StraightToPointView.tsx` — renderer para novo block_type
-- `src/components/Spn/StraightToPointChatBlock.tsx` (novo) — balões + TTS + highlight + fill-in inline
-- `src/components/Spn/AdminBooksManager.tsx` — editor de chat (lista de mensagens A/B), editor de fill-in, seletor de categoria + toggle verbo destaque, checklist da unit
-- `src/components/Spn/ExercisesView.tsx` — modos prática/prova, filtros, ver resposta, card de aprendizado
-- `src/components/Spn/WordBankStudentView.tsx` — agrupamento por categoria com chips
-- `src/integrations/supabase/types.ts` — regenerado pós-migration
-
----
+- `supabase/migrations/<ts>_book_1a_seed_and_practice.sql` (novo): cria Book 1A + Unit 7 + 10 itens; adiciona `focus_word` e `full_highlight`; cria `spn_word_bank_attempts` (com RLS, GRANTs) e trigger de XP.
+- `src/integrations/supabase/types.ts` (auto).
+- `src/components/Spn/WordBankPageView.tsx` (novo): réplica visual + modo prática.
+- `src/components/Spn/WordBankStudentView.tsx` (editado): toggle Lista/Caderno.
+- `src/components/Spn/AdminBooksManager.tsx` (editado): 2 inputs novos.
+- `src/index.css` (editado leve): token coral e ink se ainda não existir.
 
 ## Impacto
 
-**1. UX do aluno final**
-- STP vira experiência tipo chat (WhatsApp), com áudio em cada balão, palavras destacadas e prática imediata logo abaixo. Muito mais engajante.
-- Exercises passam a ensinar, não só testar: aluno entende por que errou, recebe dica e pode revisar.
-- Word Bank fica organizado por categoria — fica claro "esses são os verbos da aula", "essa é a expressão".
+**Usuário final (aluno)**
+- Vê Book 1A no dashboard SPN, abre Unit 7 e encontra a página "Caderno" idêntica à imagem.
+- Pode estudar ouvindo cada palavra ou entrar em modo Praticar para completar as lacunas e ganhar XP. Cada acerto inédito vale +5 XP, com feedback imediato visual e sonoro. "Ver resposta" não pune, mas não paga XP.
 
-**2. Dados**
-- 4 migrations aditivas (sem breaking): novas colunas com defaults, blocos antigos continuam renderizando.
-- Trigger leve no Word Bank (máx 2 verbos destaque/unit) — custo desprezível.
-- `spn_exercise_answers` ganha estado mais rico; queries existentes continuam funcionando.
-- Nenhuma mudança em RLS — herdadas das tabelas existentes.
+**Usuário final (admin)**
+- Pode definir a palavra-foco e a flag de destaque total ao cadastrar itens; campos antigos seguem funcionando sem migração de dados.
 
-**3. Riscos colaterais**
-- Conteúdo já cadastrado em blocos `html`/`dialogue` continua exibindo, mas ficará "antigo" visualmente até ser migrado para `chat_dialogue` manualmente.
-- Admin precisa reaprender o editor de STP (mais campos) — mitigado com tabs "Chat (novo)" vs "Legado".
-- `correct_answer` em exercícios antigos virá NULL → modo "ver resposta" desabilitado nesses itens (com aviso "Resposta não cadastrada").
+**Dados**
+- 1 book + 1 unit + 10 itens inseridos.
+- 2 colunas opcionais em `spn_word_bank_items`.
+- 1 tabela nova `spn_word_bank_attempts` (RLS por `user_id`, GRANTs corretos).
+- 1 trigger novo concedendo XP via `spn_points` (idempotente, paga apenas no primeiro acerto).
 
-**4. Quem é afetado**
-- **Alunos SPN** (todos os tenants/books): ganham nova UX em STP e Exercises.
-- **Admin SPN**: precisa preencher os novos campos (correct_answer, explanation_pt) para novos exercícios; antigos seguem funcionando em modo degradado.
-- **Outros módulos** (CRM, Legal, Veridicto): zero impacto — mudanças isoladas em tabelas `spn_*`.
+**Riscos colaterais**
+- Baixos. Mudanças isoladas no módulo SPN.
+- Garantia de XP único depende do trigger ler `spn_points` com `source='word_bank'` e `ref=item_id` — coberto por unique check no insert.
+- Nenhum impacto em outros tenants/produtos.
 
----
+**Quem é afetado**
+- Apenas alunos e admin do SPN.
 
 ## Validação
-
-1. Após migration, abrir Unit 3 no admin → criar bloco `chat_dialogue` com 6 mensagens A/B + 3 fill-ins + marcar 2 verbos como destaque.
-2. Abrir como aluno → conferir balões alternados, TTS por balão, highlight nas palavras-alvo, fill-in valida certo/errado inline.
-3. Criar exercício com `correct_answer` e `explanation_pt` → testar modo prática (verificar item a item), modo prova (corrigir tudo), filtro "errados", botão "ver resposta".
-4. Word Bank do aluno: confirmar agrupamento por categoria com chips.
-5. Checklist da unit no admin: cadastrar só 1 verbo destaque → ver aviso "Faltam 1 verbo"; cadastrar 3 → trigger bloqueia.
-6. Verificar que blocos STP antigos (`html`, `dialogue`) continuam renderizando sem erro.
+1. `/spn/dashboard` → Book 1A visível; abrir Unit 7.
+2. Modo Caderno: layout idêntico à imagem (triângulo preto, losango UN/IT/7, "Word Bank" coral, 2 colunas).
+3. Clicar speaker em "Cheese pizza" → áudio da frase; clicar em "pizza" → só a palavra.
+4. "Tocar tudo" → 10 frases em sequência.
+5. Trocar para Praticar: lacunas aparecem; digitar "meat" em "Red ___" + Enter → linha verde, toast "+5 XP", saldo de XP do aluno aumenta em 5.
+6. Errar "Tomato ___" com "fish" → linha âmbar; corrigir para "salad" → verde, +5 XP.
+7. Acertar o mesmo item de novo (refazendo) → sem XP duplicado (verificar em `spn_points`).
+8. "Ver resposta" em "Apple juice" → revela "juice", `viewed_answer=true`, sem XP.
+9. Filtros funcionam: Acertados mostra só os verdes, Pendentes some os respondidos, Vi resposta lista os revelados.
+10. Mobile 390px: layout em 1 coluna mantendo legibilidade e tamanho dos botões.
+11. Admin: criar item com `full_highlight` → linha inteira vira coral; criar sem `focus_word` → fallback destaca última palavra.
