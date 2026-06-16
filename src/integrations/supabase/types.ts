@@ -8695,6 +8695,50 @@ export type Database = {
         }
         Relationships: []
       }
+      spn_word_bank_attempts: {
+        Row: {
+          answer: string | null
+          created_at: string
+          id: string
+          is_correct: boolean
+          item_id: string
+          unit_id: string
+          user_id: string
+          viewed_answer: boolean
+          xp_awarded: number
+        }
+        Insert: {
+          answer?: string | null
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          item_id: string
+          unit_id: string
+          user_id: string
+          viewed_answer?: boolean
+          xp_awarded?: number
+        }
+        Update: {
+          answer?: string | null
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          item_id?: string
+          unit_id?: string
+          user_id?: string
+          viewed_answer?: boolean
+          xp_awarded?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spn_word_bank_attempts_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "spn_word_bank_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       spn_word_bank_items: {
         Row: {
           accepted_answers: string[]
@@ -8703,6 +8747,8 @@ export type Database = {
           category: string
           created_at: string | null
           example_sentence: string | null
+          focus_word: string | null
+          full_highlight: boolean
           id: string
           is_featured_verb: boolean
           phonetic: string | null
@@ -8718,6 +8764,8 @@ export type Database = {
           category?: string
           created_at?: string | null
           example_sentence?: string | null
+          focus_word?: string | null
+          full_highlight?: boolean
           id?: string
           is_featured_verb?: boolean
           phonetic?: string | null
@@ -8733,6 +8781,8 @@ export type Database = {
           category?: string
           created_at?: string | null
           example_sentence?: string | null
+          focus_word?: string | null
+          full_highlight?: boolean
           id?: string
           is_featured_verb?: boolean
           phonetic?: string | null
