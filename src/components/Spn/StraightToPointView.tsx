@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import StraightToPointDialogueBlock, { DialogueExample } from './StraightToPointDialogueBlock';
 import StraightToPointChatBlock, { ChatMessage, FillInItem } from './StraightToPointChatBlock';
+import StraightToPointNotebookBlock from './StraightToPointNotebookBlock';
 
 interface STPBlock {
   id: string;
@@ -23,9 +24,10 @@ interface STPBlock {
   chat_messages?: any;
   fill_in_practice?: any;
   target_words?: any;
+  content_json?: any;
 }
 
-const StraightToPointView = ({ unitId }: { unitId: string }) => {
+const StraightToPointView = ({ unitId, unitName }: { unitId: string; unitName?: string }) => {
   const [blocks, setBlocks] = useState<STPBlock[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -38,6 +40,8 @@ const StraightToPointView = ({ unitId }: { unitId: string }) => {
     };
     load();
   }, [unitId]);
+
+  const unitLabel = (unitName || '').match(/(\d+)/)?.[1] || '1';
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
@@ -52,6 +56,15 @@ const StraightToPointView = ({ unitId }: { unitId: string }) => {
   return (
     <div className="space-y-4">
       {blocks.map((b) => {
+        if (b.block_type === 'notebook_page' && b.content_json) {
+          return (
+            <StraightToPointNotebookBlock
+              key={b.id}
+              content={b.content_json}
+              unitLabel={unitLabel}
+            />
+          );
+        }
         if (b.block_type === 'chat_dialogue') {
           const messages: ChatMessage[] = Array.isArray(b.chat_messages) ? b.chat_messages : [];
           const fillIn: FillInItem[] = Array.isArray(b.fill_in_practice) ? b.fill_in_practice : [];

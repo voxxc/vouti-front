@@ -86,7 +86,7 @@ const BooksView = () => {
             <p className="text-xs text-muted-foreground">Straight to the Point</p>
           </div>
         </div>
-        <StraightToPointView unitId={view.unit.id} />
+        <StraightToPointView unitId={view.unit.id} unitName={view.unit.name} />
       </div>
     );
   }

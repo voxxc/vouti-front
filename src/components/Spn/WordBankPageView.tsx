@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSpnAuth } from '@/contexts/SpnAuthContext';
-import { Volume2, Loader2, Check, X, Eye, PlayCircle, Trophy } from 'lucide-react';
+import { Volume2, Loader2, Check, X, Eye, EyeOff, PlayCircle, Trophy, RotateCcw } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { speak, stopSpeech, isSpeechSupported } from '@/lib/spnSpeech';
 
@@ -179,6 +179,32 @@ const WordBankPageView = ({ unitId, unitName }: { unitId: string; unitName?: str
     }
   };
 
+  const hideAnswer = (it: Item) => {
+    setRow(it.id, { value: '', status: 'idle' });
+  };
+
+  const resetAll = async () => {
+    if (!user) {
+      setRows({});
+      return;
+    }
+    const itemIds = items.map((i) => i.id);
+    if (itemIds.length === 0) return;
+    const { error } = await supabase
+      .from('spn_word_bank_attempts')
+      .delete()
+      .eq('user_id', user.id)
+      .in('item_id', itemIds);
+    if (error) {
+      toast({ title: 'Erro ao resetar', description: error.message, variant: 'destructive' as any });
+      return;
+    }
+    setRows({});
+    setServerState({});
+    setSessionXp(0);
+    toast({ title: 'Respostas resetadas', description: 'Você pode praticar novamente.' });
+  };
+
   const filtered = useMemo(() => {
     return items.filter((it) => {
       const s = serverState[it.id];
@@ -239,6 +265,13 @@ const WordBankPageView = ({ unitId, unitName }: { unitId: string; unitName?: str
               {{ all: 'Todos', pending: 'Pendentes', correct: 'Acertados', wrong: 'Errados', viewed: 'Vi resposta' }[f]}
             </button>
           ))}
+          <button
+            onClick={resetAll}
+            className="ml-auto inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full font-bold bg-foreground/5 text-foreground hover:bg-foreground/10"
+            title="Resetar todas as respostas desta unidade"
+          >
+            <RotateCcw className="h-3 w-3" /> Resetar
+          </button>
         </div>
       )}
 
@@ -353,11 +386,11 @@ const WordBankPageView = ({ unitId, unitName }: { unitId: string; unitName?: str
                           <Check className="h-3.5 w-3.5" />
                         </button>
                         <button
-                          onClick={() => revealAnswer(it)}
+                          onClick={() => (isViewed ? hideAnswer(it) : revealAnswer(it))}
                           className="px-2 py-1.5 rounded-lg text-xs text-neutral-600 hover:bg-neutral-200"
-                          title="Ver resposta"
+                          title={isViewed ? 'Ocultar resposta' : 'Ver resposta'}
                         >
-                          <Eye className="h-3.5 w-3.5" />
+                          {isViewed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                         </button>
                       </>
                     )}
