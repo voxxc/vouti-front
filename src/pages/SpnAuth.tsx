@@ -7,6 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import LogoSpn from '@/components/Spn/LogoSpn';
 import classroomImg from '@/assets/spn-classroom.jpg';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 const SpnAuth = () => {
   const { signIn, signUp } = useSpnAuth();
@@ -15,6 +17,9 @@ const SpnAuth = () => {
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +37,26 @@ const SpnAuth = () => {
     const { error } = await signUp(email, password, fullName);
     if (error) setError(error.message);
     setLoading(false);
+  };
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setForgotLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/spn/reset-password`,
+    });
+    setForgotLoading(false);
+    if (error) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({
+      title: 'E-mail enviado!',
+      description: 'Verifique sua caixa de entrada para redefinir a senha.',
+    });
+    setShowForgot(false);
+    setForgotEmail('');
   };
 
   return (
