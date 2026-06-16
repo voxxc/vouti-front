@@ -16,6 +16,8 @@ interface WordItem {
   id: string; word: string; phonetic: string | null; audio_url: string | null;
   translation_pt: string | null; accepted_answers: string[] | null;
   example_sentence: string | null;
+  category?: string | null;
+  is_featured_verb?: boolean | null;
 }
 interface TransRow {
   word_id: string; translation: string | null;
@@ -85,11 +87,11 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
 
     const [wordsRes, priorWordsRes, transRes] = await Promise.all([
       supabase.from('spn_word_bank_items')
-        .select('id, word, phonetic, audio_url, translation_pt, accepted_answers, example_sentence')
+        .select('id, word, phonetic, audio_url, translation_pt, accepted_answers, example_sentence, category, is_featured_verb')
         .eq('unit_id', unitId).order('sort_order'),
       priorUnitIds.length
         ? supabase.from('spn_word_bank_items')
-            .select('id, word, phonetic, audio_url, translation_pt, accepted_answers, example_sentence')
+            .select('id, word, phonetic, audio_url, translation_pt, accepted_answers, example_sentence, category, is_featured_verb')
             .in('unit_id', priorUnitIds)
         : Promise.resolve({ data: [] as any[] }),
       user
