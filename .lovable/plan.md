@@ -1,52 +1,85 @@
-## Reorganização do menu do Planejador
+# Plano — Repaginação da Vouti.SPN
 
-### Mudanças solicitadas
-1. Renomear a aba **"Colunas"** → **"Tarefas"** (continua sendo o Kanban atual).
-2. Adicionar nova aba **"Hello"** (visão mista: tarefas + prazos juntos).
-3. Reordenar o menu underline para: **Hello | Prazos | Tarefas | Lista | Calendário**.
-4. Quando estiver em **Hello**, o botão **"Criar"** vira um dropdown com duas opções: **Prazo** e **Tarefa**.
+## Causa raiz
+- **Word Bank repetindo entre units**: hoje não há validação de duplicidade — o mesmo termo é cadastrado em múltiplas units do mesmo book. Cada unit deveria trazer palavras novas, e os exercícios deveriam reciclar termos de units anteriores em vez de repetir os da mesma lista.
+- **Straight to the Point genérico**: o modelo atual (`spn_straight_to_point`) é só `title + content_html`, sem estrutura para diálogo/regra. Não força foco em conversação nem em aplicação da regra gramatical da unit (He/She/It → verbo com -s, Do/Does, etc.).
+- **Conteúdo escasso**: poucas units possuem material; falta um seed inicial coerente (Verb To Be, Pronouns, He/She/It + verbos comuns, Do/Does + Like/Eat).
 
-### Como funcionará a aba "Hello" (mista)
-Layout em colunas no mesmo estilo da aba Prazos, agrupando por janela temporal:
-- **Vencido** | **Hoje** | **Esta Semana** | **Próxima Semana** | **Futuro** | **Concluído**
+## Correção
 
-Cada coluna mostra cards de:
-- **Tarefas** do planejador (com badge/ícone `LayoutGrid` indicando "Tarefa")
-- **Prazos** da agenda (com badge/ícone `Clock` indicando "Prazo")
+### 1. Word Bank único por book (anti-duplicata)
+- **Migration**: criar índice único `UNIQUE (book_id, lower(trim(word)))` em `spn_word_bank_items` (via `spn_book_units`). Como hoje a tabela liga a `unit_id`, derivar `book_id` por trigger ou criar `book_id` denormalizado preenchido por trigger. Estratégia: adicionar coluna `book_id uuid` em `spn_word_bank_items` (preenchida via trigger a partir de `unit_id → spn_book_units → book_id`) e criar índice único `(book_id, lower(word))`.
+- **Limpeza pré-índice**: script SQL identifica duplicatas (mesma palavra, mesmo book) e mantém a mais antiga; remove as demais (registro em log).
+- **Admin UI** (`AdminWordBankManager` / form de criação): antes de inserir, consultar se a palavra já existe no book; bloquear com mensagem clara ("Palavra já existe na Unit X deste book").
+- **Exercícios variando vocabulário**: ao gerar/exibir exercícios de uma unit, hook puxa pool = palavras desta unit + amostra das units anteriores do mesmo book (sort_order menor). Garante revisão contínua sem repetir as mesmas da unit.
 
-Ordenação dentro de cada coluna: por data ascendente; itens sem data vão ao final. Clicar em um card:
-- Tarefa → abre `PlanejadorTaskDetail` (mesmo fluxo da aba Tarefas).
-- Prazo → abre `DeadlineDetailDialog` (mesmo fluxo da aba Prazos).
+### 2. Straight to the Point conversacional
+Refatorar o modelo para suportar **Regra → Diálogo → Exemplos**.
 
-Filtros (Minhas/Todos/usuário específico, busca) aplicam-se aos dois tipos da mesma forma já usada nas abas existentes. Marcadores só afetam tarefas (prazos não têm marcadores do planejador).
+- **Migration**:
+  - Adicionar em `spn_straight_to_point`: `block_type text` ('rule_dialogue' | 'legacy_html'), `rule_title text`, `rule_explanation text`, `question_text text`, `answer_negative text`, `answer_positive text`, `examples jsonb` (array `{ text, translation }`).
+  - Manter `content_html` para retrocompatibilidade (`block_type='legacy_html'`).
+- **Componente novo** `StraightToPointDialogueBlock.tsx`:
+  - Cabeçalho: regra (ex: "He / She / It → verb + s") + explicação curta.
+  - Bloco diálogo (com botão play TTS por linha via `spnSpeech`):
+    - Q: "Does she like coffee?"
+    - A−: "No, she doesn't like coffee."
+    - A+: "Yes, she likes coffee."
+  - Exemplos: lista numerada com tradução opcional ao tocar.
+- **`StraightToPointView.tsx`**: detecta `block_type` e renderiza `StraightToPointDialogueBlock` (novo) ou bloco HTML antigo.
+- **Admin** (`AdminStraightToPointManager` — criar se não existir, ou estender o atual): formulário com campos do diálogo + repeater de exemplos.
 
-### Comportamento do botão "Criar"
-- Em **Hello**: dropdown com `Tarefa` (abre `PlanejadorCreateTask`) e `Prazo` (abre `CreateDeadlineDialog`).
-- Em **Tarefas / Lista / Calendário**: abre `PlanejadorCreateTask` (como hoje).
-- Em **Prazos**: abre `CreateDeadlineDialog` (como hoje).
+### 3. Popular conteúdo inicial (seed)
+Inserir via `supabase--insert` (não migration) em pelo menos as primeiras units do Book A1:
+- **Unit 1 — Verb To Be (I am / You are)**: word bank 12 palavras novas; Straight to the Point com 3 blocos (afirmativo, negativo, interrogativo) cada um com Q/A−/A+ + 4 exemplos.
+- **Unit 2 — Pronouns + He/She/It is**: 12 palavras novas (não repetir Unit 1); 3 blocos focando 3ª pessoa.
+- **Unit 3 — Present Simple (I/You/We/They) com Like, Eat, Drink, Work**: 14 palavras novas (verbos + comida/bebida); blocos com Do + Q/A−/A+.
+- **Unit 4 — Present Simple 3ª pessoa (He/She/It + verb-s)**: 12 palavras novas; blocos com Does + Q/A−/A+ + regra de adição de -s/-es.
+- Exercícios de cada unit puxam pool = palavras da unit + sample de unidades anteriores.
 
-### Arquivos afetados
-- `src/components/Planejador/PlanejadorTopBar.tsx`
-  - Renomear `prazo` → label "Tarefas" no array `TABS`.
-  - Adicionar `{ id: 'hello', label: 'Hello' }` no início.
-  - Reordenar: `['hello', 'prazos', 'prazo', 'lista', 'calendario']`.
-  - Transformar o botão "Criar" em `DropdownMenu` quando `activeTab === 'hello'` (versão mobile + desktop).
-- `src/components/Planejador/PlanejadorHelloView.tsx` *(novo)*
-  - Combina tarefas (de `usePlanejadorTasks`) e prazos (de `useAgendaData`) nas 6 colunas temporais. Reaproveita estilos das colunas de `PlanejadorPrazosView`.
-- `src/components/Planejador/PlanejadorDrawer.tsx`
-  - Adicionar branch `activeTab === 'hello'` que renderiza `PlanejadorHelloView`, passando handlers para abrir tarefa (`handleSelectTask`) e prazo (`setDeadlineDetailId` + `setDeadlineDetailOpen`).
-  - Tornar tab inicial = `'hello'` (substitui o `'prazo'` atual como padrão).
+## Arquivos afetados
 
-### Impacto
-- **Usuário final (UX):** ao abrir o Planejador, a primeira tela passa a ser "Hello" (visão consolidada). A aba "Colunas" muda de nome para "Tarefas" (mesma funcionalidade). Ganha um botão "Criar" inteligente que pergunta tipo só na Hello.
-- **Dados:** nenhuma mudança de schema, migration ou RLS. Apenas leitura combinada de tabelas já existentes (`planejador_tasks` + deadlines da agenda).
-- **Riscos colaterais:** mudar a aba default de `prazo` → `hello` pode surpreender usuários acostumados ao Kanban; se preferir manter `prazo` como padrão é só não trocar. localStorage de colunas do Kanban (`planejador-column-config-v2-*`) não é afetado.
-- **Quem é afetado:** todos os usuários de todos os tenants que usam o Planejador.
+**Novos**
+- `src/components/Spn/StraightToPointDialogueBlock.tsx`
+- `src/components/Spn/AdminStraightToPointManager.tsx` (admin para criar blocos diálogo)
+- `supabase/migrations/<timestamp>_spn_word_bank_unique_and_dialogue.sql`
 
-### Validação
-1. Abrir Planejador → aba "Hello" ativa, mostrando colunas Vencido/Hoje/Esta Semana/Próxima Semana/Futuro/Concluído com tarefas E prazos misturados.
-2. Clicar em uma tarefa → abre detalhe da tarefa. Clicar em prazo → abre detalhe do prazo.
-3. Em Hello, clicar "Criar" → dropdown com "Tarefa" e "Prazo"; cada opção abre o dialog correspondente.
-4. Mudar para "Tarefas" (antiga "Colunas") → Kanban funciona normalmente, label atualizado.
-5. Filtros Minhas/Todos/usuário e busca funcionam em Hello para os dois tipos.
-6. Ordem dos tabs visível: Hello → Prazos → Tarefas → Lista → Calendário.
+**Editados**
+- `src/components/Spn/StraightToPointView.tsx` — render condicional por `block_type`.
+- `src/components/Spn/AdminWordBankManager.tsx` (ou equivalente) — validação anti-duplicata + mensagem.
+- Hook/componente de exercícios de word bank (ex: `WordBankStudentView`, `spnAnswerValidator` se necessário) — pool ampliado com units anteriores.
+- `src/pages/SpnDashboard.tsx` — rota/entrada para `AdminStraightToPointManager` no menu admin.
+
+**Não tocar**
+- `src/integrations/supabase/types.ts` (regenerado automaticamente).
+
+## Impacto
+
+**1. UX / telas / fluxos**
+- Aluno: Straight to the Point passa a mostrar diálogo Q/A−/A+ com play de áudio, regra destacada e exemplos — muito mais conversacional. Exercícios variam vocabulário entre units (revisão natural).
+- Admin: novo formulário de bloco diálogo (mais campos que antes). Tentar cadastrar palavra duplicada no book mostra erro claro.
+
+**2. Dados / migrations / RLS / performance**
+- Migration adiciona coluna `book_id` em `spn_word_bank_items` + trigger de preenchimento + índice único `(book_id, lower(word))`. RLS atual permanece.
+- Migration adiciona 6 colunas em `spn_straight_to_point` (nullable) + check no `block_type`. Sem impacto em RLS.
+- Pré-limpeza de duplicatas é destrutiva (remove linhas) — log antes/depois para auditoria.
+- Seed insere ~50 word bank items + ~12 blocos straight-to-point — volume desprezível.
+
+**3. Riscos colaterais**
+- Conteúdo legado de Straight to the Point continua funcionando (`block_type='legacy_html'`), mas se o admin quiser converter para diálogo precisa recriar.
+- Se já existirem palavras duplicadas que sejam relevantes em units distintas, perderemos as cópias — mitigado pelo log e pela política "palavra aparece uma vez por book, reaproveitada como revisão nos exercícios das próximas".
+- Aluno em meio a um exercício pode estranhar termos de units anteriores no quiz — comportamento intencional (revisão).
+
+**4. Quem é afetado**
+- Todos os alunos SPN (novo visual do Straight to the Point + variação de vocabulário).
+- Admins SPN (novo formulário, validação anti-duplicata).
+- Teachers (sem mudança operacional).
+- Nenhum outro produto Vouti afetado (escopo isolado em `spn_*`).
+
+## Validação
+1. Migration roda sem erro; índice único bloqueia duplicata em teste manual.
+2. Tentar cadastrar palavra repetida no mesmo book pelo admin → toast de erro.
+3. Abrir Unit 4 como aluno → Straight to the Point exibe Regra + Q/A−/A+ + Exemplos com áudio funcionando.
+4. Exercício da Unit 3 inclui pelo menos 2 palavras das Units 1–2.
+5. Bloco legado antigo continua renderizando (regressão).
+6. Build + checagem de tipos limpos.

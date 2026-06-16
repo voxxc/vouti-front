@@ -65,17 +65,48 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
 
   const loadData = async () => {
     setLoading(true);
-    const [wordsRes, transRes] = await Promise.all([
+    // Find which book + sort_order this unit belongs to, so we can include
+    // words from earlier units for revision (no repetition by uniqueness).
+    const { data: unitMeta } = await supabase
+      .from('spn_book_units')
+      .select('book_id, sort_order')
+      .eq('id', unitId)
+      .maybeSingle();
+
+    let priorUnitIds: string[] = [];
+    if (unitMeta?.book_id != null) {
+      const { data: priorUnits } = await supabase
+        .from('spn_book_units')
+        .select('id, sort_order')
+        .eq('book_id', unitMeta.book_id)
+        .lt('sort_order', unitMeta.sort_order ?? 0);
+      priorUnitIds = (priorUnits as any[] | null)?.map(u => u.id) ?? [];
+    }
+
+    const [wordsRes, priorWordsRes, transRes] = await Promise.all([
       supabase.from('spn_word_bank_items')
         .select('id, word, phonetic, audio_url, translation_pt, accepted_answers, example_sentence')
         .eq('unit_id', unitId).order('sort_order'),
+      priorUnitIds.length
+        ? supabase.from('spn_word_bank_items')
+            .select('id, word, phonetic, audio_url, translation_pt, accepted_answers, example_sentence')
+            .in('unit_id', priorUnitIds)
+        : Promise.resolve({ data: [] as any[] }),
       user
         ? supabase.from('spn_word_translations')
             .select('word_id, translation, attempts, correct_streak, is_mastered')
             .eq('user_id', user.id)
         : Promise.resolve({ data: [] as any[] }),
     ]);
-    if (wordsRes.data) setWords(wordsRes.data as WordItem[]);
+    const unitWords = (wordsRes.data as WordItem[]) || [];
+    const priorAll = (priorWordsRes.data as WordItem[]) || [];
+    // Sample up to 30% of unit size (min 3, max 8) from prior units for revision.
+    const sampleSize = Math.min(8, Math.max(3, Math.round(unitWords.length * 0.3)));
+    const sampled = priorAll
+      .slice()
+      .sort(() => Math.random() - 0.5)
+      .slice(0, sampleSize);
+    setWords([...unitWords, ...sampled]);
     if (transRes.data) {
       const map: Record<string, TransRow> = {};
       (transRes.data as any[]).forEach((t) => { map[t.word_id] = t as TransRow; });

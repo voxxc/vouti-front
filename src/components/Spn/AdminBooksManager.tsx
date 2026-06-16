@@ -18,7 +18,13 @@ import { speak, isSpeechSupported } from '@/lib/spnSpeech';
 interface Book { id: string; name: string; description: string | null; cover_color: string; sort_order: number; }
 interface Unit { id: string; book_id: string; name: string; sort_order: number; }
 interface WordItem { id: string; unit_id: string; word: string; phonetic: string | null; audio_url: string | null; sort_order: number; translation_pt: string | null; accepted_answers: string[] | null; example_sentence: string | null; }
-interface STPBlock { id: string; unit_id: string; title: string; content_html: string | null; sort_order: number; }
+interface STPExample { text: string; translation?: string }
+interface STPBlock {
+  id: string; unit_id: string; title: string; content_html: string | null; sort_order: number;
+  block_type?: string | null; rule_title?: string | null; rule_explanation?: string | null;
+  question_text?: string | null; answer_negative?: string | null; answer_positive?: string | null;
+  examples?: any;
+}
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 
@@ -50,6 +56,13 @@ const AdminBooksManager = () => {
   const [wordExample, setWordExample] = useState('');
   const [stpTitle, setStpTitle] = useState('');
   const [stpContent, setStpContent] = useState('');
+  const [stpMode, setStpMode] = useState<'rule_dialogue' | 'legacy_html'>('rule_dialogue');
+  const [stpRuleTitle, setStpRuleTitle] = useState('');
+  const [stpRuleExplanation, setStpRuleExplanation] = useState('');
+  const [stpQuestion, setStpQuestion] = useState('');
+  const [stpAnsNeg, setStpAnsNeg] = useState('');
+  const [stpAnsPos, setStpAnsPos] = useState('');
+  const [stpExamples, setStpExamples] = useState<STPExample[]>([{ text: '', translation: '' }]);
 
   useEffect(() => { loadBooks(); }, []);
   useEffect(() => { if (selectedBook) loadUnits(selectedBook.id); }, [selectedBook]);
@@ -121,6 +134,26 @@ const AdminBooksManager = () => {
   // CRUD: Words
   const saveWord = async () => {
     if (!wordText.trim() || !selectedUnit) return;
+    if (selectedBook) {
+      // Duplicate guard per book (case-insensitive). Excludes current item when editing.
+      const normalized = wordText.trim().toLowerCase();
+      const { data: existing } = await supabase
+        .from('spn_word_bank_items')
+        .select('id, unit_id, word, spn_book_units!inner(name)')
+        .eq('book_id', selectedBook.id)
+        .ilike('word', wordText.trim());
+      const dup = (existing as any[] | null)?.find(
+        (r) => r.word.trim().toLowerCase() === normalized && r.id !== editItem?.id
+      );
+      if (dup) {
+        toast({
+          title: 'Palavra duplicada',
+          description: `"${wordText.trim()}" já existe neste book (Unit: ${dup.spn_book_units?.name ?? '—'}).`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
     const acceptedArr = wordAccepted
       .split(',')
       .map(s => s.trim())
@@ -154,10 +187,24 @@ const AdminBooksManager = () => {
   // CRUD: STP
   const saveSTP = async () => {
     if (!stpTitle.trim() || !selectedUnit) return;
+    const examplesClean = stpExamples
+      .map(e => ({ text: (e.text || '').trim(), translation: (e.translation || '').trim() || undefined }))
+      .filter(e => e.text.length > 0);
+    const payload: any = {
+      title: stpTitle,
+      content_html: stpMode === 'legacy_html' ? (stpContent || null) : null,
+      block_type: stpMode,
+      rule_title: stpMode === 'rule_dialogue' ? (stpRuleTitle.trim() || stpTitle) : null,
+      rule_explanation: stpMode === 'rule_dialogue' ? (stpRuleExplanation.trim() || null) : null,
+      question_text: stpMode === 'rule_dialogue' ? (stpQuestion.trim() || null) : null,
+      answer_negative: stpMode === 'rule_dialogue' ? (stpAnsNeg.trim() || null) : null,
+      answer_positive: stpMode === 'rule_dialogue' ? (stpAnsPos.trim() || null) : null,
+      examples: stpMode === 'rule_dialogue' ? examplesClean : [],
+    };
     if (editItem) {
-      await supabase.from('spn_straight_to_point').update({ title: stpTitle, content_html: stpContent || null }).eq('id', editItem.id);
+      await supabase.from('spn_straight_to_point').update(payload).eq('id', editItem.id);
     } else {
-      await supabase.from('spn_straight_to_point').insert({ title: stpTitle, content_html: stpContent || null, unit_id: selectedUnit.id, sort_order: stpBlocks.length });
+      await supabase.from('spn_straight_to_point').insert({ ...payload, unit_id: selectedUnit.id, sort_order: stpBlocks.length });
     }
     resetStpDialog(); loadSTP(selectedUnit.id);
     toast({ title: editItem ? 'Block updated' : 'Block added' });
@@ -169,7 +216,14 @@ const AdminBooksManager = () => {
     loadSTP(selectedUnit.id);
   };
 
-  const resetStpDialog = () => { setStpDialog(false); setEditItem(null); setStpTitle(''); setStpContent(''); };
+  const resetStpDialog = () => {
+    setStpDialog(false); setEditItem(null);
+    setStpTitle(''); setStpContent('');
+    setStpMode('rule_dialogue');
+    setStpRuleTitle(''); setStpRuleExplanation('');
+    setStpQuestion(''); setStpAnsNeg(''); setStpAnsPos('');
+    setStpExamples([{ text: '', translation: '' }]);
+  };
 
   // ===== RENDER: Unit Content =====
   if (selectedUnit) {
@@ -265,7 +319,19 @@ const AdminBooksManager = () => {
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
-                            setEditItem(b); setStpTitle(b.title); setStpContent(b.content_html || ''); setStpDialog(true);
+                            setEditItem(b);
+                            setStpTitle(b.title);
+                            setStpContent(b.content_html || '');
+                            const mode = (b.block_type === 'rule_dialogue' ? 'rule_dialogue' : 'legacy_html') as 'rule_dialogue' | 'legacy_html';
+                            setStpMode(mode);
+                            setStpRuleTitle(b.rule_title || '');
+                            setStpRuleExplanation(b.rule_explanation || '');
+                            setStpQuestion(b.question_text || '');
+                            setStpAnsNeg(b.answer_negative || '');
+                            setStpAnsPos(b.answer_positive || '');
+                            const ex = Array.isArray(b.examples) ? b.examples : [];
+                            setStpExamples(ex.length ? ex.map((e: any) => ({ text: e.text || '', translation: e.translation || '' })) : [{ text: '', translation: '' }]);
+                            setStpDialog(true);
                           }}><Pencil className="h-3.5 w-3.5" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteSTP(b.id)}>
                             <Trash2 className="h-3.5 w-3.5" />
@@ -344,17 +410,85 @@ const AdminBooksManager = () => {
 
         {/* STP Dialog */}
         <Dialog open={stpDialog} onOpenChange={(o) => { if (!o) resetStpDialog(); }}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{editItem ? 'Edit Block' : 'Add Content Block'}</DialogTitle></DialogHeader>
             <div className="space-y-3">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStpMode('rule_dialogue')}
+                  className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition ${stpMode === 'rule_dialogue' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-background border-border text-muted-foreground hover:border-emerald-300'}`}
+                >Regra + Diálogo</button>
+                <button
+                  type="button"
+                  onClick={() => setStpMode('legacy_html')}
+                  className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition ${stpMode === 'legacy_html' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-background border-border text-muted-foreground hover:border-emerald-300'}`}
+                >HTML (legado)</button>
+              </div>
+
               <div>
-                <label className="text-sm font-medium text-foreground">Title *</label>
+                <label className="text-sm font-medium text-foreground">Título do bloco *</label>
                 <Input value={stpTitle} onChange={e => setStpTitle(e.target.value)} placeholder="e.g. Present Simple" />
               </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">Content (HTML)</label>
-                <Textarea value={stpContent} onChange={e => setStpContent(e.target.value)} placeholder="Write your content here... HTML supported." rows={8} />
-              </div>
+
+              {stpMode === 'legacy_html' ? (
+                <div>
+                  <label className="text-sm font-medium text-foreground">Content (HTML)</label>
+                  <Textarea value={stpContent} onChange={e => setStpContent(e.target.value)} placeholder="Write your content here... HTML supported." rows={8} />
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="text-sm font-medium text-foreground">Regra (cabeçalho)</label>
+                    <Input value={stpRuleTitle} onChange={e => setStpRuleTitle(e.target.value)} placeholder="e.g. He / She / It → verb + s" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground">Explicação</label>
+                    <Textarea value={stpRuleExplanation} onChange={e => setStpRuleExplanation(e.target.value)} rows={3}
+                      placeholder="Curta explicação da regra gramatical da unit." />
+                  </div>
+                  <div className="space-y-2 p-3 rounded-lg bg-muted/40">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Diálogo</p>
+                    <div>
+                      <label className="text-xs font-medium text-foreground">Pergunta (Q)</label>
+                      <Input value={stpQuestion} onChange={e => setStpQuestion(e.target.value)} placeholder='e.g. "Does she like coffee?"' />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-foreground">Resposta negativa (A−)</label>
+                      <Input value={stpAnsNeg} onChange={e => setStpAnsNeg(e.target.value)} placeholder={`e.g. "No, she doesn't like coffee."`} />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-foreground">Resposta positiva (A+)</label>
+                      <Input value={stpAnsPos} onChange={e => setStpAnsPos(e.target.value)} placeholder='e.g. "Yes, she likes coffee."' />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-foreground">Exemplos aplicando a regra</label>
+                      <Button type="button" size="sm" variant="outline" className="h-7 gap-1"
+                        onClick={() => setStpExamples(arr => [...arr, { text: '', translation: '' }])}>
+                        <Plus className="h-3 w-3" /> Add
+                      </Button>
+                    </div>
+                    {stpExamples.map((ex, i) => (
+                      <div key={i} className="space-y-1 p-2 rounded border border-border">
+                        <div className="flex gap-2">
+                          <Input value={ex.text}
+                            onChange={e => setStpExamples(arr => arr.map((x, idx) => idx === i ? { ...x, text: e.target.value } : x))}
+                            placeholder='Exemplo em inglês' />
+                          <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-destructive shrink-0"
+                            onClick={() => setStpExamples(arr => arr.filter((_, idx) => idx !== i))}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        <Input value={ex.translation || ''}
+                          onChange={e => setStpExamples(arr => arr.map((x, idx) => idx === i ? { ...x, translation: e.target.value } : x))}
+                          placeholder='Tradução (opcional)' />
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={resetStpDialog}>Cancel</Button>
