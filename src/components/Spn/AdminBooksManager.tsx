@@ -308,6 +308,56 @@ const AdminBooksManager = () => {
           </div>
         </div>
 
+        {/* Checklist da Unit */}
+        {(() => {
+          const verbs = words.filter((w) => w.category === 'verb');
+          const featured = verbs.filter((w) => w.is_featured_verb);
+          const hasQW = words.some((w) => w.category === 'question_word');
+          const hasPV = words.some((w) => w.category === 'phrasal_verb');
+          const hasExpr = words.some((w) => w.category === 'expression');
+          const hasChat = stpBlocks.some((b) => b.block_type === 'chat_dialogue');
+          const featuredVerbNames = featured.map((v) => v.word.toLowerCase());
+          const chatUsesVerbs = featured.length === 0
+            ? false
+            : stpBlocks.some((b) => {
+                if (b.block_type !== 'chat_dialogue') return false;
+                const msgs = Array.isArray(b.chat_messages) ? b.chat_messages : [];
+                const text = msgs.map((m: any) => (m.en || '').toLowerCase()).join(' ');
+                return featuredVerbNames.some((v) => text.includes(v));
+              });
+          const items = [
+            { ok: featured.length === 2, label: `2 verbos destaque (${featured.length}/2)`, required: true },
+            { ok: hasQW, label: '1 Question Word', required: false },
+            { ok: hasPV, label: '1 Phrasal Verb', required: false },
+            { ok: hasExpr, label: '1 Expressão', required: false },
+            { ok: hasChat, label: 'Pelo menos 1 bloco Chat no Straight to the Point', required: true },
+            { ok: chatUsesVerbs, label: 'Chat usa os 2 verbos destaque', required: false },
+          ];
+          const allRequired = items.filter(i => i.required).every(i => i.ok);
+          return (
+            <Card className={`border-l-4 ${allRequired ? 'border-l-emerald-500 bg-emerald-50/30 dark:bg-emerald-900/10' : 'border-l-amber-500 bg-amber-50/30 dark:bg-amber-900/10'}`}>
+              <CardContent className="p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  {allRequired ? <CheckIcon className="h-4 w-4 text-emerald-600" /> : <AlertCircle className="h-4 w-4 text-amber-600" />}
+                  <p className="text-xs font-bold uppercase tracking-wider text-foreground">
+                    {allRequired ? 'Unit completa' : 'Unit incompleta'}
+                  </p>
+                </div>
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-1">
+                  {items.map((it) => (
+                    <li key={it.label} className="text-xs flex items-center gap-1.5">
+                      {it.ok ? <CheckIcon className="h-3 w-3 text-emerald-600" /> : <span className="w-3 h-3 rounded border border-foreground/30 inline-block" />}
+                      <span className={it.ok ? 'text-foreground' : 'text-muted-foreground'}>
+                        {it.label}{!it.required && <span className="opacity-60"> (opcional)</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          );
+        })()}
+
         <Tabs defaultValue="wordbank" className="w-full">
           <TabsList className="w-full grid grid-cols-2">
             <TabsTrigger value="wordbank" className="gap-2"><Type className="h-4 w-4" /> Word Bank</TabsTrigger>
