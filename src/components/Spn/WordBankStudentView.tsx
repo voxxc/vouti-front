@@ -279,6 +279,20 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
                 </button>
               ))}
             </div>
+            <div className="flex items-center gap-2">
+            {speechOn && (
+              <button
+                onClick={() => setAutoPlay(v => !v)}
+                className={`text-[11px] font-bold px-2.5 py-1 rounded-full transition-all flex items-center gap-1 ${
+                  autoPlay
+                    ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow'
+                    : 'bg-foreground/5 text-muted-foreground hover:bg-foreground/10'
+                }`}
+                title="Tocar áudio automaticamente ao virar o card"
+              >
+                <Volume2 className="h-3 w-3" /> Auto
+              </button>
+            )}
             <div className="flex rounded-full bg-foreground/5 p-0.5">
               <button
                 onClick={() => setMode('deck')}
@@ -290,6 +304,7 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
                 className={`p-1.5 rounded-full transition-all ${mode === 'grid' ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}
                 aria-label="Grade"
               ><LayoutGrid className="h-3.5 w-3.5" /></button>
+            </div>
             </div>
           </div>
         </CardContent>
@@ -488,7 +503,8 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
               </Button>
               <p className="text-[11px] text-muted-foreground">
                 <kbd className="px-1.5 py-0.5 rounded bg-foreground/10 font-mono text-[10px]">Enter</kbd> verificar ·{' '}
-                <kbd className="px-1.5 py-0.5 rounded bg-foreground/10 font-mono text-[10px]">←/→</kbd> navegar
+                <kbd className="px-1.5 py-0.5 rounded bg-foreground/10 font-mono text-[10px]">←/→</kbd> navegar ·{' '}
+                <kbd className="px-1.5 py-0.5 rounded bg-foreground/10 font-mono text-[10px]">S</kbd> ouvir
               </p>
               <Button variant="ghost" size="sm" onClick={next} className="gap-1">
                 Próxima <ChevronRight className="h-4 w-4" />
