@@ -16,7 +16,8 @@ import ModulesView from '@/components/Spn/ModulesView';
 import BooksView from '@/components/Spn/BooksView';
 import SectionViewer from '@/components/Spn/SectionViewer';
 import { Card, CardContent } from '@/components/ui/card';
-import { Settings } from 'lucide-react';
+import { Settings, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const SpnDashboard = () => {
   const { isAdmin, isTeacher } = useSpnAuth();
