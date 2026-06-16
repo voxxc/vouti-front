@@ -10,10 +10,12 @@ import {
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { validateAnswer } from '@/lib/spnAnswerValidator';
+import { speak, stopSpeech, isSpeechSupported, prewarmVoices, hasUserInteracted } from '@/lib/spnSpeech';
 
 interface WordItem {
   id: string; word: string; phonetic: string | null; audio_url: string | null;
   translation_pt: string | null; accepted_answers: string[] | null;
+  example_sentence: string | null;
 }
 interface TransRow {
   word_id: string; translation: string | null;
@@ -40,15 +42,32 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
 
   const [input, setInput] = useState('');
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [playingKind, setPlayingKind] = useState<'word' | 'sentence' | null>(null);
+  const [autoPlay, setAutoPlay] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('spn_wb_autoplay') === '1';
+  });
+  const speechOn = isSpeechSupported();
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadData(); /* eslint-disable-next-line */ }, [unitId]);
+
+  useEffect(() => {
+    prewarmVoices();
+    return () => { stopSpeech(); };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('spn_wb_autoplay', autoPlay ? '1' : '0');
+    }
+  }, [autoPlay]);
 
   const loadData = async () => {
     setLoading(true);
     const [wordsRes, transRes] = await Promise.all([
       supabase.from('spn_word_bank_items')
-        .select('id, word, phonetic, audio_url, translation_pt, accepted_answers')
+        .select('id, word, phonetic, audio_url, translation_pt, accepted_answers, example_sentence')
         .eq('unit_id', unitId).order('sort_order'),
       user
         ? supabase.from('spn_word_translations')
@@ -101,21 +120,45 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
       if (e.key === 'ArrowRight') next();
       else if (e.key === 'ArrowLeft') prev();
       else if (e.key === 'Enter') { if (flipped) next(); else inputRef.current?.focus(); }
+      else if (e.key === 's' || e.key === 'S') {
+        if (!current) return;
+        if (e.shiftKey && current.example_sentence) playSentence(current);
+        else playWord(current);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [mode, flipped, current, input]); // eslint-disable-line
 
-  const playAudio = useCallback(async (w: WordItem) => {
-    if (!w.audio_url) return;
-    setPlayingId(w.id);
-    try {
-      const audio = new Audio(w.audio_url);
-      audio.onended = () => setPlayingId(null);
-      audio.onerror = () => { setPlayingId(null); toast({ title: 'Audio error', variant: 'destructive' }); };
-      await audio.play();
-    } catch { setPlayingId(null); }
-  }, []);
+  const playWord = useCallback((w: WordItem) => {
+    if (!speechOn || !w.word) return;
+    setPlayingId(w.id); setPlayingKind('word');
+    const done = () => { setPlayingId(null); setPlayingKind(null); };
+    speak(w.word, {
+      rate: 0.85,
+      onEnd: done,
+      onError: () => { done(); },
+    });
+  }, [speechOn]);
+
+  const playSentence = useCallback((w: WordItem) => {
+    if (!speechOn || !w.example_sentence) return;
+    setPlayingId(w.id); setPlayingKind('sentence');
+    const done = () => { setPlayingId(null); setPlayingKind(null); };
+    speak(w.example_sentence, {
+      rate: 0.95,
+      onEnd: done,
+      onError: () => { done(); },
+    });
+  }, [speechOn]);
+
+  // auto-play when card changes (only if user already interacted in the session)
+  useEffect(() => {
+    if (!autoPlay || !speechOn || !current || flipped) return;
+    if (!hasUserInteracted()) return;
+    const t = setTimeout(() => playWord(current), 200);
+    return () => clearTimeout(t);
+  }, [current?.id, autoPlay, speechOn, flipped, playWord]); // eslint-disable-line
 
   const submit = async () => {
     if (!current || !user || flipped) return;
