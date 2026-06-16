@@ -755,6 +755,7 @@ function App() {
               </SpnAuthProvider>
             } />
             <Route path="/spn" element={<Navigate to="/spn/auth" replace />} />
+            <Route path="/spn/reset-password" element={<SpnResetPassword />} />
             
             {/* VoTech Routes - Isolated Financial Platform */}
             <Route path="/votech/auth" element={
