@@ -1,0 +1,1 @@
+ALTER TABLE public.spn_straight_to_point ADD COLUMN IF NOT EXISTS content_json jsonb;

@@ -8457,6 +8457,7 @@ export type Database = {
           chat_situation: string | null
           chat_title: string | null
           content_html: string | null
+          content_json: Json | null
           created_at: string | null
           examples: Json
           fill_in_practice: Json | null
@@ -8477,6 +8478,7 @@ export type Database = {
           chat_situation?: string | null
           chat_title?: string | null
           content_html?: string | null
+          content_json?: Json | null
           created_at?: string | null
           examples?: Json
           fill_in_practice?: Json | null
@@ -8497,6 +8499,7 @@ export type Database = {
           chat_situation?: string | null
           chat_title?: string | null
           content_html?: string | null
+          content_json?: Json | null
           created_at?: string | null
           examples?: Json
           fill_in_practice?: Json | null
