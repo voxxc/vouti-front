@@ -7,6 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import LogoSpn from '@/components/Spn/LogoSpn';
 import classroomImg from '@/assets/spn-classroom.jpg';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 const SpnAuth = () => {
   const { signIn, signUp } = useSpnAuth();
@@ -15,6 +17,9 @@ const SpnAuth = () => {
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +37,26 @@ const SpnAuth = () => {
     const { error } = await signUp(email, password, fullName);
     if (error) setError(error.message);
     setLoading(false);
+  };
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setForgotLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/spn/reset-password`,
+    });
+    setForgotLoading(false);
+    if (error) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({
+      title: 'E-mail enviado!',
+      description: 'Verifique sua caixa de entrada para redefinir a senha.',
+    });
+    setShowForgot(false);
+    setForgotEmail('');
   };
 
   return (
@@ -98,6 +123,33 @@ const SpnAuth = () => {
                   <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={loading}>
                     {loading ? 'Signing in...' : 'Sign In'}
                   </Button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowForgot(v => !v); setForgotEmail(email); }}
+                    className="block w-full text-center text-sm lg:text-emerald-700 text-white/90 hover:underline"
+                  >
+                    Esqueci minha senha
+                  </button>
+                  {showForgot && (
+                    <div className="space-y-2 rounded-lg lg:bg-muted/50 bg-white/10 p-3">
+                      <Label htmlFor="forgotEmail" className="lg:text-foreground text-white text-sm">
+                        Informe seu e-mail para receber o link de redefinição
+                      </Label>
+                      <Input
+                        id="forgotEmail" type="email" value={forgotEmail}
+                        onChange={e => setForgotEmail(e.target.value)}
+                        placeholder="your@email.com"
+                        className="lg:bg-background bg-white/20 lg:text-foreground text-white placeholder:text-white/50 lg:placeholder:text-muted-foreground lg:border-input border-white/30"
+                      />
+                      <Button
+                        type="button" onClick={handleForgot}
+                        disabled={forgotLoading || !forgotEmail}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700"
+                      >
+                        {forgotLoading ? 'Enviando...' : 'Enviar link de redefinição'}
+                      </Button>
+                    </div>
+                  )}
                 </form>
               </TabsContent>
 

@@ -106,6 +106,7 @@ const BatinkDashboard = lazyPage(() => import("@/pages/BatinkDashboard"));
 const BatinkAdmin = lazyPage(() => import("@/pages/BatinkAdmin"));
 const SpnAuth = lazyPage(() => import("@/pages/SpnAuth"));
 const SpnDashboard = lazyPage(() => import("@/pages/SpnDashboard"));
+const SpnResetPassword = lazyPage(() => import("@/pages/SpnResetPassword"));
 const VotechAuth = lazyPage(() => import("@/pages/VotechAuth"));
 const VotechDashboard = lazyPage(() => import("@/pages/VotechDashboard"));
 const VotechLanding = lazyPage(() => import("@/pages/VotechLanding"));
@@ -754,6 +755,7 @@ function App() {
               </SpnAuthProvider>
             } />
             <Route path="/spn" element={<Navigate to="/spn/auth" replace />} />
+            <Route path="/spn/reset-password" element={<SpnResetPassword />} />
             
             {/* VoTech Routes - Isolated Financial Platform */}
             <Route path="/votech/auth" element={
