@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, LayoutGrid, X, Settings, Lock, Unlock, Columns, Filter, User, ChevronDown } from "lucide-react";
+import { Plus, Search, LayoutGrid, X, Settings, Lock, Unlock, Columns, Filter, User, ChevronDown, Clock, CheckSquare } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import {
   DropdownMenu,
@@ -38,10 +38,11 @@ interface PlanejadorTopBarProps {
 }
 
 const TABS = [
-  { id: 'prazo', label: 'Colunas' },
+  { id: 'hello', label: 'Hello' },
+  { id: 'prazos', label: 'Prazos' },
+  { id: 'prazo', label: 'Tarefas' },
   { id: 'lista', label: 'Lista' },
   { id: 'calendario', label: 'Calendário' },
-  { id: 'prazos', label: 'Prazos' },
 ];
 
 export function PlanejadorTopBar({
@@ -69,6 +70,40 @@ export function PlanejadorTopBar({
   const customUserName = isCustomUser
     ? profiles.find(p => p.user_id === selectedUserId)?.full_name || 'Usuário'
     : '';
+
+  const renderCreateButton = (sizeClass: string) => {
+    if (activeTab === 'hello') {
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button className={`bg-emerald-500 hover:bg-emerald-600 text-white font-semibold ${sizeClass} rounded-lg shadow-md shadow-emerald-500/20 shrink-0`}>
+              <Plus className="h-4 w-4 mr-1" /> Criar
+              <ChevronDown className="h-3 w-3 ml-1" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-44">
+            <DropdownMenuItem onClick={onCreateTask} className="gap-2 cursor-pointer">
+              <CheckSquare className="h-4 w-4" /> Tarefa
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onCreateDeadline?.()} className="gap-2 cursor-pointer">
+              <Clock className="h-4 w-4" /> Prazo
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    }
+    return (
+      <Button
+        onClick={() => {
+          if (activeTab === 'prazos' && onCreateDeadline) onCreateDeadline();
+          else onCreateTask();
+        }}
+        className={`bg-emerald-500 hover:bg-emerald-600 text-white font-semibold ${sizeClass} rounded-lg shadow-md shadow-emerald-500/20 shrink-0`}
+      >
+        <Plus className="h-4 w-4 mr-1" /> Criar
+      </Button>
+    );
+  };
 
   if (isMobile) {
     return (
@@ -109,15 +144,7 @@ export function PlanejadorTopBar({
 
         {/* Linha 2: criar + busca */}
         <div className="flex items-center gap-2">
-          <Button
-            onClick={() => {
-              if (activeTab === 'prazos' && onCreateDeadline) onCreateDeadline();
-              else onCreateTask();
-            }}
-            className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold h-9 px-3 rounded-lg shadow-md shadow-emerald-500/20 shrink-0"
-          >
-            <Plus className="h-4 w-4 mr-1" /> Criar
-          </Button>
+          {renderCreateButton('h-9 px-3')}
           <div className="relative flex-1 min-w-0">
             <Search className={`absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 ${textCounter}`} />
             <Input
@@ -222,16 +249,7 @@ export function PlanejadorTopBar({
             <LayoutGrid className={`h-6 w-6 ${text}`} />
             <h1 className={`text-xl font-bold tracking-tight ${text}`}>Planejador</h1>
           </div>
-          <Button
-            onClick={() => {
-              if (activeTab === 'prazos' && onCreateDeadline) onCreateDeadline();
-              else onCreateTask();
-            }}
-            className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-5 h-9 rounded-lg shadow-lg shadow-emerald-500/20"
-          >
-            <Plus className="h-4 w-4 mr-1.5" />
-            Criar
-          </Button>
+          {renderCreateButton('px-5 h-9')}
 
           {/* User filter toggle */}
           <div className="flex items-center">
