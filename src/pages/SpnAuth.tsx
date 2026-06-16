@@ -123,6 +123,33 @@ const SpnAuth = () => {
                   <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={loading}>
                     {loading ? 'Signing in...' : 'Sign In'}
                   </Button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowForgot(v => !v); setForgotEmail(email); }}
+                    className="block w-full text-center text-sm lg:text-emerald-700 text-white/90 hover:underline"
+                  >
+                    Esqueci minha senha
+                  </button>
+                  {showForgot && (
+                    <div className="space-y-2 rounded-lg lg:bg-muted/50 bg-white/10 p-3">
+                      <Label htmlFor="forgotEmail" className="lg:text-foreground text-white text-sm">
+                        Informe seu e-mail para receber o link de redefinição
+                      </Label>
+                      <Input
+                        id="forgotEmail" type="email" value={forgotEmail}
+                        onChange={e => setForgotEmail(e.target.value)}
+                        placeholder="your@email.com"
+                        className="lg:bg-background bg-white/20 lg:text-foreground text-white placeholder:text-white/50 lg:placeholder:text-muted-foreground lg:border-input border-white/30"
+                      />
+                      <Button
+                        type="button" onClick={handleForgot}
+                        disabled={forgotLoading || !forgotEmail}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700"
+                      >
+                        {forgotLoading ? 'Enviando...' : 'Enviar link de redefinição'}
+                      </Button>
+                    </div>
+                  )}
                 </form>
               </TabsContent>
 
