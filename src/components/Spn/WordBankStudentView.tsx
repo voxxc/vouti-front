@@ -1,64 +1,181 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSpnAuth } from '@/contexts/SpnAuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Volume2, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Volume2, Loader2, ChevronLeft, ChevronRight, Check, X,
+  Sparkles, Trophy, Flame, LayoutGrid, Layers,
+} from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { validateAnswer } from '@/lib/spnAnswerValidator';
 
-interface WordItem { id: string; word: string; phonetic: string | null; audio_url: string | null; }
+interface WordItem {
+  id: string; word: string; phonetic: string | null; audio_url: string | null;
+  translation_pt: string | null; accepted_answers: string[] | null;
+}
+interface TransRow {
+  word_id: string; translation: string | null;
+  attempts: number; correct_streak: number; is_mastered: boolean;
+}
+
+type Filter = 'all' | 'pending' | 'wrong' | 'mastered';
 
 const WordBankStudentView = ({ unitId }: { unitId: string }) => {
   const { user } = useSpnAuth();
   const [words, setWords] = useState<WordItem[]>([]);
-  const [translations, setTranslations] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState<Record<string, boolean>>({});
-  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [progress, setProgress] = useState<Record<string, TransRow>>({});
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadData(); }, [unitId]);
+  const [filter, setFilter] = useState<Filter>('all');
+  const [mode, setMode] = useState<'deck' | 'grid'>('deck');
+  const [index, setIndex] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [lastResult, setLastResult] = useState<'ok' | 'fail' | null>(null);
+  const [lastMasteryJustReached, setLastMasteryJustReached] = useState(false);
+  const [sessionXp, setSessionXp] = useState(0);
+  const [sessionStreak, setSessionStreak] = useState(0);
+  const [floatingXp, setFloatingXp] = useState<number | null>(null);
+
+  const [input, setInput] = useState('');
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { loadData(); /* eslint-disable-next-line */ }, [unitId]);
 
   const loadData = async () => {
     setLoading(true);
     const [wordsRes, transRes] = await Promise.all([
-      supabase.from('spn_word_bank_items').select('id, word, phonetic, audio_url').eq('unit_id', unitId).order('sort_order'),
-      user ? supabase.from('spn_word_translations').select('word_id, translation').eq('user_id', user.id) : Promise.resolve({ data: [] }),
+      supabase.from('spn_word_bank_items')
+        .select('id, word, phonetic, audio_url, translation_pt, accepted_answers')
+        .eq('unit_id', unitId).order('sort_order'),
+      user
+        ? supabase.from('spn_word_translations')
+            .select('word_id, translation, attempts, correct_streak, is_mastered')
+            .eq('user_id', user.id)
+        : Promise.resolve({ data: [] as any[] }),
     ]);
     if (wordsRes.data) setWords(wordsRes.data as WordItem[]);
     if (transRes.data) {
-      const map: Record<string, string> = {};
-      (transRes.data as any[]).forEach(t => { map[t.word_id] = t.translation; });
-      setTranslations(map);
+      const map: Record<string, TransRow> = {};
+      (transRes.data as any[]).forEach((t) => { map[t.word_id] = t as TransRow; });
+      setProgress(map);
     }
     setLoading(false);
+    setIndex(0); setFlipped(false); setInput(''); setLastResult(null);
   };
 
-  const saveTranslation = useCallback(async (wordId: string, value: string) => {
-    if (!user) return;
-    setSaving(prev => ({ ...prev, [wordId]: true }));
-    if (value.trim()) {
-      await supabase.from('spn_word_translations').upsert(
-        { word_id: wordId, user_id: user.id, translation: value.trim() },
-        { onConflict: 'word_id,user_id' }
-      );
-    } else {
-      await supabase.from('spn_word_translations').delete().eq('word_id', wordId).eq('user_id', user.id);
-    }
-    setSaving(prev => ({ ...prev, [wordId]: false }));
-  }, [user]);
+  const filtered = useMemo(() => {
+    return words.filter((w) => {
+      const p = progress[w.id];
+      if (filter === 'all') return true;
+      if (filter === 'mastered') return !!p?.is_mastered;
+      if (filter === 'pending') return !p || (!p.is_mastered && (p.attempts ?? 0) === 0);
+      if (filter === 'wrong') return !!p && !p.is_mastered && (p.correct_streak ?? 0) === 0 && (p.attempts ?? 0) > 0;
+      return true;
+    });
+  }, [words, progress, filter]);
 
-  const playAudio = async (word: WordItem) => {
-    if (!word.audio_url) return;
-    setPlayingId(word.id);
+  const masteredCount = useMemo(
+    () => words.filter(w => progress[w.id]?.is_mastered).length,
+    [words, progress]
+  );
+
+  const current = filtered[index];
+
+  // reset index if filter shrinks list
+  useEffect(() => {
+    if (index >= filtered.length) setIndex(0);
+    setFlipped(false); setInput(''); setLastResult(null);
+  }, [filter, filtered.length]); // eslint-disable-line
+
+  // keyboard shortcuts
+  useEffect(() => {
+    if (mode !== 'deck') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) {
+        if (e.key === 'Enter' && !flipped) { e.preventDefault(); submit(); }
+        return;
+      }
+      if (e.key === 'ArrowRight') next();
+      else if (e.key === 'ArrowLeft') prev();
+      else if (e.key === 'Enter') { if (flipped) next(); else inputRef.current?.focus(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mode, flipped, current, input]); // eslint-disable-line
+
+  const playAudio = useCallback(async (w: WordItem) => {
+    if (!w.audio_url) return;
+    setPlayingId(w.id);
     try {
-      const audio = new Audio(word.audio_url);
+      const audio = new Audio(w.audio_url);
       audio.onended = () => setPlayingId(null);
       audio.onerror = () => { setPlayingId(null); toast({ title: 'Audio error', variant: 'destructive' }); };
       await audio.play();
     } catch { setPlayingId(null); }
+  }, []);
+
+  const submit = async () => {
+    if (!current || !user || flipped) return;
+    const result = validateAnswer(input, current.translation_pt, current.accepted_answers);
+    const prev = progress[current.id];
+    const wasMastered = !!prev?.is_mastered;
+
+    let newStreak = result.ok ? (prev?.correct_streak ?? 0) + 1 : 0;
+    const newAttempts = (prev?.attempts ?? 0) + 1;
+    const newMastered = wasMastered || newStreak >= 3;
+    const justMastered = !wasMastered && newMastered;
+
+    setLastResult(result.ok ? 'ok' : 'fail');
+    setLastMasteryJustReached(justMastered);
+    setFlipped(true);
+
+    if (result.ok) {
+      const xp = (justMastered ? 15 : 5);
+      setSessionXp(s => s + xp);
+      setSessionStreak(s => s + 1);
+      setFloatingXp(xp);
+      setTimeout(() => setFloatingXp(null), 1400);
+      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(20);
+    } else {
+      setSessionStreak(0);
+      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([10, 40, 10]);
+    }
+
+    // persist
+    const payload = {
+      word_id: current.id,
+      user_id: user.id,
+      translation: input.trim() || (prev?.translation ?? ''),
+      attempts: newAttempts,
+      correct_streak: newStreak,
+      is_mastered: newMastered,
+      last_attempt_at: new Date().toISOString(),
+    };
+    setProgress(p => ({ ...p, [current.id]: payload as any }));
+    await supabase.from('spn_word_translations').upsert(payload, { onConflict: 'word_id,user_id' });
   };
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  const next = () => {
+    if (!filtered.length) return;
+    setFlipped(false); setInput(''); setLastResult(null);
+    setIndex((i) => (i + 1) % filtered.length);
+    setTimeout(() => inputRef.current?.focus(), 80);
+  };
+  const prev = () => {
+    if (!filtered.length) return;
+    setFlipped(false); setInput(''); setLastResult(null);
+    setIndex((i) => (i - 1 + filtered.length) % filtered.length);
+    setTimeout(() => inputRef.current?.focus(), 80);
+  };
+
+  const tryAgain = () => { setFlipped(false); setInput(''); setLastResult(null); setTimeout(() => inputRef.current?.focus(), 80); };
+
+  if (loading) {
+    return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  }
 
   if (words.length === 0) {
     return (
@@ -68,47 +185,259 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
     );
   }
 
+  const total = words.length;
+  const pct = Math.round((masteredCount / total) * 100);
+
   return (
-    <div className="space-y-3">
-      {words.map((w) => (
-        <Card key={w.id} className="overflow-hidden">
-          <CardContent className="p-0">
-            <div className="flex items-center gap-3 p-3 pb-2">
-              {w.audio_url && (
-                <button
-                  onClick={() => playAudio(w)}
-                  disabled={playingId === w.id}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all
-                    ${playingId === w.id
-                      ? 'bg-emerald-500 text-white animate-pulse'
-                      : 'bg-emerald-100 text-emerald-600 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 active:scale-95'}`}
-                >
-                  <Volume2 className="h-5 w-5" />
-                </button>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-foreground text-lg leading-tight">{w.word}</p>
-                {w.phonetic && <p className="text-sm text-muted-foreground italic">/{w.phonetic}/</p>}
+    <div className="space-y-4">
+      {/* HUD */}
+      <Card className="overflow-hidden border-0 bg-gradient-to-br from-emerald-500/10 via-cyan-500/5 to-indigo-500/10 dark:from-emerald-500/15 dark:via-cyan-500/10 dark:to-indigo-500/15">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 shrink-0">
+                <Sparkles className="h-4 w-4 text-white" />
               </div>
-              {saving[w.id] && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />}
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground leading-none">Progresso</p>
+                <p className="text-sm font-bold text-foreground leading-tight">
+                  {masteredCount} <span className="text-muted-foreground font-normal">/ {total} dominadas</span>
+                </p>
+              </div>
             </div>
-            <div className="px-3 pb-3">
-              <Input
-                placeholder="Type your translation..."
-                defaultValue={translations[w.id] || ''}
-                className="bg-muted/50 border-0 h-9 text-sm"
-                onBlur={(e) => {
-                  const val = e.target.value;
-                  if (val !== (translations[w.id] || '')) {
-                    setTranslations(prev => ({ ...prev, [w.id]: val }));
-                    saveTranslation(w.id, val);
-                  }
-                }}
-              />
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-1 text-orange-500 text-sm font-bold">
+                <Flame className="h-4 w-4" /> {sessionStreak}
+              </div>
+              <div className="flex items-center gap-1 text-amber-500 text-sm font-bold">
+                <Trophy className="h-4 w-4" /> +{sessionXp}
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      ))}
+          </div>
+          <div className="h-2 rounded-full bg-foreground/5 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-indigo-400 transition-all duration-500"
+              style={{ width: `${pct}%`, boxShadow: '0 0 12px rgba(16,185,129,0.45)' }}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex gap-1 flex-wrap">
+              {(['all','pending','wrong','mastered'] as Filter[]).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${
+                    filter === f
+                      ? 'bg-foreground text-background shadow'
+                      : 'bg-foreground/5 text-muted-foreground hover:bg-foreground/10'
+                  }`}
+                >
+                  {f === 'all' ? 'Todas' : f === 'pending' ? 'Pendentes' : f === 'wrong' ? 'Erradas' : 'Dominadas'}
+                </button>
+              ))}
+            </div>
+            <div className="flex rounded-full bg-foreground/5 p-0.5">
+              <button
+                onClick={() => setMode('deck')}
+                className={`p-1.5 rounded-full transition-all ${mode === 'deck' ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}
+                aria-label="Flashcards"
+              ><Layers className="h-3.5 w-3.5" /></button>
+              <button
+                onClick={() => setMode('grid')}
+                className={`p-1.5 rounded-full transition-all ${mode === 'grid' ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}
+                aria-label="Grade"
+              ><LayoutGrid className="h-3.5 w-3.5" /></button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {filtered.length === 0 ? (
+        <Card><CardContent className="py-12 text-center text-muted-foreground">
+          <p>Sem palavras neste filtro.</p>
+        </CardContent></Card>
+      ) : mode === 'grid' ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {filtered.map((w, i) => {
+            const p = progress[w.id];
+            const mastered = p?.is_mastered;
+            const streak = p?.correct_streak ?? 0;
+            const attempts = p?.attempts ?? 0;
+            const status = mastered ? 'gold' : streak > 0 ? 'green' : attempts > 0 ? 'red' : 'gray';
+            const colors: Record<string,string> = {
+              gold: 'from-amber-400/30 to-yellow-300/20 border-amber-400/60 text-amber-900 dark:text-amber-200',
+              green: 'from-emerald-400/25 to-cyan-400/15 border-emerald-400/50 text-emerald-900 dark:text-emerald-200',
+              red: 'from-rose-400/20 to-orange-400/15 border-rose-400/50 text-rose-900 dark:text-rose-200',
+              gray: 'from-foreground/5 to-foreground/0 border-foreground/10 text-foreground',
+            };
+            return (
+              <button
+                key={w.id}
+                onClick={() => { setMode('deck'); setIndex(i); setFlipped(false); setInput(''); setLastResult(null); }}
+                className={`relative p-3 rounded-xl border bg-gradient-to-br ${colors[status]} text-left hover:scale-[1.02] active:scale-95 transition-transform`}
+              >
+                <p className="font-bold truncate">{w.word}</p>
+                {w.phonetic && <p className="text-[10px] opacity-60 italic truncate">/{w.phonetic}/</p>}
+                {mastered && <div className="absolute inset-0 rounded-xl spn-shimmer-mastered pointer-events-none" />}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        current && (
+          <div className="space-y-3">
+            {/* Flashcard scene */}
+            <div className="spn-flip-scene">
+              <div
+                className={`spn-flip-card ${flipped ? 'is-flipped' : ''}`}
+                style={{ minHeight: 360 }}
+              >
+                {/* FRONT */}
+                <div className={`spn-flip-face front`}>
+                  <Card className={`h-full border-0 shadow-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white overflow-hidden relative`}>
+                    <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
+                    <div className="absolute -bottom-20 -left-10 w-56 h-56 rounded-full bg-cyan-300/20 blur-3xl" />
+                    <CardContent className="relative p-6 flex flex-col justify-between h-full" style={{ minHeight: 360 }}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase tracking-widest opacity-70">Word</span>
+                        <span className="text-xs font-mono bg-white/15 backdrop-blur px-2 py-0.5 rounded-full">
+                          {index + 1} / {filtered.length}
+                        </span>
+                      </div>
+
+                      <div className="text-center space-y-3">
+                        <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight" style={{ fontFamily: 'Outfit, ui-sans-serif, system-ui' }}>
+                          {current.word}
+                        </h2>
+                        {current.phonetic && (
+                          <p className="text-base text-white/80 italic">/{current.phonetic}/</p>
+                        )}
+                        {current.audio_url && (
+                          <button
+                            onClick={() => playAudio(current)}
+                            disabled={playingId === current.id}
+                            className={`mx-auto mt-2 w-12 h-12 rounded-full flex items-center justify-center bg-white/15 backdrop-blur hover:bg-white/25 active:scale-95 transition-all ${playingId === current.id ? 'animate-pulse' : ''}`}
+                            aria-label="Play audio"
+                          >
+                            <Volume2 className="h-5 w-5" />
+                          </button>
+                        )}
+                        {progress[current.id]?.is_mastered && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-300/90 text-amber-950 px-2 py-1 rounded-full">
+                            <Trophy className="h-3 w-3" /> Dominada
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Input
+                          ref={inputRef}
+                          value={input}
+                          onChange={(e) => setInput(e.target.value)}
+                          placeholder="Digite a tradução…"
+                          autoFocus
+                          className="bg-white/95 text-foreground border-0 h-12 text-base"
+                        />
+                        <Button
+                          onClick={submit}
+                          disabled={!input.trim() || !current.translation_pt}
+                          className="w-full h-11 bg-white text-indigo-700 hover:bg-white/90 font-bold"
+                        >
+                          Verificar
+                        </Button>
+                        {!current.translation_pt && (
+                          <p className="text-[11px] text-white/70 text-center">
+                            Sem gabarito — sua resposta será apenas salva.
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* BACK */}
+                <div className={`spn-flip-face back`}>
+                  <Card className={`h-full border-0 shadow-xl overflow-hidden relative ${
+                    lastResult === 'ok'
+                      ? 'bg-gradient-to-br from-emerald-500 to-teal-600 spn-glow-success'
+                      : 'bg-gradient-to-br from-rose-500 to-orange-500 spn-glow-error'
+                  } ${lastMasteryJustReached ? 'spn-glow-gold' : ''} text-white`}>
+                    <CardContent className="relative p-6 flex flex-col justify-between h-full" style={{ minHeight: 360 }}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase tracking-widest opacity-80">
+                          {lastResult === 'ok' ? 'Acerto' : 'Erro'}
+                        </span>
+                        <span className="text-xs font-mono bg-white/15 backdrop-blur px-2 py-0.5 rounded-full">
+                          {index + 1} / {filtered.length}
+                        </span>
+                      </div>
+
+                      <div className="text-center space-y-3 relative">
+                        <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center bg-white/20 backdrop-blur`}>
+                          {lastResult === 'ok' ? <Check className="h-10 w-10" strokeWidth={3} /> : <X className="h-10 w-10" strokeWidth={3} />}
+                        </div>
+                        <p className="text-sm opacity-90">{current.word}</p>
+                        <p className="text-3xl md:text-4xl font-extrabold" style={{ fontFamily: 'Outfit, ui-sans-serif, system-ui' }}>
+                          {current.translation_pt}
+                        </p>
+                        {current.accepted_answers && current.accepted_answers.length > 0 && (
+                          <p className="text-xs opacity-80">
+                            também aceita: {current.accepted_answers.slice(0, 4).join(' · ')}
+                          </p>
+                        )}
+                        {lastMasteryJustReached && (
+                          <div className="inline-flex items-center gap-1 mt-2 text-xs font-bold uppercase tracking-wider bg-amber-300 text-amber-950 px-3 py-1 rounded-full shadow-lg">
+                            <Trophy className="h-3.5 w-3.5" /> Palavra Dominada!
+                          </div>
+                        )}
+                        {floatingXp !== null && (
+                          <div className="absolute -top-2 right-4 spn-xp-float">
+                            <span className="inline-block bg-amber-300 text-amber-950 text-xs font-extrabold px-2.5 py-1 rounded-full shadow-lg">
+                              +{floatingXp} XP
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2">
+                        {lastResult === 'fail' && (
+                          <Button
+                            onClick={tryAgain}
+                            variant="secondary"
+                            className="flex-1 h-11 bg-white/20 hover:bg-white/30 text-white border-0"
+                          >
+                            Tentar de novo
+                          </Button>
+                        )}
+                        <Button
+                          onClick={next}
+                          className="flex-1 h-11 bg-white text-foreground hover:bg-white/90 font-bold"
+                        >
+                          Próxima <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </div>
+
+            {/* Nav */}
+            <div className="flex items-center justify-between">
+              <Button variant="ghost" size="sm" onClick={prev} className="gap-1">
+                <ChevronLeft className="h-4 w-4" /> Anterior
+              </Button>
+              <p className="text-[11px] text-muted-foreground">
+                <kbd className="px-1.5 py-0.5 rounded bg-foreground/10 font-mono text-[10px]">Enter</kbd> verificar ·{' '}
+                <kbd className="px-1.5 py-0.5 rounded bg-foreground/10 font-mono text-[10px]">←/→</kbd> navegar
+              </p>
+              <Button variant="ghost" size="sm" onClick={next} className="gap-1">
+                Próxima <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )
+      )}
     </div>
   );
 };

@@ -362,3 +362,48 @@ All colors MUST be HSL.
 *::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* ============ SPN Word Bank Flashcard ============ */
+.spn-flip-scene { perspective: 1400px; }
+.spn-flip-card {
+  position: relative;
+  width: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(.2,.8,.2,1);
+}
+.spn-flip-card.is-flipped { transform: rotateY(180deg); }
+.spn-flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 1.25rem;
+  overflow: hidden;
+}
+.spn-flip-face.back { transform: rotateY(180deg); }
+
+@keyframes spn-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.spn-shimmer-mastered {
+  background: linear-gradient(110deg, transparent 35%, rgba(255,215,90,0.45) 50%, transparent 65%);
+  background-size: 200% 100%;
+  animation: spn-shimmer 2.5s linear infinite;
+}
+
+@keyframes spn-xp-float {
+  0% { opacity: 0; transform: translateY(8px) scale(0.9); }
+  20% { opacity: 1; transform: translateY(0) scale(1); }
+  80% { opacity: 1; transform: translateY(-28px) scale(1); }
+  100% { opacity: 0; transform: translateY(-44px) scale(0.95); }
+}
+.spn-xp-float { animation: spn-xp-float 1.4s ease-out forwards; }
+
+@keyframes spn-glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--spn-glow, rgba(16,185,129,0.6)); }
+  50% { box-shadow: 0 0 32px 8px var(--spn-glow, rgba(16,185,129,0.55)); }
+}
+.spn-glow-success { --spn-glow: rgba(16,185,129,0.6); animation: spn-glow-pulse 1.2s ease-in-out; }
+.spn-glow-error   { --spn-glow: rgba(244,63,94,0.55);  animation: spn-glow-pulse 1.2s ease-in-out; }
+.spn-glow-gold    { --spn-glow: rgba(250,204,21,0.7);  animation: spn-glow-pulse 1.6s ease-in-out infinite; }

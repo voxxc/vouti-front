@@ -8652,29 +8652,35 @@ export type Database = {
       }
       spn_word_bank_items: {
         Row: {
+          accepted_answers: string[]
           audio_url: string | null
           created_at: string | null
           id: string
           phonetic: string | null
           sort_order: number | null
+          translation_pt: string | null
           unit_id: string
           word: string
         }
         Insert: {
+          accepted_answers?: string[]
           audio_url?: string | null
           created_at?: string | null
           id?: string
           phonetic?: string | null
           sort_order?: number | null
+          translation_pt?: string | null
           unit_id: string
           word: string
         }
         Update: {
+          accepted_answers?: string[]
           audio_url?: string | null
           created_at?: string | null
           id?: string
           phonetic?: string | null
           sort_order?: number | null
+          translation_pt?: string | null
           unit_id?: string
           word?: string
         }
@@ -8690,22 +8696,34 @@ export type Database = {
       }
       spn_word_translations: {
         Row: {
+          attempts: number
+          correct_streak: number
           created_at: string | null
           id: string
+          is_mastered: boolean
+          last_attempt_at: string | null
           translation: string
           user_id: string
           word_id: string
         }
         Insert: {
+          attempts?: number
+          correct_streak?: number
           created_at?: string | null
           id?: string
+          is_mastered?: boolean
+          last_attempt_at?: string | null
           translation: string
           user_id: string
           word_id: string
         }
         Update: {
+          attempts?: number
+          correct_streak?: number
           created_at?: string | null
           id?: string
+          is_mastered?: boolean
+          last_attempt_at?: string | null
           translation?: string
           user_id?: string
           word_id?: string

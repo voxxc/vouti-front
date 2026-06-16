@@ -16,7 +16,7 @@ import {
 
 interface Book { id: string; name: string; description: string | null; cover_color: string; sort_order: number; }
 interface Unit { id: string; book_id: string; name: string; sort_order: number; }
-interface WordItem { id: string; unit_id: string; word: string; phonetic: string | null; audio_url: string | null; sort_order: number; }
+interface WordItem { id: string; unit_id: string; word: string; phonetic: string | null; audio_url: string | null; sort_order: number; translation_pt: string | null; accepted_answers: string[] | null; }
 interface STPBlock { id: string; unit_id: string; title: string; content_html: string | null; sort_order: number; }
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
@@ -44,6 +44,8 @@ const AdminBooksManager = () => {
   const [wordText, setWordText] = useState('');
   const [wordPhonetic, setWordPhonetic] = useState('');
   const [wordAudio, setWordAudio] = useState('');
+  const [wordTranslation, setWordTranslation] = useState('');
+  const [wordAccepted, setWordAccepted] = useState('');
   const [stpTitle, setStpTitle] = useState('');
   const [stpContent, setStpContent] = useState('');
 
@@ -117,10 +119,21 @@ const AdminBooksManager = () => {
   // CRUD: Words
   const saveWord = async () => {
     if (!wordText.trim() || !selectedUnit) return;
+    const acceptedArr = wordAccepted
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
     if (editItem) {
-      await supabase.from('spn_word_bank_items').update({ word: wordText, phonetic: wordPhonetic || null, audio_url: wordAudio || null }).eq('id', editItem.id);
+      await supabase.from('spn_word_bank_items').update({
+        word: wordText, phonetic: wordPhonetic || null, audio_url: wordAudio || null,
+        translation_pt: wordTranslation.trim() || null, accepted_answers: acceptedArr,
+      }).eq('id', editItem.id);
     } else {
-      await supabase.from('spn_word_bank_items').insert({ word: wordText, phonetic: wordPhonetic || null, audio_url: wordAudio || null, unit_id: selectedUnit.id, sort_order: words.length });
+      await supabase.from('spn_word_bank_items').insert({
+        word: wordText, phonetic: wordPhonetic || null, audio_url: wordAudio || null,
+        translation_pt: wordTranslation.trim() || null, accepted_answers: acceptedArr,
+        unit_id: selectedUnit.id, sort_order: words.length,
+      });
     }
     resetWordDialog(); loadWords(selectedUnit.id);
     toast({ title: editItem ? 'Word updated' : 'Word added' });
@@ -132,7 +145,7 @@ const AdminBooksManager = () => {
     loadWords(selectedUnit.id);
   };
 
-  const resetWordDialog = () => { setWordDialog(false); setEditItem(null); setWordText(''); setWordPhonetic(''); setWordAudio(''); };
+  const resetWordDialog = () => { setWordDialog(false); setEditItem(null); setWordText(''); setWordPhonetic(''); setWordAudio(''); setWordTranslation(''); setWordAccepted(''); };
 
   // CRUD: STP
   const saveSTP = async () => {
@@ -192,11 +205,25 @@ const AdminBooksManager = () => {
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-foreground">{w.word}</p>
                         {w.phonetic && <p className="text-xs text-muted-foreground italic">/{w.phonetic}/</p>}
+                        {w.translation_pt && (
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5 truncate">
+                            🇧🇷 {w.translation_pt}
+                            {w.accepted_answers && w.accepted_answers.length > 0 && (
+                              <span className="text-muted-foreground"> · +{w.accepted_answers.length}</span>
+                            )}
+                          </p>
+                        )}
                       </div>
                       {w.audio_url && <Volume2 className="h-4 w-4 text-emerald-500 shrink-0" />}
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
-                          setEditItem(w); setWordText(w.word); setWordPhonetic(w.phonetic || ''); setWordAudio(w.audio_url || ''); setWordDialog(true);
+                          setEditItem(w);
+                          setWordText(w.word);
+                          setWordPhonetic(w.phonetic || '');
+                          setWordAudio(w.audio_url || '');
+                          setWordTranslation(w.translation_pt || '');
+                          setWordAccepted((w.accepted_answers || []).join(', '));
+                          setWordDialog(true);
                         }}><Pencil className="h-3.5 w-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteWord(w.id)}>
                           <Trash2 className="h-3.5 w-3.5" />
@@ -264,6 +291,16 @@ const AdminBooksManager = () => {
               <div>
                 <label className="text-sm font-medium text-foreground">Audio URL</label>
                 <Input value={wordAudio} onChange={e => setWordAudio(e.target.value)} placeholder="https://..." />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">Tradução (PT) *</label>
+                <Input value={wordTranslation} onChange={e => setWordTranslation(e.target.value)} placeholder="e.g. bonito" />
+                <p className="text-[11px] text-muted-foreground mt-1">Resposta principal usada para validar o aluno.</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">Também aceitar</label>
+                <Input value={wordAccepted} onChange={e => setWordAccepted(e.target.value)} placeholder="e.g. bela, lindo, formoso" />
+                <p className="text-[11px] text-muted-foreground mt-1">Sinônimos separados por vírgula. Acentos e maiúsculas são ignorados.</p>
               </div>
             </div>
             <DialogFooter>
