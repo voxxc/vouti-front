@@ -268,6 +268,27 @@ const WordBankStudentView = ({ unitId, unitName }: { unitId: string; unitName?: 
 
   return (
     <div className="space-y-4">
+      {/* View toggle: Lista vs Caderno */}
+      <div className="flex items-center justify-end">
+        <div className="inline-flex rounded-full bg-foreground/5 p-0.5">
+          <button
+            onClick={() => setPageView('caderno')}
+            className={`text-xs font-bold px-3 py-1.5 rounded-full transition-all inline-flex items-center gap-1 ${pageView === 'caderno' ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}
+          >
+            <BookOpen className="h-3 w-3" /> Caderno
+          </button>
+          <button
+            onClick={() => setPageView('list')}
+            className={`text-xs font-bold px-3 py-1.5 rounded-full transition-all ${pageView === 'list' ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}
+          >
+            Lista
+          </button>
+        </div>
+      </div>
+
+      {pageView === 'caderno' ? (
+        <WordBankPageView unitId={unitId} unitName={unitName} />
+      ) : (<>
       {/* HUD */}
       <Card className="overflow-hidden border-0 bg-gradient-to-br from-emerald-500/10 via-cyan-500/5 to-indigo-500/10 dark:from-emerald-500/15 dark:via-cyan-500/10 dark:to-indigo-500/15">
         <CardContent className="p-4 space-y-3">
