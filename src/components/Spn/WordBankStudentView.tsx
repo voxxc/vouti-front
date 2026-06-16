@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
   Volume2, Loader2, ChevronLeft, ChevronRight, Check, X,
-  Sparkles, Trophy, Flame, LayoutGrid, Layers,
+  Sparkles, Trophy, Flame, LayoutGrid, Layers, BookOpen,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { validateAnswer } from '@/lib/spnAnswerValidator';
 import { speak, stopSpeech, isSpeechSupported, prewarmVoices, hasUserInteracted } from '@/lib/spnSpeech';
+import WordBankPageView from './WordBankPageView';
 
 interface WordItem {
   id: string; word: string; phonetic: string | null; audio_url: string | null;
@@ -26,8 +27,9 @@ interface TransRow {
 
 type Filter = 'all' | 'pending' | 'wrong' | 'mastered';
 
-const WordBankStudentView = ({ unitId }: { unitId: string }) => {
+const WordBankStudentView = ({ unitId, unitName }: { unitId: string; unitName?: string }) => {
   const { user } = useSpnAuth();
+  const [pageView, setPageView] = useState<'list' | 'caderno'>('caderno');
   const [words, setWords] = useState<WordItem[]>([]);
   const [progress, setProgress] = useState<Record<string, TransRow>>({});
   const [loading, setLoading] = useState(true);
