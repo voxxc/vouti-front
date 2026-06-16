@@ -455,7 +455,11 @@ const AdminBooksManager = () => {
                             setEditItem(b);
                             setStpTitle(b.title);
                             setStpContent(b.content_html || '');
-                            const mode = (b.block_type === 'rule_dialogue' ? 'rule_dialogue' : 'legacy_html') as 'rule_dialogue' | 'legacy_html';
+                            const mode = (
+                              b.block_type === 'chat_dialogue' ? 'chat_dialogue' :
+                              b.block_type === 'rule_dialogue' ? 'rule_dialogue' :
+                              'legacy_html'
+                            ) as 'chat_dialogue' | 'rule_dialogue' | 'legacy_html';
                             setStpMode(mode);
                             setStpRuleTitle(b.rule_title || '');
                             setStpRuleExplanation(b.rule_explanation || '');
@@ -464,6 +468,27 @@ const AdminBooksManager = () => {
                             setStpAnsPos(b.answer_positive || '');
                             const ex = Array.isArray(b.examples) ? b.examples : [];
                             setStpExamples(ex.length ? ex.map((e: any) => ({ text: e.text || '', translation: e.translation || '' })) : [{ text: '', translation: '' }]);
+                            setStpChatTitle(b.chat_title || '');
+                            setStpChatSituation(b.chat_situation || '');
+                            const cm = Array.isArray(b.chat_messages) ? b.chat_messages : [];
+                            setStpChatMessages(cm.length ? cm.map((m: any) => ({
+                              speaker: m.speaker === 'B' ? 'B' : 'A',
+                              en: m.en || '',
+                              pt: m.pt || '',
+                              highlight_words: Array.isArray(m.highlight_words) ? m.highlight_words : [],
+                            })) : [
+                              { speaker: 'A', en: '', pt: '', highlight_words: [] },
+                              { speaker: 'B', en: '', pt: '', highlight_words: [] },
+                            ]);
+                            const fi = Array.isArray(b.fill_in_practice) ? b.fill_in_practice : [];
+                            setStpFillIn(fi.length ? fi.map((f: any) => ({
+                              sentence_template: f.sentence_template || '',
+                              correct_answer: f.correct_answer || '',
+                              options: Array.isArray(f.options) ? f.options : [],
+                              hint_pt: f.hint_pt || '',
+                            })) : [{ sentence_template: '', correct_answer: '', options: [], hint_pt: '' }]);
+                            const tw = Array.isArray(b.target_words) ? b.target_words : [];
+                            setStpTargetWords(tw.map((w: any) => typeof w === 'string' ? w : w?.word).filter(Boolean).join(', '));
                             setStpDialog(true);
                           }}><Pencil className="h-3.5 w-3.5" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteSTP(b.id)}>
