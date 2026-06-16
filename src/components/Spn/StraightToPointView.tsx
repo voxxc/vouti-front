@@ -3,8 +3,21 @@ import { supabase } from '@/integrations/supabase/client';
 import DOMPurify from 'dompurify';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
+import StraightToPointDialogueBlock, { DialogueExample } from './StraightToPointDialogueBlock';
 
-interface STPBlock { id: string; title: string; content_html: string | null; sort_order: number; }
+interface STPBlock {
+  id: string;
+  title: string;
+  content_html: string | null;
+  sort_order: number;
+  block_type?: string | null;
+  rule_title?: string | null;
+  rule_explanation?: string | null;
+  question_text?: string | null;
+  answer_negative?: string | null;
+  answer_positive?: string | null;
+  examples?: any;
+}
 
 const StraightToPointView = ({ unitId }: { unitId: string }) => {
   const [blocks, setBlocks] = useState<STPBlock[]>([]);
@@ -32,7 +45,22 @@ const StraightToPointView = ({ unitId }: { unitId: string }) => {
 
   return (
     <div className="space-y-4">
-      {blocks.map((b) => (
+      {blocks.map((b) => {
+        if (b.block_type === 'rule_dialogue') {
+          const examples: DialogueExample[] = Array.isArray(b.examples) ? b.examples : [];
+          return (
+            <StraightToPointDialogueBlock
+              key={b.id}
+              ruleTitle={b.rule_title || b.title}
+              ruleExplanation={b.rule_explanation}
+              questionText={b.question_text}
+              answerNegative={b.answer_negative}
+              answerPositive={b.answer_positive}
+              examples={examples}
+            />
+          );
+        }
+        return (
         <Card key={b.id} className="overflow-hidden">
           <CardContent className="p-4 md:p-6">
             <h3 className="text-lg font-bold text-foreground mb-3 border-b border-border pb-2">{b.title}</h3>
@@ -49,7 +77,8 @@ const StraightToPointView = ({ unitId }: { unitId: string }) => {
             )}
           </CardContent>
         </Card>
-      ))}
+        );
+      })}
     </div>
   );
 };
