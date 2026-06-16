@@ -134,9 +134,9 @@ const DashboardSidebar = ({ currentPage, activeDrawer, onDrawerChange, flatTopba
       return tenantSlug === 'demorais' && (userRoles.includes('admin') || userRoles.includes('controller'));
     }
 
-    // Audiências - apenas Daniel por enquanto
+    // Audiências - admin e controller
     if (itemId === 'audiencias') {
-      return isDaniel;
+      return userRoles.includes('admin') || userRoles.includes('controller');
     }
 
     return hasAccess(itemId);
