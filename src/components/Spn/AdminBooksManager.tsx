@@ -455,7 +455,7 @@ const AdminBooksManager = () => {
                     </div>
                     <div>
                       <label className="text-xs font-medium text-foreground">Resposta negativa (A−)</label>
-                      <Input value={stpAnsNeg} onChange={e => setStpAnsNeg(e.target.value)} placeholder='e.g. "No, she doesn\'t like coffee."' />
+                      <Input value={stpAnsNeg} onChange={e => setStpAnsNeg(e.target.value)} placeholder={`e.g. "No, she doesn't like coffee."`} />
                     </div>
                     <div>
                       <label className="text-xs font-medium text-foreground">Resposta positiva (A+)</label>
