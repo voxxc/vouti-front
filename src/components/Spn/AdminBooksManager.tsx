@@ -410,17 +410,85 @@ const AdminBooksManager = () => {
 
         {/* STP Dialog */}
         <Dialog open={stpDialog} onOpenChange={(o) => { if (!o) resetStpDialog(); }}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{editItem ? 'Edit Block' : 'Add Content Block'}</DialogTitle></DialogHeader>
             <div className="space-y-3">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStpMode('rule_dialogue')}
+                  className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition ${stpMode === 'rule_dialogue' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-background border-border text-muted-foreground hover:border-emerald-300'}`}
+                >Regra + Diálogo</button>
+                <button
+                  type="button"
+                  onClick={() => setStpMode('legacy_html')}
+                  className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition ${stpMode === 'legacy_html' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-background border-border text-muted-foreground hover:border-emerald-300'}`}
+                >HTML (legado)</button>
+              </div>
+
               <div>
-                <label className="text-sm font-medium text-foreground">Title *</label>
+                <label className="text-sm font-medium text-foreground">Título do bloco *</label>
                 <Input value={stpTitle} onChange={e => setStpTitle(e.target.value)} placeholder="e.g. Present Simple" />
               </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">Content (HTML)</label>
-                <Textarea value={stpContent} onChange={e => setStpContent(e.target.value)} placeholder="Write your content here... HTML supported." rows={8} />
-              </div>
+
+              {stpMode === 'legacy_html' ? (
+                <div>
+                  <label className="text-sm font-medium text-foreground">Content (HTML)</label>
+                  <Textarea value={stpContent} onChange={e => setStpContent(e.target.value)} placeholder="Write your content here... HTML supported." rows={8} />
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="text-sm font-medium text-foreground">Regra (cabeçalho)</label>
+                    <Input value={stpRuleTitle} onChange={e => setStpRuleTitle(e.target.value)} placeholder="e.g. He / She / It → verb + s" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground">Explicação</label>
+                    <Textarea value={stpRuleExplanation} onChange={e => setStpRuleExplanation(e.target.value)} rows={3}
+                      placeholder="Curta explicação da regra gramatical da unit." />
+                  </div>
+                  <div className="space-y-2 p-3 rounded-lg bg-muted/40">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Diálogo</p>
+                    <div>
+                      <label className="text-xs font-medium text-foreground">Pergunta (Q)</label>
+                      <Input value={stpQuestion} onChange={e => setStpQuestion(e.target.value)} placeholder='e.g. "Does she like coffee?"' />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-foreground">Resposta negativa (A−)</label>
+                      <Input value={stpAnsNeg} onChange={e => setStpAnsNeg(e.target.value)} placeholder='e.g. "No, she doesn\'t like coffee."' />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-foreground">Resposta positiva (A+)</label>
+                      <Input value={stpAnsPos} onChange={e => setStpAnsPos(e.target.value)} placeholder='e.g. "Yes, she likes coffee."' />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-foreground">Exemplos aplicando a regra</label>
+                      <Button type="button" size="sm" variant="outline" className="h-7 gap-1"
+                        onClick={() => setStpExamples(arr => [...arr, { text: '', translation: '' }])}>
+                        <Plus className="h-3 w-3" /> Add
+                      </Button>
+                    </div>
+                    {stpExamples.map((ex, i) => (
+                      <div key={i} className="space-y-1 p-2 rounded border border-border">
+                        <div className="flex gap-2">
+                          <Input value={ex.text}
+                            onChange={e => setStpExamples(arr => arr.map((x, idx) => idx === i ? { ...x, text: e.target.value } : x))}
+                            placeholder='Exemplo em inglês' />
+                          <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-destructive shrink-0"
+                            onClick={() => setStpExamples(arr => arr.filter((_, idx) => idx !== i))}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        <Input value={ex.translation || ''}
+                          onChange={e => setStpExamples(arr => arr.map((x, idx) => idx === i ? { ...x, translation: e.target.value } : x))}
+                          placeholder='Tradução (opcional)' />
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={resetStpDialog}>Cancel</Button>
