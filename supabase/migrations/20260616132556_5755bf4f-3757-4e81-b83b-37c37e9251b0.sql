@@ -1,0 +1,1 @@
+ALTER TABLE public.spn_word_bank_items ADD COLUMN IF NOT EXISTS example_sentence text;
