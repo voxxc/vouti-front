@@ -18,7 +18,13 @@ import { speak, isSpeechSupported } from '@/lib/spnSpeech';
 interface Book { id: string; name: string; description: string | null; cover_color: string; sort_order: number; }
 interface Unit { id: string; book_id: string; name: string; sort_order: number; }
 interface WordItem { id: string; unit_id: string; word: string; phonetic: string | null; audio_url: string | null; sort_order: number; translation_pt: string | null; accepted_answers: string[] | null; example_sentence: string | null; }
-interface STPBlock { id: string; unit_id: string; title: string; content_html: string | null; sort_order: number; }
+interface STPExample { text: string; translation?: string }
+interface STPBlock {
+  id: string; unit_id: string; title: string; content_html: string | null; sort_order: number;
+  block_type?: string | null; rule_title?: string | null; rule_explanation?: string | null;
+  question_text?: string | null; answer_negative?: string | null; answer_positive?: string | null;
+  examples?: any;
+}
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 
@@ -50,6 +56,13 @@ const AdminBooksManager = () => {
   const [wordExample, setWordExample] = useState('');
   const [stpTitle, setStpTitle] = useState('');
   const [stpContent, setStpContent] = useState('');
+  const [stpMode, setStpMode] = useState<'rule_dialogue' | 'legacy_html'>('rule_dialogue');
+  const [stpRuleTitle, setStpRuleTitle] = useState('');
+  const [stpRuleExplanation, setStpRuleExplanation] = useState('');
+  const [stpQuestion, setStpQuestion] = useState('');
+  const [stpAnsNeg, setStpAnsNeg] = useState('');
+  const [stpAnsPos, setStpAnsPos] = useState('');
+  const [stpExamples, setStpExamples] = useState<STPExample[]>([{ text: '', translation: '' }]);
 
   useEffect(() => { loadBooks(); }, []);
   useEffect(() => { if (selectedBook) loadUnits(selectedBook.id); }, [selectedBook]);
@@ -121,6 +134,26 @@ const AdminBooksManager = () => {
   // CRUD: Words
   const saveWord = async () => {
     if (!wordText.trim() || !selectedUnit) return;
+    if (selectedBook) {
+      // Duplicate guard per book (case-insensitive). Excludes current item when editing.
+      const normalized = wordText.trim().toLowerCase();
+      const { data: existing } = await supabase
+        .from('spn_word_bank_items')
+        .select('id, unit_id, word, spn_book_units!inner(name)')
+        .eq('book_id', selectedBook.id)
+        .ilike('word', wordText.trim());
+      const dup = (existing as any[] | null)?.find(
+        (r) => r.word.trim().toLowerCase() === normalized && r.id !== editItem?.id
+      );
+      if (dup) {
+        toast({
+          title: 'Palavra duplicada',
+          description: `"${wordText.trim()}" já existe neste book (Unit: ${dup.spn_book_units?.name ?? '—'}).`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
     const acceptedArr = wordAccepted
       .split(',')
       .map(s => s.trim())
@@ -154,10 +187,24 @@ const AdminBooksManager = () => {
   // CRUD: STP
   const saveSTP = async () => {
     if (!stpTitle.trim() || !selectedUnit) return;
+    const examplesClean = stpExamples
+      .map(e => ({ text: (e.text || '').trim(), translation: (e.translation || '').trim() || undefined }))
+      .filter(e => e.text.length > 0);
+    const payload: any = {
+      title: stpTitle,
+      content_html: stpMode === 'legacy_html' ? (stpContent || null) : null,
+      block_type: stpMode,
+      rule_title: stpMode === 'rule_dialogue' ? (stpRuleTitle.trim() || stpTitle) : null,
+      rule_explanation: stpMode === 'rule_dialogue' ? (stpRuleExplanation.trim() || null) : null,
+      question_text: stpMode === 'rule_dialogue' ? (stpQuestion.trim() || null) : null,
+      answer_negative: stpMode === 'rule_dialogue' ? (stpAnsNeg.trim() || null) : null,
+      answer_positive: stpMode === 'rule_dialogue' ? (stpAnsPos.trim() || null) : null,
+      examples: stpMode === 'rule_dialogue' ? examplesClean : [],
+    };
     if (editItem) {
-      await supabase.from('spn_straight_to_point').update({ title: stpTitle, content_html: stpContent || null }).eq('id', editItem.id);
+      await supabase.from('spn_straight_to_point').update(payload).eq('id', editItem.id);
     } else {
-      await supabase.from('spn_straight_to_point').insert({ title: stpTitle, content_html: stpContent || null, unit_id: selectedUnit.id, sort_order: stpBlocks.length });
+      await supabase.from('spn_straight_to_point').insert({ ...payload, unit_id: selectedUnit.id, sort_order: stpBlocks.length });
     }
     resetStpDialog(); loadSTP(selectedUnit.id);
     toast({ title: editItem ? 'Block updated' : 'Block added' });
@@ -169,7 +216,14 @@ const AdminBooksManager = () => {
     loadSTP(selectedUnit.id);
   };
 
-  const resetStpDialog = () => { setStpDialog(false); setEditItem(null); setStpTitle(''); setStpContent(''); };
+  const resetStpDialog = () => {
+    setStpDialog(false); setEditItem(null);
+    setStpTitle(''); setStpContent('');
+    setStpMode('rule_dialogue');
+    setStpRuleTitle(''); setStpRuleExplanation('');
+    setStpQuestion(''); setStpAnsNeg(''); setStpAnsPos('');
+    setStpExamples([{ text: '', translation: '' }]);
+  };
 
   // ===== RENDER: Unit Content =====
   if (selectedUnit) {
