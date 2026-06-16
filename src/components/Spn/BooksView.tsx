@@ -65,7 +65,7 @@ const BooksView = () => {
             <p className="text-xs text-muted-foreground">Word Bank</p>
           </div>
         </div>
-        <WordBankStudentView unitId={view.unit.id} />
+        <WordBankStudentView unitId={view.unit.id} unitName={view.unit.name} />
       </div>
     );
   }
