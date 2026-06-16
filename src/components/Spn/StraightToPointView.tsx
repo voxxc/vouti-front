@@ -4,6 +4,7 @@ import DOMPurify from 'dompurify';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import StraightToPointDialogueBlock, { DialogueExample } from './StraightToPointDialogueBlock';
+import StraightToPointChatBlock, { ChatMessage, FillInItem } from './StraightToPointChatBlock';
 
 interface STPBlock {
   id: string;
@@ -17,6 +18,11 @@ interface STPBlock {
   answer_negative?: string | null;
   answer_positive?: string | null;
   examples?: any;
+  chat_title?: string | null;
+  chat_situation?: string | null;
+  chat_messages?: any;
+  fill_in_practice?: any;
+  target_words?: any;
 }
 
 const StraightToPointView = ({ unitId }: { unitId: string }) => {
@@ -46,6 +52,23 @@ const StraightToPointView = ({ unitId }: { unitId: string }) => {
   return (
     <div className="space-y-4">
       {blocks.map((b) => {
+        if (b.block_type === 'chat_dialogue') {
+          const messages: ChatMessage[] = Array.isArray(b.chat_messages) ? b.chat_messages : [];
+          const fillIn: FillInItem[] = Array.isArray(b.fill_in_practice) ? b.fill_in_practice : [];
+          const targetWords: string[] = Array.isArray(b.target_words)
+            ? b.target_words.map((w: any) => typeof w === 'string' ? w : w?.word).filter(Boolean)
+            : [];
+          return (
+            <StraightToPointChatBlock
+              key={b.id}
+              chatTitle={b.chat_title || b.title}
+              chatSituation={b.chat_situation}
+              messages={messages}
+              fillIn={fillIn}
+              targetWords={targetWords}
+            />
+          );
+        }
         if (b.block_type === 'rule_dialogue') {
           const examples: DialogueExample[] = Array.isArray(b.examples) ? b.examples : [];
           return (

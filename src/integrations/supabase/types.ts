@@ -7915,6 +7915,7 @@ export type Database = {
           is_correct: boolean | null
           updated_at: string
           user_id: string
+          viewed_answer: boolean
         }
         Insert: {
           answer?: string
@@ -7923,6 +7924,7 @@ export type Database = {
           is_correct?: boolean | null
           updated_at?: string
           user_id: string
+          viewed_answer?: boolean
         }
         Update: {
           answer?: string
@@ -7931,6 +7933,7 @@ export type Database = {
           is_correct?: boolean | null
           updated_at?: string
           user_id?: string
+          viewed_answer?: boolean
         }
         Relationships: [
           {
@@ -7946,9 +7949,11 @@ export type Database = {
         Row: {
           correct_answer: string | null
           created_at: string
+          explanation_pt: string | null
           hint: string | null
           id: string
           kind: string
+          learning_tip_pt: string | null
           prompt_html: string
           sort_order: number
           unit_id: string
@@ -7956,9 +7961,11 @@ export type Database = {
         Insert: {
           correct_answer?: string | null
           created_at?: string
+          explanation_pt?: string | null
           hint?: string | null
           id?: string
           kind?: string
+          learning_tip_pt?: string | null
           prompt_html: string
           sort_order?: number
           unit_id: string
@@ -7966,9 +7973,11 @@ export type Database = {
         Update: {
           correct_answer?: string | null
           created_at?: string
+          explanation_pt?: string | null
           hint?: string | null
           id?: string
           kind?: string
+          learning_tip_pt?: string | null
           prompt_html?: string
           sort_order?: number
           unit_id?: string
@@ -8444,14 +8453,19 @@ export type Database = {
           answer_negative: string | null
           answer_positive: string | null
           block_type: string
+          chat_messages: Json | null
+          chat_situation: string | null
+          chat_title: string | null
           content_html: string | null
           created_at: string | null
           examples: Json
+          fill_in_practice: Json | null
           id: string
           question_text: string | null
           rule_explanation: string | null
           rule_title: string | null
           sort_order: number | null
+          target_words: Json | null
           title: string
           unit_id: string
         }
@@ -8459,14 +8473,19 @@ export type Database = {
           answer_negative?: string | null
           answer_positive?: string | null
           block_type?: string
+          chat_messages?: Json | null
+          chat_situation?: string | null
+          chat_title?: string | null
           content_html?: string | null
           created_at?: string | null
           examples?: Json
+          fill_in_practice?: Json | null
           id?: string
           question_text?: string | null
           rule_explanation?: string | null
           rule_title?: string | null
           sort_order?: number | null
+          target_words?: Json | null
           title: string
           unit_id: string
         }
@@ -8474,14 +8493,19 @@ export type Database = {
           answer_negative?: string | null
           answer_positive?: string | null
           block_type?: string
+          chat_messages?: Json | null
+          chat_situation?: string | null
+          chat_title?: string | null
           content_html?: string | null
           created_at?: string | null
           examples?: Json
+          fill_in_practice?: Json | null
           id?: string
           question_text?: string | null
           rule_explanation?: string | null
           rule_title?: string | null
           sort_order?: number | null
+          target_words?: Json | null
           title?: string
           unit_id?: string
         }
@@ -8676,9 +8700,11 @@ export type Database = {
           accepted_answers: string[]
           audio_url: string | null
           book_id: string | null
+          category: string
           created_at: string | null
           example_sentence: string | null
           id: string
+          is_featured_verb: boolean
           phonetic: string | null
           sort_order: number | null
           translation_pt: string | null
@@ -8689,9 +8715,11 @@ export type Database = {
           accepted_answers?: string[]
           audio_url?: string | null
           book_id?: string | null
+          category?: string
           created_at?: string | null
           example_sentence?: string | null
           id?: string
+          is_featured_verb?: boolean
           phonetic?: string | null
           sort_order?: number | null
           translation_pt?: string | null
@@ -8702,9 +8730,11 @@ export type Database = {
           accepted_answers?: string[]
           audio_url?: string | null
           book_id?: string | null
+          category?: string
           created_at?: string | null
           example_sentence?: string | null
           id?: string
+          is_featured_verb?: boolean
           phonetic?: string | null
           sort_order?: number | null
           translation_pt?: string | null

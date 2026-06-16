@@ -11,22 +11,37 @@ import {
 import { toast } from '@/hooks/use-toast';
 import {
   Plus, BookOpen, ChevronLeft, Pencil, Trash2, GripVertical,
-  Volume2, ArrowLeft, Layers, Type, FileText
+  Volume2, ArrowLeft, Layers, Type, FileText, Check as CheckIcon, AlertCircle, MessageCircle
 } from 'lucide-react';
 import { speak, isSpeechSupported } from '@/lib/spnSpeech';
 
 interface Book { id: string; name: string; description: string | null; cover_color: string; sort_order: number; }
 interface Unit { id: string; book_id: string; name: string; sort_order: number; }
-interface WordItem { id: string; unit_id: string; word: string; phonetic: string | null; audio_url: string | null; sort_order: number; translation_pt: string | null; accepted_answers: string[] | null; example_sentence: string | null; }
+interface WordItem { id: string; unit_id: string; word: string; phonetic: string | null; audio_url: string | null; sort_order: number; translation_pt: string | null; accepted_answers: string[] | null; example_sentence: string | null; category?: string | null; is_featured_verb?: boolean | null; }
 interface STPExample { text: string; translation?: string }
+interface ChatMsg { speaker: 'A' | 'B'; en: string; pt?: string; highlight_words?: string[] }
+interface FillIn { sentence_template: string; correct_answer: string; options?: string[]; hint_pt?: string }
 interface STPBlock {
   id: string; unit_id: string; title: string; content_html: string | null; sort_order: number;
   block_type?: string | null; rule_title?: string | null; rule_explanation?: string | null;
   question_text?: string | null; answer_negative?: string | null; answer_positive?: string | null;
   examples?: any;
+  chat_title?: string | null; chat_situation?: string | null;
+  chat_messages?: any; fill_in_practice?: any; target_words?: any;
 }
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
+
+const CATEGORY_OPTIONS: { value: string; label: string }[] = [
+  { value: 'verb', label: 'Verbo' },
+  { value: 'question_word', label: 'Question Word' },
+  { value: 'phrasal_verb', label: 'Phrasal Verb' },
+  { value: 'expression', label: 'Expressão' },
+  { value: 'noun', label: 'Substantivo' },
+  { value: 'adjective', label: 'Adjetivo' },
+  { value: 'adverb', label: 'Advérbio' },
+  { value: 'other', label: 'Outro' },
+];
 
 const AdminBooksManager = () => {
   const [books, setBooks] = useState<Book[]>([]);
@@ -54,15 +69,27 @@ const AdminBooksManager = () => {
   const [wordTranslation, setWordTranslation] = useState('');
   const [wordAccepted, setWordAccepted] = useState('');
   const [wordExample, setWordExample] = useState('');
+  const [wordCategory, setWordCategory] = useState<string>('other');
+  const [wordFeaturedVerb, setWordFeaturedVerb] = useState(false);
   const [stpTitle, setStpTitle] = useState('');
   const [stpContent, setStpContent] = useState('');
-  const [stpMode, setStpMode] = useState<'rule_dialogue' | 'legacy_html'>('rule_dialogue');
+  const [stpMode, setStpMode] = useState<'chat_dialogue' | 'rule_dialogue' | 'legacy_html'>('chat_dialogue');
   const [stpRuleTitle, setStpRuleTitle] = useState('');
   const [stpRuleExplanation, setStpRuleExplanation] = useState('');
   const [stpQuestion, setStpQuestion] = useState('');
   const [stpAnsNeg, setStpAnsNeg] = useState('');
   const [stpAnsPos, setStpAnsPos] = useState('');
   const [stpExamples, setStpExamples] = useState<STPExample[]>([{ text: '', translation: '' }]);
+  const [stpChatTitle, setStpChatTitle] = useState('');
+  const [stpChatSituation, setStpChatSituation] = useState('');
+  const [stpChatMessages, setStpChatMessages] = useState<ChatMsg[]>([
+    { speaker: 'A', en: '', pt: '', highlight_words: [] },
+    { speaker: 'B', en: '', pt: '', highlight_words: [] },
+  ]);
+  const [stpFillIn, setStpFillIn] = useState<FillIn[]>([
+    { sentence_template: '', correct_answer: '', options: [], hint_pt: '' },
+  ]);
+  const [stpTargetWords, setStpTargetWords] = useState<string>('');
 
   useEffect(() => { loadBooks(); }, []);
   useEffect(() => { if (selectedBook) loadUnits(selectedBook.id); }, [selectedBook]);
@@ -163,14 +190,22 @@ const AdminBooksManager = () => {
         word: wordText, phonetic: wordPhonetic || null, audio_url: wordAudio || null,
         translation_pt: wordTranslation.trim() || null, accepted_answers: acceptedArr,
         example_sentence: wordExample.trim() || null,
+        category: wordCategory,
+        is_featured_verb: wordCategory === 'verb' ? wordFeaturedVerb : false,
       }).eq('id', editItem.id);
     } else {
-      await supabase.from('spn_word_bank_items').insert({
+      const { error } = await supabase.from('spn_word_bank_items').insert({
         word: wordText, phonetic: wordPhonetic || null, audio_url: wordAudio || null,
         translation_pt: wordTranslation.trim() || null, accepted_answers: acceptedArr,
         example_sentence: wordExample.trim() || null,
+        category: wordCategory,
+        is_featured_verb: wordCategory === 'verb' ? wordFeaturedVerb : false,
         unit_id: selectedUnit.id, sort_order: words.length,
       });
+      if (error) {
+        toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+        return;
+      }
     }
     resetWordDialog(); loadWords(selectedUnit.id);
     toast({ title: editItem ? 'Word updated' : 'Word added' });
@@ -182,7 +217,12 @@ const AdminBooksManager = () => {
     loadWords(selectedUnit.id);
   };
 
-  const resetWordDialog = () => { setWordDialog(false); setEditItem(null); setWordText(''); setWordPhonetic(''); setWordAudio(''); setWordTranslation(''); setWordAccepted(''); setWordExample(''); };
+  const resetWordDialog = () => {
+    setWordDialog(false); setEditItem(null);
+    setWordText(''); setWordPhonetic(''); setWordAudio('');
+    setWordTranslation(''); setWordAccepted(''); setWordExample('');
+    setWordCategory('other'); setWordFeaturedVerb(false);
+  };
 
   // CRUD: STP
   const saveSTP = async () => {
@@ -190,6 +230,23 @@ const AdminBooksManager = () => {
     const examplesClean = stpExamples
       .map(e => ({ text: (e.text || '').trim(), translation: (e.translation || '').trim() || undefined }))
       .filter(e => e.text.length > 0);
+    const chatMessagesClean = stpChatMessages
+      .map(m => ({
+        speaker: m.speaker,
+        en: (m.en || '').trim(),
+        pt: (m.pt || '').trim() || undefined,
+        highlight_words: (m.highlight_words || []).filter(Boolean),
+      }))
+      .filter(m => m.en.length > 0);
+    const fillInClean = stpFillIn
+      .map(f => ({
+        sentence_template: (f.sentence_template || '').trim(),
+        correct_answer: (f.correct_answer || '').trim(),
+        options: (f.options || []).filter(Boolean),
+        hint_pt: (f.hint_pt || '').trim() || undefined,
+      }))
+      .filter(f => f.sentence_template.length > 0 && f.correct_answer.length > 0);
+    const targetWordsClean = stpTargetWords.split(',').map(s => s.trim()).filter(Boolean);
     const payload: any = {
       title: stpTitle,
       content_html: stpMode === 'legacy_html' ? (stpContent || null) : null,
@@ -200,6 +257,11 @@ const AdminBooksManager = () => {
       answer_negative: stpMode === 'rule_dialogue' ? (stpAnsNeg.trim() || null) : null,
       answer_positive: stpMode === 'rule_dialogue' ? (stpAnsPos.trim() || null) : null,
       examples: stpMode === 'rule_dialogue' ? examplesClean : [],
+      chat_title: stpMode === 'chat_dialogue' ? (stpChatTitle.trim() || stpTitle) : null,
+      chat_situation: stpMode === 'chat_dialogue' ? (stpChatSituation.trim() || null) : null,
+      chat_messages: stpMode === 'chat_dialogue' ? chatMessagesClean : [],
+      fill_in_practice: stpMode === 'chat_dialogue' ? fillInClean : [],
+      target_words: stpMode === 'chat_dialogue' ? targetWordsClean : [],
     };
     if (editItem) {
       await supabase.from('spn_straight_to_point').update(payload).eq('id', editItem.id);
@@ -219,10 +281,17 @@ const AdminBooksManager = () => {
   const resetStpDialog = () => {
     setStpDialog(false); setEditItem(null);
     setStpTitle(''); setStpContent('');
-    setStpMode('rule_dialogue');
+    setStpMode('chat_dialogue');
     setStpRuleTitle(''); setStpRuleExplanation('');
     setStpQuestion(''); setStpAnsNeg(''); setStpAnsPos('');
     setStpExamples([{ text: '', translation: '' }]);
+    setStpChatTitle(''); setStpChatSituation('');
+    setStpChatMessages([
+      { speaker: 'A', en: '', pt: '', highlight_words: [] },
+      { speaker: 'B', en: '', pt: '', highlight_words: [] },
+    ]);
+    setStpFillIn([{ sentence_template: '', correct_answer: '', options: [], hint_pt: '' }]);
+    setStpTargetWords('');
   };
 
   // ===== RENDER: Unit Content =====
@@ -238,6 +307,56 @@ const AdminBooksManager = () => {
             <p className="text-sm text-muted-foreground">{selectedBook?.name}</p>
           </div>
         </div>
+
+        {/* Checklist da Unit */}
+        {(() => {
+          const verbs = words.filter((w) => w.category === 'verb');
+          const featured = verbs.filter((w) => w.is_featured_verb);
+          const hasQW = words.some((w) => w.category === 'question_word');
+          const hasPV = words.some((w) => w.category === 'phrasal_verb');
+          const hasExpr = words.some((w) => w.category === 'expression');
+          const hasChat = stpBlocks.some((b) => b.block_type === 'chat_dialogue');
+          const featuredVerbNames = featured.map((v) => v.word.toLowerCase());
+          const chatUsesVerbs = featured.length === 0
+            ? false
+            : stpBlocks.some((b) => {
+                if (b.block_type !== 'chat_dialogue') return false;
+                const msgs = Array.isArray(b.chat_messages) ? b.chat_messages : [];
+                const text = msgs.map((m: any) => (m.en || '').toLowerCase()).join(' ');
+                return featuredVerbNames.some((v) => text.includes(v));
+              });
+          const items = [
+            { ok: featured.length === 2, label: `2 verbos destaque (${featured.length}/2)`, required: true },
+            { ok: hasQW, label: '1 Question Word', required: false },
+            { ok: hasPV, label: '1 Phrasal Verb', required: false },
+            { ok: hasExpr, label: '1 Expressão', required: false },
+            { ok: hasChat, label: 'Pelo menos 1 bloco Chat no Straight to the Point', required: true },
+            { ok: chatUsesVerbs, label: 'Chat usa os 2 verbos destaque', required: false },
+          ];
+          const allRequired = items.filter(i => i.required).every(i => i.ok);
+          return (
+            <Card className={`border-l-4 ${allRequired ? 'border-l-emerald-500 bg-emerald-50/30 dark:bg-emerald-900/10' : 'border-l-amber-500 bg-amber-50/30 dark:bg-amber-900/10'}`}>
+              <CardContent className="p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  {allRequired ? <CheckIcon className="h-4 w-4 text-emerald-600" /> : <AlertCircle className="h-4 w-4 text-amber-600" />}
+                  <p className="text-xs font-bold uppercase tracking-wider text-foreground">
+                    {allRequired ? 'Unit completa' : 'Unit incompleta'}
+                  </p>
+                </div>
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-1">
+                  {items.map((it) => (
+                    <li key={it.label} className="text-xs flex items-center gap-1.5">
+                      {it.ok ? <CheckIcon className="h-3 w-3 text-emerald-600" /> : <span className="w-3 h-3 rounded border border-foreground/30 inline-block" />}
+                      <span className={it.ok ? 'text-foreground' : 'text-muted-foreground'}>
+                        {it.label}{!it.required && <span className="opacity-60"> (opcional)</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         <Tabs defaultValue="wordbank" className="w-full">
           <TabsList className="w-full grid grid-cols-2">
@@ -271,6 +390,18 @@ const AdminBooksManager = () => {
                             )}
                           </p>
                         )}
+                        <div className="flex items-center gap-1 mt-1 flex-wrap">
+                          {w.category && w.category !== 'other' && (
+                            <span className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-full bg-foreground/10 text-foreground">
+                              {CATEGORY_OPTIONS.find(o => o.value === w.category)?.label || w.category}
+                            </span>
+                          )}
+                          {w.is_featured_verb && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-400 text-amber-950">
+                              ⭐ Destaque
+                            </span>
+                          )}
+                        </div>
                       </div>
                       {w.audio_url && <Volume2 className="h-4 w-4 text-emerald-500 shrink-0" />}
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -282,6 +413,8 @@ const AdminBooksManager = () => {
                           setWordTranslation(w.translation_pt || '');
                           setWordAccepted((w.accepted_answers || []).join(', '));
                           setWordExample(w.example_sentence || '');
+                          setWordCategory(w.category || 'other');
+                          setWordFeaturedVerb(!!w.is_featured_verb);
                           setWordDialog(true);
                         }}><Pencil className="h-3.5 w-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteWord(w.id)}>
@@ -322,7 +455,11 @@ const AdminBooksManager = () => {
                             setEditItem(b);
                             setStpTitle(b.title);
                             setStpContent(b.content_html || '');
-                            const mode = (b.block_type === 'rule_dialogue' ? 'rule_dialogue' : 'legacy_html') as 'rule_dialogue' | 'legacy_html';
+                            const mode = (
+                              b.block_type === 'chat_dialogue' ? 'chat_dialogue' :
+                              b.block_type === 'rule_dialogue' ? 'rule_dialogue' :
+                              'legacy_html'
+                            ) as 'chat_dialogue' | 'rule_dialogue' | 'legacy_html';
                             setStpMode(mode);
                             setStpRuleTitle(b.rule_title || '');
                             setStpRuleExplanation(b.rule_explanation || '');
@@ -331,6 +468,27 @@ const AdminBooksManager = () => {
                             setStpAnsPos(b.answer_positive || '');
                             const ex = Array.isArray(b.examples) ? b.examples : [];
                             setStpExamples(ex.length ? ex.map((e: any) => ({ text: e.text || '', translation: e.translation || '' })) : [{ text: '', translation: '' }]);
+                            setStpChatTitle(b.chat_title || '');
+                            setStpChatSituation(b.chat_situation || '');
+                            const cm = Array.isArray(b.chat_messages) ? b.chat_messages : [];
+                            setStpChatMessages(cm.length ? cm.map((m: any) => ({
+                              speaker: m.speaker === 'B' ? 'B' : 'A',
+                              en: m.en || '',
+                              pt: m.pt || '',
+                              highlight_words: Array.isArray(m.highlight_words) ? m.highlight_words : [],
+                            })) : [
+                              { speaker: 'A', en: '', pt: '', highlight_words: [] },
+                              { speaker: 'B', en: '', pt: '', highlight_words: [] },
+                            ]);
+                            const fi = Array.isArray(b.fill_in_practice) ? b.fill_in_practice : [];
+                            setStpFillIn(fi.length ? fi.map((f: any) => ({
+                              sentence_template: f.sentence_template || '',
+                              correct_answer: f.correct_answer || '',
+                              options: Array.isArray(f.options) ? f.options : [],
+                              hint_pt: f.hint_pt || '',
+                            })) : [{ sentence_template: '', correct_answer: '', options: [], hint_pt: '' }]);
+                            const tw = Array.isArray(b.target_words) ? b.target_words : [];
+                            setStpTargetWords(tw.map((w: any) => typeof w === 'string' ? w : w?.word).filter(Boolean).join(', '));
                             setStpDialog(true);
                           }}><Pencil className="h-3.5 w-3.5" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteSTP(b.id)}>
@@ -400,6 +558,31 @@ const AdminBooksManager = () => {
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1">Aluno poderá ouvir essa frase no flashcard.</p>
               </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">Categoria *</label>
+                <select
+                  value={wordCategory}
+                  onChange={(e) => setWordCategory(e.target.value)}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  {CATEGORY_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-muted-foreground mt-1">Usado para agrupar e para o checklist da unit (2 verbos novos, etc).</p>
+              </div>
+              {wordCategory === 'verb' && (
+                <label className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                  <input
+                    type="checkbox"
+                    checked={wordFeaturedVerb}
+                    onChange={(e) => setWordFeaturedVerb(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <span className="font-medium text-amber-900 dark:text-amber-200">⭐ Verbo destaque desta unit</span>
+                  <span className="text-[11px] text-amber-700 dark:text-amber-300 ml-auto">máx 2 por unit</span>
+                </label>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={resetWordDialog}>Cancel</Button>
@@ -413,16 +596,21 @@ const AdminBooksManager = () => {
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{editItem ? 'Edit Block' : 'Add Content Block'}</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              <div className="flex gap-2">
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStpMode('chat_dialogue')}
+                  className={`text-xs font-semibold px-3 py-2 rounded-lg border transition flex flex-col items-center gap-1 ${stpMode === 'chat_dialogue' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-background border-border text-muted-foreground hover:border-emerald-300'}`}
+                ><MessageCircle className="h-4 w-4" /> Chat (novo)</button>
                 <button
                   type="button"
                   onClick={() => setStpMode('rule_dialogue')}
-                  className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition ${stpMode === 'rule_dialogue' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-background border-border text-muted-foreground hover:border-emerald-300'}`}
-                >Regra + Diálogo</button>
+                  className={`text-xs font-semibold px-3 py-2 rounded-lg border transition ${stpMode === 'rule_dialogue' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-background border-border text-muted-foreground hover:border-emerald-300'}`}
+                >Regra + Q/A</button>
                 <button
                   type="button"
                   onClick={() => setStpMode('legacy_html')}
-                  className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition ${stpMode === 'legacy_html' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-background border-border text-muted-foreground hover:border-emerald-300'}`}
+                  className={`text-xs font-semibold px-3 py-2 rounded-lg border transition ${stpMode === 'legacy_html' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-background border-border text-muted-foreground hover:border-emerald-300'}`}
                 >HTML (legado)</button>
               </div>
 
@@ -431,7 +619,113 @@ const AdminBooksManager = () => {
                 <Input value={stpTitle} onChange={e => setStpTitle(e.target.value)} placeholder="e.g. Present Simple" />
               </div>
 
-              {stpMode === 'legacy_html' ? (
+              {stpMode === 'chat_dialogue' ? (
+                <>
+                  <div>
+                    <label className="text-sm font-medium text-foreground">Título do chat</label>
+                    <Input value={stpChatTitle} onChange={e => setStpChatTitle(e.target.value)} placeholder="e.g. No restaurante" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground">Situação</label>
+                    <Input value={stpChatSituation} onChange={e => setStpChatSituation(e.target.value)} placeholder="e.g. Maria pede comida em inglês" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground">Palavras-chave (target words)</label>
+                    <Input value={stpTargetWords} onChange={e => setStpTargetWords(e.target.value)} placeholder="e.g. eat, drink, like" />
+                    <p className="text-[11px] text-muted-foreground mt-1">Separadas por vírgula. Aparecem como chips destacadas.</p>
+                  </div>
+                  <div className="space-y-2 p-3 rounded-lg bg-muted/40">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Mensagens do chat</p>
+                      <Button type="button" size="sm" variant="outline" className="h-7 gap-1"
+                        onClick={() => setStpChatMessages(arr => [...arr, { speaker: arr.length % 2 === 0 ? 'A' : 'B', en: '', pt: '', highlight_words: [] }])}>
+                        <Plus className="h-3 w-3" /> Mensagem
+                      </Button>
+                    </div>
+                    {stpChatMessages.map((m, i) => (
+                      <div key={i} className="space-y-1 p-2 rounded border border-border bg-background">
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={m.speaker}
+                            onChange={e => setStpChatMessages(arr => arr.map((x, idx) => idx === i ? { ...x, speaker: e.target.value as 'A' | 'B' } : x))}
+                            className="h-8 rounded-md border border-input bg-background px-2 text-xs font-bold"
+                          >
+                            <option value="A">A (esq)</option>
+                            <option value="B">B (dir)</option>
+                          </select>
+                          <Input
+                            value={m.en}
+                            onChange={e => setStpChatMessages(arr => arr.map((x, idx) => idx === i ? { ...x, en: e.target.value } : x))}
+                            placeholder="Fala em inglês"
+                            className="h-8 text-sm"
+                          />
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive shrink-0"
+                            onClick={() => setStpChatMessages(arr => arr.filter((_, idx) => idx !== i))}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        <Input
+                          value={m.pt || ''}
+                          onChange={e => setStpChatMessages(arr => arr.map((x, idx) => idx === i ? { ...x, pt: e.target.value } : x))}
+                          placeholder="Tradução (opcional)"
+                          className="h-8 text-xs"
+                        />
+                        <Input
+                          value={(m.highlight_words || []).join(', ')}
+                          onChange={e => setStpChatMessages(arr => arr.map((x, idx) => idx === i ? { ...x, highlight_words: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } : x))}
+                          placeholder="Palavras a destacar nesta fala (vírgula)"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-foreground">Sua vez — frases para completar</label>
+                      <Button type="button" size="sm" variant="outline" className="h-7 gap-1"
+                        onClick={() => setStpFillIn(arr => [...arr, { sentence_template: '', correct_answer: '', options: [], hint_pt: '' }])}>
+                        <Plus className="h-3 w-3" /> Frase
+                      </Button>
+                    </div>
+                    {stpFillIn.map((f, i) => (
+                      <div key={i} className="space-y-1 p-2 rounded border border-border">
+                        <div className="flex gap-2">
+                          <Input
+                            value={f.sentence_template}
+                            onChange={e => setStpFillIn(arr => arr.map((x, idx) => idx === i ? { ...x, sentence_template: e.target.value } : x))}
+                            placeholder='Frase com ___ (ex: "I ___ pizza every day.")'
+                            className="h-8 text-sm"
+                          />
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive shrink-0"
+                            onClick={() => setStpFillIn(arr => arr.filter((_, idx) => idx !== i))}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            value={f.correct_answer}
+                            onChange={e => setStpFillIn(arr => arr.map((x, idx) => idx === i ? { ...x, correct_answer: e.target.value } : x))}
+                            placeholder="Resposta correta"
+                            className="h-8 text-xs"
+                          />
+                          <Input
+                            value={(f.options || []).join(', ')}
+                            onChange={e => setStpFillIn(arr => arr.map((x, idx) => idx === i ? { ...x, options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } : x))}
+                            placeholder="Opções (vírgula, opcional)"
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <Input
+                          value={f.hint_pt || ''}
+                          onChange={e => setStpFillIn(arr => arr.map((x, idx) => idx === i ? { ...x, hint_pt: e.target.value } : x))}
+                          placeholder="Dica em PT (opcional)"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : stpMode === 'legacy_html' ? (
                 <div>
                   <label className="text-sm font-medium text-foreground">Content (HTML)</label>
                   <Textarea value={stpContent} onChange={e => setStpContent(e.target.value)} placeholder="Write your content here... HTML supported." rows={8} />
