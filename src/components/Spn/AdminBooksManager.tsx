@@ -558,6 +558,31 @@ const AdminBooksManager = () => {
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1">Aluno poderá ouvir essa frase no flashcard.</p>
               </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">Categoria *</label>
+                <select
+                  value={wordCategory}
+                  onChange={(e) => setWordCategory(e.target.value)}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  {CATEGORY_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-muted-foreground mt-1">Usado para agrupar e para o checklist da unit (2 verbos novos, etc).</p>
+              </div>
+              {wordCategory === 'verb' && (
+                <label className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                  <input
+                    type="checkbox"
+                    checked={wordFeaturedVerb}
+                    onChange={(e) => setWordFeaturedVerb(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <span className="font-medium text-amber-900 dark:text-amber-200">⭐ Verbo destaque desta unit</span>
+                  <span className="text-[11px] text-amber-700 dark:text-amber-300 ml-auto">máx 2 por unit</span>
+                </label>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={resetWordDialog}>Cancel</Button>
@@ -571,16 +596,21 @@ const AdminBooksManager = () => {
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{editItem ? 'Edit Block' : 'Add Content Block'}</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              <div className="flex gap-2">
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStpMode('chat_dialogue')}
+                  className={`text-xs font-semibold px-3 py-2 rounded-lg border transition flex flex-col items-center gap-1 ${stpMode === 'chat_dialogue' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-background border-border text-muted-foreground hover:border-emerald-300'}`}
+                ><MessageCircle className="h-4 w-4" /> Chat (novo)</button>
                 <button
                   type="button"
                   onClick={() => setStpMode('rule_dialogue')}
-                  className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition ${stpMode === 'rule_dialogue' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-background border-border text-muted-foreground hover:border-emerald-300'}`}
-                >Regra + Diálogo</button>
+                  className={`text-xs font-semibold px-3 py-2 rounded-lg border transition ${stpMode === 'rule_dialogue' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-background border-border text-muted-foreground hover:border-emerald-300'}`}
+                >Regra + Q/A</button>
                 <button
                   type="button"
                   onClick={() => setStpMode('legacy_html')}
-                  className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition ${stpMode === 'legacy_html' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-background border-border text-muted-foreground hover:border-emerald-300'}`}
+                  className={`text-xs font-semibold px-3 py-2 rounded-lg border transition ${stpMode === 'legacy_html' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-background border-border text-muted-foreground hover:border-emerald-300'}`}
                 >HTML (legado)</button>
               </div>
 
@@ -589,7 +619,113 @@ const AdminBooksManager = () => {
                 <Input value={stpTitle} onChange={e => setStpTitle(e.target.value)} placeholder="e.g. Present Simple" />
               </div>
 
-              {stpMode === 'legacy_html' ? (
+              {stpMode === 'chat_dialogue' ? (
+                <>
+                  <div>
+                    <label className="text-sm font-medium text-foreground">Título do chat</label>
+                    <Input value={stpChatTitle} onChange={e => setStpChatTitle(e.target.value)} placeholder="e.g. No restaurante" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground">Situação</label>
+                    <Input value={stpChatSituation} onChange={e => setStpChatSituation(e.target.value)} placeholder="e.g. Maria pede comida em inglês" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground">Palavras-chave (target words)</label>
+                    <Input value={stpTargetWords} onChange={e => setStpTargetWords(e.target.value)} placeholder="e.g. eat, drink, like" />
+                    <p className="text-[11px] text-muted-foreground mt-1">Separadas por vírgula. Aparecem como chips destacadas.</p>
+                  </div>
+                  <div className="space-y-2 p-3 rounded-lg bg-muted/40">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Mensagens do chat</p>
+                      <Button type="button" size="sm" variant="outline" className="h-7 gap-1"
+                        onClick={() => setStpChatMessages(arr => [...arr, { speaker: arr.length % 2 === 0 ? 'A' : 'B', en: '', pt: '', highlight_words: [] }])}>
+                        <Plus className="h-3 w-3" /> Mensagem
+                      </Button>
+                    </div>
+                    {stpChatMessages.map((m, i) => (
+                      <div key={i} className="space-y-1 p-2 rounded border border-border bg-background">
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={m.speaker}
+                            onChange={e => setStpChatMessages(arr => arr.map((x, idx) => idx === i ? { ...x, speaker: e.target.value as 'A' | 'B' } : x))}
+                            className="h-8 rounded-md border border-input bg-background px-2 text-xs font-bold"
+                          >
+                            <option value="A">A (esq)</option>
+                            <option value="B">B (dir)</option>
+                          </select>
+                          <Input
+                            value={m.en}
+                            onChange={e => setStpChatMessages(arr => arr.map((x, idx) => idx === i ? { ...x, en: e.target.value } : x))}
+                            placeholder="Fala em inglês"
+                            className="h-8 text-sm"
+                          />
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive shrink-0"
+                            onClick={() => setStpChatMessages(arr => arr.filter((_, idx) => idx !== i))}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        <Input
+                          value={m.pt || ''}
+                          onChange={e => setStpChatMessages(arr => arr.map((x, idx) => idx === i ? { ...x, pt: e.target.value } : x))}
+                          placeholder="Tradução (opcional)"
+                          className="h-8 text-xs"
+                        />
+                        <Input
+                          value={(m.highlight_words || []).join(', ')}
+                          onChange={e => setStpChatMessages(arr => arr.map((x, idx) => idx === i ? { ...x, highlight_words: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } : x))}
+                          placeholder="Palavras a destacar nesta fala (vírgula)"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-foreground">Sua vez — frases para completar</label>
+                      <Button type="button" size="sm" variant="outline" className="h-7 gap-1"
+                        onClick={() => setStpFillIn(arr => [...arr, { sentence_template: '', correct_answer: '', options: [], hint_pt: '' }])}>
+                        <Plus className="h-3 w-3" /> Frase
+                      </Button>
+                    </div>
+                    {stpFillIn.map((f, i) => (
+                      <div key={i} className="space-y-1 p-2 rounded border border-border">
+                        <div className="flex gap-2">
+                          <Input
+                            value={f.sentence_template}
+                            onChange={e => setStpFillIn(arr => arr.map((x, idx) => idx === i ? { ...x, sentence_template: e.target.value } : x))}
+                            placeholder='Frase com ___ (ex: "I ___ pizza every day.")'
+                            className="h-8 text-sm"
+                          />
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive shrink-0"
+                            onClick={() => setStpFillIn(arr => arr.filter((_, idx) => idx !== i))}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            value={f.correct_answer}
+                            onChange={e => setStpFillIn(arr => arr.map((x, idx) => idx === i ? { ...x, correct_answer: e.target.value } : x))}
+                            placeholder="Resposta correta"
+                            className="h-8 text-xs"
+                          />
+                          <Input
+                            value={(f.options || []).join(', ')}
+                            onChange={e => setStpFillIn(arr => arr.map((x, idx) => idx === i ? { ...x, options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } : x))}
+                            placeholder="Opções (vírgula, opcional)"
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <Input
+                          value={f.hint_pt || ''}
+                          onChange={e => setStpFillIn(arr => arr.map((x, idx) => idx === i ? { ...x, hint_pt: e.target.value } : x))}
+                          placeholder="Dica em PT (opcional)"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : stpMode === 'legacy_html' ? (
                 <div>
                   <label className="text-sm font-medium text-foreground">Content (HTML)</label>
                   <Textarea value={stpContent} onChange={e => setStpContent(e.target.value)} placeholder="Write your content here... HTML supported." rows={8} />
