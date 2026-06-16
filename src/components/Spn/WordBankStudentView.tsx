@@ -348,8 +348,38 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
           <p>Sem palavras neste filtro.</p>
         </CardContent></Card>
       ) : mode === 'grid' ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          {filtered.map((w, i) => {
+        <div className="space-y-4">
+        {(() => {
+          const CAT_META: Record<string, { label: string; chip: string }> = {
+            verb: { label: 'Verbos', chip: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-200' },
+            question_word: { label: 'Question Words', chip: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-200' },
+            phrasal_verb: { label: 'Phrasal Verbs', chip: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-200' },
+            expression: { label: 'Expressões', chip: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200' },
+            noun: { label: 'Substantivos', chip: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200' },
+            adjective: { label: 'Adjetivos', chip: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-200' },
+            adverb: { label: 'Advérbios', chip: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-200' },
+            other: { label: 'Vocabulário', chip: 'bg-foreground/10 text-foreground' },
+          };
+          const ORDER = ['verb','question_word','phrasal_verb','expression','noun','adjective','adverb','other'];
+          const groups: Record<string, typeof filtered> = {};
+          filtered.forEach((w) => {
+            const k = (w.category || 'other') as string;
+            (groups[k] ||= []).push(w);
+          });
+          const presentKeys = ORDER.filter((k) => groups[k]?.length);
+          return presentKeys.map((cat) => {
+            const meta = CAT_META[cat] || CAT_META.other;
+            return (
+              <div key={cat} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-full ${meta.chip}`}>
+                    {meta.label}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">{groups[cat].length}</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {groups[cat].map((w) => {
+            const i = filtered.indexOf(w);
             const p = progress[w.id];
             const mastered = p?.is_mastered;
             const streak = p?.correct_streak ?? 0;
@@ -367,12 +397,22 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
                 onClick={() => { setMode('deck'); setIndex(i); setFlipped(false); setInput(''); setLastResult(null); }}
                 className={`relative p-3 rounded-xl border bg-gradient-to-br ${colors[status]} text-left hover:scale-[1.02] active:scale-95 transition-transform`}
               >
+                {w.is_featured_verb && (
+                  <span className="absolute top-1 right-1 text-[9px] font-bold bg-amber-400 text-amber-950 px-1.5 py-0.5 rounded-full">
+                    ⭐ Verbo
+                  </span>
+                )}
                 <p className="font-bold truncate">{w.word}</p>
                 {w.phonetic && <p className="text-[10px] opacity-60 italic truncate">/{w.phonetic}/</p>}
                 {mastered && <div className="absolute inset-0 rounded-xl spn-shimmer-mastered pointer-events-none" />}
               </button>
             );
-          })}
+                  })}
+                </div>
+              </div>
+            );
+          });
+        })()}
         </div>
       ) : (
         current && (
