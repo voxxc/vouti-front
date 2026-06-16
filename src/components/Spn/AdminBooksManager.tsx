@@ -13,10 +13,11 @@ import {
   Plus, BookOpen, ChevronLeft, Pencil, Trash2, GripVertical,
   Volume2, ArrowLeft, Layers, Type, FileText
 } from 'lucide-react';
+import { speak, isSpeechSupported } from '@/lib/spnSpeech';
 
 interface Book { id: string; name: string; description: string | null; cover_color: string; sort_order: number; }
 interface Unit { id: string; book_id: string; name: string; sort_order: number; }
-interface WordItem { id: string; unit_id: string; word: string; phonetic: string | null; audio_url: string | null; sort_order: number; translation_pt: string | null; accepted_answers: string[] | null; }
+interface WordItem { id: string; unit_id: string; word: string; phonetic: string | null; audio_url: string | null; sort_order: number; translation_pt: string | null; accepted_answers: string[] | null; example_sentence: string | null; }
 interface STPBlock { id: string; unit_id: string; title: string; content_html: string | null; sort_order: number; }
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
@@ -46,6 +47,7 @@ const AdminBooksManager = () => {
   const [wordAudio, setWordAudio] = useState('');
   const [wordTranslation, setWordTranslation] = useState('');
   const [wordAccepted, setWordAccepted] = useState('');
+  const [wordExample, setWordExample] = useState('');
   const [stpTitle, setStpTitle] = useState('');
   const [stpContent, setStpContent] = useState('');
 
@@ -127,11 +129,13 @@ const AdminBooksManager = () => {
       await supabase.from('spn_word_bank_items').update({
         word: wordText, phonetic: wordPhonetic || null, audio_url: wordAudio || null,
         translation_pt: wordTranslation.trim() || null, accepted_answers: acceptedArr,
+        example_sentence: wordExample.trim() || null,
       }).eq('id', editItem.id);
     } else {
       await supabase.from('spn_word_bank_items').insert({
         word: wordText, phonetic: wordPhonetic || null, audio_url: wordAudio || null,
         translation_pt: wordTranslation.trim() || null, accepted_answers: acceptedArr,
+        example_sentence: wordExample.trim() || null,
         unit_id: selectedUnit.id, sort_order: words.length,
       });
     }
@@ -145,7 +149,7 @@ const AdminBooksManager = () => {
     loadWords(selectedUnit.id);
   };
 
-  const resetWordDialog = () => { setWordDialog(false); setEditItem(null); setWordText(''); setWordPhonetic(''); setWordAudio(''); setWordTranslation(''); setWordAccepted(''); };
+  const resetWordDialog = () => { setWordDialog(false); setEditItem(null); setWordText(''); setWordPhonetic(''); setWordAudio(''); setWordTranslation(''); setWordAccepted(''); setWordExample(''); };
 
   // CRUD: STP
   const saveSTP = async () => {
@@ -223,6 +227,7 @@ const AdminBooksManager = () => {
                           setWordAudio(w.audio_url || '');
                           setWordTranslation(w.translation_pt || '');
                           setWordAccepted((w.accepted_answers || []).join(', '));
+                          setWordExample(w.example_sentence || '');
                           setWordDialog(true);
                         }}><Pencil className="h-3.5 w-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteWord(w.id)}>
@@ -282,7 +287,15 @@ const AdminBooksManager = () => {
             <div className="space-y-3">
               <div>
                 <label className="text-sm font-medium text-foreground">Word *</label>
-                <Input value={wordText} onChange={e => setWordText(e.target.value)} placeholder="e.g. Beautiful" />
+                <div className="flex gap-2">
+                  <Input value={wordText} onChange={e => setWordText(e.target.value)} placeholder="e.g. Beautiful" />
+                  {isSpeechSupported() && (
+                    <Button type="button" variant="outline" size="icon" disabled={!wordText.trim()}
+                      onClick={() => speak(wordText, { rate: 0.85 })} title="Ouvir pronúncia">
+                      <Volume2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Phonetic</label>
@@ -291,6 +304,7 @@ const AdminBooksManager = () => {
               <div>
                 <label className="text-sm font-medium text-foreground">Audio URL</label>
                 <Input value={wordAudio} onChange={e => setWordAudio(e.target.value)} placeholder="https://..." />
+                <p className="text-[11px] text-muted-foreground mt-1">Opcional — se vazio, o app usa TTS nativo do navegador.</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Tradução (PT) *</label>
@@ -301,6 +315,24 @@ const AdminBooksManager = () => {
                 <label className="text-sm font-medium text-foreground">Também aceitar</label>
                 <Input value={wordAccepted} onChange={e => setWordAccepted(e.target.value)} placeholder="e.g. bela, lindo, formoso" />
                 <p className="text-[11px] text-muted-foreground mt-1">Sinônimos separados por vírgula. Acentos e maiúsculas são ignorados.</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">Frase de exemplo (inglês)</label>
+                <div className="flex gap-2">
+                  <Textarea
+                    value={wordExample}
+                    onChange={e => setWordExample(e.target.value)}
+                    placeholder='e.g. "She has a beautiful smile."'
+                    rows={2}
+                  />
+                  {isSpeechSupported() && (
+                    <Button type="button" variant="outline" size="icon" disabled={!wordExample.trim()}
+                      onClick={() => speak(wordExample, { rate: 0.95 })} title="Ouvir frase">
+                      <Volume2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">Aluno poderá ouvir essa frase no flashcard.</p>
               </div>
             </div>
             <DialogFooter>
