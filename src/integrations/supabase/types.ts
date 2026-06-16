@@ -8441,25 +8441,46 @@ export type Database = {
       }
       spn_straight_to_point: {
         Row: {
+          answer_negative: string | null
+          answer_positive: string | null
+          block_type: string
           content_html: string | null
           created_at: string | null
+          examples: Json
           id: string
+          question_text: string | null
+          rule_explanation: string | null
+          rule_title: string | null
           sort_order: number | null
           title: string
           unit_id: string
         }
         Insert: {
+          answer_negative?: string | null
+          answer_positive?: string | null
+          block_type?: string
           content_html?: string | null
           created_at?: string | null
+          examples?: Json
           id?: string
+          question_text?: string | null
+          rule_explanation?: string | null
+          rule_title?: string | null
           sort_order?: number | null
           title: string
           unit_id: string
         }
         Update: {
+          answer_negative?: string | null
+          answer_positive?: string | null
+          block_type?: string
           content_html?: string | null
           created_at?: string | null
+          examples?: Json
           id?: string
+          question_text?: string | null
+          rule_explanation?: string | null
+          rule_title?: string | null
           sort_order?: number | null
           title?: string
           unit_id?: string
@@ -8654,6 +8675,7 @@ export type Database = {
         Row: {
           accepted_answers: string[]
           audio_url: string | null
+          book_id: string | null
           created_at: string | null
           example_sentence: string | null
           id: string
@@ -8666,6 +8688,7 @@ export type Database = {
         Insert: {
           accepted_answers?: string[]
           audio_url?: string | null
+          book_id?: string | null
           created_at?: string | null
           example_sentence?: string | null
           id?: string
@@ -8678,6 +8701,7 @@ export type Database = {
         Update: {
           accepted_answers?: string[]
           audio_url?: string | null
+          book_id?: string | null
           created_at?: string | null
           example_sentence?: string | null
           id?: string
