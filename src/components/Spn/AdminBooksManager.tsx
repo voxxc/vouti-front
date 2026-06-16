@@ -401,6 +401,8 @@ const AdminBooksManager = () => {
                           setWordTranslation(w.translation_pt || '');
                           setWordAccepted((w.accepted_answers || []).join(', '));
                           setWordExample(w.example_sentence || '');
+                          setWordCategory(w.category || 'other');
+                          setWordFeaturedVerb(!!w.is_featured_verb);
                           setWordDialog(true);
                         }}><Pencil className="h-3.5 w-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteWord(w.id)}>
