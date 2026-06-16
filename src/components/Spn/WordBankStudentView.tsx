@@ -609,6 +609,7 @@ const WordBankStudentView = ({ unitId, unitName }: { unitId: string; unitName?: 
           </div>
         )
       )}
+      </>)}
     </div>
   );
 };
