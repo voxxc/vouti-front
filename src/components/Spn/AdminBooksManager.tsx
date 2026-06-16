@@ -292,6 +292,16 @@ const AdminBooksManager = () => {
                 <label className="text-sm font-medium text-foreground">Audio URL</label>
                 <Input value={wordAudio} onChange={e => setWordAudio(e.target.value)} placeholder="https://..." />
               </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">Tradução (PT) *</label>
+                <Input value={wordTranslation} onChange={e => setWordTranslation(e.target.value)} placeholder="e.g. bonito" />
+                <p className="text-[11px] text-muted-foreground mt-1">Resposta principal usada para validar o aluno.</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">Também aceitar</label>
+                <Input value={wordAccepted} onChange={e => setWordAccepted(e.target.value)} placeholder="e.g. bela, lindo, formoso" />
+                <p className="text-[11px] text-muted-foreground mt-1">Sinônimos separados por vírgula. Acentos e maiúsculas são ignorados.</p>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={resetWordDialog}>Cancel</Button>
