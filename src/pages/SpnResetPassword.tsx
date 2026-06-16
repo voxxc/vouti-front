@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,21 +10,60 @@ import { toast } from '@/hooks/use-toast';
 
 const SpnResetPassword = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [ready, setReady] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // When Supabase redirects from the recovery email it sets the session
-    // automatically via the hash. Wait for an authenticated session.
+    let cancelled = false;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session?.user) setReady(true);
+      if (session?.user && !cancelled) setReady(true);
     });
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) setReady(true);
-    });
-    return () => subscription.unsubscribe();
+
+    (async () => {
+      // 1) Novo formato: ?token_hash=...&type=recovery
+      const tokenHash = searchParams.get('token_hash');
+      const type = searchParams.get('type');
+      if (tokenHash) {
+        const { error } = await supabase.auth.verifyOtp({
+          type: (type as any) || 'recovery',
+          token_hash: tokenHash,
+        });
+        if (cancelled) return;
+        if (error) {
+          setLinkError(error.message);
+        } else {
+          setReady(true);
+          // limpa a URL
+          window.history.replaceState({}, '', '/spn/reset-password');
+        }
+        return;
+      }
+
+      // 2) Formato antigo (hash com access_token) ou sessão já presente
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (session?.user) {
+        setReady(true);
+        return;
+      }
+
+      // 3) Aguarda 3s pelo onAuthStateChange; senão, mostra erro
+      setTimeout(() => {
+        if (!cancelled) {
+          setLinkError(prev => prev ?? 'Link inválido ou expirado. Solicite novamente em "Esqueci minha senha".');
+        }
+      }, 3000);
+    })();
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,9 +98,18 @@ const SpnResetPassword = () => {
             <p className="text-sm text-muted-foreground">Defina uma nova senha para sua conta.</p>
           </div>
           {!ready ? (
-            <p className="text-sm text-muted-foreground">
-              Validando link de recuperação... Se você acessou esta página diretamente, abra o link enviado por e-mail.
-            </p>
+            linkError ? (
+              <div className="space-y-3">
+                <p className="text-sm text-destructive">{linkError}</p>
+                <Button onClick={() => navigate('/spn/auth')} className="w-full bg-emerald-600 hover:bg-emerald-700">
+                  Voltar ao login
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Validando link de recuperação...
+              </p>
+            )
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">

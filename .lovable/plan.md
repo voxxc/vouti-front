@@ -1,59 +1,74 @@
 ## Causa raiz
-- O conteúdo do Book 1A foi semeado em **Unit 7**, mas o correto é **Unit 1**.
-- O Straight to the Point do Book 1A ainda não tem o bloco visual da imagem (Simple Present + Easy to Understand) no estilo "caderno" (canto preto diagonal + diamante coral UN/IT/1).
-- O Word Bank (Caderno) não permite **resetar respostas** nem **desfazer "ver resposta"**.
+
+**1) Página de reset não abre**
+O link do e-mail de recuperação do Supabase chega no formato novo (`?token_hash=...&type=recovery`) e não cai mais num hash com `access_token`. O `SpnResetPassword.tsx` só escuta `onAuthStateChange` esperando uma sessão aparecer sozinha — mas com `token_hash` é preciso chamar `supabase.auth.verifyOtp({ type: 'recovery', token_hash })` explicitamente. Sem isso, a página carrega, nunca fica "ready" e, se o link foi clicado em outro lugar, cai em `/not-found` (que é o que o cliente está mostrando agora).
+
+**2) Confirmação de e-mail no cadastro**
+O `signUp` está sujeito à configuração "Confirm email" do Supabase Auth, que está ligada no projeto. Por isso novas contas SPN ficam pendentes até confirmar e-mail. Isso é controlado no painel do Supabase, não no código do app — então a correção é desligar essa opção (e ajustar o `signUp` para não esperar confirmação).
+
+---
 
 ## Correção
 
-### 1. Mover conteúdo do Book 1A para Unit 1
-- Migration que:
-  - Garante existência de **Unit 1** no Book 1A (cria se não existir, com nome "Unit 1 — Food & Drinks").
-  - Move os 10 itens de `spn_word_bank_items` da Unit 7 → Unit 1.
-  - Move quaisquer `spn_word_bank_attempts` referentes a esses itens (a FK acompanha automaticamente via `item_id`, mas atualiza `unit_id`).
-  - Remove a Unit 7 do Book 1A (se ficar vazia).
+### A. SpnResetPassword.tsx — tratar `token_hash`
+- No `useEffect`, ler `searchParams`:
+  - Se houver `token_hash` + `type=recovery` (ou `type` qualquer de recovery), chamar `supabase.auth.verifyOtp({ type: 'recovery', token_hash })`. Em sucesso, `setReady(true)` e limpar a query da URL.
+  - Manter o fallback que escuta `onAuthStateChange` para sessão existente (links antigos com hash).
+  - Se nenhum dos dois rolar em ~3s, mostrar mensagem clara ("Link inválido ou expirado — solicite novamente").
+- Sem mudanças visuais.
 
-### 2. Straight to the Point — página réplica da imagem
-- Novo `block_type = 'notebook_page'` em `spn_unit_content_blocks` para a Unit 1 do Book 1A, com `content_json` contendo:
-  - Seção **"Simple Present"** com duas colunas (esquerda/direita), cada linha com:
-    - Frases afirmativa/negativa com palavras destacadas em coral/azul (ex.: "I **drink** cold water." / "I **don't** drink cold water.").
-    - Frases interrogativas com "And you?".
-    - Linhas com lacuna (`I drink ___ . And you?`) que viram **input interativo**.
-  - Seção **"Easy to Understand"** com pares (Hello/Hi, Bye/See you, How are you?, I'm great and you?) — cada um com TTS.
-- Novo componente `StraightToPointNotebookBlock.tsx` que:
-  - Renderiza moldura "caderno" idêntica ao WordBank: canto preto diagonal + diamante coral **UN/IT/1**, faixas coral "STRAIGHT TO THE POINT" e "EASY TO UNDERSTAND".
-  - Cada palavra/frase tem botão de áudio (reusa `spnSpeech`).
-  - Lacunas viram inputs com validação + feedback verde/vermelho + **+5 XP** na 1ª acerto (mesma trigger do Word Bank, fonte `'straight_to_point'`).
-- Integrar em `StraightToPointView.tsx` para renderizar o novo tipo de bloco.
+### B. Garantir que `/spn/reset-password` é pública
+- A rota já existe em `App.tsx` (linha 758) fora de qualquer guard — confirmar que está antes de qualquer catch-all `*` e que não exige `SpnAuthProvider` (não exige, ok).
 
-### 3. Word Bank — reset + desver resposta
-Em `WordBankPageView.tsx`:
-- Botão **"Resetar respostas"** no topo: apaga todas as `spn_word_bank_attempts` do usuário para os itens da unit atual e recarrega o estado (sem mexer no XP já creditado — XP é histórico).
-- Botão **"Ver resposta"** em cada item vira toggle **"Ver / Ocultar resposta"** (estado local, não persistido).
+### C. SpnAuthContext.signUp — sem confirmação de e-mail
+- Remover `emailRedirectTo` (não usaremos mais e-mail de confirmação).
+- Após `supabase.auth.signUp`, se vier `session` no retorno, o usuário já está logado e cai direto no dashboard. Se ainda vier `null` (porque a flag do Supabase ainda está ligada), fazer um `signInWithPassword` imediato como fallback, para o usuário entrar sem precisar confirmar.
+
+### D. Desligar "Confirm email" no painel Supabase
+- O usuário precisa abrir Authentication → Providers → Email e desmarcar **"Confirm email"**. Sem isso, qualquer signUp continua exigindo confirmação. Vou deixar o link pronto no final do plano.
+
+---
 
 ## Arquivos afetados
-- `supabase/migrations/<novo>.sql` — mover itens p/ Unit 1; inserir bloco `notebook_page` na Unit 1.
-- `src/components/Spn/StraightToPointNotebookBlock.tsx` *(novo)*
-- `src/components/Spn/StraightToPointView.tsx` — handler do novo block_type.
-- `src/components/Spn/WordBankPageView.tsx` — botão reset + toggle de ver/ocultar.
-- (opcional) extensão da trigger `spn_wb_award_xp` ou nova trigger `spn_stp_award_xp` para a fonte `'straight_to_point'`.
+
+- `src/pages/SpnResetPassword.tsx` — tratar `token_hash` via `verifyOtp`, melhorar estados de loading/erro.
+- `src/contexts/SpnAuthContext.tsx` — remover `emailRedirectTo` do signUp e fazer auto‑login pós‑cadastro.
+
+(Nenhuma mudança em migration, RLS ou outros arquivos.)
+
+---
 
 ## Impacto
-1. **Usuário final (UX):**
-   - Book 1A passa a mostrar conteúdo na **Unit 1** (mais natural). Quem já abriu "Unit 7" não verá mais conteúdo lá (unit removida).
-   - Página do Straight to the Point ganha visual de caderno fiel à imagem, com áudio por palavra/frase e prática interativa.
-   - Word Bank: aluno pode **recomeçar do zero** as tentativas e **esconder** uma resposta revelada.
-2. **Dados:**
-   - Migration move 10 registros de `spn_word_bank_items` (FKs preservadas).
-   - Insere 1 novo bloco em `spn_unit_content_blocks`.
-   - Reset apaga linhas de `spn_word_bank_attempts` do usuário/unit — **XP creditado permanece** (em `spn_points`).
-3. **Riscos colaterais:**
-   - Se algum aluno já fez progresso na Unit 7, ele será migrado para a Unit 1 corretamente (item_id estável).
-   - Reset não devolve XP, então repetir não dá XP novamente (trigger é idempotente por item).
-4. **Quem é afetado:** todos os alunos SPN do Book 1A (módulo isolado, não afeta CRM/outros tenants).
+
+**Usuário final (UX, telas, fluxos)**
+- Quem clica no link de "Esqueci minha senha" passa a abrir `/spn/reset-password` corretamente, define a nova senha e é redirecionado para `/spn/auth`.
+- Novos cadastros SPN entram direto no app sem precisar abrir e-mail — fluxo mais rápido, sem tela de "verifique seu e-mail".
+- Cadastros antigos pendentes de confirmação continuam pendentes até a flag ser desligada no painel.
+
+**Dados (migrations, RLS, performance)**
+- Nenhuma mudança de schema, RLS ou índice. Sem migration.
+- `spn_profiles` e `spn_user_roles` continuam sendo populados no signUp como hoje.
+
+**Riscos colaterais**
+- Desligar "Confirm email" reduz a barreira contra cadastro com e-mail falso — aceitável para SPN porque o produto é fechado/educacional e o admin controla roles.
+- A flag "Confirm email" é global do projeto Supabase: vale para **todos os outros apps** que usam o mesmo Supabase (Vouti, CRM, Metal, Batink, VoTech, Link, etc.). Se algum deles depende de confirmação de e-mail, isso quebra esse comportamento. Recomendação: verificar antes de desligar; se for problema, manter ligado e só implementar o auto‑login pós‑signUp como mitigação (cadastro continua criando usuário não-confirmado, mas o auto‑login falha — nesse caso o ideal é criar uma edge function `spn-signup` com `service_role` + `email_confirm: true` apenas para o SPN).
+
+**Quem é afetado**
+- Apenas usuários SPN no fluxo de cadastro e de redefinição de senha.
+- Indiretamente, todos os outros produtos do Supabase compartilhado, caso a flag global seja desligada.
+
+---
 
 ## Validação
-- Abrir Book 1A → Unit 1 → ver Word Bank com 10 itens e Straight to the Point com a página caderno.
-- Testar reset: responder 2 itens, clicar reset, confirmar que voltam para "pendente".
-- Testar desver: clicar "Ver resposta" e depois "Ocultar resposta".
-- Conferir TTS em cada frase do Straight to the Point.
-- Confirmar que Unit 7 não aparece mais no Book 1A.
+
+1. Abrir `/spn/auth`, clicar em "Esqueci minha senha", informar e‑mail real e enviar.
+2. Abrir o link recebido — deve cair em `/spn/reset-password` com o formulário visível.
+3. Definir nova senha → toast de sucesso → redirecionar para `/spn/auth` → logar com a nova senha.
+4. Em `/spn/auth` aba "Create Account", cadastrar nova conta — deve entrar direto no dashboard sem pedir confirmação de e-mail (após desligar a flag no painel).
+5. Se o passo 4 ainda pedir confirmação, é sinal de que a flag do Supabase ainda está ligada — abrir o painel e desmarcar.
+
+---
+
+<presentation-actions>
+<presentation-link href="https://supabase.com/dashboard/project/ietjmyrelhijxyozcequ/auth/providers">Abrir configuração do Auth (desmarcar "Confirm email")</presentation-link>
+</presentation-actions>

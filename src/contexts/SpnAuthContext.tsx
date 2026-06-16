@@ -124,7 +124,6 @@ export const SpnAuthProvider = ({ children }: { children: ReactNode }) => {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/spn/auth`,
         data: { full_name: fullName },
       },
     });
@@ -139,6 +138,13 @@ export const SpnAuthProvider = ({ children }: { children: ReactNode }) => {
         user_id: data.user.id,
         role: isFirstUser ? 'admin' : 'student',
       });
+
+      // Se a flag "Confirm email" ainda estiver ligada no Supabase, signUp
+      // retorna sem sessão. Tentamos logar imediatamente como fallback,
+      // assim o usuário entra direto sem precisar confirmar e-mail.
+      if (!data.session) {
+        await supabase.auth.signInWithPassword({ email, password });
+      }
 
       toast({
         title: "Account created!",
