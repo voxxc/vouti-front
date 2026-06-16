@@ -319,7 +319,19 @@ const AdminBooksManager = () => {
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
-                            setEditItem(b); setStpTitle(b.title); setStpContent(b.content_html || ''); setStpDialog(true);
+                            setEditItem(b);
+                            setStpTitle(b.title);
+                            setStpContent(b.content_html || '');
+                            const mode = (b.block_type === 'rule_dialogue' ? 'rule_dialogue' : 'legacy_html') as 'rule_dialogue' | 'legacy_html';
+                            setStpMode(mode);
+                            setStpRuleTitle(b.rule_title || '');
+                            setStpRuleExplanation(b.rule_explanation || '');
+                            setStpQuestion(b.question_text || '');
+                            setStpAnsNeg(b.answer_negative || '');
+                            setStpAnsPos(b.answer_positive || '');
+                            const ex = Array.isArray(b.examples) ? b.examples : [];
+                            setStpExamples(ex.length ? ex.map((e: any) => ({ text: e.text || '', translation: e.translation || '' })) : [{ text: '', translation: '' }]);
+                            setStpDialog(true);
                           }}><Pencil className="h-3.5 w-3.5" /></Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteSTP(b.id)}>
                             <Trash2 className="h-3.5 w-3.5" />
