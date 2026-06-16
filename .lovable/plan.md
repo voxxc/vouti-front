@@ -1,110 +1,71 @@
-## Causa raiz
-- O Word Bank do aluno hoje só salva texto livre (`spn_word_translations`), sem comparar com gabarito. O aluno digita qualquer coisa e não recebe feedback — não sabe se acertou.
-- Visualmente é uma lista de cards estáticos empilhados, sem hierarquia, brilho ou progressão — destoa da proposta "Gamificado Vibrante".
+## Áudio nas palavras do Word Bank (TTS do navegador)
 
-## Correção
+### Causa raiz
+Hoje os flashcards mostram apenas a palavra escrita. Aluno não tem como ouvir a pronúncia nem treinar listening, o que é essencial pra Book 1 (vocabulário básico).
 
-### 1. Gabarito de tradução (dados)
-Adicionar à tabela `spn_word_bank_items` colunas:
-- `translation_pt text` (tradução principal, obrigatória do ponto de vista do admin)
-- `accepted_answers text[]` (sinônimos/variações aceitas, ex.: `{"olá","oi","alô"}`)
+### Correção
+Usar a **Web Speech API** (`window.speechSynthesis`) — nativa do navegador, gratuita, instantânea, offline. Zero custo, zero storage, zero migration de áudio. Adicionar campo opcional de **frase de exemplo** na palavra pra permitir áudio da frase também.
 
-Normalização na comparação (client-side):
-- lowercase, trim, remoção de acentos, remoção de artigos opcionais ("o/a/um/uma/to "), colapso de espaços.
-- Acerto se input normalizado == translation_pt normalizado OU ∈ accepted_answers normalizados.
+**1. Schema (mínimo):**
+- Adicionar `example_sentence text` em `spn_word_bank_items` (opcional, em inglês).
+- Não precisa storage, não precisa edge function, não precisa novo bucket.
 
-Seed: popular `translation_pt` e `accepted_answers` para todas as palavras já inseridas no Book 1 (12 unidades) via migration de dados.
+**2. Utilitário `src/lib/spnSpeech.ts`:**
+- `speak(text, opts)` — chama `speechSynthesis.speak(new SpeechSynthesisUtterance(text))` com `lang: "en-US"`, `rate: 0.9` (palavra) ou `1.0` (frase).
+- Seleciona a melhor voz inglesa disponível (prioridade: `en-US` → `en-GB` → qualquer `en-*`); cacheia a escolha.
+- Cancela utterance anterior antes de tocar a nova (evita sobreposição).
+- `isSupported()` — retorna `false` em navegadores sem Web Speech (fallback: esconde botão).
+- `prewarmVoices()` — força carregamento da lista de vozes (Chrome carrega async).
 
-Admin: estender o editor do Word Bank (admin) para preencher tradução principal + lista de sinônimos.
+**3. UI nos flashcards (`WordBankStudentView.tsx`):**
+- **Botão 🔊 da palavra** (já existe visualmente como "pulsing audio button"): conectar ao `speak(word)`. Animação pulse durante a fala (usar `onstart`/`onend` da utterance).
+- **Novo botão 🔊 da frase**: aparece SÓ se `example_sentence` estiver preenchido. Ícone menor abaixo da palavra, label "Ouvir exemplo". Chama `speak(example_sentence)`.
+- **Auto-play opcional**: ao virar pro próximo card, toca a palavra automaticamente (configurável via toggle no HUD: "🔊 Auto"). Estado salvo em `localStorage`.
+- **Atalho de teclado**: tecla `S` toca a palavra, `Shift+S` toca a frase.
+- Fallback: se `isSupported() === false`, esconde botões e mostra tooltip "Áudio não suportado neste navegador".
 
-### 2. Rastreamento de domínio
-Adicionar à `spn_word_translations`:
-- `attempts int default 0`
-- `correct_streak int default 0`
-- `is_mastered boolean default false`
-- `last_attempt_at timestamptz`
+**4. Admin (`AdminBooksManager.tsx`):**
+- Novo campo "Frase de exemplo (inglês)" no editor de palavra do Word Bank — `<Textarea>` opcional, abaixo dos campos de tradução/sinônimos.
+- Botão "🔊 Testar" ao lado pra admin ouvir a pronúncia antes de salvar (usa o mesmo `speak()`).
 
-Regras:
-- Cada submit incrementa `attempts`. Se acerto → `correct_streak++`; se erro → reseta para 0.
-- `correct_streak >= 3` → `is_mastered = true` (selo permanente, mas pode continuar revisando sem novo XP).
-- XP: +5 por acerto novo, +15 ao atingir mastery (uma vez).
+### Arquivos afetados
+- **Novo:** `src/lib/spnSpeech.ts`
+- **Migration:** adicionar coluna `example_sentence` em `spn_word_bank_items`
+- **Editado:** `src/components/Spn/WordBankStudentView.tsx` (botões + auto-play + atalhos)
+- **Editado:** `src/components/Spn/AdminBooksManager.tsx` (campo frase + botão testar)
+- **Editado:** `src/integrations/supabase/types.ts` (auto após migration)
 
-### 3. Visual — Flashcards 3D com flip
-Substituir `WordBankStudentView` por uma experiência de flashcards:
+### Impacto
 
-**Topo (HUD):**
-- Progresso da unidade: `X / Y dominadas` com barra gradiente + glow.
-- Contador de streak da sessão (🔥) e XP ganho na sessão.
-- Filtros chip: Todas · Pendentes · Erradas · Dominadas.
+**1. Usuário final (UX):**
+- Aluno passa a ouvir cada palavra com 1 clique (ou auto-play ao virar card).
+- Treina listening + pronúncia junto com a tradução — experiência muito mais completa pra Book 1.
+- Frase de exemplo dá contexto real ("eat" → "I eat breakfast every day").
+- Funciona offline, sem latência (nativo do SO).
+- Qualidade da voz **varia por dispositivo**: ótima no Chrome desktop e iOS Safari (vozes naturais), aceitável no Android, pobre em navegadores antigos. Quem usa Edge no Windows tem voz neural muito boa.
 
-**Modo principal — Carrossel de Flashcards:**
-- Um card grande por vez (swipe lateral no mobile, setas no desktop, atalhos ← → e Enter).
-- **Frente:** palavra grande (Outfit), fonética (`/həˈloʊ/`), botão de áudio circular pulsante com onda animada quando toca, badge da posição (3/20).
-- Input de tradução embaixo do card, com placeholder "Digite a tradução…" e botão "Verificar" (Enter também envia).
-- **Verso (flip 3D, rotateY 180°):**
-  - Acerto: card vira com gradiente verde-esmeralda, confete leve, ✓, mostra a tradução oficial + "também aceita: …", chip "+5 XP" subindo.
-  - Erro: card vira com gradiente âmbar/vermelho suave, ✗, mostra a tradução correta, opção "Tentar de novo" (reseta) ou "Próxima".
-  - Mastery atingida: explosão dourada + selo "Dominada" cravado no card.
-- Borda do card com `border-beam` + sombra colorida pelo estado.
+**2. Dados:**
+- 1 coluna nova, nullable, sem default. Migration trivial, sem reescrita.
+- Zero impacto em performance (campo lido junto com a palavra, sem joins novos).
+- Zero custo de storage/banda (áudio é gerado no dispositivo).
+- RLS: herda as policies atuais de `spn_word_bank_items` (sem mudança).
 
-**Modo lista (toggle "Grade"):**
-- Grid 2-col mobile / 4-col desktop de mini-cards (apenas palavra + status: cinza/verde/dourado), clicar abre o flashcard daquela palavra. Útil pra navegar rápido.
+**3. Riscos colaterais:**
+- iOS Safari: `speechSynthesis` exige interação do usuário antes do 1º play — auto-play no 1º card pode falhar silenciosamente. Mitigação: auto-play só ativa após o 1º clique manual na sessão.
+- Lista de vozes carrega async no Chrome — `prewarmVoices()` na montagem do componente resolve.
+- Vozes do sistema podem mudar entre dispositivos do mesmo aluno (não é um bug, mas é esperado avisar no tooltip).
+- Botões de áudio existentes (que hoje só pulsam visualmente) passam a tocar de verdade — comportamento muda pra usuários atuais.
 
-**Microinterações:**
-- Flip com `transform-style: preserve-3d` + `perspective: 1000px`.
-- Shimmer no card quando dominado.
-- Haptic (vibrate) curto em mobile no submit.
-- Som opcional (sino curto no acerto, "thud" no erro) — toggle mute persistido em localStorage.
+**4. Quem é afetado:**
+- **Alunos SPN**: ganham áudio em todas as palavras de todos os books (não só Book 1).
+- **Admin/Professor**: ganha campo opcional de frase de exemplo no editor.
+- **Outros módulos**: zero impacto (mudança 100% isolada em `Spn/`).
 
-## Arquivos afetados
-
-**Migration (schema + seed):**
-- `supabase/migrations/<novo>.sql`:
-  - `ALTER TABLE spn_word_bank_items ADD COLUMN translation_pt text, accepted_answers text[] default '{}'`
-  - `ALTER TABLE spn_word_translations ADD COLUMN attempts int default 0, correct_streak int default 0, is_mastered boolean default false, last_attempt_at timestamptz`
-  - `UPDATE` populando `translation_pt`/`accepted_answers` das ~240 palavras do Book 1 (gerado a partir do seed atual).
-
-**Frontend (novo):**
-- `src/components/Spn/WordBank/Flashcard.tsx` — card 3D com flip, estados visual.
-- `src/components/Spn/WordBank/FlashcardDeck.tsx` — carrossel + navegação + atalhos.
-- `src/components/Spn/WordBank/WordGrid.tsx` — modo grade.
-- `src/components/Spn/WordBank/WordBankHUD.tsx` — barra de progresso, filtros, XP, streak.
-- `src/lib/spnAnswerValidator.ts` — normalização + comparação com gabarito/sinônimos.
-- `src/hooks/useWordBankSession.ts` — estado da sessão (índice atual, filtros, XP ganho, persistência).
-
-**Frontend (editar):**
-- `src/components/Spn/WordBankStudentView.tsx` — reescrito para orquestrar HUD + Deck/Grid.
-- Editor admin do Word Bank (localizar e estender) — 2 campos novos: "Tradução" e "Também aceitar" (tags).
-- `src/index.css` — keyframes `flip-in`, `shimmer-mastered`, `glow-success`/`glow-error`, classe `.flashcard-3d`.
-
-## Impacto
-
-**Usuário final (aluno):**
-- Ganha feedback imediato real no Word Bank — sabe se está certo, vê a resposta oficial quando erra, acumula XP e selos de mastery.
-- Experiência muito mais imersiva: 1 palavra por vez com flip 3D, gradientes, animações, atalhos de teclado. Pode alternar para grade quando quiser visão geral.
-- Atalhos e swipe tornam o estudo no mobile (390px) fluido.
-
-**Dados:**
-- 2 colunas novas em `spn_word_bank_items` (gabarito) + 4 colunas novas em `spn_word_translations` (rastreio). Backfill nas ~240 palavras existentes do Book 1.
-- Sem mudança em RLS (mesmas policies já cobrem as colunas novas). Sem alteração em outros módulos.
-- Performance: validação é client-side; cada submit faz 1 upsert (igual hoje). Sem novo round-trip de rede para validar.
-
-**Riscos colaterais:**
-- Palavras antigas de outros books (se existirem) ficariam sem gabarito — tratamento: se `translation_pt` for null, manter comportamento antigo (texto livre, sem validar) para não quebrar nada.
-- Editor admin do Word Bank precisa ser atualizado junto, senão admin não consegue cadastrar gabarito em novas palavras.
-
-**Quem é afetado:**
-- Alunos SPN (todos os tenants do produto SPN) — UX nova.
-- Admin SPN — formulário do Word Bank ganha 2 campos.
-- Nenhum outro módulo (CRM, Agenda, Financeiro, etc.) é tocado.
-
-## Validação
-
-1. Migration aplicada → confirmar que `spn_word_bank_items.translation_pt` está preenchido nas 12 unidades do Book 1 (`SELECT count(*) WHERE translation_pt IS NULL`).
-2. Aluno abre uma unidade → vê HUD com "0 / 20 dominadas".
-3. Digita tradução correta → flip verde, +5 XP, contador sobe; digita errada → flip vermelho mostrando resposta correta.
-4. 3 acertos consecutivos na mesma palavra → selo "Dominada" + glow dourado + +15 XP único.
-5. Sinônimos: testar "oi" e "olá" para `hello` — ambos aceitos.
-6. Modo grade: alternar e verificar cores por status.
-7. Admin: cadastrar nova palavra com tradução + 2 sinônimos → aluno valida corretamente.
-8. Atalhos: Enter envia, ← → navega, no mobile swipe funciona.
+### Validação
+1. Migration aplicada, coluna `example_sentence` existe e aceita `NULL`.
+2. Abrir Word Bank do Book 1 → clicar 🔊 → ouvir a palavra em inglês.
+3. Cadastrar frase de exemplo numa palavra via admin → botão 🔊 da frase aparece e toca.
+4. Testar atalhos `S` e `Shift+S`.
+5. Testar toggle auto-play (liga, vira card, toca sozinho).
+6. Testar em iOS Safari (1º play exige clique), Chrome desktop, Android Chrome.
+7. Testar fallback: forçar `speechSynthesis = undefined` no devtools → botões somem sem erro.

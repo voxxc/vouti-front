@@ -10,10 +10,12 @@ import {
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { validateAnswer } from '@/lib/spnAnswerValidator';
+import { speak, stopSpeech, isSpeechSupported, prewarmVoices, hasUserInteracted } from '@/lib/spnSpeech';
 
 interface WordItem {
   id: string; word: string; phonetic: string | null; audio_url: string | null;
   translation_pt: string | null; accepted_answers: string[] | null;
+  example_sentence: string | null;
 }
 interface TransRow {
   word_id: string; translation: string | null;
@@ -40,15 +42,32 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
 
   const [input, setInput] = useState('');
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [playingKind, setPlayingKind] = useState<'word' | 'sentence' | null>(null);
+  const [autoPlay, setAutoPlay] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('spn_wb_autoplay') === '1';
+  });
+  const speechOn = isSpeechSupported();
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadData(); /* eslint-disable-next-line */ }, [unitId]);
+
+  useEffect(() => {
+    prewarmVoices();
+    return () => { stopSpeech(); };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('spn_wb_autoplay', autoPlay ? '1' : '0');
+    }
+  }, [autoPlay]);
 
   const loadData = async () => {
     setLoading(true);
     const [wordsRes, transRes] = await Promise.all([
       supabase.from('spn_word_bank_items')
-        .select('id, word, phonetic, audio_url, translation_pt, accepted_answers')
+        .select('id, word, phonetic, audio_url, translation_pt, accepted_answers, example_sentence')
         .eq('unit_id', unitId).order('sort_order'),
       user
         ? supabase.from('spn_word_translations')
@@ -101,21 +120,45 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
       if (e.key === 'ArrowRight') next();
       else if (e.key === 'ArrowLeft') prev();
       else if (e.key === 'Enter') { if (flipped) next(); else inputRef.current?.focus(); }
+      else if (e.key === 's' || e.key === 'S') {
+        if (!current) return;
+        if (e.shiftKey && current.example_sentence) playSentence(current);
+        else playWord(current);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [mode, flipped, current, input]); // eslint-disable-line
 
-  const playAudio = useCallback(async (w: WordItem) => {
-    if (!w.audio_url) return;
-    setPlayingId(w.id);
-    try {
-      const audio = new Audio(w.audio_url);
-      audio.onended = () => setPlayingId(null);
-      audio.onerror = () => { setPlayingId(null); toast({ title: 'Audio error', variant: 'destructive' }); };
-      await audio.play();
-    } catch { setPlayingId(null); }
-  }, []);
+  const playWord = useCallback((w: WordItem) => {
+    if (!speechOn || !w.word) return;
+    setPlayingId(w.id); setPlayingKind('word');
+    const done = () => { setPlayingId(null); setPlayingKind(null); };
+    speak(w.word, {
+      rate: 0.85,
+      onEnd: done,
+      onError: () => { done(); },
+    });
+  }, [speechOn]);
+
+  const playSentence = useCallback((w: WordItem) => {
+    if (!speechOn || !w.example_sentence) return;
+    setPlayingId(w.id); setPlayingKind('sentence');
+    const done = () => { setPlayingId(null); setPlayingKind(null); };
+    speak(w.example_sentence, {
+      rate: 0.95,
+      onEnd: done,
+      onError: () => { done(); },
+    });
+  }, [speechOn]);
+
+  // auto-play when card changes (only if user already interacted in the session)
+  useEffect(() => {
+    if (!autoPlay || !speechOn || !current || flipped) return;
+    if (!hasUserInteracted()) return;
+    const t = setTimeout(() => playWord(current), 200);
+    return () => clearTimeout(t);
+  }, [current?.id, autoPlay, speechOn, flipped, playWord]); // eslint-disable-line
 
   const submit = async () => {
     if (!current || !user || flipped) return;
@@ -236,6 +279,20 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
                 </button>
               ))}
             </div>
+            <div className="flex items-center gap-2">
+            {speechOn && (
+              <button
+                onClick={() => setAutoPlay(v => !v)}
+                className={`text-[11px] font-bold px-2.5 py-1 rounded-full transition-all flex items-center gap-1 ${
+                  autoPlay
+                    ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow'
+                    : 'bg-foreground/5 text-muted-foreground hover:bg-foreground/10'
+                }`}
+                title="Tocar áudio automaticamente ao virar o card"
+              >
+                <Volume2 className="h-3 w-3" /> Auto
+              </button>
+            )}
             <div className="flex rounded-full bg-foreground/5 p-0.5">
               <button
                 onClick={() => setMode('deck')}
@@ -247,6 +304,7 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
                 className={`p-1.5 rounded-full transition-all ${mode === 'grid' ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}
                 aria-label="Grade"
               ><LayoutGrid className="h-3.5 w-3.5" /></button>
+            </div>
             </div>
           </div>
         </CardContent>
@@ -312,15 +370,31 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
                         {current.phonetic && (
                           <p className="text-base text-white/80 italic">/{current.phonetic}/</p>
                         )}
-                        {current.audio_url && (
-                          <button
-                            onClick={() => playAudio(current)}
-                            disabled={playingId === current.id}
-                            className={`mx-auto mt-2 w-12 h-12 rounded-full flex items-center justify-center bg-white/15 backdrop-blur hover:bg-white/25 active:scale-95 transition-all ${playingId === current.id ? 'animate-pulse' : ''}`}
-                            aria-label="Play audio"
-                          >
-                            <Volume2 className="h-5 w-5" />
-                          </button>
+                        {speechOn && (
+                          <div className="flex flex-col items-center gap-2 mt-2">
+                            <button
+                              onClick={() => playWord(current)}
+                              className={`w-14 h-14 rounded-full flex items-center justify-center bg-white/15 backdrop-blur hover:bg-white/25 active:scale-95 transition-all ${playingId === current.id && playingKind === 'word' ? 'animate-pulse ring-2 ring-white/60' : ''}`}
+                              aria-label="Ouvir palavra"
+                              title="Ouvir palavra (S)"
+                            >
+                              <Volume2 className="h-6 w-6" />
+                            </button>
+                            {current.example_sentence && (
+                              <button
+                                onClick={() => playSentence(current)}
+                                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur transition-all ${playingId === current.id && playingKind === 'sentence' ? 'animate-pulse ring-1 ring-white/60' : ''}`}
+                                title="Ouvir frase de exemplo (Shift+S)"
+                              >
+                                <Volume2 className="h-3.5 w-3.5" /> Ouvir exemplo
+                              </button>
+                            )}
+                            {current.example_sentence && (
+                              <p className="text-[11px] text-white/70 italic max-w-xs px-2 leading-snug">
+                                "{current.example_sentence}"
+                              </p>
+                            )}
+                          </div>
                         )}
                         {progress[current.id]?.is_mastered && (
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-300/90 text-amber-950 px-2 py-1 rounded-full">
@@ -429,7 +503,8 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
               </Button>
               <p className="text-[11px] text-muted-foreground">
                 <kbd className="px-1.5 py-0.5 rounded bg-foreground/10 font-mono text-[10px]">Enter</kbd> verificar ·{' '}
-                <kbd className="px-1.5 py-0.5 rounded bg-foreground/10 font-mono text-[10px]">←/→</kbd> navegar
+                <kbd className="px-1.5 py-0.5 rounded bg-foreground/10 font-mono text-[10px]">←/→</kbd> navegar ·{' '}
+                <kbd className="px-1.5 py-0.5 rounded bg-foreground/10 font-mono text-[10px]">S</kbd> ouvir
               </p>
               <Button variant="ghost" size="sm" onClick={next} className="gap-1">
                 Próxima <ChevronRight className="h-4 w-4" />

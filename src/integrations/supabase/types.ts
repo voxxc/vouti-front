@@ -8655,6 +8655,7 @@ export type Database = {
           accepted_answers: string[]
           audio_url: string | null
           created_at: string | null
+          example_sentence: string | null
           id: string
           phonetic: string | null
           sort_order: number | null
@@ -8666,6 +8667,7 @@ export type Database = {
           accepted_answers?: string[]
           audio_url?: string | null
           created_at?: string | null
+          example_sentence?: string | null
           id?: string
           phonetic?: string | null
           sort_order?: number | null
@@ -8677,6 +8679,7 @@ export type Database = {
           accepted_answers?: string[]
           audio_url?: string | null
           created_at?: string | null
+          example_sentence?: string | null
           id?: string
           phonetic?: string | null
           sort_order?: number | null
