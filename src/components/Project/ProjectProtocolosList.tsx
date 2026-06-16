@@ -635,6 +635,18 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
                       </DropdownMenuSub>
                     )}
 
+                    {/* Mover para outro projeto */}
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        setMoveDialogProtocolo(protocolo);
+                      }}
+                      className="gap-2"
+                    >
+                      <FolderSymlink className="h-4 w-4" />
+                      Mover para outro projeto
+                    </DropdownMenuItem>
+
                     {/* Carteiras (mantém) */}
                     {!isLocked && carteiras.length > 0 && (
                       <DropdownMenuSub>
