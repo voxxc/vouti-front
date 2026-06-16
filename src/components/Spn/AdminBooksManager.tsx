@@ -205,11 +205,25 @@ const AdminBooksManager = () => {
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-foreground">{w.word}</p>
                         {w.phonetic && <p className="text-xs text-muted-foreground italic">/{w.phonetic}/</p>}
+                        {w.translation_pt && (
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5 truncate">
+                            🇧🇷 {w.translation_pt}
+                            {w.accepted_answers && w.accepted_answers.length > 0 && (
+                              <span className="text-muted-foreground"> · +{w.accepted_answers.length}</span>
+                            )}
+                          </p>
+                        )}
                       </div>
                       {w.audio_url && <Volume2 className="h-4 w-4 text-emerald-500 shrink-0" />}
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
-                          setEditItem(w); setWordText(w.word); setWordPhonetic(w.phonetic || ''); setWordAudio(w.audio_url || ''); setWordDialog(true);
+                          setEditItem(w);
+                          setWordText(w.word);
+                          setWordPhonetic(w.phonetic || '');
+                          setWordAudio(w.audio_url || '');
+                          setWordTranslation(w.translation_pt || '');
+                          setWordAccepted((w.accepted_answers || []).join(', '));
+                          setWordDialog(true);
                         }}><Pencil className="h-3.5 w-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteWord(w.id)}>
                           <Trash2 className="h-3.5 w-3.5" />
