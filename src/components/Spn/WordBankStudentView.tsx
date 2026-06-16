@@ -148,7 +148,7 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
     const payload = {
       word_id: current.id,
       user_id: user.id,
-      translation: input.trim() || (prev?.translation ?? null),
+      translation: input.trim() || (prev?.translation ?? ''),
       attempts: newAttempts,
       correct_streak: newStreak,
       is_mastered: newMastered,
