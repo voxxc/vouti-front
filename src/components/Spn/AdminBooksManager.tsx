@@ -16,7 +16,7 @@ import {
 
 interface Book { id: string; name: string; description: string | null; cover_color: string; sort_order: number; }
 interface Unit { id: string; book_id: string; name: string; sort_order: number; }
-interface WordItem { id: string; unit_id: string; word: string; phonetic: string | null; audio_url: string | null; sort_order: number; }
+interface WordItem { id: string; unit_id: string; word: string; phonetic: string | null; audio_url: string | null; sort_order: number; translation_pt: string | null; accepted_answers: string[] | null; }
 interface STPBlock { id: string; unit_id: string; title: string; content_html: string | null; sort_order: number; }
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
@@ -44,6 +44,8 @@ const AdminBooksManager = () => {
   const [wordText, setWordText] = useState('');
   const [wordPhonetic, setWordPhonetic] = useState('');
   const [wordAudio, setWordAudio] = useState('');
+  const [wordTranslation, setWordTranslation] = useState('');
+  const [wordAccepted, setWordAccepted] = useState('');
   const [stpTitle, setStpTitle] = useState('');
   const [stpContent, setStpContent] = useState('');
 
@@ -117,10 +119,21 @@ const AdminBooksManager = () => {
   // CRUD: Words
   const saveWord = async () => {
     if (!wordText.trim() || !selectedUnit) return;
+    const acceptedArr = wordAccepted
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
     if (editItem) {
-      await supabase.from('spn_word_bank_items').update({ word: wordText, phonetic: wordPhonetic || null, audio_url: wordAudio || null }).eq('id', editItem.id);
+      await supabase.from('spn_word_bank_items').update({
+        word: wordText, phonetic: wordPhonetic || null, audio_url: wordAudio || null,
+        translation_pt: wordTranslation.trim() || null, accepted_answers: acceptedArr,
+      }).eq('id', editItem.id);
     } else {
-      await supabase.from('spn_word_bank_items').insert({ word: wordText, phonetic: wordPhonetic || null, audio_url: wordAudio || null, unit_id: selectedUnit.id, sort_order: words.length });
+      await supabase.from('spn_word_bank_items').insert({
+        word: wordText, phonetic: wordPhonetic || null, audio_url: wordAudio || null,
+        translation_pt: wordTranslation.trim() || null, accepted_answers: acceptedArr,
+        unit_id: selectedUnit.id, sort_order: words.length,
+      });
     }
     resetWordDialog(); loadWords(selectedUnit.id);
     toast({ title: editItem ? 'Word updated' : 'Word added' });
@@ -132,7 +145,7 @@ const AdminBooksManager = () => {
     loadWords(selectedUnit.id);
   };
 
-  const resetWordDialog = () => { setWordDialog(false); setEditItem(null); setWordText(''); setWordPhonetic(''); setWordAudio(''); };
+  const resetWordDialog = () => { setWordDialog(false); setEditItem(null); setWordText(''); setWordPhonetic(''); setWordAudio(''); setWordTranslation(''); setWordAccepted(''); };
 
   // CRUD: STP
   const saveSTP = async () => {
