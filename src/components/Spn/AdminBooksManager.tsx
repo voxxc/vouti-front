@@ -11,22 +11,37 @@ import {
 import { toast } from '@/hooks/use-toast';
 import {
   Plus, BookOpen, ChevronLeft, Pencil, Trash2, GripVertical,
-  Volume2, ArrowLeft, Layers, Type, FileText
+  Volume2, ArrowLeft, Layers, Type, FileText, Check as CheckIcon, AlertCircle, MessageCircle
 } from 'lucide-react';
 import { speak, isSpeechSupported } from '@/lib/spnSpeech';
 
 interface Book { id: string; name: string; description: string | null; cover_color: string; sort_order: number; }
 interface Unit { id: string; book_id: string; name: string; sort_order: number; }
-interface WordItem { id: string; unit_id: string; word: string; phonetic: string | null; audio_url: string | null; sort_order: number; translation_pt: string | null; accepted_answers: string[] | null; example_sentence: string | null; }
+interface WordItem { id: string; unit_id: string; word: string; phonetic: string | null; audio_url: string | null; sort_order: number; translation_pt: string | null; accepted_answers: string[] | null; example_sentence: string | null; category?: string | null; is_featured_verb?: boolean | null; }
 interface STPExample { text: string; translation?: string }
+interface ChatMsg { speaker: 'A' | 'B'; en: string; pt?: string; highlight_words?: string[] }
+interface FillIn { sentence_template: string; correct_answer: string; options?: string[]; hint_pt?: string }
 interface STPBlock {
   id: string; unit_id: string; title: string; content_html: string | null; sort_order: number;
   block_type?: string | null; rule_title?: string | null; rule_explanation?: string | null;
   question_text?: string | null; answer_negative?: string | null; answer_positive?: string | null;
   examples?: any;
+  chat_title?: string | null; chat_situation?: string | null;
+  chat_messages?: any; fill_in_practice?: any; target_words?: any;
 }
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
+
+const CATEGORY_OPTIONS: { value: string; label: string }[] = [
+  { value: 'verb', label: 'Verbo' },
+  { value: 'question_word', label: 'Question Word' },
+  { value: 'phrasal_verb', label: 'Phrasal Verb' },
+  { value: 'expression', label: 'Expressão' },
+  { value: 'noun', label: 'Substantivo' },
+  { value: 'adjective', label: 'Adjetivo' },
+  { value: 'adverb', label: 'Advérbio' },
+  { value: 'other', label: 'Outro' },
+];
 
 const AdminBooksManager = () => {
   const [books, setBooks] = useState<Book[]>([]);
@@ -54,15 +69,27 @@ const AdminBooksManager = () => {
   const [wordTranslation, setWordTranslation] = useState('');
   const [wordAccepted, setWordAccepted] = useState('');
   const [wordExample, setWordExample] = useState('');
+  const [wordCategory, setWordCategory] = useState<string>('other');
+  const [wordFeaturedVerb, setWordFeaturedVerb] = useState(false);
   const [stpTitle, setStpTitle] = useState('');
   const [stpContent, setStpContent] = useState('');
-  const [stpMode, setStpMode] = useState<'rule_dialogue' | 'legacy_html'>('rule_dialogue');
+  const [stpMode, setStpMode] = useState<'chat_dialogue' | 'rule_dialogue' | 'legacy_html'>('chat_dialogue');
   const [stpRuleTitle, setStpRuleTitle] = useState('');
   const [stpRuleExplanation, setStpRuleExplanation] = useState('');
   const [stpQuestion, setStpQuestion] = useState('');
   const [stpAnsNeg, setStpAnsNeg] = useState('');
   const [stpAnsPos, setStpAnsPos] = useState('');
   const [stpExamples, setStpExamples] = useState<STPExample[]>([{ text: '', translation: '' }]);
+  const [stpChatTitle, setStpChatTitle] = useState('');
+  const [stpChatSituation, setStpChatSituation] = useState('');
+  const [stpChatMessages, setStpChatMessages] = useState<ChatMsg[]>([
+    { speaker: 'A', en: '', pt: '', highlight_words: [] },
+    { speaker: 'B', en: '', pt: '', highlight_words: [] },
+  ]);
+  const [stpFillIn, setStpFillIn] = useState<FillIn[]>([
+    { sentence_template: '', correct_answer: '', options: [], hint_pt: '' },
+  ]);
+  const [stpTargetWords, setStpTargetWords] = useState<string>('');
 
   useEffect(() => { loadBooks(); }, []);
   useEffect(() => { if (selectedBook) loadUnits(selectedBook.id); }, [selectedBook]);
@@ -163,14 +190,22 @@ const AdminBooksManager = () => {
         word: wordText, phonetic: wordPhonetic || null, audio_url: wordAudio || null,
         translation_pt: wordTranslation.trim() || null, accepted_answers: acceptedArr,
         example_sentence: wordExample.trim() || null,
+        category: wordCategory,
+        is_featured_verb: wordCategory === 'verb' ? wordFeaturedVerb : false,
       }).eq('id', editItem.id);
     } else {
-      await supabase.from('spn_word_bank_items').insert({
+      const { error } = await supabase.from('spn_word_bank_items').insert({
         word: wordText, phonetic: wordPhonetic || null, audio_url: wordAudio || null,
         translation_pt: wordTranslation.trim() || null, accepted_answers: acceptedArr,
         example_sentence: wordExample.trim() || null,
+        category: wordCategory,
+        is_featured_verb: wordCategory === 'verb' ? wordFeaturedVerb : false,
         unit_id: selectedUnit.id, sort_order: words.length,
       });
+      if (error) {
+        toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+        return;
+      }
     }
     resetWordDialog(); loadWords(selectedUnit.id);
     toast({ title: editItem ? 'Word updated' : 'Word added' });
@@ -182,7 +217,12 @@ const AdminBooksManager = () => {
     loadWords(selectedUnit.id);
   };
 
-  const resetWordDialog = () => { setWordDialog(false); setEditItem(null); setWordText(''); setWordPhonetic(''); setWordAudio(''); setWordTranslation(''); setWordAccepted(''); setWordExample(''); };
+  const resetWordDialog = () => {
+    setWordDialog(false); setEditItem(null);
+    setWordText(''); setWordPhonetic(''); setWordAudio('');
+    setWordTranslation(''); setWordAccepted(''); setWordExample('');
+    setWordCategory('other'); setWordFeaturedVerb(false);
+  };
 
   // CRUD: STP
   const saveSTP = async () => {
@@ -190,6 +230,23 @@ const AdminBooksManager = () => {
     const examplesClean = stpExamples
       .map(e => ({ text: (e.text || '').trim(), translation: (e.translation || '').trim() || undefined }))
       .filter(e => e.text.length > 0);
+    const chatMessagesClean = stpChatMessages
+      .map(m => ({
+        speaker: m.speaker,
+        en: (m.en || '').trim(),
+        pt: (m.pt || '').trim() || undefined,
+        highlight_words: (m.highlight_words || []).filter(Boolean),
+      }))
+      .filter(m => m.en.length > 0);
+    const fillInClean = stpFillIn
+      .map(f => ({
+        sentence_template: (f.sentence_template || '').trim(),
+        correct_answer: (f.correct_answer || '').trim(),
+        options: (f.options || []).filter(Boolean),
+        hint_pt: (f.hint_pt || '').trim() || undefined,
+      }))
+      .filter(f => f.sentence_template.length > 0 && f.correct_answer.length > 0);
+    const targetWordsClean = stpTargetWords.split(',').map(s => s.trim()).filter(Boolean);
     const payload: any = {
       title: stpTitle,
       content_html: stpMode === 'legacy_html' ? (stpContent || null) : null,
@@ -200,6 +257,11 @@ const AdminBooksManager = () => {
       answer_negative: stpMode === 'rule_dialogue' ? (stpAnsNeg.trim() || null) : null,
       answer_positive: stpMode === 'rule_dialogue' ? (stpAnsPos.trim() || null) : null,
       examples: stpMode === 'rule_dialogue' ? examplesClean : [],
+      chat_title: stpMode === 'chat_dialogue' ? (stpChatTitle.trim() || stpTitle) : null,
+      chat_situation: stpMode === 'chat_dialogue' ? (stpChatSituation.trim() || null) : null,
+      chat_messages: stpMode === 'chat_dialogue' ? chatMessagesClean : [],
+      fill_in_practice: stpMode === 'chat_dialogue' ? fillInClean : [],
+      target_words: stpMode === 'chat_dialogue' ? targetWordsClean : [],
     };
     if (editItem) {
       await supabase.from('spn_straight_to_point').update(payload).eq('id', editItem.id);
@@ -219,10 +281,17 @@ const AdminBooksManager = () => {
   const resetStpDialog = () => {
     setStpDialog(false); setEditItem(null);
     setStpTitle(''); setStpContent('');
-    setStpMode('rule_dialogue');
+    setStpMode('chat_dialogue');
     setStpRuleTitle(''); setStpRuleExplanation('');
     setStpQuestion(''); setStpAnsNeg(''); setStpAnsPos('');
     setStpExamples([{ text: '', translation: '' }]);
+    setStpChatTitle(''); setStpChatSituation('');
+    setStpChatMessages([
+      { speaker: 'A', en: '', pt: '', highlight_words: [] },
+      { speaker: 'B', en: '', pt: '', highlight_words: [] },
+    ]);
+    setStpFillIn([{ sentence_template: '', correct_answer: '', options: [], hint_pt: '' }]);
+    setStpTargetWords('');
   };
 
   // ===== RENDER: Unit Content =====
