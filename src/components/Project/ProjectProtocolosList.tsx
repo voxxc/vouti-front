@@ -22,6 +22,7 @@ import {
   Tag,
   Check,
   ArrowRightLeft,
+  FolderSymlink,
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import {
@@ -60,6 +61,7 @@ import { useToast } from '@/hooks/use-toast';
 import { fetchAllPaginated, fetchAllPaginatedIn } from '@/lib/supabasePagination';
 import { useProjectProtocoloMarcadores } from '@/hooks/useProjectProtocoloMarcadores';
 import { MarcadorDialog } from './MarcadorDialog';
+import { MoveProtocoloDialog } from './MoveProtocoloDialog';
 import type { ProjectWorkspace } from '@/hooks/useProjectWorkspaces';
 
 interface ProjectProtocolosListProps {
@@ -142,6 +144,9 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
   } = useProjectProtocoloMarcadores(projectId, protocoloIds);
   const [marcadorDialogOpen, setMarcadorDialogOpen] = useState(false);
   const [editingMarcador, setEditingMarcador] = useState<{ id: string; nome: string; cor: string } | null>(null);
+
+  // Move-to-other-project dialog
+  const [moveDialogProtocolo, setMoveDialogProtocolo] = useState<ProjectProtocolo | null>(null);
 
   const handleMoveToWorkspace = async (protocoloId: string, targetWorkspaceId: string) => {
     try {
