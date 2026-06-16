@@ -943,6 +943,19 @@ export function ProjectProtocolosList({ projectId, workspaceId, defaultWorkspace
           }
         }}
       />
+
+      {moveDialogProtocolo && (
+        <MoveProtocoloDialog
+          open={!!moveDialogProtocolo}
+          onOpenChange={(o) => { if (!o) setMoveDialogProtocolo(null); }}
+          protocoloId={moveDialogProtocolo.id}
+          protocoloTitulo={moveDialogProtocolo.titulo}
+          currentProjectId={projectId}
+          currentWorkspaceId={workspaceId ?? null}
+          currentWorkspaceName={workspaces.find((w) => w.id === workspaceId)?.nome ?? null}
+          onMoved={() => { setMoveDialogProtocolo(null); refetch(); }}
+        />
+      )}
     </div>
   );
 }
