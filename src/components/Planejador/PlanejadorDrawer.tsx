@@ -7,6 +7,7 @@ import { PlanejadorCreateTask } from "./PlanejadorCreateTask";
 import { PlanejadorTaskDetail } from "./PlanejadorTaskDetail";
 import { PlanejadorSettings, ColumnConfig } from "./PlanejadorSettings";
 import { PlanejadorPrazosView } from "./PlanejadorPrazosView";
+import { PlanejadorHelloView } from "./PlanejadorHelloView";
 import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 import { CreateDeadlineDialog } from "@/components/Agenda/CreateDeadlineDialog";
 import { usePlanejadorTasks, PlanejadorTask, KANBAN_COLUMNS, KanbanColumn } from "@/hooks/usePlanejadorTasks";
@@ -83,7 +84,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
   const [createDeadlineOpen, setCreateDeadlineOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<PlanejadorTask | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("prazo");
+  const [activeTab, setActiveTab] = useState("hello");
   const [isExpanded, setIsExpanded] = useState(false);
   const [locked, setLocked] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -337,6 +338,21 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                     searchQuery={searchQuery}
                     selectedUserId={selectedUserId}
                     currentUserId={currentUserId}
+                  />
+                ) : activeTab === 'hello' ? (
+                  <PlanejadorHelloView
+                    onTaskClick={handleSelectTask}
+                    onDeadlineClick={(id) => {
+                      setDeadlineDetailId(id);
+                      setDeadlineDetailOpen(true);
+                    }}
+                    searchQuery={searchQuery}
+                    selectedUserId={selectedUserId}
+                    currentUserId={currentUserId}
+                    selectedLabelIds={selectedLabelIds}
+                    labels={labels}
+                    allLabelAssignments={allLabelAssignments}
+                    participantTaskIds={participantData}
                   />
                 ) : (
                   <PlanejadorKanban
