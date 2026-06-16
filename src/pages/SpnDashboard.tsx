@@ -16,10 +16,11 @@ import ModulesView from '@/components/Spn/ModulesView';
 import BooksView from '@/components/Spn/BooksView';
 import SectionViewer from '@/components/Spn/SectionViewer';
 import { Card, CardContent } from '@/components/ui/card';
-import { Settings } from 'lucide-react';
+import { Settings, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const SpnDashboard = () => {
-  const { isAdmin, isTeacher } = useSpnAuth();
+  const { isAdmin, isTeacher, profile, signOut } = useSpnAuth();
   const isMobile = useIsMobile();
   const [activeView, setActiveView] = useState<SpnView>('dashboard');
   const [viewData, setViewData] = useState<any>(null);
@@ -61,8 +62,14 @@ const SpnDashboard = () => {
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Settings className="h-6 w-6" /> Settings
             </h1>
-            <Card><CardContent className="p-8 text-center text-muted-foreground">
-              Settings page coming soon.
+            <Card><CardContent className="p-6 space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Conta</p>
+                <p className="font-medium text-foreground">{profile?.full_name || 'User'}</p>
+              </div>
+              <Button variant="destructive" onClick={signOut} className="w-full gap-2">
+                <LogOut className="h-4 w-4" /> Sair da conta
+              </Button>
             </CardContent></Card>
           </div>
         );
