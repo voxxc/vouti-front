@@ -355,15 +355,31 @@ const WordBankStudentView = ({ unitId }: { unitId: string }) => {
                         {current.phonetic && (
                           <p className="text-base text-white/80 italic">/{current.phonetic}/</p>
                         )}
-                        {current.audio_url && (
-                          <button
-                            onClick={() => playAudio(current)}
-                            disabled={playingId === current.id}
-                            className={`mx-auto mt-2 w-12 h-12 rounded-full flex items-center justify-center bg-white/15 backdrop-blur hover:bg-white/25 active:scale-95 transition-all ${playingId === current.id ? 'animate-pulse' : ''}`}
-                            aria-label="Play audio"
-                          >
-                            <Volume2 className="h-5 w-5" />
-                          </button>
+                        {speechOn && (
+                          <div className="flex flex-col items-center gap-2 mt-2">
+                            <button
+                              onClick={() => playWord(current)}
+                              className={`w-14 h-14 rounded-full flex items-center justify-center bg-white/15 backdrop-blur hover:bg-white/25 active:scale-95 transition-all ${playingId === current.id && playingKind === 'word' ? 'animate-pulse ring-2 ring-white/60' : ''}`}
+                              aria-label="Ouvir palavra"
+                              title="Ouvir palavra (S)"
+                            >
+                              <Volume2 className="h-6 w-6" />
+                            </button>
+                            {current.example_sentence && (
+                              <button
+                                onClick={() => playSentence(current)}
+                                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur transition-all ${playingId === current.id && playingKind === 'sentence' ? 'animate-pulse ring-1 ring-white/60' : ''}`}
+                                title="Ouvir frase de exemplo (Shift+S)"
+                              >
+                                <Volume2 className="h-3.5 w-3.5" /> Ouvir exemplo
+                              </button>
+                            )}
+                            {current.example_sentence && (
+                              <p className="text-[11px] text-white/70 italic max-w-xs px-2 leading-snug">
+                                "{current.example_sentence}"
+                              </p>
+                            )}
+                          </div>
                         )}
                         {progress[current.id]?.is_mastered && (
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-300/90 text-amber-950 px-2 py-1 rounded-full">
