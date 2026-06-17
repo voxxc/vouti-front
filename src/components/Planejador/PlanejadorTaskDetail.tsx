@@ -1014,7 +1014,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
             {isMobile ? (
               mobileTab === 'chat' ? (
                 <div className="flex-1 flex flex-col min-h-0">
-                  <PlanejadorTaskChat taskId={task.id} />
+                  <PlanejadorTaskChat taskId={task.id} acordoTaskId={selectedAcordoChat} />
                 </div>
               ) : mobileTab === 'info' ? renderInfoTab() : renderDetailsTab()
             ) : (
@@ -1065,7 +1065,18 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
           {/* Right Panel - Chat (Desktop only) */}
           {!isMobile && (
             <div className="w-[55%] flex flex-col">
-              <PlanejadorTaskChat taskId={task.id} />
+              {selectedAcordoChat && (
+                <div className="px-4 py-2 border-b border-border bg-primary/5 flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Handshake className="h-3.5 w-3.5" />
+                    Chat isolado do acordo selecionado
+                  </span>
+                  <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setSelectedAcordoChat(null)}>
+                    Voltar ao chat geral
+                  </Button>
+                </div>
+              )}
+              <PlanejadorTaskChat taskId={task.id} acordoTaskId={selectedAcordoChat} />
             </div>
           )}
         </div>
