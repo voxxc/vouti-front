@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import {
   X, Play, CheckCircle, Calendar, User, Clock, FileText, ListChecks, Users, Tag, ArrowLeft,
   Plus, Trash2, Download, Upload, ChevronDown, ChevronRight, Search, UserCircle, Scale, CalendarClock, Unlink,
-  Milestone, Info, Activity, Pencil, Flag,
+  Milestone, Info, Activity, Pencil, Flag, Handshake,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -37,6 +37,8 @@ import { ClienteDetails } from "@/components/CRM/ClienteDetails";
 import { Deadline } from "@/types/agenda";
 import { Cliente } from "@/types/cliente";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { AcordoLinkPicker } from "./AcordoLinkPicker";
+import { useAcordosOfPlanejadorTask } from "@/hooks/usePlanejadorTaskAcordos";
 
 interface PlanejadorTaskDetailProps {
   task: PlanejadorTask;
@@ -90,6 +92,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const [clienteInfoOpen, setClienteInfoOpen] = useState(false);
   const [pausarOpen, setPausarOpen] = useState(false);
   const [pausarDate, setPausarDate] = useState("");
+  const [selectedAcordoChat, setSelectedAcordoChat] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
@@ -127,6 +130,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const labelAssignments = usePlanejadorLabelAssignments(task.id);
   const etapas = usePlanejadorEtapas(task.id);
   const activityLog = usePlanejadorActivityLog(task.id);
+  const acordosVinculadosQ = useAcordosOfPlanejadorTask(task.id);
 
   // Tenant profiles
   const { data: profiles = [] } = useQuery({
@@ -395,6 +399,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
     { key: 'cliente', icon: UserCircle, label: 'Cliente', count: clienteNome ? '1' : '0' },
     { key: 'processo', icon: Scale, label: 'Caso / Processo Judicial', count: processoVinculado ? '1' : '0' },
     { key: 'prazos', icon: CalendarClock, label: 'Prazos Relacionados', count: `${prazosRelacionados.length}` },
+    { key: 'acordos', icon: Handshake, label: 'Acordos', count: `${acordosVinculadosQ.data?.length || 0}` },
   ];
 
   const renderDetailsTab = () => (
