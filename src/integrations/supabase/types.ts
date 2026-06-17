@@ -12137,6 +12137,15 @@ export type Database = {
         Returns: undefined
       }
       normalize_descricao: { Args: { txt: string }; Returns: string }
+      processar_audiencia_from_andamento: {
+        Args: {
+          p_andamento_id: string
+          p_descricao: string
+          p_processo_oab_id: string
+          p_tenant_id: string
+        }
+        Returns: undefined
+      }
       reorder_planejador_task: {
         Args: { p_new_ordem: number; p_task_id: string }
         Returns: undefined
