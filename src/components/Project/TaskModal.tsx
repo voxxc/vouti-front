@@ -896,6 +896,13 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
                   </div>
                 )}
 
+                {/* Mostrar no Planejador (apenas para acordos) */}
+                {task.type === 'acordo' && (
+                  <div className="rounded-lg border border-border p-3 bg-muted/10">
+                    <PlanejadorTaskPicker acordoTaskId={task.id} />
+                  </div>
+                )}
+
                 {/* Status */}
                 <div className="flex items-center gap-4">
                   <Badge variant="outline">
