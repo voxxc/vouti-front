@@ -3694,6 +3694,81 @@ export type Database = {
           },
         ]
       }
+      planejador_task_acordos: {
+        Row: {
+          acordo_task_id: string
+          created_at: string
+          created_by: string
+          id: string
+          planejador_task_id: string
+          tenant_id: string
+        }
+        Insert: {
+          acordo_task_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          planejador_task_id: string
+          tenant_id: string
+        }
+        Update: {
+          acordo_task_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          planejador_task_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planejador_task_acordos_acordo_task_id_fkey"
+            columns: ["acordo_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planejador_task_acordos_planejador_task_id_fkey"
+            columns: ["planejador_task_id"]
+            isOneToOne: false
+            referencedRelation: "planejador_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planejador_task_acordos_historico: {
+        Row: {
+          acordo_task_id: string
+          created_at: string
+          created_by: string
+          id: string
+          planejador_task_id: string
+          removed_at: string
+          removed_reason: string
+          tenant_id: string
+        }
+        Insert: {
+          acordo_task_id: string
+          created_at: string
+          created_by: string
+          id?: string
+          planejador_task_id: string
+          removed_at?: string
+          removed_reason: string
+          tenant_id: string
+        }
+        Update: {
+          acordo_task_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          planejador_task_id?: string
+          removed_at?: string
+          removed_reason?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       planejador_task_activity_log: {
         Row: {
           action: string
@@ -3924,6 +3999,10 @@ export type Database = {
       }
       planejador_task_messages: {
         Row: {
+          acordo_credor_snapshot: string | null
+          acordo_task_id: string | null
+          acordo_titulo_snapshot: string | null
+          acordo_valor_snapshot: number | null
           content: string
           created_at: string
           edited_at: string | null
@@ -3937,6 +4016,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          acordo_credor_snapshot?: string | null
+          acordo_task_id?: string | null
+          acordo_titulo_snapshot?: string | null
+          acordo_valor_snapshot?: number | null
           content: string
           created_at?: string
           edited_at?: string | null
@@ -3950,6 +4033,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          acordo_credor_snapshot?: string | null
+          acordo_task_id?: string | null
+          acordo_titulo_snapshot?: string | null
+          acordo_valor_snapshot?: number | null
           content?: string
           created_at?: string
           edited_at?: string | null
@@ -3963,6 +4050,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "planejador_task_messages_acordo_task_id_fkey"
+            columns: ["acordo_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "planejador_task_messages_reply_to_id_fkey"
             columns: ["reply_to_id"]
@@ -9307,6 +9401,9 @@ export type Database = {
       tasks: {
         Row: {
           acordo_details: Json | null
+          arquivamento_at: string | null
+          arquivamento_por: string | null
+          arquivamento_status: string
           card_color: string | null
           column_id: string | null
           created_at: string
@@ -9324,6 +9421,9 @@ export type Database = {
         }
         Insert: {
           acordo_details?: Json | null
+          arquivamento_at?: string | null
+          arquivamento_por?: string | null
+          arquivamento_status?: string
           card_color?: string | null
           column_id?: string | null
           created_at?: string
@@ -9341,6 +9441,9 @@ export type Database = {
         }
         Update: {
           acordo_details?: Json | null
+          arquivamento_at?: string | null
+          arquivamento_por?: string | null
+          arquivamento_status?: string
           card_color?: string | null
           column_id?: string | null
           created_at?: string
