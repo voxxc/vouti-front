@@ -29,6 +29,7 @@ import TaskFilePanel from "./TaskFilePanel";
 import CardColorPicker from "./CardColorPicker";
 import { TaskTarefasTab } from "./TaskTarefasTab";
 import { TaskComentarios } from "./TaskComentarios";
+import { PlanejadorTaskPicker } from "./PlanejadorTaskPicker";
 import { notifyCommentAdded } from "@/utils/notificationHelpers";
 import { supabase } from "@/integrations/supabase/client";
 import { useTaskTarefas } from "@/hooks/useTaskTarefas";
