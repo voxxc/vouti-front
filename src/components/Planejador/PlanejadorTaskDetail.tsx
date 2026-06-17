@@ -754,6 +754,17 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                 )}
               </div>
             )}
+
+            {/* ACORDOS */}
+            {key === 'acordos' && expandedSection === 'acordos' && (
+              <div className="ml-4 mt-2">
+                <AcordoLinkPicker
+                  planejadorTaskId={task.id}
+                  onSelectAcordo={setSelectedAcordoChat}
+                  selectedAcordoId={selectedAcordoChat}
+                />
+              </div>
+            )}
           </div>
         ))}
       </div>
