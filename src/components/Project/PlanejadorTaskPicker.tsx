@@ -6,6 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, Unlink, ListChecks, Calendar } from "lucide-react";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   usePlanejadorTasksOfAcordo,
   useLinkAcordoMutations,
 } from "@/hooks/usePlanejadorTaskAcordos";
@@ -114,15 +125,35 @@ export function PlanejadorTaskPicker({ acordoTaskId }: PlanejadorTaskPickerProps
                 </p>
               )}
             </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-              onClick={() => unlink.mutate({ linkId: item.link_id, planejadorTaskId: item.planejador_task_id, acordoTaskId })}
-              title="Desvincular (mantém histórico)"
-            >
-              <Unlink className="h-3.5 w-3.5" />
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                  title="Desvincular (mantém histórico)"
+                >
+                  <Unlink className="h-3.5 w-3.5" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Desvincular tarefa?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta dívida deixará de aparecer na tarefa <strong>"{item.titulo}"</strong> do Planejador.
+                    O histórico do vínculo é preservado e a tarefa do Planejador continua existindo.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => unlink.mutate({ linkId: item.link_id, planejadorTaskId: item.planejador_task_id, acordoTaskId })}
+                  >
+                    Desvincular
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         ))}
       </div>
