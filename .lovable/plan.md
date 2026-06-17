@@ -1,74 +1,59 @@
 ## Causa raiz
 
-**1) Página de reset não abre**
-O link do e-mail de recuperação do Supabase chega no formato novo (`?token_hash=...&type=recovery`) e não cai mais num hash com `access_token`. O `SpnResetPassword.tsx` só escuta `onAuthStateChange` esperando uma sessão aparecer sozinha — mas com `token_hash` é preciso chamar `supabase.auth.verifyOtp({ type: 'recovery', token_hash })` explicitamente. Sem isso, a página carrega, nunca fica "ready" e, se o link foi clicado em outro lugar, cai em `/not-found` (que é o que o cliente está mostrando agora).
+A página `/spn/reset-password` continua exibindo "Link inválido ou expirado" porque o fluxo atual depende do **link de recuperação enviado pelo Supabase Auth**. Esse link só funciona se:
 
-**2) Confirmação de e-mail no cadastro**
-O `signUp` está sujeito à configuração "Confirm email" do Supabase Auth, que está ligada no projeto. Por isso novas contas SPN ficam pendentes até confirmar e-mail. Isso é controlado no painel do Supabase, não no código do app — então a correção é desligar essa opção (e ajustar o `signUp` para não esperar confirmação).
+1. A URL `https://<dominio>/spn/reset-password` estiver na allow-list de Redirect URLs no painel do Supabase (não está — por isso o link cai em `/not-found` ou volta para a Site URL).
+2. O formato do token enviado pelo Supabase (`#access_token=` ou `?token_hash=`) bater exatamente com o que o front espera.
 
----
+Mesmo corrigindo o código, qualquer mudança de domínio/preview quebra de novo. O projeto já tem um fluxo robusto baseado em **código numérico por e-mail** (`send-password-reset` + `verify-password-reset` + tabela `password_reset_codes`) usado pelos tenants principais. Vou replicar esse padrão isolado para o SPN, sem nenhuma dependência de link mágico.
 
 ## Correção
 
-### A. SpnResetPassword.tsx — tratar `token_hash`
-- No `useEffect`, ler `searchParams`:
-  - Se houver `token_hash` + `type=recovery` (ou `type` qualquer de recovery), chamar `supabase.auth.verifyOtp({ type: 'recovery', token_hash })`. Em sucesso, `setReady(true)` e limpar a query da URL.
-  - Manter o fallback que escuta `onAuthStateChange` para sessão existente (links antigos com hash).
-  - Se nenhum dos dois rolar em ~3s, mostrar mensagem clara ("Link inválido ou expirado — solicite novamente").
-- Sem mudanças visuais.
+**1. Novas Edge Functions (isoladas para SPN, usando `spn_profiles`):**
 
-### B. Garantir que `/spn/reset-password` é pública
-- A rota já existe em `App.tsx` (linha 758) fora de qualquer guard — confirmar que está antes de qualquer catch-all `*` e que não exige `SpnAuthProvider` (não exige, ok).
+- `spn-send-password-reset`
+  - Input: `{ email }`
+  - Busca o `user_id` em `spn_profiles` (via e-mail em `auth.users`).
+  - Gera código de 6 dígitos, salva em `password_reset_codes` com `tenant_slug = 'spn'` e `expires_at = now() + 15min`.
+  - Rate limit: máx. 3 códigos/hora por e-mail.
+  - Envia e-mail via Resend (mesmo padrão do `send-password-reset`).
+  - Sempre retorna `success: true` (não vaza se o e-mail existe).
 
-### C. SpnAuthContext.signUp — sem confirmação de e-mail
-- Remover `emailRedirectTo` (não usaremos mais e-mail de confirmação).
-- Após `supabase.auth.signUp`, se vier `session` no retorno, o usuário já está logado e cai direto no dashboard. Se ainda vier `null` (porque a flag do Supabase ainda está ligada), fazer um `signInWithPassword` imediato como fallback, para o usuário entrar sem precisar confirmar.
+- `spn-verify-password-reset`
+  - Input: `{ email, code, new_password }`
+  - Valida código não-usado e não-expirado para `tenant_slug = 'spn'`.
+  - Atualiza senha via `supabase.auth.admin.updateUserById`.
+  - Marca código como `used_at`.
 
-### D. Desligar "Confirm email" no painel Supabase
-- O usuário precisa abrir Authentication → Providers → Email e desmarcar **"Confirm email"**. Sem isso, qualquer signUp continua exigindo confirmação. Vou deixar o link pronto no final do plano.
+**2. `src/pages/SpnAuth.tsx`** — `handleForgot` passa a chamar `supabase.functions.invoke('spn-send-password-reset', { body: { email } })` em vez de `resetPasswordForEmail`. Após sucesso, mostra mensagem "Código enviado para seu e-mail" e um botão "Já tenho o código" que leva para `/spn/reset-password`.
 
----
+**3. `src/pages/SpnResetPassword.tsx`** — Reescrita para **não depender de URL params**. Formulário com 4 campos:
+- E-mail
+- Código (6 dígitos)
+- Nova senha
+- Confirmar nova senha
+
+Submit chama `spn-verify-password-reset`. Em sucesso: toast "Senha atualizada" → `navigate('/spn/auth')`. Sem `verifyOtp`, sem `onAuthStateChange`, sem timeout de "link inválido".
+
+**4. Reutilizar tabela existente** `password_reset_codes` (já tem RLS, índices e expiração). Sem nova migration.
 
 ## Arquivos afetados
 
-- `src/pages/SpnResetPassword.tsx` — tratar `token_hash` via `verifyOtp`, melhorar estados de loading/erro.
-- `src/contexts/SpnAuthContext.tsx` — remover `emailRedirectTo` do signUp e fazer auto‑login pós‑cadastro.
-
-(Nenhuma mudança em migration, RLS ou outros arquivos.)
-
----
+- **Criados:** `supabase/functions/spn-send-password-reset/index.ts`, `supabase/functions/spn-verify-password-reset/index.ts`
+- **Editados:** `src/pages/SpnAuth.tsx`, `src/pages/SpnResetPassword.tsx`
+- **Sem mudanças:** migrations, RLS, `SpnAuthContext.tsx`, `App.tsx` (a rota `/spn/reset-password` continua a mesma).
 
 ## Impacto
 
-**Usuário final (UX, telas, fluxos)**
-- Quem clica no link de "Esqueci minha senha" passa a abrir `/spn/reset-password` corretamente, define a nova senha e é redirecionado para `/spn/auth`.
-- Novos cadastros SPN entram direto no app sem precisar abrir e-mail — fluxo mais rápido, sem tela de "verifique seu e-mail".
-- Cadastros antigos pendentes de confirmação continuam pendentes até a flag ser desligada no painel.
-
-**Dados (migrations, RLS, performance)**
-- Nenhuma mudança de schema, RLS ou índice. Sem migration.
-- `spn_profiles` e `spn_user_roles` continuam sendo populados no signUp como hoje.
-
-**Riscos colaterais**
-- Desligar "Confirm email" reduz a barreira contra cadastro com e-mail falso — aceitável para SPN porque o produto é fechado/educacional e o admin controla roles.
-- A flag "Confirm email" é global do projeto Supabase: vale para **todos os outros apps** que usam o mesmo Supabase (Vouti, CRM, Metal, Batink, VoTech, Link, etc.). Se algum deles depende de confirmação de e-mail, isso quebra esse comportamento. Recomendação: verificar antes de desligar; se for problema, manter ligado e só implementar o auto‑login pós‑signUp como mitigação (cadastro continua criando usuário não-confirmado, mas o auto‑login falha — nesse caso o ideal é criar uma edge function `spn-signup` com `service_role` + `email_confirm: true` apenas para o SPN).
-
-**Quem é afetado**
-- Apenas usuários SPN no fluxo de cadastro e de redefinição de senha.
-- Indiretamente, todos os outros produtos do Supabase compartilhado, caso a flag global seja desligada.
-
----
+1. **UX (usuário final):** Em "Esqueci minha senha" o usuário recebe um **código de 6 dígitos** no e-mail (em vez de um link). Vai para `/spn/reset-password`, digita e-mail + código + nova senha, e está pronto. Funciona em qualquer domínio (vouti.co, preview, sandbox) sem configuração externa.
+2. **Dados:** Nenhuma migration. Reusa `password_reset_codes` com `tenant_slug='spn'` para isolar dos demais tenants. Sem alteração em RLS.
+3. **Riscos colaterais:** Nenhum impacto nos tenants existentes (funções isoladas). Requer que `RESEND_API_KEY` já esteja configurado (já está, pois `send-password-reset` o usa).
+4. **Quem é afetado:** Apenas usuários do SPN. Outros produtos (CRM, Solvenza, VoTech, etc.) não mudam.
 
 ## Validação
 
-1. Abrir `/spn/auth`, clicar em "Esqueci minha senha", informar e‑mail real e enviar.
-2. Abrir o link recebido — deve cair em `/spn/reset-password` com o formulário visível.
-3. Definir nova senha → toast de sucesso → redirecionar para `/spn/auth` → logar com a nova senha.
-4. Em `/spn/auth` aba "Create Account", cadastrar nova conta — deve entrar direto no dashboard sem pedir confirmação de e-mail (após desligar a flag no painel).
-5. Se o passo 4 ainda pedir confirmação, é sinal de que a flag do Supabase ainda está ligada — abrir o painel e desmarcar.
-
----
-
-<presentation-actions>
-<presentation-link href="https://supabase.com/dashboard/project/ietjmyrelhijxyozcequ/auth/providers">Abrir configuração do Auth (desmarcar "Confirm email")</presentation-link>
-</presentation-actions>
+1. `/spn/auth` → "Esqueci minha senha" → digitar e-mail cadastrado → ver toast "Código enviado".
+2. Conferir caixa de entrada → copiar código de 6 dígitos.
+3. `/spn/reset-password` → preencher e-mail + código + nova senha → ver toast "Senha atualizada" → redirect para `/spn/auth`.
+4. Logar com a nova senha.
+5. Tentar usar o mesmo código duas vezes → deve falhar com "Código inválido ou expirado".
