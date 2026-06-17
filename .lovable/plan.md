@@ -1,59 +1,41 @@
 ## Causa raiz
 
-A página `/spn/reset-password` continua exibindo "Link inválido ou expirado" porque o fluxo atual depende do **link de recuperação enviado pelo Supabase Auth**. Esse link só funciona se:
-
-1. A URL `https://<dominio>/spn/reset-password` estiver na allow-list de Redirect URLs no painel do Supabase (não está — por isso o link cai em `/not-found` ou volta para a Site URL).
-2. O formato do token enviado pelo Supabase (`#access_token=` ou `?token_hash=`) bater exatamente com o que o front espera.
-
-Mesmo corrigindo o código, qualquer mudança de domínio/preview quebra de novo. O projeto já tem um fluxo robusto baseado em **código numérico por e-mail** (`send-password-reset` + `verify-password-reset` + tabela `password_reset_codes`) usado pelos tenants principais. Vou replicar esse padrão isolado para o SPN, sem nenhuma dependência de link mágico.
+O componente `ApartadoCard` (checkbox "Marcar como apartado") já existe e é renderizado em `src/components/Controladoria/ProcessoOABDetalhes.tsx` (linhas 1154-1156), mas está condicionado a `useCanUseApartados()`, que chama a RPC `public.can_use_apartados(_user_id)`. A função SQL atual retorna `true` apenas para o UUID `8eda80fa-0319-4791-923e-551052282e62` (Daniel). Para todos os outros usuários o card não aparece — por isso você não encontra a opção no drawer do processo.
 
 ## Correção
 
-**1. Novas Edge Functions (isoladas para SPN, usando `spn_profiles`):**
+Preciso saber **para quem** liberar antes de gerar a migration. Possíveis escopos:
 
-- `spn-send-password-reset`
-  - Input: `{ email }`
-  - Busca o `user_id` em `spn_profiles` (via e-mail em `auth.users`).
-  - Gera código de 6 dígitos, salva em `password_reset_codes` com `tenant_slug = 'spn'` e `expires_at = now() + 15min`.
-  - Rate limit: máx. 3 códigos/hora por e-mail.
-  - Envia e-mail via Resend (mesmo padrão do `send-password-reset`).
-  - Sempre retorna `success: true` (não vaza se o e-mail existe).
+1. Liberar para **todos os admins** (via `has_role(_user_id, 'admin')`) de todos os tenants.
+2. Liberar para admins **+ controller/financeiro** (perfis de controladoria).
+3. Liberar para **todos os usuários autenticados** (sem gate — qualquer pessoa com acesso ao processo pode marcar).
+4. Liberar apenas para uma **lista específica de e-mails/UUIDs** que você me passar.
 
-- `spn-verify-password-reset`
-  - Input: `{ email, code, new_password }`
-  - Valida código não-usado e não-expirado para `tenant_slug = 'spn'`.
-  - Atualiza senha via `supabase.auth.admin.updateUserById`.
-  - Marca código como `used_at`.
-
-**2. `src/pages/SpnAuth.tsx`** — `handleForgot` passa a chamar `supabase.functions.invoke('spn-send-password-reset', { body: { email } })` em vez de `resetPasswordForEmail`. Após sucesso, mostra mensagem "Código enviado para seu e-mail" e um botão "Já tenho o código" que leva para `/spn/reset-password`.
-
-**3. `src/pages/SpnResetPassword.tsx`** — Reescrita para **não depender de URL params**. Formulário com 4 campos:
-- E-mail
-- Código (6 dígitos)
-- Nova senha
-- Confirmar nova senha
-
-Submit chama `spn-verify-password-reset`. Em sucesso: toast "Senha atualizada" → `navigate('/spn/auth')`. Sem `verifyOtp`, sem `onAuthStateChange`, sem timeout de "link inválido".
-
-**4. Reutilizar tabela existente** `password_reset_codes` (já tem RLS, índices e expiração). Sem nova migration.
+A correção em si é uma migration única substituindo o corpo da função `can_use_apartados`, sem mudar frontend, RLS de `processos_oab`, nem o card.
 
 ## Arquivos afetados
 
-- **Criados:** `supabase/functions/spn-send-password-reset/index.ts`, `supabase/functions/spn-verify-password-reset/index.ts`
-- **Editados:** `src/pages/SpnAuth.tsx`, `src/pages/SpnResetPassword.tsx`
-- **Sem mudanças:** migrations, RLS, `SpnAuthContext.tsx`, `App.tsx` (a rota `/spn/reset-password` continua a mesma).
+- Nova migration em `supabase/migrations/` — reescreve `public.can_use_apartados(uuid)` conforme o escopo escolhido.
+- Nenhuma alteração em código TS/React.
+
+## Onde a opção aparece (após liberação)
+
+No drawer de detalhes do processo da Controladoria (mesma tela do seu print), logo abaixo do card "Monitoramento Diário / Credencial Judit", como uma linha pequena com checkbox + texto "Marcar como apartado". Quando marcado, o processo passa a aparecer no filtro **"Apartados"** da Central de Andamentos Não Lidos e da aba Geral.
 
 ## Impacto
 
-1. **UX (usuário final):** Em "Esqueci minha senha" o usuário recebe um **código de 6 dígitos** no e-mail (em vez de um link). Vai para `/spn/reset-password`, digita e-mail + código + nova senha, e está pronto. Funciona em qualquer domínio (vouti.co, preview, sandbox) sem configuração externa.
-2. **Dados:** Nenhuma migration. Reusa `password_reset_codes` com `tenant_slug='spn'` para isolar dos demais tenants. Sem alteração em RLS.
-3. **Riscos colaterais:** Nenhum impacto nos tenants existentes (funções isoladas). Requer que `RESEND_API_KEY` já esteja configurado (já está, pois `send-password-reset` o usa).
-4. **Quem é afetado:** Apenas usuários do SPN. Outros produtos (CRM, Solvenza, VoTech, etc.) não mudam.
+1. **Usuário final (UX):** os usuários incluídos no novo escopo passarão a ver o checkbox no drawer do processo e o filtro "Apartados" nas listas onde ele já está implementado. Quem ficar de fora continua sem ver nada (comportamento atual).
+2. **Dados:** apenas a função `can_use_apartados` muda. As colunas `apartado`, `apartado_em`, `apartado_por` em `processos_oab` e o índice parcial já existem desde a migration de 10/06/2026. Sem impacto em performance, sem backfill.
+3. **Riscos colaterais:** se eu escolher "todos autenticados", qualquer usuário com acesso ao processo (via RLS atual de `processos_oab`) poderá marcar/desmarcar — incluindo perfis como advogado/estagiário. A marcação é registrada com `apartado_por` + `apartado_em`, então é auditável, mas não há policy específica restringindo *quem* pode escrever no campo (a RLS de `processos_oab` é por tenant). Se quiser restringir escrita, preciso adicionar policy `WITH CHECK` separada.
+4. **Quem é afetado:** depende da opção escolhida. Em qualquer caso é multi-tenant — a liberação atinge usuários do papel escolhido em todos os tenants.
 
 ## Validação
 
-1. `/spn/auth` → "Esqueci minha senha" → digitar e-mail cadastrado → ver toast "Código enviado".
-2. Conferir caixa de entrada → copiar código de 6 dígitos.
-3. `/spn/reset-password` → preencher e-mail + código + nova senha → ver toast "Senha atualizada" → redirect para `/spn/auth`.
-4. Logar com a nova senha.
-5. Tentar usar o mesmo código duas vezes → deve falhar com "Código inválido ou expirado".
+1. Após aplicar a migration, recarregar o drawer de um processo OAB → o checkbox "Marcar como apartado" deve aparecer entre o card de monitoramento e as abas.
+2. Marcar o checkbox → toast "Processo marcado como apartado" e legenda "desde DD/MM/YYYY por <Nome>".
+3. Ir na Central de Andamentos Não Lidos / aba Geral → filtro "Apartados" deve listar o processo marcado.
+4. Logar com um usuário **fora** do escopo escolhido → o card não deve aparecer (gate continua funcionando).
+
+---
+
+**Me confirme qual escopo (1, 2, 3 ou 4) eu devo aplicar** que eu gero a migration na sequência.
