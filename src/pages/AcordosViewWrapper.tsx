@@ -62,6 +62,8 @@ const AcordosViewWrapper = () => {
           type: 'acordo' as const,
           acordoDetails: (task.acordo_details && typeof task.acordo_details === 'object') ? task.acordo_details as any : {},
           cardColor: (task.card_color || 'default') as Task['cardColor'],
+          arquivamentoStatus: ((task as any).arquivamento_status as Task['arquivamentoStatus']) || 'ativa',
+          arquivamentoAt: (task as any).arquivamento_at ? new Date((task as any).arquivamento_at) : null,
           createdAt: new Date(task.created_at),
           updatedAt: new Date(task.updated_at)
         }));

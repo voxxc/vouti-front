@@ -29,6 +29,7 @@ import TaskFilePanel from "./TaskFilePanel";
 import CardColorPicker from "./CardColorPicker";
 import { TaskTarefasTab } from "./TaskTarefasTab";
 import { TaskComentarios } from "./TaskComentarios";
+import { PlanejadorTaskPicker } from "./PlanejadorTaskPicker";
 import { notifyCommentAdded } from "@/utils/notificationHelpers";
 import { supabase } from "@/integrations/supabase/client";
 import { useTaskTarefas } from "@/hooks/useTaskTarefas";
@@ -892,6 +893,13 @@ const TaskModal = ({ task, isOpen, onClose, onUpdateTask, onRefreshTask, current
                         )}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Mostrar no Planejador (apenas para acordos) */}
+                {task.type === 'acordo' && (
+                  <div className="rounded-lg border border-border p-3 bg-muted/10">
+                    <PlanejadorTaskPicker acordoTaskId={task.id} />
                   </div>
                 )}
 
