@@ -7,6 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Unlink, Handshake, ExternalLink, CheckCircle, Archive, Trash2 } from "lucide-react";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   useAcordosOfPlanejadorTask,
   useLinkAcordoMutations,
 } from "@/hooks/usePlanejadorTaskAcordos";
@@ -155,15 +166,35 @@ export function AcordoLinkPicker({ planejadorTaskId, onSelectAcordo, selectedAco
                   <ExternalLink className="h-3.5 w-3.5" />
                 </Button>
               )}
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                onClick={() => unlink.mutate({ linkId: item.link_id, planejadorTaskId, acordoTaskId: item.acordo_task_id })}
-                title="Desvincular (mantém histórico)"
-              >
-                <Unlink className="h-3.5 w-3.5" />
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                    title="Desvincular (mantém histórico)"
+                  >
+                    <Unlink className="h-3.5 w-3.5" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Desvincular acordo?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      O vínculo entre esta tarefa do Planejador e o acordo <strong>"{item.title}"</strong> será removido.
+                      O histórico do vínculo e as mensagens do chat são preservadas — o acordo continua existindo no projeto.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => unlink.mutate({ linkId: item.link_id, planejadorTaskId, acordoTaskId: item.acordo_task_id })}
+                    >
+                      Desvincular
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           );
         })}
