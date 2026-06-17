@@ -2,7 +2,9 @@ import { useState } from "react";
 import { DragDropContext, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Search, Plus, Users } from "lucide-react";
+import { ArrowLeft, Search, Plus, Users, MoreVertical, CheckCircle, Trash2, Archive, RotateCcw } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import KanbanColumn from "@/components/Project/KanbanColumn";
 import TaskCard from "@/components/Project/TaskCard";
@@ -14,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTenantId } from "@/hooks/useTenantId";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLinkAcordoMutations } from "@/hooks/usePlanejadorTaskAcordos";
 
 interface AcordosViewProps {
   onLogout: () => void;
@@ -31,9 +34,11 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject, embedded = fa
   const [selectedColumnName, setSelectedColumnName] = useState<string>("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
+  const [lifecycleTab, setLifecycleTab] = useState<'ativa' | 'resolvida' | 'deletada'>('ativa');
   const { tenantId } = useTenantId();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { setArquivamentoStatus } = useLinkAcordoMutations();
 
   // Criar currentUser baseado no usuário autenticado
   const currentUser = user ? {
@@ -49,6 +54,8 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject, embedded = fa
   const acordoTasks = project.acordoTasks || [];
   
   const filteredTasks = acordoTasks.filter(task => {
+    const status = task.arquivamentoStatus || 'ativa';
+    if (status !== lifecycleTab) return false;
     const searchLower = searchTerm.toLowerCase();
     return (
       task.title.toLowerCase().includes(searchLower) ||
@@ -58,6 +65,64 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject, embedded = fa
       )
     );
   });
+
+  const counts = {
+    ativa: acordoTasks.filter(t => (t.arquivamentoStatus || 'ativa') === 'ativa').length,
+    resolvida: acordoTasks.filter(t => t.arquivamentoStatus === 'resolvida').length,
+    deletada: acordoTasks.filter(t => t.arquivamentoStatus === 'deletada').length,
+  };
+
+  const handleSetStatus = (task: Task, status: 'ativa' | 'resolvida' | 'deletada') => {
+    setArquivamentoStatus.mutate(
+      { acordoTaskId: task.id, status },
+      {
+        onSuccess: () => {
+          const updatedAcordoTasks = acordoTasks.map(t =>
+            t.id === task.id ? { ...t, arquivamentoStatus: status, arquivamentoAt: new Date() } : t
+          );
+          onUpdateProject({ ...project, acordoTasks: updatedAcordoTasks, updatedAt: new Date() });
+        },
+      }
+    );
+  };
+
+  const renderCardActions = (task: Task) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-2 right-2 h-7 w-7 z-10 bg-background/80 hover:bg-background"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MoreVertical className="h-3.5 w-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+        {lifecycleTab !== 'ativa' && (
+          <DropdownMenuItem onClick={() => handleSetStatus(task, 'ativa')}>
+            <RotateCcw className="h-3.5 w-3.5 mr-2" /> Restaurar para Ativos
+          </DropdownMenuItem>
+        )}
+        {lifecycleTab !== 'resolvida' && (
+          <DropdownMenuItem onClick={() => handleSetStatus(task, 'resolvida')}>
+            <CheckCircle className="h-3.5 w-3.5 mr-2 text-emerald-500" /> Marcar como Resolvido
+          </DropdownMenuItem>
+        )}
+        {lifecycleTab !== 'deletada' && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => handleSetStatus(task, 'deletada')}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-2" /> Mover para Deletados
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -421,6 +486,24 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject, embedded = fa
           </Button>
         </div>
 
+        {/* Lifecycle Tabs */}
+        <Tabs value={lifecycleTab} onValueChange={(v) => setLifecycleTab(v as any)}>
+          <TabsList>
+            <TabsTrigger value="ativa" className="gap-1.5">
+              <Archive className="h-3.5 w-3.5" /> Ativos
+              <span className="text-xs text-muted-foreground ml-1">({counts.ativa})</span>
+            </TabsTrigger>
+            <TabsTrigger value="resolvida" className="gap-1.5">
+              <CheckCircle className="h-3.5 w-3.5" /> Resolvidos
+              <span className="text-xs text-muted-foreground ml-1">({counts.resolvida})</span>
+            </TabsTrigger>
+            <TabsTrigger value="deletada" className="gap-1.5">
+              <Trash2 className="h-3.5 w-3.5" /> Deletados
+              <span className="text-xs text-muted-foreground ml-1">({counts.deletada})</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {/* Two Columns for Acordos */}
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -440,8 +523,9 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject, embedded = fa
                       ref={provided.innerRef}
                       {...provided.draggableProps}
                       {...provided.dragHandleProps}
-                      className={snapshot.isDragging ? 'opacity-50' : ''}
+                      className={`relative ${snapshot.isDragging ? 'opacity-50' : ''}`}
                     >
+                      {renderCardActions(task)}
                       <TaskCard 
                         task={task} 
                         onClick={(t) => handleTaskClick(t, 'Processos/Dívidas')}
@@ -470,8 +554,9 @@ const AcordosView = ({ onLogout, onBack, project, onUpdateProject, embedded = fa
                       ref={provided.innerRef}
                       {...provided.draggableProps}
                       {...provided.dragHandleProps}
-                      className={snapshot.isDragging ? 'opacity-50' : ''}
+                      className={`relative ${snapshot.isDragging ? 'opacity-50' : ''}`}
                     >
+                      {renderCardActions(task)}
                       <TaskCard 
                         task={task} 
                         onClick={(t) => handleTaskClick(t, 'Acordos Feitos')}
