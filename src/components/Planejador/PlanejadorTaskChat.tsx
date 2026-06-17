@@ -14,6 +14,7 @@ import { toast } from "sonner";
 
 interface PlanejadorTaskChatProps {
   taskId: string;
+  acordoTaskId?: string | null;
 }
 
 interface ChatMessage {
@@ -35,7 +36,7 @@ interface TenantProfile {
   full_name: string;
 }
 
-export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
+export function PlanejadorTaskChat({ taskId, acordoTaskId = null }: PlanejadorTaskChatProps) {
   const [message, setMessage] = useState("");
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -75,13 +76,19 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
 
   // Fetch messages
   const { data: messages = [] } = useQuery({
-    queryKey: ['planejador-messages', taskId],
+    queryKey: ['planejador-messages', taskId, acordoTaskId ?? '__general__'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('planejador_task_messages')
         .select('*')
         .eq('task_id', taskId)
         .order('created_at', { ascending: true });
+      if (acordoTaskId) {
+        query = query.eq('acordo_task_id', acordoTaskId);
+      } else {
+        query = query.is('acordo_task_id', null);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data as ChatMessage[];
     },
@@ -193,6 +200,7 @@ export function PlanejadorTaskChat({ taskId }: PlanejadorTaskChatProps) {
         file_name: params.fileName || null,
         reply_to_id: replyingTo?.id || null,
         tenant_id: tenantId,
+        acordo_task_id: acordoTaskId || null,
       });
       if (error) throw error;
 

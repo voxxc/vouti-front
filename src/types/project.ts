@@ -79,6 +79,8 @@ export interface Task {
   type?: 'regular' | 'acordo';
   acordoDetails?: AcordoDetails;
   cardColor?: 'default' | 'blue' | 'green' | 'yellow' | 'purple' | 'pink' | 'orange' | 'red';
+  arquivamentoStatus?: 'ativa' | 'resolvida' | 'deletada';
+  arquivamentoAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
