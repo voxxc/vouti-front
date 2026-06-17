@@ -151,8 +151,17 @@ export function PlanejadorTopBar({
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Pesquisar..."
-              className={`pl-8 h-9 w-full ${glassBg} ${borderColor} ${text} placeholder:${textCounter}`}
+              className={`pl-8 pr-8 h-9 w-full ${glassBg} ${borderColor} ${text} placeholder:${textCounter}`}
             />
+            {searchQuery && (
+              <button
+                onClick={() => onSearchChange("")}
+                className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 rounded-full ${glassBgHover} ${textCounter}`}
+                title="Limpar pesquisa"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </div>
         </div>
 
