@@ -43,20 +43,21 @@ const SpnAuth = () => {
     e.preventDefault();
     if (!forgotEmail) return;
     setForgotLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-      redirectTo: `${window.location.origin}/spn/reset-password`,
+    const { data, error } = await supabase.functions.invoke('spn-send-password-reset', {
+      body: { email: forgotEmail },
     });
     setForgotLoading(false);
-    if (error) {
-      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    if (error || (data as any)?.error) {
+      toast({ title: 'Erro', description: (data as any)?.error || error?.message || 'Falha ao enviar código', variant: 'destructive' });
       return;
     }
     toast({
-      title: 'E-mail enviado!',
-      description: 'Verifique sua caixa de entrada para redefinir a senha.',
+      title: 'Código enviado!',
+      description: 'Verifique seu e-mail e use o código na próxima tela.',
     });
     setShowForgot(false);
     setForgotEmail('');
+    window.location.href = '/spn/reset-password';
   };
 
   return (
@@ -133,7 +134,7 @@ const SpnAuth = () => {
                   {showForgot && (
                     <div className="space-y-2 rounded-lg lg:bg-muted/50 bg-white/10 p-3">
                       <Label htmlFor="forgotEmail" className="lg:text-foreground text-white text-sm">
-                        Informe seu e-mail para receber o link de redefinição
+                        Informe seu e-mail para receber o código de redefinição
                       </Label>
                       <Input
                         id="forgotEmail" type="email" value={forgotEmail}
@@ -146,8 +147,14 @@ const SpnAuth = () => {
                         disabled={forgotLoading || !forgotEmail}
                         className="w-full bg-emerald-600 hover:bg-emerald-700"
                       >
-                        {forgotLoading ? 'Enviando...' : 'Enviar link de redefinição'}
+                        {forgotLoading ? 'Enviando...' : 'Enviar código por e-mail'}
                       </Button>
+                      <a
+                        href="/spn/reset-password"
+                        className="block text-center text-xs lg:text-emerald-700 text-white/80 hover:underline"
+                      >
+                        Já tenho um código
+                      </a>
                     </div>
                   )}
                 </form>
