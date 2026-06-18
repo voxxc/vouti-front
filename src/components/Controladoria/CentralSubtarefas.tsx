@@ -14,6 +14,7 @@ import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
+import { ConcluirSubtaskModal } from "@/components/Planejador/ConcluirSubtaskModal";
 
 const SNAPSHOT_KEY = 'controladoria_subtarefas_v1';
 const SNAPSHOT_TTL_MS = 5 * 60 * 1000;
@@ -46,6 +47,7 @@ interface Subtarefa {
   descricao: string;
   concluida: boolean;
   concluida_em: string | null;
+  comentario_conclusao?: string | null;
   created_at: string | null;
   atribuido_a_profile: {
     user_id: string;
