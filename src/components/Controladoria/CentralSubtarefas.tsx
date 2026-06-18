@@ -14,6 +14,7 @@ import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantId } from "@/hooks/useTenantId";
 import { useTenantNavigation } from "@/hooks/useTenantNavigation";
+import { ConcluirSubtaskModal } from "@/components/Planejador/ConcluirSubtaskModal";
 
 const SNAPSHOT_KEY = 'controladoria_subtarefas_v1';
 const SNAPSHOT_TTL_MS = 5 * 60 * 1000;
@@ -46,6 +47,7 @@ interface Subtarefa {
   descricao: string;
   concluida: boolean;
   concluida_em: string | null;
+  comentario_conclusao?: string | null;
   created_at: string | null;
   atribuido_a_profile: {
     user_id: string;
@@ -123,6 +125,7 @@ export const CentralSubtarefas = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPrazo, setSelectedPrazo] = useState<PrazoConcluido | null>(null);
   const hydratedKeyRef = useRef<string | null>(null);
+  const [concluirSubtarefa, setConcluirSubtarefa] = useState<Subtarefa | null>(null);
 
   useEffect(() => {
     if (tenantId) {
@@ -211,14 +214,34 @@ export const CentralSubtarefas = () => {
   };
 
   const handleToggleSubtarefa = async (subtarefa: Subtarefa) => {
-    const newConcluida = !subtarefa.concluida;
+    if (!subtarefa.concluida) {
+      // Marcar como concluída exige comentário — abre modal
+      setConcluirSubtarefa(subtarefa);
+      return;
+    }
+    // Reabrir subtarefa: limpa comentário e data
     await supabase
       .from('deadline_subtarefas')
       .update({
-        concluida: newConcluida,
-        concluida_em: newConcluida ? new Date().toISOString() : null,
+        concluida: false,
+        concluida_em: null,
+        comentario_conclusao: null,
       })
       .eq('id', subtarefa.id);
+    await fetchPrazos();
+  };
+
+  const handleConfirmConcluirSubtarefa = async (comentario: string) => {
+    if (!concluirSubtarefa) return;
+    await supabase
+      .from('deadline_subtarefas')
+      .update({
+        concluida: true,
+        concluida_em: new Date().toISOString(),
+        comentario_conclusao: comentario,
+      })
+      .eq('id', concluirSubtarefa.id);
+    setConcluirSubtarefa(null);
     await fetchPrazos();
   };
 
@@ -580,6 +603,11 @@ export const CentralSubtarefas = () => {
                                 Concluída em {formatDateTime(sub.concluida_em)}
                               </span>
                             )}
+                            {sub.concluida && sub.comentario_conclusao && (
+                              <p className="text-xs italic text-muted-foreground mt-1" title={sub.concluida_em ? formatDateTime(sub.concluida_em) : undefined}>
+                                ✓ {sub.comentario_conclusao}
+                              </p>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -602,6 +630,12 @@ export const CentralSubtarefas = () => {
           )}
         </DialogContent>
       </Dialog>
+      <ConcluirSubtaskModal
+        open={!!concluirSubtarefa}
+        onOpenChange={(o) => { if (!o) setConcluirSubtarefa(null); }}
+        subtaskTitulo={concluirSubtarefa?.descricao || ''}
+        onConfirm={handleConfirmConcluirSubtarefa}
+      />
     </div>
   );
 };
