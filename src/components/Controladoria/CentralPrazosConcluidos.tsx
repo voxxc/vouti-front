@@ -117,6 +117,7 @@ export const CentralPrazosConcluidos = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPrazo, setSelectedPrazo] = useState<PrazoConcluido | null>(null);
   const hydratedKeyRef = useRef<string | null>(null);
+  const [concluirSubtarefa, setConcluirSubtarefa] = useState<Subtarefa | null>(null);
 
   useEffect(() => {
     if (tenantId) {
@@ -205,14 +206,32 @@ export const CentralPrazosConcluidos = () => {
   };
 
   const handleToggleSubtarefa = async (subtarefa: Subtarefa) => {
-    const newConcluida = !subtarefa.concluida;
+    if (!subtarefa.concluida) {
+      setConcluirSubtarefa(subtarefa);
+      return;
+    }
     await supabase
       .from('deadline_subtarefas')
       .update({
-        concluida: newConcluida,
-        concluida_em: newConcluida ? new Date().toISOString() : null,
+        concluida: false,
+        concluida_em: null,
+        comentario_conclusao: null,
       })
       .eq('id', subtarefa.id);
+    await fetchPrazos();
+  };
+
+  const handleConfirmConcluirSubtarefa = async (comentario: string) => {
+    if (!concluirSubtarefa) return;
+    await supabase
+      .from('deadline_subtarefas')
+      .update({
+        concluida: true,
+        concluida_em: new Date().toISOString(),
+        comentario_conclusao: comentario,
+      })
+      .eq('id', concluirSubtarefa.id);
+    setConcluirSubtarefa(null);
     await fetchPrazos();
   };
 
