@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
-  Eye, Bell, Loader2, FileText, Search, X, Filter, ChevronLeft, ChevronRight, Trash2, Scale, Link2, Users, FolderInput
+  Eye, Bell, Loader2, FileText, Search, X, Filter, ChevronLeft, ChevronRight, Trash2, Scale, Link2, Users, FolderInput, ShieldAlert
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -99,6 +99,7 @@ export const GeralTab = () => {
 
   const naoLidosCount = useMemo(() => processos.filter(p => (p.andamentos_nao_lidos || 0) > 0).length, [processos]);
   const monitoradosCount = useMemo(() => processos.filter(p => p.monitoramento_ativo).length, [processos]);
+  const sigilososCount = useMemo(() => processos.filter(p => (p.capa_completa?.secrecy_level ?? 0) >= 1).length, [processos]);
 
   const ufsDisponiveis = useMemo(() => {
     const ufMap = new Map<string, number>();
@@ -129,6 +130,8 @@ export const GeralTab = () => {
         });
     } else if (filtroUF === 'monitorados') {
       resultado = resultado.filter(p => p.monitoramento_ativo);
+    } else if (filtroUF === 'sigilosos') {
+      resultado = resultado.filter(p => (p.capa_completa?.secrecy_level ?? 0) >= 1);
     } else if (filtroUF.startsWith('oab:')) {
       const oabKey = filtroUF.replace('oab:', '');
       resultado = resultado.filter(p => `${p.oab_numero}/${p.oab_uf}` === oabKey);
@@ -301,6 +304,14 @@ export const GeralTab = () => {
                   <span className="flex items-center gap-2">
                     <Bell className="w-3 h-3 text-green-500" />
                     Monitorados ({monitoradosCount})
+                  </span>
+                </SelectItem>
+              )}
+              {sigilososCount > 0 && (
+                <SelectItem value="sigilosos">
+                  <span className="flex items-center gap-2">
+                    <ShieldAlert className="w-3 h-3 text-amber-500" />
+                    Sigilosos ({sigilososCount})
                   </span>
                 </SelectItem>
               )}
