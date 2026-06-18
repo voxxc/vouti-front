@@ -39,6 +39,7 @@ import { Cliente } from "@/types/cliente";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AcordoLinkPicker } from "./AcordoLinkPicker";
 import { useAcordosOfPlanejadorTask } from "@/hooks/usePlanejadorTaskAcordos";
+import { ConcluirSubtaskModal } from "./ConcluirSubtaskModal";
 
 interface PlanejadorTaskDetailProps {
   task: PlanejadorTask;
@@ -93,6 +94,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const [pausarOpen, setPausarOpen] = useState(false);
   const [pausarDate, setPausarDate] = useState("");
   const [selectedAcordoChat, setSelectedAcordoChat] = useState<string | null>(null);
+  const [concluirSubtask, setConcluirSubtask] = useState<{ id: string; titulo: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
@@ -569,12 +571,23 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                     <Checkbox
                       checked={st.concluida}
                       onCheckedChange={(checked) => {
-                        subtasks.toggle.mutate({ id: st.id, concluida: !!checked }, {
-                          onSuccess: () => logActivity(checked ? 'subtask_completed' : 'status_changed', { subtask: st.titulo }),
-                        });
+                        if (checked) {
+                          setConcluirSubtask({ id: st.id, titulo: st.titulo });
+                        } else {
+                          subtasks.toggle.mutate({ id: st.id, concluida: false }, {
+                            onSuccess: () => logActivity('status_changed', { subtask: st.titulo }),
+                          });
+                        }
                       }}
                     />
-                    <span className={`text-sm flex-1 ${st.concluida ? 'line-through text-muted-foreground' : ''}`}>{st.titulo}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-sm ${st.concluida ? 'line-through text-muted-foreground' : ''}`}>{st.titulo}</span>
+                      {st.concluida && st.comentario_conclusao && (
+                        <p className="text-[11px] text-muted-foreground/80 italic mt-0.5 truncate" title={st.comentario_conclusao}>
+                          ✓ {st.comentario_conclusao}
+                        </p>
+                      )}
+                    </div>
                     {st.prazo && <span className="text-xs text-muted-foreground">{format(new Date(st.prazo), 'dd/MM', { locale: ptBR })}</span>}
                     <button onClick={() => { subtasks.remove.mutate(st.id); logActivity('subtask_deleted', { subtask: st.titulo }); }} className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-destructive transition-opacity"><Trash2 className="h-3.5 w-3.5" /></button>
                   </div>
@@ -864,7 +877,14 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
             {subtasks.subtasks.map(st => (
               <div key={st.id} className="flex items-center gap-2 text-sm py-1 px-2 rounded-md bg-accent/20">
                 {st.concluida ? <CheckCircle className="h-3.5 w-3.5 text-emerald-500" /> : <div className="h-3.5 w-3.5 rounded-full border-2 border-muted-foreground/30" />}
-                <span className={`flex-1 ${st.concluida ? 'line-through text-muted-foreground' : ''}`}>{st.titulo}</span>
+                <div className="flex-1 min-w-0">
+                  <span className={st.concluida ? 'line-through text-muted-foreground' : ''}>{st.titulo}</span>
+                  {st.concluida && st.comentario_conclusao && (
+                    <p className="text-[11px] text-muted-foreground/80 italic mt-0.5" title={st.concluida_em ? format(new Date(st.concluida_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : undefined}>
+                      ✓ {st.comentario_conclusao}
+                    </p>
+                  )}
+                </div>
                 {st.prazo && <span className="text-xs text-muted-foreground">{format(new Date(st.prazo), 'dd/MM/yyyy', { locale: ptBR })}</span>}
                 <span className="text-[10px] text-muted-foreground/60">Vinculada à tarefa: {task.titulo}</span>
               </div>
@@ -1160,6 +1180,28 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
           )}
         </DialogContent>
       </Dialog>
+
+      <ConcluirSubtaskModal
+        open={!!concluirSubtask}
+        onOpenChange={(o) => { if (!o) setConcluirSubtask(null); }}
+        subtaskTitulo={concluirSubtask?.titulo || ''}
+        onConfirm={async (comentario) => {
+          if (!concluirSubtask) return;
+          await new Promise<void>((resolve, reject) => {
+            subtasks.toggle.mutate(
+              { id: concluirSubtask.id, concluida: true, comentario_conclusao: comentario },
+              {
+                onSuccess: () => {
+                  logActivity('subtask_completed', { subtask: concluirSubtask.titulo, comentario });
+                  resolve();
+                },
+                onError: (e) => reject(e),
+              }
+            );
+          });
+          setConcluirSubtask(null);
+        }}
+      />
     </>
   );
 }
