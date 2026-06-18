@@ -1180,6 +1180,28 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
           )}
         </DialogContent>
       </Dialog>
+
+      <ConcluirSubtaskModal
+        open={!!concluirSubtask}
+        onOpenChange={(o) => { if (!o) setConcluirSubtask(null); }}
+        subtaskTitulo={concluirSubtask?.titulo || ''}
+        onConfirm={async (comentario) => {
+          if (!concluirSubtask) return;
+          await new Promise<void>((resolve, reject) => {
+            subtasks.toggle.mutate(
+              { id: concluirSubtask.id, concluida: true, comentario_conclusao: comentario },
+              {
+                onSuccess: () => {
+                  logActivity('subtask_completed', { subtask: concluirSubtask.titulo, comentario });
+                  resolve();
+                },
+                onError: (e) => reject(e),
+              }
+            );
+          });
+          setConcluirSubtask(null);
+        }}
+      />
     </>
   );
 }
