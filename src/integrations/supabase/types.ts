@@ -4124,7 +4124,9 @@ export type Database = {
       }
       planejador_task_subtasks: {
         Row: {
+          comentario_conclusao: string | null
           concluida: boolean
+          concluida_em: string | null
           created_at: string
           id: string
           prazo: string | null
@@ -4135,7 +4137,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          comentario_conclusao?: string | null
           concluida?: boolean
+          concluida_em?: string | null
           created_at?: string
           id?: string
           prazo?: string | null
@@ -4146,7 +4150,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          comentario_conclusao?: string | null
           concluida?: boolean
+          concluida_em?: string | null
           created_at?: string
           id?: string
           prazo?: string | null

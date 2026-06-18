@@ -1,28 +1,31 @@
-## Confirmação de desvinculação de acordo
+# Conclusão de subtarefa com comentário obrigatório
 
-### Causa raiz
-Hoje o botão de desvincular (icone "Unlink") em ambos os lados do vínculo aciona a remoção imediatamente, sem etapa de confirmação. Isso expõe o usuário a desvinculamentos acidentais por clique equivocado.
+## Causa / Contexto
+Hoje, marcar uma subtarefa como concluída é um clique simples no checkbox (`PlanejadorTaskDetail.tsx`, duas seções) ou ao arrastar o card-subtask para a coluna "Concluído" no Kanban (`PlanejadorDrawer.tsx`). Não há registro de o que foi feito.
 
-### Correção
-Adicionar um `AlertDialog` de confirmação nativo (Radix, já disponível em `src/components/ui/alert-dialog.tsx`) antes de executar a mutation `unlink`.
+## Correção
+1. **Banco**: adicionar coluna `comentario_conclusao text` e `concluida_em timestamptz` em `planejador_task_subtasks`. Sem default; preenchida só quando `concluida = true`.
+2. **Hook `usePlanejadorSubtasks`**: `toggle` passa a aceitar `{ id, concluida, comentario_conclusao? }`. Ao concluir, grava o comentário e `concluida_em = now()`. Ao reabrir, limpa ambos.
+3. **Novo componente `ConcluirSubtaskModal`** (espelhando `ConcluirEtapaModal`): textarea obrigatório, botões "Cancelar" / "Concluir subtarefa". Sem texto preenchido, botão fica desabilitado.
+4. **`PlanejadorTaskDetail.tsx`** (2 listas de subtarefas): ao clicar no checkbox para marcar como concluída, abrir o modal em vez de chamar `toggle` direto. Desmarcar (reabrir) continua sem modal. Exibir o `comentario_conclusao` em texto pequeno e discreto abaixo do título da subtarefa concluída, com tooltip de data.
+5. **`PlanejadorDrawer.tsx`** (drag-and-drop do card-subtask para coluna `concluido`): interceptar o drop, abrir o mesmo modal e só persistir após confirmação. Cancelar = card volta à coluna anterior.
+6. **Activity log**: incluir o comentário no payload de `subtask_completed` para aparecer no histórico da tarefa-pai.
 
-### Arquivos afetados
-1. `src/components/Planejador/AcordoLinkPicker.tsx` — desvinculação do lado do Planejador (card do Kanban → acordo).
-2. `src/components/Project/PlanejadorTaskPicker.tsx` — desvinculação do lado do Projeto (dívida → tarefa do Planejador).
+## Arquivos afetados
+- Migration nova (coluna + comentário)
+- `src/hooks/usePlanejadorSubtasks.ts`
+- `src/components/Planejador/ConcluirSubtaskModal.tsx` (novo)
+- `src/components/Planejador/PlanejadorTaskDetail.tsx`
+- `src/components/Planejador/PlanejadorDrawer.tsx`
 
-### Impacto
+## Impacto
+- **UX**: concluir subtarefa exige um passo a mais (modal com texto). Reabrir permanece 1 clique. Usuário vê o que foi entregue em cada subtarefa direto na lista.
+- **Dados**: 2 colunas novas, nullable; subtarefas antigas já concluídas ficam sem comentário (legado, sem migração retroativa). Sem mudanças de RLS.
+- **Riscos colaterais**: drag-and-drop no Kanban precisa de rollback visual ao cancelar — tratado no item 5. Nenhuma quebra em `PlanejadorTaskCard` (só usa contagem).
+- **Quem é afetado**: todos os usuários do Planejador, todos os tenants.
 
-**UX / Telas:**
-- O usuário clica no icone de desvincular → abre um modal de confirmação com título "Desvincular acordo?", descrição explicando que o histórico é preservado, e botões "Cancelar" / "Confirmar".
-- O fluxo de vincular (link) continua sem confirmação, pois é uma ação aditiva e reversível.
-
-**Dados:**
-- Nenhuma migration necessária.
-- O mutation `unlink` continua salvando no `_historico` antes de deletar (já implementado).
-- Nenhum risco de dados órfãos.
-
-**Riscos colaterais:**
-- Nenhum. Apenas adiciona uma etapa de UI; a lógica de negócio permanece inalterada.
-
-### Validação
-- Testar desvinculação em ambos os pickers e confirmar que o modal aparece, o botão Cancelar fecha sem ação, e Confirmar executa a mutation.
+## Validação
+- Marcar subtarefa sem texto: botão desabilitado.
+- Concluir com texto: comentário aparece na lista e em `planejador_task_activity_log`.
+- Reabrir subtarefa: comentário e `concluida_em` voltam a NULL.
+- Arrastar card-subtask para "Concluído" no Kanban: abre modal; cancelar mantém na coluna original.
