@@ -425,6 +425,34 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
           if (!open) setDeadlineDetailId(null);
         }}
       />
+
+      <ConcluirSubtaskModal
+        open={!!concluirSubtaskDrag}
+        onOpenChange={(o) => { if (!o) setConcluirSubtaskDrag(null); }}
+        subtaskTitulo={concluirSubtaskDrag?.titulo || ''}
+        onCancel={() => {
+          // Rollback visual: refetch para restaurar a coluna original
+          queryClient.invalidateQueries({ queryKey: ['planejador-tasks'] });
+        }}
+        onConfirm={async (comentario) => {
+          if (!concluirSubtaskDrag) return;
+          const { id, updates, prazoOriginal } = concluirSubtaskDrag;
+          const { error } = await (supabase as any)
+            .from('planejador_task_subtasks')
+            .update({
+              concluida: true,
+              comentario_conclusao: comentario,
+              concluida_em: new Date().toISOString(),
+              prazo: updates.prazo !== undefined ? updates.prazo : prazoOriginal,
+            })
+            .eq('id', id);
+          if (error) throw error;
+          queryClient.invalidateQueries({ queryKey: ['planejador-tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['planejador-subtasks'] });
+          queryClient.invalidateQueries({ queryKey: ['planejador-subtask-count'] });
+          setConcluirSubtaskDrag(null);
+        }}
+      />
     </>
   );
 }
