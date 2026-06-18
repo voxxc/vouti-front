@@ -39,6 +39,7 @@ import { Cliente } from "@/types/cliente";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AcordoLinkPicker } from "./AcordoLinkPicker";
 import { useAcordosOfPlanejadorTask } from "@/hooks/usePlanejadorTaskAcordos";
+import { ConcluirSubtaskModal } from "./ConcluirSubtaskModal";
 
 interface PlanejadorTaskDetailProps {
   task: PlanejadorTask;
@@ -93,6 +94,7 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
   const [pausarOpen, setPausarOpen] = useState(false);
   const [pausarDate, setPausarDate] = useState("");
   const [selectedAcordoChat, setSelectedAcordoChat] = useState<string | null>(null);
+  const [concluirSubtask, setConcluirSubtask] = useState<{ id: string; titulo: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
