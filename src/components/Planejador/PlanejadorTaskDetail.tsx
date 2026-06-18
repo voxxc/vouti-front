@@ -877,7 +877,14 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
             {subtasks.subtasks.map(st => (
               <div key={st.id} className="flex items-center gap-2 text-sm py-1 px-2 rounded-md bg-accent/20">
                 {st.concluida ? <CheckCircle className="h-3.5 w-3.5 text-emerald-500" /> : <div className="h-3.5 w-3.5 rounded-full border-2 border-muted-foreground/30" />}
-                <span className={`flex-1 ${st.concluida ? 'line-through text-muted-foreground' : ''}`}>{st.titulo}</span>
+                <div className="flex-1 min-w-0">
+                  <span className={st.concluida ? 'line-through text-muted-foreground' : ''}>{st.titulo}</span>
+                  {st.concluida && st.comentario_conclusao && (
+                    <p className="text-[11px] text-muted-foreground/80 italic mt-0.5" title={st.concluida_em ? format(new Date(st.concluida_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : undefined}>
+                      ✓ {st.comentario_conclusao}
+                    </p>
+                  )}
+                </div>
                 {st.prazo && <span className="text-xs text-muted-foreground">{format(new Date(st.prazo), 'dd/MM/yyyy', { locale: ptBR })}</span>}
                 <span className="text-[10px] text-muted-foreground/60">Vinculada à tarefa: {task.titulo}</span>
               </div>
