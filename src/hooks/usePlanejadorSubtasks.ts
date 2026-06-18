@@ -14,6 +14,8 @@ export interface PlanejadorSubtask {
   tenant_id: string | null;
   created_at: string;
   updated_at: string;
+  comentario_conclusao?: string | null;
+  concluida_em?: string | null;
 }
 
 export function usePlanejadorSubtasks(taskId: string) {
@@ -68,10 +70,18 @@ export function usePlanejadorSubtasks(taskId: string) {
   });
 
   const toggle = useMutation({
-    mutationFn: async ({ id, concluida }: { id: string; concluida: boolean }) => {
+    mutationFn: async ({ id, concluida, comentario_conclusao }: { id: string; concluida: boolean; comentario_conclusao?: string }) => {
+      const updates: any = { concluida };
+      if (concluida) {
+        updates.comentario_conclusao = comentario_conclusao ?? null;
+        updates.concluida_em = new Date().toISOString();
+      } else {
+        updates.comentario_conclusao = null;
+        updates.concluida_em = null;
+      }
       const { error } = await (supabase as any)
         .from('planejador_task_subtasks')
-        .update({ concluida })
+        .update(updates)
         .eq('id', id);
       if (error) throw error;
     },
