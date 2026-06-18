@@ -220,6 +220,16 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
     const allTasks = Object.values(tasksByColumn).flat();
     const currentTask = allTasks.find(t => t.id === id);
     if (currentTask?.is_subtask) {
+      // Concluir subtarefa requer comentário
+      if (updates.status === 'completed') {
+        setConcluirSubtaskDrag({
+          id,
+          titulo: currentTask.titulo,
+          updates,
+          prazoOriginal: currentTask.prazo,
+        });
+        return;
+      }
       // Update subtask record
       const subtaskUpdates: any = {};
       if (updates.titulo !== undefined) subtaskUpdates.titulo = updates.titulo;
