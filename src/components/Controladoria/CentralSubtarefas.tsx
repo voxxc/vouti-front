@@ -603,6 +603,11 @@ export const CentralSubtarefas = () => {
                                 Concluída em {formatDateTime(sub.concluida_em)}
                               </span>
                             )}
+                            {sub.concluida && sub.comentario_conclusao && (
+                              <p className="text-xs italic text-muted-foreground mt-1" title={sub.concluida_em ? formatDateTime(sub.concluida_em) : undefined}>
+                                ✓ {sub.comentario_conclusao}
+                              </p>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -625,6 +630,12 @@ export const CentralSubtarefas = () => {
           )}
         </DialogContent>
       </Dialog>
+      <ConcluirSubtaskModal
+        open={!!concluirSubtarefa}
+        onOpenChange={(o) => { if (!o) setConcluirSubtarefa(null); }}
+        subtaskTitulo={concluirSubtarefa?.descricao || ''}
+        onConfirm={handleConfirmConcluirSubtarefa}
+      />
     </div>
   );
 };
