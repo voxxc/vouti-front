@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import spaceBg from "@/assets/space-bg.jpg";
 import skyLightBg from "@/assets/sky-light-bg.jpg";
+import { ConcluirSubtaskModal } from "./ConcluirSubtaskModal";
 
 interface PlanejadorDrawerProps {
   open: boolean;
@@ -93,6 +94,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
   const [deadlineDetailId, setDeadlineDetailId] = useState<string | null>(null);
   const [deadlineDetailOpen, setDeadlineDetailOpen] = useState(false);
   const [columnConfig, setColumnConfig] = useState<ColumnConfig[]>(() => loadColumnConfig(tenantId));
+  const [concluirSubtaskDrag, setConcluirSubtaskDrag] = useState<{ id: string; titulo: string; updates: Partial<PlanejadorTask>; prazoOriginal: string | null } | null>(null);
 
   const { tasksByColumn, isLoading, createTask, updateTask, deleteTask } = usePlanejadorTasks();
   const { labels } = usePlanejadorLabels();
@@ -173,6 +175,16 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
     const allTasks = Object.values(tasksByColumn).flat();
     const movedTask = allTasks.find(t => t.id === taskId);
     if (movedTask?.is_subtask) {
+      // Concluir subtarefa via drag-and-drop exige comentário
+      if (updates.status === 'completed') {
+        setConcluirSubtaskDrag({
+          id: taskId,
+          titulo: movedTask.titulo,
+          updates,
+          prazoOriginal: movedTask.prazo,
+        });
+        return;
+      }
       // Update the subtask record directly
       (supabase as any)
         .from('planejador_task_subtasks')
@@ -189,7 +201,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
       return;
     }
     updateTask.mutate({ id: taskId, ...updates });
-  }, [updateTask, tasksByColumn]);
+  }, [updateTask, tasksByColumn, queryClient]);
 
   const handleReorderTask = useCallback(async (taskId: string, newOrdem: number) => {
     const { error } = await (supabase as any).rpc('reorder_planejador_task', {
