@@ -571,12 +571,23 @@ export function PlanejadorTaskDetail({ task, onClose, onUpdate, onDelete }: Plan
                     <Checkbox
                       checked={st.concluida}
                       onCheckedChange={(checked) => {
-                        subtasks.toggle.mutate({ id: st.id, concluida: !!checked }, {
-                          onSuccess: () => logActivity(checked ? 'subtask_completed' : 'status_changed', { subtask: st.titulo }),
-                        });
+                        if (checked) {
+                          setConcluirSubtask({ id: st.id, titulo: st.titulo });
+                        } else {
+                          subtasks.toggle.mutate({ id: st.id, concluida: false }, {
+                            onSuccess: () => logActivity('status_changed', { subtask: st.titulo }),
+                          });
+                        }
                       }}
                     />
-                    <span className={`text-sm flex-1 ${st.concluida ? 'line-through text-muted-foreground' : ''}`}>{st.titulo}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-sm ${st.concluida ? 'line-through text-muted-foreground' : ''}`}>{st.titulo}</span>
+                      {st.concluida && st.comentario_conclusao && (
+                        <p className="text-[11px] text-muted-foreground/80 italic mt-0.5 truncate" title={st.comentario_conclusao}>
+                          ✓ {st.comentario_conclusao}
+                        </p>
+                      )}
+                    </div>
                     {st.prazo && <span className="text-xs text-muted-foreground">{format(new Date(st.prazo), 'dd/MM', { locale: ptBR })}</span>}
                     <button onClick={() => { subtasks.remove.mutate(st.id); logActivity('subtask_deleted', { subtask: st.titulo }); }} className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-destructive transition-opacity"><Trash2 className="h-3.5 w-3.5" /></button>
                   </div>
