@@ -21,6 +21,7 @@ serve(async (req) => {
       sufixoApartado,
       juditSystemName,
       juditCustomerKey,
+      processoOabIdExistente,
     } = await req.json();
     
     if (!numeroCnj || !oabId) {
@@ -55,14 +56,17 @@ serve(async (req) => {
     console.log('[Judit Import CNJ] Buscando processo:', searchKey, '- CNJ para salvar:', cnjParaSalvar);
 
     // Verificar se processo ja existe para esta OAB (usando CNJ com sufixo se apartado)
-    const { data: existente } = await supabase
-      .from('processos_oab')
-      .select('id')
-      .eq('oab_id', oabId)
-      .eq('numero_cnj', cnjParaSalvar)
-      .maybeSingle();
+    // (pulado quando processoOabIdExistente é informado — fluxo "re-buscar andamentos")
+    const { data: existente } = processoOabIdExistente
+      ? { data: null as any }
+      : await supabase
+          .from('processos_oab')
+          .select('id')
+          .eq('oab_id', oabId)
+          .eq('numero_cnj', cnjParaSalvar)
+          .maybeSingle();
 
-    if (existente) {
+    if (existente && !processoOabIdExistente) {
       return new Response(
         JSON.stringify({
           success: false,
