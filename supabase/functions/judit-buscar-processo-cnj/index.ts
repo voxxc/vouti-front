@@ -297,7 +297,22 @@ serve(async (req) => {
     // Se não recebeu dados completos, cadastrar processo com informações mínimas
     if (!resultData) {
       console.log('[Judit Import CNJ] Sem dados detalhados - cadastrando com informações mínimas');
-      
+
+      // Modo refresh: não tem dados — apenas devolver 0 andamentos no processo existente.
+      if (processoOabIdExistente) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            processoId: processoOabIdExistente,
+            andamentosInseridos: 0,
+            totalAndamentos: 0,
+            dadosCompletos: false,
+            mensagem: 'Sem novos andamentos disponíveis na Judit para este processo no momento.'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       // Criar processo com dados mínimos (sigilo ou indisponível)
       const novoProcessoMinimo = {
         oab_id: oabId,
