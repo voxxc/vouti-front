@@ -1,53 +1,53 @@
-## Causa raiz / contexto
+## Causa raiz
 
-- Hoje o card de "Monitoramento Diário" no resumo do processo (`ProcessoOABDetalhes.tsx`) só conhece o fluxo Judit (toggle + credencial Judit).
-- Já existe a edge function `escavador-ativar-e-buscar` (e a tabela `processo_monitoramento_escavador`), mas ela só está plugada num hook usado em outras telas — nunca aparece no resumo do processo OAB.
-- O usuário quer um botão paralelo, abaixo do card Judit, que só apareça para `danieldemorais.e@gmail.com` (admin do tenant Solvenza). Decisão acordada: usar uma flag por usuário em `profiles` (`escavador_beta`).
+Logs do `judit-buscar-processo-cnj` (Daniel, 18:06):
 
-## Correção (passo a passo)
+```
+Payload: {"search":{"search_type":"lawsuit_cnj","search_key":"70000478920268220021","on_demand":true,"search_params":{"credential":{"customer_key":"alanpjero"}}}}
+Request ID: c464e113-...
+Polling tentativa 1 - page_data: 1
+Estrutura resposta: { hasSteps: true, stepsLength: 0, ..., responseKeys: "code, instance, name, secrecy_level, tribunal_acronym, justice, ..., parties" }
+Processo criado: 13a9f104-...
+Tentativa steps 1..2..3 → Nenhum step encontrado
+Concluido: { andamentosInseridos: 0 }
+```
 
-### 1. Migration — flag por usuário
-- `ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS escavador_beta boolean NOT NULL DEFAULT false;`
-- `UPDATE public.profiles SET escavador_beta = true WHERE id = (SELECT id FROM auth.users WHERE email = 'danieldemorais.e@gmail.com');` (rodada via insert tool depois do schema, sem hardcode no código).
-- Sem mudança de RLS — a coluna é lida pelo próprio dono via política existente em `profiles`.
+A Judit não está rejeitando — ela aceita a credencial `alanpjero` e devolve a **capa** do processo (`code, instance, parties, courts, ...`), mas com `steps: []`. O processo é criado, porém sem andamentos, e por isso o usuário acha que "não saiu". Dois problemas reais alimentam isso:
 
-### 2. Hook `useEscavadorBeta`
-Novo `src/hooks/useEscavadorBeta.ts`: lê `profiles.escavador_beta` do usuário logado (uma vez, com cache em memória) e retorna `boolean`. Usa o `auth.uid()` atual; sem checagem de tenant (a flag já é por usuário).
+1. **Polling principal sai cedo demais.** O loop em `judit-buscar-processo-cnj` (linhas 217-252) interrompe assim que `page_data.length > 0`. Para `on_demand: true` com credencial, a Judit costuma devolver **dois itens** em `page_data`: o primeiro é só a capa (sem `steps`) e o segundo é o resultado completo da consulta paga (com `steps` populado), que chega 30-90s depois. Ao parar no primeiro, pegamos só a capa. As "Tentativas steps 1..3" de fallback acontecem, mas com apenas ~5 s de espera entre cada — insuficiente para o tribunal devolver os passos.
+2. **Payload diverge do que o usuário valida no Postman.** O Postman dele usa `search_key` formatado (`7000047-89.2026.8.22.0021`) e inclui `with_attachments: false` no body. A função envia só os dígitos e omite `with_attachments`. Para alguns tribunais a Judit muda o pipeline de consulta conforme esses parâmetros, e o "with_attachments: false" sinaliza explicitamente que queremos só os steps (sem aguardar download de anexos). Isso também ajuda a destravar a entrega dos passos.
 
-### 3. Card de monitoramento Escavador no resumo
-Em `src/components/Controladoria/ProcessoOABDetalhes.tsx`, logo abaixo do `<Card>` "Monitoramento Diario" (linha ~781):
+## Correção
 
-- Renderizar um novo `<Card>` apenas se `useEscavadorBeta()` for `true`.
-- Conteúdo: ícone + título "Monitoramento via Escavador (beta)", descrição curta, badge "Beta", e um botão "Ativar monitoramento" (ou "Reconsultar" se já houver registro).
-- Estado local `ativandoEscavador` + `escavadorAtivo` (consulta inicial em `processo_monitoramento_escavador` por `processo_id = processo.id`, filtrando `tenant_id`).
-- Ao clicar: `AlertDialog` de confirmação → `supabase.functions.invoke('escavador-ativar-e-buscar', { body: { processoId: processo.id, numeroProcesso: processo.numero_cnj } })` → toast de sucesso/erro → atualiza estado local.
-- Sem mexer no toggle Judit, sem novo edge function, sem novos secrets.
+### `supabase/functions/judit-buscar-processo-cnj/index.ts`
 
-### Detalhes técnicos
-- `escavador-ativar-e-buscar` já existe e usa `ESCAVADOR_API_TOKEN` (global). Nenhum secret novo.
-- A FK de `processo_monitoramento_escavador.processo_id` aponta para `processos`. No resumo OAB estamos em `processos_oab`. **Risco real**: o `INSERT` dentro da edge function vai falhar por FK quando `processo.id` for de `processos_oab`. Mitigação no plano: ajustar a edge function para aceitar uma flag `origem: 'oab'` e, nesse caso, gravar em `processo_monitoramento_escavador` apenas se o id existir em `processos`, caso contrário gravar em `processos_oab` (campos novos `escavador_*`) ou pular a persistência e só retornar as movimentações. **Decisão sugerida**: por ser beta de UI, na primeira iteração apenas chamar a função com `processoId` da tabela `processos` quando o resumo já estiver vinculado a ela; quando vier de `processos_oab`, mostrar o botão mas deixar a action desabilitada com tooltip "Em breve para processos OAB". Confirmo com você antes de mexer no schema do Escavador.
+1. **Aguardar até `steps` chegarem, não apenas `page_data`.**
+   - No loop principal (linhas 217-252), substituir a condição de saída por: percorrer **todos** os itens de `page_data` e considerar concluído somente quando algum item tiver `steps`/`movements`/`andamentos` com `length > 0`. Manter `maxAttempts = 60` (~2 min) e fallback final que aceita `page_data > 0` se ao menos a capa veio (para preservar o caminho "processo mínimo" atual).
+   - Aumentar a primeira espera de 3 s para 5 s e o intervalo entre tentativas de 2 s para 3 s nas primeiras 10 tentativas (a Judit não devolve steps antes disso para on-demand).
+2. **Alinhar payload ao Postman do usuário.**
+   - Adicionar `with_attachments: false` no nível raiz do body (não dentro de `search`), conforme o print.
+   - Usar como `search_key` o CNJ **com máscara** (`7000047-89.2026.8.22.0021`) quando o input já vier formatado; manter fallback para dígitos somente se vier sem máscara. Hoje a função força `replace(/\D/g, '')` em algum ponto antes da chamada — passar a usar o `numero_cnj` original.
+3. **Manter o caminho "processo mínimo".** Se após o novo polling ainda não vierem steps, manter o comportamento atual de gravar com `dadosCompletos: false`, mas no toast do frontend deixar claro que o processo foi criado com a capa e os andamentos virão pelo monitoramento (não é "erro").
+
+Sem mudança no frontend e sem nova credencial. Nenhum schema novo.
 
 ## Arquivos afetados
 
-- `supabase/migrations/<novo>.sql` — coluna `escavador_beta` em `profiles`.
-- (data) `UPDATE` em `profiles` para o usuário Daniel via insert tool.
-- `src/hooks/useEscavadorBeta.ts` — novo.
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — novo card abaixo do card Judit.
+- `supabase/functions/judit-buscar-processo-cnj/index.ts` — único arquivo a alterar (loop de polling, payload, search_key).
 
 ## Impacto
 
-1. **UX/telas**: somente o usuário `danieldemorais.e@gmail.com` vê um card extra "Monitoramento via Escavador (beta)" no resumo do processo OAB, abaixo do card de Monitoramento Diário (Judit). Para todos os outros usuários (Solvenza incluso) nada muda.
-2. **Dados**: nova coluna booleana em `profiles` (default false, sem backfill perigoso). Nenhuma mudança em RLS, índices, performance. A edge function `escavador-ativar-e-buscar` continua igual; a única gravação adicional ocorre em `processo_monitoramento_escavador` quando o usuário clicar em ativar (e apenas para processos da tabela `processos`).
+1. **UX/telas**: ao importar um processo CNJ, a importação vai demorar mais até 2 min (em vez de retornar em ~10 s com 0 andamentos). Em troca, o processo aparece na listagem **com partes, tribunal e andamentos preenchidos**, que era a expectativa do usuário. O toast intermediário já existe ("Importando em segundo plano"), então o tempo extra não trava a UI.
+2. **Dados**: nenhuma migration. Mesma tabela `processos_oab` + `processos_oab_andamentos`. Pode aumentar levemente o número de linhas de log em `judit_api_logs` (mais polls), mas continua dentro do limite. Custo Judit por chamada é o mesmo (a cobrança é pelo `request_id`, não por poll).
 3. **Riscos colaterais**:
-   - FK de `processo_monitoramento_escavador` aponta para `processos`. Se o botão for clicado a partir de um `processos_oab` puro, o INSERT falha. Plano cobre isso desabilitando a ação nesse caso até decidirmos a estratégia de persistência.
-   - Custo Escavador: a função consome a API paga. Como a flag está restrita a 1 usuário, o impacto financeiro é controlado.
-   - Visual: o card adiciona altura ao resumo apenas para esse usuário; não afeta layout dos demais.
-4. **Quem é afetado**: apenas `danieldemorais.e@gmail.com`. Admins, advogados, super-admins e demais usuários da Solvenza e dos outros tenants não veem nem disparam a ação.
+   - Função roda mais tempo (até 120 s). Edge functions Supabase têm limite de 150 s; ficamos folgados, mas é bom monitorar.
+   - Se a Judit mudar o shape (`page_data` com mais itens), o novo loop continua compatível porque varre todos.
+   - Tribunais que sempre devolvem `steps: []` (sigilo/erro de credencial) cairão no caminho "processo mínimo" como hoje.
+4. **Quem é afetado**: todos os tenants que importam processos por CNJ via dialog "Importar processo". Beneficia em especial credenciais que destravam tribunais (caso atual da Solvenza com `alanpjero` no TJRO).
 
 ## Validação
 
-- Logar como Daniel → abrir resumo de um processo OAB → ver card "Monitoramento via Escavador (beta)" abaixo do card Judit.
-- Logar como qualquer outro usuário do mesmo tenant Solvenza → card não aparece.
-- Clicar "Ativar" (em processo de `processos`) → toast de sucesso e linha em `processo_monitoramento_escavador`.
-- Clicar em processo OAB-puro → botão desabilitado com tooltip explicativo (até decidirmos a persistência).
-- `SELECT escavador_beta FROM profiles WHERE …` retorna `true` só para Daniel.
+- Reimportar o CNJ `7000047-89.2026.8.22.0021` na Solvenza com a credencial `alanpjero` → logs devem mostrar polling até `stepsLength > 0` e `andamentosInseridos > 0`.
+- Importar um CNJ sigiloso (sem credencial casável) → cair no caminho "processo mínimo" com `dadosCompletos: false` e toast amigável (sem regressão).
+- Conferir `judit_api_logs` da chamada: `request_id` único, `sucesso=true`, mesma `custo_estimado=1` (sem cobrança extra).
+- Importar um CNJ que já existe → continuar retornando `duplicado: true` (caminho independente, não afetado).
