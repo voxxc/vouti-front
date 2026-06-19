@@ -25,6 +25,7 @@ import { SuperAdminAuthenticator } from '@/components/SuperAdmin/SuperAdminAuthe
 import { SuperAdminWebhookTest } from '@/components/SuperAdmin/SuperAdminWebhookTest';
 import { SuperAdminSecurity } from '@/components/SuperAdmin/SuperAdminSecurity';
 import { SuperAdminCofreJudit } from '@/components/SuperAdmin/SuperAdminCofreJudit';
+import { SuperAdminTrackingsJudit } from '@/components/SuperAdmin/SuperAdminTrackingsJudit';
 import { SuperAdminBuscaProcessosCPF } from '@/components/SuperAdmin/SuperAdminBuscaProcessosCPF';
 import { SuperAdminAuditoriaAndamentos } from '@/components/SuperAdmin/SuperAdminAuditoriaAndamentos';
 import { SuperAdminProcessosSemAndamentos } from '@/components/SuperAdmin/SuperAdminProcessosSemAndamentos';
