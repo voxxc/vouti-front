@@ -84,6 +84,13 @@ serve(async (req) => {
     const data = await resp.json();
     const pageData: any[] = data.page_data || [];
     console.log('[Judit Rebuscar] page_data items:', pageData.length);
+    console.log('[Judit Rebuscar] request_status:', data.request_status);
+    if (pageData[0]) {
+      const d0 = pageData[0].response_data || pageData[0];
+      console.log('[Judit Rebuscar] item0 keys:', Object.keys(d0).join(','));
+      console.log('[Judit Rebuscar] item0 response_type:', pageData[0].response_type);
+      console.log('[Judit Rebuscar] item0 response_data sample:', JSON.stringify(d0).slice(0, 800));
+    }
 
     // Achar o primeiro item com steps
     let responseData: any = null;
