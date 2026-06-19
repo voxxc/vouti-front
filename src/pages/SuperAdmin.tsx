@@ -25,6 +25,7 @@ import { SuperAdminAuthenticator } from '@/components/SuperAdmin/SuperAdminAuthe
 import { SuperAdminWebhookTest } from '@/components/SuperAdmin/SuperAdminWebhookTest';
 import { SuperAdminSecurity } from '@/components/SuperAdmin/SuperAdminSecurity';
 import { SuperAdminCofreJudit } from '@/components/SuperAdmin/SuperAdminCofreJudit';
+import { SuperAdminTrackingsJudit } from '@/components/SuperAdmin/SuperAdminTrackingsJudit';
 import { SuperAdminBuscaProcessosCPF } from '@/components/SuperAdmin/SuperAdminBuscaProcessosCPF';
 import { SuperAdminAuditoriaAndamentos } from '@/components/SuperAdmin/SuperAdminAuditoriaAndamentos';
 import { SuperAdminProcessosSemAndamentos } from '@/components/SuperAdmin/SuperAdminProcessosSemAndamentos';
@@ -366,7 +367,7 @@ export default function SuperAdmin() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                 variant={['monitoramento', 'diagnostico', 'judit-docs', 'cofre-judit', 'auditoria-andamentos', 'processos-sem-andamentos', 'migracao-anexos'].includes(mainTab) ? 'default' : 'ghost'}
+                 variant={['monitoramento', 'trackings-judit', 'diagnostico', 'judit-docs', 'cofre-judit', 'auditoria-andamentos', 'processos-sem-andamentos', 'migracao-anexos'].includes(mainTab) ? 'default' : 'ghost'}
                   size="sm"
                   className="gap-2"
                 >
@@ -376,6 +377,9 @@ export default function SuperAdmin() {
               <DropdownMenuContent align="start">
                 <DropdownMenuItem onClick={() => setMainTab('monitoramento')} className="gap-2">
                   <Activity className="h-4 w-4" /> Monitoramento
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMainTab('trackings-judit')} className="gap-2">
+                  <Activity className="h-4 w-4" /> Trackings Judit
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setMainTab('diagnostico')} className="gap-2">
                   <Stethoscope className="h-4 w-4" /> Diagnóstico
@@ -511,6 +515,10 @@ export default function SuperAdmin() {
 
           <TabsContent value="cofre-judit">
             <SuperAdminCofreJudit />
+          </TabsContent>
+
+          <TabsContent value="trackings-judit">
+            <SuperAdminTrackingsJudit />
           </TabsContent>
 
           <TabsContent value="seguranca">
