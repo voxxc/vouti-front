@@ -1,41 +1,47 @@
-# Por que não há andamentos no processo 7000047-89.2026.8.22.0021
+# Popular andamentos do processo 7000047 via GET /responses (sem custo)
 
-## Diagnóstico (com base nos dados reais)
+## Causa raiz
+O processo `13a9f104-b4aa-4078-8387-77f0d74c4bb9` (CNJ 7000047-89.2026.8.22.0021) está sem andamentos. O usuário forneceu o `request_id` válido: **`a72cf37c-599f-446c-8eac-ee1a575d00f8`**. Basta fazer GET `https://requests.prod.judit.io/responses?request_id=a72cf37c-599f-446c-8eac-ee1a575d00f8` (sem custo) e inserir os steps em `processos_oab_andamentos`.
 
-- O processo foi criado em `processos_oab` no dia 19/06 às 18:06 (id `13a9f104-b4aa-4078-8387-77f0d74c4bb9`).
-- `judit_api_logs` mostra **uma única chamada** à Judit, `request_id c464e113-2b60-49f6-9edd-cc3614bc0990`, status 200, sucesso true, custo 1, com `with_attachments` ainda **fora** da raiz (versão antiga do código).
-- `processos_oab_andamentos` para esse processo: **0 linhas**.
-- Não existe job em `processo_import_jobs` (foi importação direta, não via worker), então não há retry automático.
-- Conclusão: a Judit respondeu rápido com a **capa** apenas (sem `steps`); o loop de polling antigo saiu na primeira página com `page_data > 0` e não esperou os andamentos chegarem. Foi exatamente o bug que a correção em `judit-buscar-processo-cnj` endereça — só que a correção foi publicada **depois** desse import, então este processo específico continua sem andamentos.
+## Correção
 
-## Correção proposta
+### Operação one-shot (executar agora)
+Criar uma edge function temporária `judit-rebuscar-andamentos` que:
+1. Recebe `{ processoOabId, requestIdOverride? }`.
+2. Lê `processos_oab` para obter `tenant_id` e `detalhes_request_id`. Se `requestIdOverride` vier no body, usa ele e atualiza `detalhes_request_id` no processo.
+3. Faz GET `/responses?request_id=<id>&page=1&page_size=100` com `JUDIT_API_KEY`.
+4. Itera `page_data`, extrai `steps/movements/andamentos/history/last_steps` do primeiro item que tiver array não vazio.
+5. Insere em `processos_oab_andamentos` com `(processo_oab_id, tenant_id, data_movimentacao, tipo_movimentacao, descricao, dados_completos, lida=false)` — ignora erro `23505` (índice único `idx_andamentos_unique_v3`).
+6. Atualiza `processos_oab` com `parte_ativa/parte_passiva/tribunal/capa_completa` se a resposta agora vier com dados completos (caso a importação original tenha salvo só capa).
+7. Loga em `judit_api_logs` com `tipo_chamada='lawsuit_cnj_refetch_responses'`, `custo_estimado=0`.
 
-Não é bug pendente no código — o polling já está corrigido. O que falta é **reprocessar este CNJ** (e dar uma forma manual para casos futuros).
+### Botão no UI já existente
+Trocar `handleRebuscarAndamentosJudit` em `ProcessoOABDetalhes.tsx` para invocar `judit-rebuscar-andamentos` (sem custo) em vez do `judit-buscar-processo-cnj` (com custo). Mensagem do toast: "Andamentos atualizados — sem custo Judit".
 
-### 1. Reprocessar o CNJ 7000047 agora
-Disparar `judit-buscar-processo-cnj` novamente para esse CNJ no tenant Solvenza com a credencial `alanpjero`, indicando o `processo_oab_id` existente para que os andamentos sejam anexados ao registro `13a9f104-b4aa-4078-8387-77f0d74c4bb9` (sem criar duplicata). Esperado: a chamada nova vai pollar até `steps.length > 0` e popular `processos_oab_andamentos`.
+### Reverter o ramo `processoOabIdExistente` em `judit-buscar-processo-cnj`
+Remover o suporte que adicionei no turno anterior, devolvendo essa função ao papel original (apenas import com POST).
 
-### 2. Botão "Re-buscar andamentos" no resumo do processo (OAB)
-Em `ProcessoOABDetalhes.tsx`, ao lado do botão de monitoramento Judit já existente, adicionar um botão `Re-buscar andamentos (Judit)` visível para admin/controller. Ele chama `judit-buscar-processo-cnj` com `{ numero_cnj, credencial_id, processo_oab_id_existente }` e mostra toast de progresso/sucesso.
-
-### 3. Ajuste leve no edge function
-`judit-buscar-processo-cnj` precisa aceitar `processo_oab_id_existente` no body: se vier, **não cria** processo novo, só faz upsert dos andamentos no processo informado (deduplicando por `dedup_hash`).
+### Disparo imediato pra esse processo
+Após a função estar publicada, invocá-la com:
+```json
+{ "processoOabId": "13a9f104-b4aa-4078-8387-77f0d74c4bb9", "requestIdOverride": "a72cf37c-599f-446c-8eac-ee1a575d00f8" }
+```
+para popular os andamentos do CNJ 7000047 agora.
 
 ## Arquivos afetados
-
-- `supabase/functions/judit-buscar-processo-cnj/index.ts` — aceitar `processo_oab_id_existente` e pular criação quando presente.
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — botão "Re-buscar andamentos (Judit)" (admin/controller).
-- Sem migration. Sem novas tabelas. Sem novas secrets.
+- **Novo**: `supabase/functions/judit-rebuscar-andamentos/index.ts`
+- **Editado**: `src/components/Controladoria/ProcessoOABDetalhes.tsx` (alvo da invoke + texto)
+- **Editado (revert parcial)**: `supabase/functions/judit-buscar-processo-cnj/index.ts` (remover `processoOabIdExistente`)
+- Sem migrations.
 
 ## Impacto
-
-1. **Usuário final**: Daniel (e qualquer admin/controller) ganha um botão para re-buscar andamentos sob demanda quando a Judit demorar a devolver `steps` ou quando um import antigo tiver ficado sem movimentações. UX: clique → toast "Buscando..." → toast "X andamentos importados".
-2. **Dados**: nenhum schema novo. Apenas inserts em `processos_oab_andamentos` com dedup por `dedup_hash` — sem risco de duplicata. `judit_api_logs` ganha um registro novo (custo 1 por chamada Judit).
-3. **Riscos colaterais**: cada clique no botão consome 1 crédito Judit. Mitigado por limitar a admin/controller e adicionar `disabled` durante a chamada.
-4. **Quem é afetado**: somente perfis admin/controller no tenant. Demais usuários não veem o botão.
+1. **Usuário final**: o processo 7000047 ganha seus andamentos sem nova cobrança Judit. Daniel passa a ter um botão "Re-buscar" gratuito para qualquer processo OAB já importado.
+2. **Dados**: nenhum schema novo. Inserts em `processos_oab_andamentos` deduplicados pelo índice existente. `judit_api_logs` registra `custo_estimado=0` para auditoria.
+3. **Riscos colaterais**: se a Judit já expirou o `response` no cache deles, o GET volta vazio — exibimos toast informativo, sem custo. O override de `request_id` é restrito a `podeEditarCredencial`.
+4. **Quem é afetado**: somente Daniel (gate `EDIT_CREDENCIAL_EMAIL`). Importações novas continuam pagando 1 crédito normalmente em `judit-buscar-processo-cnj`.
 
 ## Validação
-
-- Após implementar, clicar no botão no processo 7000047-89.2026.8.22.0021 → conferir que `processos_oab_andamentos` deixa de ter 0 linhas e que a aba de andamentos no resumo passa a listá-los.
-- Conferir `judit_api_logs`: novo registro com `tipo_chamada=lawsuit_cnj_refresh`, sucesso true, andamentos > 0.
-- Tentar clicar duas vezes seguidas → sem duplicatas (dedup_hash).
+- Após rodar a invoke one-shot com o request_id `a72cf37c…`, conferir `SELECT count(*) FROM processos_oab_andamentos WHERE processo_oab_id='13a9f104-b4aa-4078-8387-77f0d74c4bb9'` > 0.
+- `judit_api_logs` ganha 1 registro com `tipo_chamada='lawsuit_cnj_refetch_responses'` e `custo_estimado=0`.
+- Abrir o processo na UI: aba de andamentos lista as movimentações.
+- Re-clicar o botão: nenhuma duplicata criada.
