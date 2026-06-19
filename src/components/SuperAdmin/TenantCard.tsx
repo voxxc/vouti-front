@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus, FileStack, Loader2, FileWarning, Clock, IdCard, ShieldAlert } from 'lucide-react';
+import { Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity, CreditCard, Key, Hash, ChevronDown, UserPlus, FileStack, Loader2, FileWarning, Clock, IdCard, ShieldAlert, FolderArchive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import { TenantPushDocsDialog } from './TenantPushDocsDialog';
 import { TenantProcessosIncompletosDialog } from './TenantProcessosIncompletosDialog';
 import { TenantProcessosParadosDialog } from './TenantProcessosParadosDialog';
 import { TenantProcessosSigilososDialog } from './TenantProcessosSigilososDialog';
+import { TenantReuniaoArquivosDialog } from './TenantReuniaoArquivosDialog';
 import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
 import CloudIcon from '@/components/CloudIcon';
 import { supabase } from '@/integrations/supabase/client';
@@ -62,6 +63,7 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
   const [showProcessosIncompletos, setShowProcessosIncompletos] = useState(false);
   const [showParados, setShowParados] = useState(false);
   const [showSigilosos, setShowSigilosos] = useState(false);
+  const [showReuniaoArquivos, setShowReuniaoArquivos] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [whatsAppLoading, setWhatsAppLoading] = useState(false);
@@ -326,6 +328,15 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
             >
               <ShieldAlert className="h-4 w-4" />
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setShowReuniaoArquivos(true)}
+              title="Documentos de reuniões (backup/limpeza)"
+            >
+              <FolderArchive className="h-4 w-4" />
+            </Button>
             <Button 
               variant="ghost" 
               size="icon"
@@ -435,6 +446,12 @@ export function TenantCard({ tenant, systemColor, onEdit, onToggleStatus, onDele
       <TenantProcessosSigilososDialog
         open={showSigilosos}
         onOpenChange={setShowSigilosos}
+        tenant={tenant}
+      />
+
+      <TenantReuniaoArquivosDialog
+        open={showReuniaoArquivos}
+        onOpenChange={setShowReuniaoArquivos}
         tenant={tenant}
       />
     </>
