@@ -162,7 +162,7 @@ serve(async (req) => {
         tenant_id: tenantId || null,
         user_id: userId || null,
         oab_id: oabId,
-        tipo_chamada: 'lawsuit_cnj_import',
+        tipo_chamada: processoOabIdExistente ? 'lawsuit_cnj_refresh' : 'lawsuit_cnj_import',
         endpoint: 'https://requests.prod.judit.io/requests',
         metodo: 'POST',
         request_payload: requestPayload,
