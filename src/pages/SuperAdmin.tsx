@@ -367,7 +367,7 @@ export default function SuperAdmin() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                 variant={['monitoramento', 'diagnostico', 'judit-docs', 'cofre-judit', 'auditoria-andamentos', 'processos-sem-andamentos', 'migracao-anexos'].includes(mainTab) ? 'default' : 'ghost'}
+                 variant={['monitoramento', 'trackings-judit', 'diagnostico', 'judit-docs', 'cofre-judit', 'auditoria-andamentos', 'processos-sem-andamentos', 'migracao-anexos'].includes(mainTab) ? 'default' : 'ghost'}
                   size="sm"
                   className="gap-2"
                 >
