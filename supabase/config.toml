@@ -64,7 +64,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.judit-rebuscar-andamentos]
-verify_jwt = true
+verify_jwt = false
 
 [functions.create-tenant-with-admin]
 verify_jwt = false
