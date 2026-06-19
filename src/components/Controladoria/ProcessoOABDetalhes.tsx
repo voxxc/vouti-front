@@ -78,6 +78,7 @@ import ApartadoCard from './ApartadoCard';
 import { useCanUseApartados } from '@/hooks/useCanUseApartados';
 import { PrazosCasoTab } from './PrazosCasoTab';
 import { supabase } from '@/integrations/supabase/client';
+import { useEscavadorBeta } from '@/hooks/useEscavadorBeta';
 import { useAuth } from '@/contexts/AuthContext';
 import { useJuditSystemNames } from '@/hooks/useJuditSystemNames';
 import { toast } from '@/hooks/use-toast';
@@ -227,6 +228,10 @@ export const ProcessoOABDetalhes = ({
   const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
   const [confirmMonitoramentoOpen, setConfirmMonitoramentoOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const escavadorBeta = useEscavadorBeta();
+  const [ativandoEscavador, setAtivandoEscavador] = useState(false);
+  const [escavadorAtivo, setEscavadorAtivo] = useState<boolean | null>(null);
+  const [confirmEscavadorOpen, setConfirmEscavadorOpen] = useState(false);
   // Credencial escolhida para o reset (CNJ sigiloso): valor "__publico__"
   // significa sem credencial; senão é o id da credencial Judit do tenant.
   const [resetCredencialValue, setResetCredencialValue] = useState<string>('__publico__');
