@@ -64,8 +64,9 @@ Deno.serve(async (req) => {
       const url = new URL(JUDIT_BASE);
       url.searchParams.set('page', String(p));
       url.searchParams.set('page_size', String(pageSize));
-      if (status === 'paused') url.searchParams.set('status', 'paused');
-      if (status === 'active') url.searchParams.set('status', 'active');
+      // Judit aceita apenas alguns valores em `status` (ex.: "created").
+      // Para evitar 400 ("status invalid status value."), não enviamos esse
+      // filtro à Judit — buscamos tudo e filtramos localmente abaixo.
       const r = await fetch(url.toString(), {
         headers: { 'api-key': juditApiKey, 'Content-Type': 'application/json' },
       });
