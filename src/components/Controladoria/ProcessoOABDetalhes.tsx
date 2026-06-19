@@ -879,6 +879,31 @@ export const ProcessoOABDetalhes = ({
                 </div>
               )}
             </div>
+
+            {/* Re-buscar andamentos (Judit) — admin/gestor da credencial */}
+            {podeEditarCredencial && (
+              <div className="mt-3 pt-3 border-t flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Re-buscar andamentos (Judit)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Consulta a Judit agora e importa andamentos faltantes neste processo (1 crédito).
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRebuscarAndamentosJudit}
+                  disabled={rebuscandoAndamentos}
+                >
+                  {rebuscandoAndamentos ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-1" />
+                  )}
+                  Re-buscar
+                </Button>
+              </div>
+            )}
           </Card>
 
           {/* Monitoramento via Escavador (beta) - apenas para usuários com flag */}
