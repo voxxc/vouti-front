@@ -461,43 +461,18 @@ serve(async (req) => {
       judit_customer_key: customerKey,
     };
 
-    let processoOabId: string;
-    if (processoOabIdExistente) {
-      // Modo refresh: atualizar capa/detalhes do processo já existente, sem criar novo
-      const { error: updateError } = await supabase
-        .from('processos_oab')
-        .update({
-          parte_ativa: parteAtiva || undefined,
-          parte_passiva: partePassiva || undefined,
-          tribunal: tribunal || undefined,
-          tribunal_sigla: tribunalSigla || undefined,
-          capa_completa: novoProcesso.capa_completa,
-          detalhes_completos: responseData,
-          detalhes_carregados: true,
-          detalhes_request_id: requestId,
-          detalhes_request_data: new Date().toISOString(),
-        })
-        .eq('id', processoOabIdExistente);
-      if (updateError) {
-        console.error('[Judit Import CNJ] Erro ao atualizar processo:', updateError);
-        throw new Error('Erro ao atualizar processo: ' + updateError.message);
-      }
-      processoOabId = processoOabIdExistente;
-      console.log('[Judit Import CNJ] Processo atualizado (refresh):', processoOabId);
-    } else {
-      const { data: processoInserido, error: insertError } = await supabase
-        .from('processos_oab')
-        .insert(novoProcesso)
-        .select('id')
-        .single();
+    const { data: processoInserido, error: insertError } = await supabase
+      .from('processos_oab')
+      .insert(novoProcesso)
+      .select('id')
+      .single();
 
-      if (insertError) {
-        console.error('[Judit Import CNJ] Erro ao inserir processo:', insertError);
-        throw new Error('Erro ao salvar processo: ' + insertError.message);
-      }
-      processoOabId = processoInserido.id;
-      console.log('[Judit Import CNJ] Processo criado:', processoOabId);
+    if (insertError) {
+      console.error('[Judit Import CNJ] Erro ao inserir processo:', insertError);
+      throw new Error('Erro ao salvar processo: ' + insertError.message);
     }
+    const processoOabId = processoInserido.id;
+    console.log('[Judit Import CNJ] Processo criado:', processoOabId);
 
     // Buscar andamentos em múltiplos locais possíveis
     let steps = responseData?.steps 
