@@ -517,6 +517,10 @@ export default function SuperAdmin() {
             <SuperAdminCofreJudit />
           </TabsContent>
 
+          <TabsContent value="trackings-judit">
+            <SuperAdminTrackingsJudit />
+          </TabsContent>
+
           <TabsContent value="seguranca">
             <SuperAdminSecurity />
           </TabsContent>
