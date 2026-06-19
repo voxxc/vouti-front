@@ -875,7 +875,7 @@ export const ProcessoOABDetalhes = ({
                 <div className="min-w-0">
                   <p className="text-sm font-medium">Re-buscar andamentos (Judit)</p>
                   <p className="text-xs text-muted-foreground">
-                    Consulta a Judit agora e importa andamentos faltantes neste processo (1 crédito).
+                    Reusa o request_id já existente e busca andamentos faltantes — sem custo Judit.
                   </p>
                 </div>
                 <Button
