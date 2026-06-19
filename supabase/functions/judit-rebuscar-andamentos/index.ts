@@ -89,7 +89,12 @@ serve(async (req) => {
       const d0 = pageData[0].response_data || pageData[0];
       console.log('[Judit Rebuscar] item0 keys:', Object.keys(d0).join(','));
       console.log('[Judit Rebuscar] item0 response_type:', pageData[0].response_type);
-      console.log('[Judit Rebuscar] item0 response_data sample:', JSON.stringify(d0).slice(0, 800));
+      console.log('[Judit Rebuscar] steps len:', Array.isArray(d0.steps) ? d0.steps.length : 'not-array');
+      console.log('[Judit Rebuscar] secrecy_level:', d0.secrecy_level);
+      console.log('[Judit Rebuscar] parties len:', Array.isArray(d0.parties) ? d0.parties.length : 'no');
+      if (Array.isArray(d0.steps) && d0.steps.length > 0) {
+        console.log('[Judit Rebuscar] step[0]:', JSON.stringify(d0.steps[0]).slice(0, 400));
+      }
     }
 
     // Achar o primeiro item com steps
