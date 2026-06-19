@@ -1,53 +1,41 @@
-## Causa raiz
+# Por que não há andamentos no processo 7000047-89.2026.8.22.0021
 
-Logs do `judit-buscar-processo-cnj` (Daniel, 18:06):
+## Diagnóstico (com base nos dados reais)
 
-```
-Payload: {"search":{"search_type":"lawsuit_cnj","search_key":"70000478920268220021","on_demand":true,"search_params":{"credential":{"customer_key":"alanpjero"}}}}
-Request ID: c464e113-...
-Polling tentativa 1 - page_data: 1
-Estrutura resposta: { hasSteps: true, stepsLength: 0, ..., responseKeys: "code, instance, name, secrecy_level, tribunal_acronym, justice, ..., parties" }
-Processo criado: 13a9f104-...
-Tentativa steps 1..2..3 → Nenhum step encontrado
-Concluido: { andamentosInseridos: 0 }
-```
+- O processo foi criado em `processos_oab` no dia 19/06 às 18:06 (id `13a9f104-b4aa-4078-8387-77f0d74c4bb9`).
+- `judit_api_logs` mostra **uma única chamada** à Judit, `request_id c464e113-2b60-49f6-9edd-cc3614bc0990`, status 200, sucesso true, custo 1, com `with_attachments` ainda **fora** da raiz (versão antiga do código).
+- `processos_oab_andamentos` para esse processo: **0 linhas**.
+- Não existe job em `processo_import_jobs` (foi importação direta, não via worker), então não há retry automático.
+- Conclusão: a Judit respondeu rápido com a **capa** apenas (sem `steps`); o loop de polling antigo saiu na primeira página com `page_data > 0` e não esperou os andamentos chegarem. Foi exatamente o bug que a correção em `judit-buscar-processo-cnj` endereça — só que a correção foi publicada **depois** desse import, então este processo específico continua sem andamentos.
 
-A Judit não está rejeitando — ela aceita a credencial `alanpjero` e devolve a **capa** do processo (`code, instance, parties, courts, ...`), mas com `steps: []`. O processo é criado, porém sem andamentos, e por isso o usuário acha que "não saiu". Dois problemas reais alimentam isso:
+## Correção proposta
 
-1. **Polling principal sai cedo demais.** O loop em `judit-buscar-processo-cnj` (linhas 217-252) interrompe assim que `page_data.length > 0`. Para `on_demand: true` com credencial, a Judit costuma devolver **dois itens** em `page_data`: o primeiro é só a capa (sem `steps`) e o segundo é o resultado completo da consulta paga (com `steps` populado), que chega 30-90s depois. Ao parar no primeiro, pegamos só a capa. As "Tentativas steps 1..3" de fallback acontecem, mas com apenas ~5 s de espera entre cada — insuficiente para o tribunal devolver os passos.
-2. **Payload diverge do que o usuário valida no Postman.** O Postman dele usa `search_key` formatado (`7000047-89.2026.8.22.0021`) e inclui `with_attachments: false` no body. A função envia só os dígitos e omite `with_attachments`. Para alguns tribunais a Judit muda o pipeline de consulta conforme esses parâmetros, e o "with_attachments: false" sinaliza explicitamente que queremos só os steps (sem aguardar download de anexos). Isso também ajuda a destravar a entrega dos passos.
+Não é bug pendente no código — o polling já está corrigido. O que falta é **reprocessar este CNJ** (e dar uma forma manual para casos futuros).
 
-## Correção
+### 1. Reprocessar o CNJ 7000047 agora
+Disparar `judit-buscar-processo-cnj` novamente para esse CNJ no tenant Solvenza com a credencial `alanpjero`, indicando o `processo_oab_id` existente para que os andamentos sejam anexados ao registro `13a9f104-b4aa-4078-8387-77f0d74c4bb9` (sem criar duplicata). Esperado: a chamada nova vai pollar até `steps.length > 0` e popular `processos_oab_andamentos`.
 
-### `supabase/functions/judit-buscar-processo-cnj/index.ts`
+### 2. Botão "Re-buscar andamentos" no resumo do processo (OAB)
+Em `ProcessoOABDetalhes.tsx`, ao lado do botão de monitoramento Judit já existente, adicionar um botão `Re-buscar andamentos (Judit)` visível para admin/controller. Ele chama `judit-buscar-processo-cnj` com `{ numero_cnj, credencial_id, processo_oab_id_existente }` e mostra toast de progresso/sucesso.
 
-1. **Aguardar até `steps` chegarem, não apenas `page_data`.**
-   - No loop principal (linhas 217-252), substituir a condição de saída por: percorrer **todos** os itens de `page_data` e considerar concluído somente quando algum item tiver `steps`/`movements`/`andamentos` com `length > 0`. Manter `maxAttempts = 60` (~2 min) e fallback final que aceita `page_data > 0` se ao menos a capa veio (para preservar o caminho "processo mínimo" atual).
-   - Aumentar a primeira espera de 3 s para 5 s e o intervalo entre tentativas de 2 s para 3 s nas primeiras 10 tentativas (a Judit não devolve steps antes disso para on-demand).
-2. **Alinhar payload ao Postman do usuário.**
-   - Adicionar `with_attachments: false` no nível raiz do body (não dentro de `search`), conforme o print.
-   - Usar como `search_key` o CNJ **com máscara** (`7000047-89.2026.8.22.0021`) quando o input já vier formatado; manter fallback para dígitos somente se vier sem máscara. Hoje a função força `replace(/\D/g, '')` em algum ponto antes da chamada — passar a usar o `numero_cnj` original.
-3. **Manter o caminho "processo mínimo".** Se após o novo polling ainda não vierem steps, manter o comportamento atual de gravar com `dadosCompletos: false`, mas no toast do frontend deixar claro que o processo foi criado com a capa e os andamentos virão pelo monitoramento (não é "erro").
-
-Sem mudança no frontend e sem nova credencial. Nenhum schema novo.
+### 3. Ajuste leve no edge function
+`judit-buscar-processo-cnj` precisa aceitar `processo_oab_id_existente` no body: se vier, **não cria** processo novo, só faz upsert dos andamentos no processo informado (deduplicando por `dedup_hash`).
 
 ## Arquivos afetados
 
-- `supabase/functions/judit-buscar-processo-cnj/index.ts` — único arquivo a alterar (loop de polling, payload, search_key).
+- `supabase/functions/judit-buscar-processo-cnj/index.ts` — aceitar `processo_oab_id_existente` e pular criação quando presente.
+- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — botão "Re-buscar andamentos (Judit)" (admin/controller).
+- Sem migration. Sem novas tabelas. Sem novas secrets.
 
 ## Impacto
 
-1. **UX/telas**: ao importar um processo CNJ, a importação vai demorar mais até 2 min (em vez de retornar em ~10 s com 0 andamentos). Em troca, o processo aparece na listagem **com partes, tribunal e andamentos preenchidos**, que era a expectativa do usuário. O toast intermediário já existe ("Importando em segundo plano"), então o tempo extra não trava a UI.
-2. **Dados**: nenhuma migration. Mesma tabela `processos_oab` + `processos_oab_andamentos`. Pode aumentar levemente o número de linhas de log em `judit_api_logs` (mais polls), mas continua dentro do limite. Custo Judit por chamada é o mesmo (a cobrança é pelo `request_id`, não por poll).
-3. **Riscos colaterais**:
-   - Função roda mais tempo (até 120 s). Edge functions Supabase têm limite de 150 s; ficamos folgados, mas é bom monitorar.
-   - Se a Judit mudar o shape (`page_data` com mais itens), o novo loop continua compatível porque varre todos.
-   - Tribunais que sempre devolvem `steps: []` (sigilo/erro de credencial) cairão no caminho "processo mínimo" como hoje.
-4. **Quem é afetado**: todos os tenants que importam processos por CNJ via dialog "Importar processo". Beneficia em especial credenciais que destravam tribunais (caso atual da Solvenza com `alanpjero` no TJRO).
+1. **Usuário final**: Daniel (e qualquer admin/controller) ganha um botão para re-buscar andamentos sob demanda quando a Judit demorar a devolver `steps` ou quando um import antigo tiver ficado sem movimentações. UX: clique → toast "Buscando..." → toast "X andamentos importados".
+2. **Dados**: nenhum schema novo. Apenas inserts em `processos_oab_andamentos` com dedup por `dedup_hash` — sem risco de duplicata. `judit_api_logs` ganha um registro novo (custo 1 por chamada Judit).
+3. **Riscos colaterais**: cada clique no botão consome 1 crédito Judit. Mitigado por limitar a admin/controller e adicionar `disabled` durante a chamada.
+4. **Quem é afetado**: somente perfis admin/controller no tenant. Demais usuários não veem o botão.
 
 ## Validação
 
-- Reimportar o CNJ `7000047-89.2026.8.22.0021` na Solvenza com a credencial `alanpjero` → logs devem mostrar polling até `stepsLength > 0` e `andamentosInseridos > 0`.
-- Importar um CNJ sigiloso (sem credencial casável) → cair no caminho "processo mínimo" com `dadosCompletos: false` e toast amigável (sem regressão).
-- Conferir `judit_api_logs` da chamada: `request_id` único, `sucesso=true`, mesma `custo_estimado=1` (sem cobrança extra).
-- Importar um CNJ que já existe → continuar retornando `duplicado: true` (caminho independente, não afetado).
+- Após implementar, clicar no botão no processo 7000047-89.2026.8.22.0021 → conferir que `processos_oab_andamentos` deixa de ter 0 linhas e que a aba de andamentos no resumo passa a listá-los.
+- Conferir `judit_api_logs`: novo registro com `tipo_chamada=lawsuit_cnj_refresh`, sucesso true, andamentos > 0.
+- Tentar clicar duas vezes seguidas → sem duplicatas (dedup_hash).

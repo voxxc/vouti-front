@@ -21,6 +21,7 @@ serve(async (req) => {
       sufixoApartado,
       juditSystemName,
       juditCustomerKey,
+      processoOabIdExistente,
     } = await req.json();
     
     if (!numeroCnj || !oabId) {
@@ -55,14 +56,17 @@ serve(async (req) => {
     console.log('[Judit Import CNJ] Buscando processo:', searchKey, '- CNJ para salvar:', cnjParaSalvar);
 
     // Verificar se processo ja existe para esta OAB (usando CNJ com sufixo se apartado)
-    const { data: existente } = await supabase
-      .from('processos_oab')
-      .select('id')
-      .eq('oab_id', oabId)
-      .eq('numero_cnj', cnjParaSalvar)
-      .maybeSingle();
+    // (pulado quando processoOabIdExistente é informado — fluxo "re-buscar andamentos")
+    const { data: existente } = processoOabIdExistente
+      ? { data: null as any }
+      : await supabase
+          .from('processos_oab')
+          .select('id')
+          .eq('oab_id', oabId)
+          .eq('numero_cnj', cnjParaSalvar)
+          .maybeSingle();
 
-    if (existente) {
+    if (existente && !processoOabIdExistente) {
       return new Response(
         JSON.stringify({
           success: false,
@@ -158,7 +162,7 @@ serve(async (req) => {
         tenant_id: tenantId || null,
         user_id: userId || null,
         oab_id: oabId,
-        tipo_chamada: 'lawsuit_cnj_import',
+        tipo_chamada: processoOabIdExistente ? 'lawsuit_cnj_refresh' : 'lawsuit_cnj_import',
         endpoint: 'https://requests.prod.judit.io/requests',
         metodo: 'POST',
         request_payload: requestPayload,
@@ -293,7 +297,22 @@ serve(async (req) => {
     // Se não recebeu dados completos, cadastrar processo com informações mínimas
     if (!resultData) {
       console.log('[Judit Import CNJ] Sem dados detalhados - cadastrando com informações mínimas');
-      
+
+      // Modo refresh: não tem dados — apenas devolver 0 andamentos no processo existente.
+      if (processoOabIdExistente) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            processoId: processoOabIdExistente,
+            andamentosInseridos: 0,
+            totalAndamentos: 0,
+            dadosCompletos: false,
+            mensagem: 'Sem novos andamentos disponíveis na Judit para este processo no momento.'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       // Criar processo com dados mínimos (sigilo ou indisponível)
       const novoProcessoMinimo = {
         oab_id: oabId,
@@ -461,19 +480,43 @@ serve(async (req) => {
       judit_customer_key: customerKey,
     };
 
-    const { data: processoInserido, error: insertError } = await supabase
-      .from('processos_oab')
-      .insert(novoProcesso)
-      .select('id')
-      .single();
+    let processoOabId: string;
+    if (processoOabIdExistente) {
+      // Modo refresh: atualizar capa/detalhes do processo já existente, sem criar novo
+      const { error: updateError } = await supabase
+        .from('processos_oab')
+        .update({
+          parte_ativa: parteAtiva || undefined,
+          parte_passiva: partePassiva || undefined,
+          tribunal: tribunal || undefined,
+          tribunal_sigla: tribunalSigla || undefined,
+          capa_completa: novoProcesso.capa_completa,
+          detalhes_completos: responseData,
+          detalhes_carregados: true,
+          detalhes_request_id: requestId,
+          detalhes_request_data: new Date().toISOString(),
+        })
+        .eq('id', processoOabIdExistente);
+      if (updateError) {
+        console.error('[Judit Import CNJ] Erro ao atualizar processo:', updateError);
+        throw new Error('Erro ao atualizar processo: ' + updateError.message);
+      }
+      processoOabId = processoOabIdExistente;
+      console.log('[Judit Import CNJ] Processo atualizado (refresh):', processoOabId);
+    } else {
+      const { data: processoInserido, error: insertError } = await supabase
+        .from('processos_oab')
+        .insert(novoProcesso)
+        .select('id')
+        .single();
 
-    if (insertError) {
-      console.error('[Judit Import CNJ] Erro ao inserir processo:', insertError);
-      throw new Error('Erro ao salvar processo: ' + insertError.message);
+      if (insertError) {
+        console.error('[Judit Import CNJ] Erro ao inserir processo:', insertError);
+        throw new Error('Erro ao salvar processo: ' + insertError.message);
+      }
+      processoOabId = processoInserido.id;
+      console.log('[Judit Import CNJ] Processo criado:', processoOabId);
     }
-
-    const processoOabId = processoInserido.id;
-    console.log('[Judit Import CNJ] Processo criado:', processoOabId);
 
     // Buscar andamentos em múltiplos locais possíveis
     let steps = responseData?.steps 
@@ -578,6 +621,8 @@ serve(async (req) => {
 
         if (!error) {
           andamentosInseridos++;
+        } else if ((error as any).code === '23505') {
+          // duplicado (idx_andamentos_unique_v3) — esperado em refresh
         } else {
           console.error('[Judit Import CNJ] Erro ao inserir andamento:', error.message);
         }

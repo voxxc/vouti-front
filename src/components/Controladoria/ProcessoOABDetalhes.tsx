@@ -226,6 +226,7 @@ export const ProcessoOABDetalhes = ({
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [togglingMonitoramento, setTogglingMonitoramento] = useState(false);
   const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
+  const [rebuscandoAndamentos, setRebuscandoAndamentos] = useState(false);
   const [confirmMonitoramentoOpen, setConfirmMonitoramentoOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const escavadorBeta = useEscavadorBeta();
@@ -440,6 +441,48 @@ export const ProcessoOABDetalhes = ({
       : null;
     setResetCredencialValue(match?.id || '__publico__');
     setConfirmResetOpen(true);
+  };
+
+  const handleRebuscarAndamentosJudit = async () => {
+    if (!processo) return;
+    setRebuscandoAndamentos(true);
+    try {
+      const credAtual = credenciaisJudit.find(
+        (c) => c.customer_key === processo.judit_customer_key,
+      );
+      const { data, error } = await supabase.functions.invoke(
+        'judit-buscar-processo-cnj',
+        {
+          body: {
+            numeroCnj: processo.numero_cnj,
+            oabId: processo.oab_id,
+            tenantId,
+            userId: currentUserId || undefined,
+            juditCustomerKey: credAtual?.customer_key || processo.judit_customer_key || undefined,
+            juditSystemName: credAtual?.system_name || processo.judit_system_name || undefined,
+            processoOabIdExistente: processo.id,
+          },
+        },
+      );
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Falha ao re-buscar andamentos');
+      toast({
+        title: '✅ Andamentos atualizados',
+        description: data.andamentosInseridos > 0
+          ? `${data.andamentosInseridos} novo(s) andamento(s) importado(s).`
+          : (data.mensagem || 'Nenhum andamento novo encontrado.'),
+      });
+      await fetchAndamentos();
+      onRefreshProcessos?.();
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao re-buscar andamentos',
+        description: err?.message || 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setRebuscandoAndamentos(false);
+    }
   };
 
   const executarReset = async () => {
@@ -836,6 +879,31 @@ export const ProcessoOABDetalhes = ({
                 </div>
               )}
             </div>
+
+            {/* Re-buscar andamentos (Judit) — admin/gestor da credencial */}
+            {podeEditarCredencial && (
+              <div className="mt-3 pt-3 border-t flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Re-buscar andamentos (Judit)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Consulta a Judit agora e importa andamentos faltantes neste processo (1 crédito).
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRebuscarAndamentosJudit}
+                  disabled={rebuscandoAndamentos}
+                >
+                  {rebuscandoAndamentos ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-1" />
+                  )}
+                  Re-buscar
+                </Button>
+              </div>
+            )}
           </Card>
 
           {/* Monitoramento via Escavador (beta) - apenas para usuários com flag */}
