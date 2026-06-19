@@ -226,6 +226,7 @@ export const ProcessoOABDetalhes = ({
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [togglingMonitoramento, setTogglingMonitoramento] = useState(false);
   const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
+  const [rebuscandoAndamentos, setRebuscandoAndamentos] = useState(false);
   const [confirmMonitoramentoOpen, setConfirmMonitoramentoOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const escavadorBeta = useEscavadorBeta();
