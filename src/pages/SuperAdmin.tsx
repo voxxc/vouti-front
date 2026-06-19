@@ -378,6 +378,9 @@ export default function SuperAdmin() {
                 <DropdownMenuItem onClick={() => setMainTab('monitoramento')} className="gap-2">
                   <Activity className="h-4 w-4" /> Monitoramento
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMainTab('trackings-judit')} className="gap-2">
+                  <Activity className="h-4 w-4" /> Trackings Judit
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setMainTab('diagnostico')} className="gap-2">
                   <Stethoscope className="h-4 w-4" /> Diagnóstico
                 </DropdownMenuItem>
