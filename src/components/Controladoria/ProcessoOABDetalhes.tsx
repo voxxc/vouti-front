@@ -226,7 +226,6 @@ export const ProcessoOABDetalhes = ({
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [togglingMonitoramento, setTogglingMonitoramento] = useState(false);
   const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
-  const [rebuscandoAndamentos, setRebuscandoAndamentos] = useState(false);
   const [confirmMonitoramentoOpen, setConfirmMonitoramentoOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const escavadorBeta = useEscavadorBeta();
@@ -441,37 +440,6 @@ export const ProcessoOABDetalhes = ({
       : null;
     setResetCredencialValue(match?.id || '__publico__');
     setConfirmResetOpen(true);
-  };
-
-  const handleRebuscarAndamentosJudit = async () => {
-    if (!processo) return;
-    setRebuscandoAndamentos(true);
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        'judit-rebuscar-andamentos',
-        {
-          body: { processoOabId: processo.id },
-        },
-      );
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Falha ao re-buscar andamentos');
-      toast({
-        title: '✅ Andamentos atualizados (sem custo)',
-        description: data.andamentosInseridos > 0
-          ? `${data.andamentosInseridos} novo(s) andamento(s) importado(s).`
-          : (data.mensagem || 'Nenhum andamento novo encontrado.'),
-      });
-      await fetchAndamentos();
-      onRefreshProcessos?.();
-    } catch (err: any) {
-      toast({
-        title: 'Erro ao re-buscar andamentos',
-        description: err?.message || 'Tente novamente.',
-        variant: 'destructive',
-      });
-    } finally {
-      setRebuscandoAndamentos(false);
-    }
   };
 
   const executarReset = async () => {
