@@ -78,6 +78,7 @@ import ApartadoCard from './ApartadoCard';
 import { useCanUseApartados } from '@/hooks/useCanUseApartados';
 import { PrazosCasoTab } from './PrazosCasoTab';
 import { supabase } from '@/integrations/supabase/client';
+import { useEscavadorBeta } from '@/hooks/useEscavadorBeta';
 import { useAuth } from '@/contexts/AuthContext';
 import { useJuditSystemNames } from '@/hooks/useJuditSystemNames';
 import { toast } from '@/hooks/use-toast';
@@ -227,6 +228,10 @@ export const ProcessoOABDetalhes = ({
   const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
   const [confirmMonitoramentoOpen, setConfirmMonitoramentoOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const escavadorBeta = useEscavadorBeta();
+  const [ativandoEscavador, setAtivandoEscavador] = useState(false);
+  const [escavadorAtivo, setEscavadorAtivo] = useState<boolean | null>(null);
+  const [confirmEscavadorOpen, setConfirmEscavadorOpen] = useState(false);
   // Credencial escolhida para o reset (CNJ sigiloso): valor "__publico__"
   // significa sem credencial; senão é o id da credencial Judit do tenant.
   const [resetCredencialValue, setResetCredencialValue] = useState<string>('__publico__');
@@ -271,6 +276,59 @@ export const ProcessoOABDetalhes = ({
     window.addEventListener('deadline-created', handler);
     return () => window.removeEventListener('deadline-created', handler);
   }, [activeTab]);
+
+  // Carregar status do monitoramento Escavador (apenas beta)
+  useEffect(() => {
+    if (!escavadorBeta || !processo?.id) {
+      setEscavadorAtivo(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('processo_monitoramento_escavador')
+        .select('monitoramento_ativo')
+        .eq('processo_id', processo.id)
+        .maybeSingle();
+      if (!cancelled) setEscavadorAtivo(!!(data as any)?.monitoramento_ativo);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [escavadorBeta, processo?.id]);
+
+  const handleAtivarEscavador = async () => {
+    setConfirmEscavadorOpen(false);
+    setAtivandoEscavador(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'escavador-ativar-e-buscar',
+        {
+          body: {
+            processoId: processo.id,
+            numeroProcesso: processo.numero_cnj,
+          },
+        },
+      );
+      if (error) throw error;
+      if (!data?.success) {
+        throw new Error(data?.message || 'Falha ao ativar Escavador');
+      }
+      setEscavadorAtivo(true);
+      toast({
+        title: '✅ Escavador ativado',
+        description: `${data.totalMovimentacoes ?? 0} movimentações sincronizadas.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao ativar Escavador',
+        description: err?.message || 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setAtivandoEscavador(false);
+    }
+  };
 
   // Estados de edição - Resumo
   const [editandoResumo, setEditandoResumo] = useState(false);
@@ -779,6 +837,64 @@ export const ProcessoOABDetalhes = ({
               )}
             </div>
           </Card>
+
+          {/* Monitoramento via Escavador (beta) - apenas para usuários com flag */}
+          {escavadorBeta && (
+            <Card className="p-4 border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/10">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Bot className="w-5 h-5 text-amber-600 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Label className="font-medium">Monitoramento via Escavador</Label>
+                      <Badge variant="outline" className="text-[10px] uppercase border-amber-500 text-amber-700 dark:text-amber-400">
+                        Beta
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {escavadorAtivo
+                        ? 'Monitoramento Escavador ativo para este processo.'
+                        : 'Ativa consulta e monitoramento recorrente via API do Escavador.'}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant={escavadorAtivo ? 'outline' : 'default'}
+                  onClick={() => setConfirmEscavadorOpen(true)}
+                  disabled={ativandoEscavador}
+                >
+                  {ativandoEscavador ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-1" />
+                  )}
+                  {escavadorAtivo ? 'Reconsultar' : 'Ativar monitoramento'}
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {/* Confirmação Escavador */}
+          <AlertDialog open={confirmEscavadorOpen} onOpenChange={setConfirmEscavadorOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {escavadorAtivo ? 'Reconsultar via Escavador?' : 'Ativar monitoramento via Escavador?'}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta ação consulta a API paga do Escavador e sincroniza as movimentações deste processo.
+                  Ao ativar, o processo entra em monitoramento recorrente via Escavador.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleAtivarEscavador}>
+                  {escavadorAtivo ? 'Reconsultar' : 'Ativar'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           {/* Modal de Confirmacao de Monitoramento */}
           <AlertDialog open={confirmMonitoramentoOpen} onOpenChange={setConfirmMonitoramentoOpen}>

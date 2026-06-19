@@ -5917,6 +5917,7 @@ export type Database = {
           email: string
           email_pessoal: string | null
           endereco: string | null
+          escavador_beta: boolean
           full_name: string | null
           id: string
           is_support: boolean
@@ -5936,6 +5937,7 @@ export type Database = {
           email: string
           email_pessoal?: string | null
           endereco?: string | null
+          escavador_beta?: boolean
           full_name?: string | null
           id?: string
           is_support?: boolean
@@ -5955,6 +5957,7 @@ export type Database = {
           email?: string
           email_pessoal?: string | null
           endereco?: string | null
+          escavador_beta?: boolean
           full_name?: string | null
           id?: string
           is_support?: boolean
