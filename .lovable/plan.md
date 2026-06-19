@@ -1,81 +1,72 @@
-# Estudo da API Escavador — preparação para futura migração da Judit
-
 ## Objetivo
-Você não quer alterar nada agora. Quer que eu estude a documentação da Escavador e deixe o conhecimento salvo para uso futuro, com foco em **monitoramento de processos** (caso de uso que hoje é coberto pela Judit no projeto).
 
-## O que vou fazer (sem mexer em código de produto)
+Adicionar um atalho nos cards de tenant (Super Admin) para baixar (backup) e apagar permanentemente os arquivos anexados às reuniões daquele cliente — liberando espaço do servidor com confirmação antes da exclusão.
 
-### 1. Coletar a documentação completa
-A página `https://api.escavador.com/v2/docs/` é uma SPA — o HTML estático só traz a introdução. Para extrair os endpoints, vou usar três fontes que funcionam sem JS:
-- **README e código-fonte do SDK Python oficial** (`github.com/Escavador/escavador-python`) — enumera todos os módulos e métodos da V1 e V2.
-- **Páginas individuais de cada módulo** da V1 (`/v1/docs/processos`, `/v1/docs/monitoramento-no-site-do-tribunal`, `/v1/docs/callback`, etc.) renderizadas via screenshot quando o markdown estático falhar.
-- **Subpáginas conhecidas da V2** (`/v2/docs/consulta-de-processos`, `/v2/docs/tribunais`).
+## Escopo dos arquivos
 
-### 2. Salvar como referência permanente
-Vou criar um arquivo único em `mem://integrations/escavador-api` (memória do projeto, sempre disponível em sessões futuras) cobrindo:
+Dois conjuntos por tenant:
 
-**Fundamentos** (já tenho)
-- Endpoints base: V1 = `https://api.escavador.com/api/v1`, V2 = `https://api.escavador.com/api/v2`.
-- Autenticação: PAT Bearer (`Authorization: Bearer <token>`), gerado no painel `api.escavador.com/tokens`, server-to-server only.
-- Limite: 500 req/min global.
-- Cobrança: header `Creditos-Utilizados` por requisição (em centavos).
-- Paginação: numerada (`page`/`per_page`) ou cursor (`cursor`/`limit`), com bloco `meta` + `links`.
-- Callbacks: configurados em `api.escavador.com/callbacks`, validados via token no header `Authorization`, devem ser idempotentes.
-- SDK Python disponível; em Edge Functions usaríamos `fetch` direto.
+1. `reuniao_arquivos` → bucket `reuniao-attachments` (97 MB / 20 arquivos hoje no total — anexos de reuniões agendadas)
+2. `reuniao_cliente_arquivos` → bucket `reuniao-cliente-attachments` (anexos do dossiê do cliente da reunião)
 
-**Módulos V1** (busca + monitoramento — coração da migração)
-- `Busca` — busca textual de processos/pessoas/empresas.
-- `Processo` — pesquisa síncrona e assíncrona no site do tribunal (`POST /processos/{cnj}/informacoes-no-tribunal`), retorna `id` para callback.
-- `MonitoramentoTribunal` — criar/listar/remover monitoramento de um CNJ ou OAB num tribunal específico, com frequência (DIARIA/SEMANAL) e tipo (UNICO/POR_OAB).
-- `MonitoramentoDiario` — monitoramento em Diários Oficiais (PROCESSO, NOME, OAB, VARIACAO).
-- `Movimentacao` — listagem de movimentações por processo.
-- `Tribunal` — `sistemas_disponiveis()` para descobrir cobertura.
-- `Callback` — listagem/consulta em massa de callbacks recebidos.
-- `DiarioOficial`, `Instituicao`, `Legislacao`, `Jurisprudencia`, `Pessoa`, `Saldo` — secundários para o caso de uso.
+Ambas as tabelas têm `tenant_id`, `file_path`, `file_name`, `file_size`, `file_type`, `created_at`, então filtro por tenant é direto.
 
-**Módulos V2** (dados estruturados ricos, sem monitoramento)
-- `v2.Processo`:
-  - `por_cnpj(cnpj)` / `por_cpf(cpf)` / `por_nome(nome)` → envolvido + lista paginada por cursor.
-  - `por_oab(numero, estado, ordena_por, ordem)` → advogado + processos.
-  - `por_numero(cnj)` → detalhes ricos (fontes, polos, valor, classe, assunto, tribunal, datas).
-  - `movimentacoes(cnj)` → cursor-based.
-- `v2.Tribunal` — referência de tribunais.
+## Mudanças no card (`src/components/SuperAdmin/TenantCard.tsx`)
 
-**Mapeamento Judit → Escavador** (rascunho conceitual, sem implementar)
-| Função atual (Judit) | Equivalente Escavador |
-|---|---|
-| `judit-sync-*` (sync por CNJ) | V1 `Processo.informacoes_no_tribunal` (assíncrono + callback) |
-| Tracking / `tracking_id` | V1 `MonitoramentoTribunal` (frequência DIARIA/SEMANAL) |
-| `last_request_id` polling | Substituído por callback push |
-| Sync por OAB | V1 `MonitoramentoTribunal` tipo `POR_OAB` ou V2 `Processo.por_oab` |
-| Anexos (`processos_oab_anexos`) | V2 retorna estrutura de fontes; anexos completos exigem o sistema de "autos digitais" da V1 (a confirmar) |
-| Credenciais customer (cofre) | Escavador não usa cofre por cliente — usa um único PAT da workspace |
+- Novo botão ícone na "Linha 2: Ferramentas" usando o ícone `FolderArchive` (lucide), com `title="Documentos de reuniões"`.
+- Ao clicar, abre um novo dialog `TenantReuniaoArquivosDialog`.
 
-**Diferenças operacionais críticas**
-- Escavador usa **um único token global** (não há cofre de credenciais por cliente como na Judit). Isso simplifica `useTenantCredenciais`/`judit-deletar-credencial`/`useRebindCredencialJudit` mas exige replanejamento de billing por tenant.
-- Cobrança por requisição via `Creditos-Utilizados` em vez de plano de tracking — precisa de telemetria de custo por chamada.
-- Rate limit 500 rpm é mais generoso, mas global → todos os tenants compartilham.
-- Callbacks vs polling: arquitetura push-first; precisaríamos de uma edge function `escavador-webhook` validando o token de callback.
+## Novo componente `src/components/SuperAdmin/TenantReuniaoArquivosDialog.tsx`
+
+Layout:
+
+```text
+[Header: Documentos de Reuniões — {tenant.name}]
+[Resumo: X arquivos · YY,Y MB]
+[Tabs: Reuniões | Reuniões de Clientes]
+[Tabela: ☑ | Nome | Tamanho | Data | [Baixar] [Apagar]]
+[Rodapé: [Baixar selecionados (ZIP)] [Baixar tudo (ZIP)]  ───  [Apagar selecionados] [Apagar TUDO]]
+```
+
+Funcionalidades:
+
+- Lista os arquivos das duas tabelas filtradas por `tenant_id`, com seleção múltipla.
+- **Baixar individual:** gera URL assinada (`createSignedUrl`, 60s) e dispara download.
+- **Baixar selecionados / tudo (ZIP):** baixa via `supabase.storage.from(bucket).download(path)`, monta um ZIP com `jszip` (estrutura `reunioes/<file>` e `reunioes-clientes/<file>`) e salva como `<slug>-reunioes-<data>.zip`. Limite de batch para não estourar memória (concorrência 4).
+- **Apagar individual:** AlertDialog "Tem certeza? Esta ação é irreversível" → remove do storage (`storage.from(bucket).remove([path])`) e deleta a linha da tabela.
+- **Apagar selecionados / TUDO:** AlertDialog reforçado exigindo digitar `APAGAR` para confirmar; remove em lotes do storage e das tabelas.
+- Toasts de sucesso/erro e refresh da lista após cada operação.
+
+Sem mudanças de schema, sem novas migrations, sem alterações em RLS — Super Admin já tem acesso pelas policies existentes dessas tabelas.
+
+## Detalhes técnicos
+
+- Dependência nova: `jszip` (instalada via `bun add jszip`) para gerar o backup compactado no cliente.
+- Download em paralelo com `Promise.all` + `pLimit`-style manual (concorrência 4) pra não derrubar o navegador em tenants com muitos arquivos.
+- `streamSaver` não é necessário no volume atual (≤100 MB); ZIP em memória é suficiente. Se um tenant futuro passar de ~300 MB, avaliar troca.
+- A exclusão remove do storage **antes** de remover do banco; se o storage falhar, não apaga o registro (evita órfão invertido).
 
 ## Arquivos afetados
-Nenhum arquivo de código será alterado. Será criado **um único arquivo de memória**:
-- `mem://integrations/escavador-api` — referência completa
-- entrada correspondente em `mem://index.md` apontando para ela
+
+- `src/components/SuperAdmin/TenantCard.tsx` (novo botão + estado do dialog)
+- `src/components/SuperAdmin/TenantReuniaoArquivosDialog.tsx` (novo)
+- `package.json` (dep `jszip`)
 
 ## Impacto
 
-**Usuário final**: nenhum. Nada muda na UI, dados ou fluxos hoje.
-
-**Dados**: nenhuma migration, nenhuma alteração em RLS/tabelas. Apenas a memória do projeto cresce.
-
-**Riscos colaterais**: nenhum técnico. Único risco é a memória ficar desatualizada se a Escavador alterar a API antes da migração — mitigável reconsultando antes de implementar.
-
-**Quem é afetado**: só o agente Lovable em sessões futuras (terá contexto pronto). Nenhum tenant, advogado, admin ou usuário final é tocado.
+1. **Usuário final (Super Admin):** ganha um atalho no card para fazer backup local dos anexos de reuniões e apagar permanentemente, com confirmação reforçada (digitar `APAGAR`) antes de exclusão em massa. Nenhum impacto para usuários do tenant — eles veem os arquivos sumirem das reuniões depois que você apagar.
+2. **Dados:** sem migration, sem mudança de RLS. As linhas em `reuniao_arquivos` / `reuniao_cliente_arquivos` e os objetos nos buckets `reuniao-attachments` / `reuniao-cliente-attachments` são deletados de fato — não há soft-delete. Espaço liberado tanto em Storage quanto no banco.
+3. **Riscos colaterais:**
+   - Exclusão é irreversível; arquivos referenciados em reuniões existentes ficarão como "anexo removido" na UI do tenant.
+   - ZIP grande pode pesar na aba do navegador se um tenant tiver muitos GB (hoje o maior volume é ~97 MB, então ok).
+   - Se o usuário fechar o navegador no meio da exclusão em lote, parte fica apagada e parte não — UI mostra progresso e permite retomar (re-listar).
+4. **Quem é afetado:** apenas Super Admin executa; o tenant alvo perde os anexos de reuniões definitivamente.
 
 ## Validação
-Após salvar, vou:
-1. Reler `mem://integrations/escavador-api` para confirmar que cobre os 11 módulos V1 + 2 módulos V2 + autenticação + callbacks + paginação + cobrança.
-2. Confirmar que `mem://index.md` referencia a nova memória com descrição específica o suficiente para retrieval futuro ("Escavador API reference for future Judit migration — monitoring focus").
-3. Te mostrar um resumo de uma página do que ficou salvo, para você validar antes de eu encerrar.
 
-Quando você pedir a migração no futuro, basta dizer "migra X da Judit pra Escavador" — eu vou consultar essa memória e propor o plano detalhado já com os endpoints corretos.
+- Abrir um tenant com arquivos, conferir contagem/tamanho exibidos.
+- Baixar 1 arquivo → abre o arquivo correto.
+- Baixar tudo (ZIP) → ZIP contém todos os arquivos nas pastas corretas.
+- Apagar 1 arquivo (com confirmação) → some da lista, some do bucket (verificar via `storage.list`) e da tabela.
+- Apagar tudo (digitando `APAGAR`) → tabela e bucket ficam vazios para aquele tenant; outros tenants intactos.
+- Conferir que tenants sem arquivos mostram estado vazio sem erro.
