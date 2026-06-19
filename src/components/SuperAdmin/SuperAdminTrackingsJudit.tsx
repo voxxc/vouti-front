@@ -20,11 +20,15 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -49,6 +53,8 @@ export function SuperAdminTrackingsJudit() {
   const [tenantFilter, setTenantFilter] = useState<string>('all');
   const [orfaosOnly, setOrfaosOnly] = useState(false);
   const [busca, setBusca] = useState('');
+  const [target, setTarget] = useState<TrackingItem | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -107,6 +113,36 @@ export function SuperAdminTrackingsJudit() {
       return true;
     });
   }, [items, busca, tipoFilter, tenantFilter, orfaosOnly]);
+
+  const handleDelete = async () => {
+    if (!target) return;
+    setDeletingId(target.tracking_id);
+    try {
+      const { data, error } = await supabase.functions.invoke('judit-apagar-tracking', {
+        body: {
+          tracking_id: target.tracking_id,
+          tipo: target.tipo,
+          tenant_id: target.tenant_id,
+        },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Falha ao apagar');
+      setItems((prev) => prev.filter((i) => i.tracking_id !== target.tracking_id));
+      toast({
+        title: 'Tracking apagado',
+        description: `Judit: ${data.juditStatus ?? '—'} · Local: ${JSON.stringify(data.localUpdates ?? {})}`,
+      });
+    } catch (e: any) {
+      toast({
+        title: 'Erro ao apagar tracking',
+        description: e?.message ?? 'Tente novamente',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingId(null);
+      setTarget(null);
+    }
+  };
 
   const formatDate = (s: string | null) => {
     if (!s) return '—';
@@ -272,23 +308,20 @@ export function SuperAdminTrackingsJudit() {
                       {i.tracking_id}
                     </TableCell>
                     <TableCell className="text-right">
-                      <TooltipProvider delayDuration={0}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                disabled
-                                className="h-7 w-7 text-rose-600"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>Em breve: apagar tracking</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-rose-600 hover:text-rose-700 hover:bg-rose-500/10"
+                        disabled={deletingId === i.tracking_id}
+                        onClick={() => setTarget(i)}
+                        title="Apagar tracking na Judit"
+                      >
+                        {deletingId === i.tracking_id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -300,6 +333,42 @@ export function SuperAdminTrackingsJudit() {
         <p className="text-xs text-muted-foreground">
           Mostrando {filtered.length} de {items.length} carregados.
         </p>
+
+        <AlertDialog open={!!target} onOpenChange={(o) => !o && setTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Apagar tracking na Judit?</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2 text-sm">
+                  <p>
+                    Esta ação é <strong>irreversível</strong>. O tracking será removido da Judit
+                    e o monitoramento local marcado como inativo.
+                  </p>
+                  {target && (
+                    <div className="rounded-md border bg-muted/30 p-3 space-y-1 font-mono text-xs">
+                      <div><span className="text-muted-foreground">Tracking:</span> {target.tracking_id}</div>
+                      <div><span className="text-muted-foreground">Tipo:</span> {target.tipo}</div>
+                      <div><span className="text-muted-foreground">Referência:</span> {target.reference ?? '—'}</div>
+                      <div><span className="text-muted-foreground">Tenant:</span> {target.tenant_nome ?? '— sem vínculo —'}</div>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Para reativar, será necessário ativar o monitoramento novamente no tenant.
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                className="bg-rose-600 hover:bg-rose-700 text-white"
+              >
+                Apagar tracking
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );
