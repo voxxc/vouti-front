@@ -277,6 +277,59 @@ export const ProcessoOABDetalhes = ({
     return () => window.removeEventListener('deadline-created', handler);
   }, [activeTab]);
 
+  // Carregar status do monitoramento Escavador (apenas beta)
+  useEffect(() => {
+    if (!escavadorBeta || !processo?.id) {
+      setEscavadorAtivo(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('processo_monitoramento_escavador')
+        .select('monitoramento_ativo')
+        .eq('processo_id', processo.id)
+        .maybeSingle();
+      if (!cancelled) setEscavadorAtivo(!!(data as any)?.monitoramento_ativo);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [escavadorBeta, processo?.id]);
+
+  const handleAtivarEscavador = async () => {
+    setConfirmEscavadorOpen(false);
+    setAtivandoEscavador(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'escavador-ativar-e-buscar',
+        {
+          body: {
+            processoId: processo.id,
+            numeroProcesso: processo.numero_cnj,
+          },
+        },
+      );
+      if (error) throw error;
+      if (!data?.success) {
+        throw new Error(data?.message || 'Falha ao ativar Escavador');
+      }
+      setEscavadorAtivo(true);
+      toast({
+        title: '✅ Escavador ativado',
+        description: `${data.totalMovimentacoes ?? 0} movimentações sincronizadas.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao ativar Escavador',
+        description: err?.message || 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setAtivandoEscavador(false);
+    }
+  };
+
   // Estados de edição - Resumo
   const [editandoResumo, setEditandoResumo] = useState(false);
   const [salvandoResumo, setSalvandoResumo] = useState(false);
