@@ -1,0 +1,2 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS escavador_beta boolean NOT NULL DEFAULT false;
+UPDATE public.profiles SET escavador_beta = true WHERE id = (SELECT id FROM auth.users WHERE email = 'danieldemorais.e@gmail.com');
