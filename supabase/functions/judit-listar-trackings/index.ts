@@ -64,8 +64,9 @@ Deno.serve(async (req) => {
       const url = new URL(JUDIT_BASE);
       url.searchParams.set('page', String(p));
       url.searchParams.set('page_size', String(pageSize));
-      if (status === 'paused') url.searchParams.set('status', 'paused');
-      if (status === 'active') url.searchParams.set('status', 'active');
+      // Judit aceita apenas alguns valores em `status` (ex.: "created").
+      // Para evitar 400 ("status invalid status value."), não enviamos esse
+      // filtro à Judit — buscamos tudo e filtramos localmente abaixo.
       const r = await fetch(url.toString(), {
         headers: { 'api-key': juditApiKey, 'Content-Type': 'application/json' },
       });
@@ -184,12 +185,19 @@ Deno.serve(async (req) => {
       };
     });
 
+    // Filtra status localmente (Judit não aceita 'active'/'paused' em todos os casos).
+    const statusFiltered = enriched.filter((it) => {
+      if (status === 'active') return it.status === 'active' || it.status === 'created';
+      if (status === 'paused') return it.status === 'paused';
+      return true;
+    });
+
     return new Response(
       JSON.stringify({
         success: true,
-        total: enriched.length,
+        total: statusFiltered.length,
         totalReported,
-        items: enriched,
+        items: statusFiltered,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
