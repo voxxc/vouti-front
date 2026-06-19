@@ -1,42 +1,81 @@
-## Causa raiz
+# Estudo da API Escavador — preparação para futura migração da Judit
 
-A primeira implementação criou a modal `ConcluirSubtaskModal` apenas para subtarefas do **Planejador** (`planejador_task_subtasks`). Você está testando nas subtarefas de **prazo** (`deadline_subtarefas`), que são as que aparecem em **Controladoria → Central de Subtarefas / Prazos Concluídos** e nos detalhes de prazo. Lá os checkboxes ainda chamam `update` direto na tabela, sem modal e sem registrar comentário.
+## Objetivo
+Você não quer alterar nada agora. Quer que eu estude a documentação da Escavador e deixe o conhecimento salvo para uso futuro, com foco em **monitoramento de processos** (caso de uso que hoje é coberto pela Judit no projeto).
 
-A tabela `deadline_subtarefas` também não tem hoje uma coluna para guardar o comentário de conclusão.
+## O que vou fazer (sem mexer em código de produto)
 
-## Correção
+### 1. Coletar a documentação completa
+A página `https://api.escavador.com/v2/docs/` é uma SPA — o HTML estático só traz a introdução. Para extrair os endpoints, vou usar três fontes que funcionam sem JS:
+- **README e código-fonte do SDK Python oficial** (`github.com/Escavador/escavador-python`) — enumera todos os módulos e métodos da V1 e V2.
+- **Páginas individuais de cada módulo** da V1 (`/v1/docs/processos`, `/v1/docs/monitoramento-no-site-do-tribunal`, `/v1/docs/callback`, etc.) renderizadas via screenshot quando o markdown estático falhar.
+- **Subpáginas conhecidas da V2** (`/v2/docs/consulta-de-processos`, `/v2/docs/tribunais`).
 
-1. **Migration** — adicionar coluna `comentario_conclusao text` em `public.deadline_subtarefas` (nullable; só preenchida quando `concluida = true`). Atualizar a função RPC `get_central_subtarefas` para devolver o novo campo no `jsonb_agg` das subtarefas.
+### 2. Salvar como referência permanente
+Vou criar um arquivo único em `mem://integrations/escavador-api` (memória do projeto, sempre disponível em sessões futuras) cobrindo:
 
-2. **Reaproveitar `ConcluirSubtaskModal`** (já existe e é genérico — recebe título e callback). Aplicar nos pontos onde a subtarefa de prazo é concluída:
-   - `src/components/Controladoria/CentralSubtarefas.tsx` → `handleToggleSubtarefa`: se a transição for `false → true`, abrir modal; persistir `concluida=true`, `concluida_em=now()` e `comentario_conclusao` no submit. Desmarcar (true → false) continua direto e limpa `comentario_conclusao`.
-   - `src/components/Controladoria/CentralPrazosConcluidos.tsx` → mesma lógica em `handleToggleSubtarefa`.
-   - Exibir o comentário abaixo do título da subtarefa quando `concluida` (mesmo padrão visual já usado no Planejador: `✓ {comentario}` em itálico, com tooltip da data).
+**Fundamentos** (já tenho)
+- Endpoints base: V1 = `https://api.escavador.com/api/v1`, V2 = `https://api.escavador.com/api/v2`.
+- Autenticação: PAT Bearer (`Authorization: Bearer <token>`), gerado no painel `api.escavador.com/tokens`, server-to-server only.
+- Limite: 500 req/min global.
+- Cobrança: header `Creditos-Utilizados` por requisição (em centavos).
+- Paginação: numerada (`page`/`per_page`) ou cursor (`cursor`/`limit`), com bloco `meta` + `links`.
+- Callbacks: configurados em `api.escavador.com/callbacks`, validados via token no header `Authorization`, devem ser idempotentes.
+- SDK Python disponível; em Edge Functions usaríamos `fetch` direto.
 
-3. **Tipagem** — incluir `comentario_conclusao?: string | null` na interface `Subtarefa` desses dois arquivos. Não tocar em `src/integrations/supabase/types.ts` (gerado).
+**Módulos V1** (busca + monitoramento — coração da migração)
+- `Busca` — busca textual de processos/pessoas/empresas.
+- `Processo` — pesquisa síncrona e assíncrona no site do tribunal (`POST /processos/{cnj}/informacoes-no-tribunal`), retorna `id` para callback.
+- `MonitoramentoTribunal` — criar/listar/remover monitoramento de um CNJ ou OAB num tribunal específico, com frequência (DIARIA/SEMANAL) e tipo (UNICO/POR_OAB).
+- `MonitoramentoDiario` — monitoramento em Diários Oficiais (PROCESSO, NOME, OAB, VARIACAO).
+- `Movimentacao` — listagem de movimentações por processo.
+- `Tribunal` — `sistemas_disponiveis()` para descobrir cobertura.
+- `Callback` — listagem/consulta em massa de callbacks recebidos.
+- `DiarioOficial`, `Instituicao`, `Legislacao`, `Jurisprudencia`, `Pessoa`, `Saldo` — secundários para o caso de uso.
 
-Observações:
-- O fluxo de **completar o prazo principal** já tem campo de comentário próprio (`AgendaContent.tsx`), portanto não muda. A alteração é exclusiva da conclusão de cada **subtarefa** do prazo.
-- A modal já bloqueia o botão "Concluir" quando o textarea está vazio, garantindo que não dá pra concluir sem texto.
+**Módulos V2** (dados estruturados ricos, sem monitoramento)
+- `v2.Processo`:
+  - `por_cnpj(cnpj)` / `por_cpf(cpf)` / `por_nome(nome)` → envolvido + lista paginada por cursor.
+  - `por_oab(numero, estado, ordena_por, ordem)` → advogado + processos.
+  - `por_numero(cnj)` → detalhes ricos (fontes, polos, valor, classe, assunto, tribunal, datas).
+  - `movimentacoes(cnj)` → cursor-based.
+- `v2.Tribunal` — referência de tribunais.
+
+**Mapeamento Judit → Escavador** (rascunho conceitual, sem implementar)
+| Função atual (Judit) | Equivalente Escavador |
+|---|---|
+| `judit-sync-*` (sync por CNJ) | V1 `Processo.informacoes_no_tribunal` (assíncrono + callback) |
+| Tracking / `tracking_id` | V1 `MonitoramentoTribunal` (frequência DIARIA/SEMANAL) |
+| `last_request_id` polling | Substituído por callback push |
+| Sync por OAB | V1 `MonitoramentoTribunal` tipo `POR_OAB` ou V2 `Processo.por_oab` |
+| Anexos (`processos_oab_anexos`) | V2 retorna estrutura de fontes; anexos completos exigem o sistema de "autos digitais" da V1 (a confirmar) |
+| Credenciais customer (cofre) | Escavador não usa cofre por cliente — usa um único PAT da workspace |
+
+**Diferenças operacionais críticas**
+- Escavador usa **um único token global** (não há cofre de credenciais por cliente como na Judit). Isso simplifica `useTenantCredenciais`/`judit-deletar-credencial`/`useRebindCredencialJudit` mas exige replanejamento de billing por tenant.
+- Cobrança por requisição via `Creditos-Utilizados` em vez de plano de tracking — precisa de telemetria de custo por chamada.
+- Rate limit 500 rpm é mais generoso, mas global → todos os tenants compartilham.
+- Callbacks vs polling: arquitetura push-first; precisaríamos de uma edge function `escavador-webhook` validando o token de callback.
 
 ## Arquivos afetados
-
-- Nova migration SQL: adicionar coluna + recriar `get_central_subtarefas` incluindo `comentario_conclusao`.
-- `src/components/Controladoria/CentralSubtarefas.tsx` — interface `Subtarefa`, `handleToggleSubtarefa`, render do comentário, estado da modal.
-- `src/components/Controladoria/CentralPrazosConcluidos.tsx` — mesmas alterações.
-- `src/components/Planejador/ConcluirSubtaskModal.tsx` — sem mudanças (já é genérico).
+Nenhum arquivo de código será alterado. Será criado **um único arquivo de memória**:
+- `mem://integrations/escavador-api` — referência completa
+- entrada correspondente em `mem://index.md` apontando para ela
 
 ## Impacto
 
-1. **UX / telas / fluxos**: na Central de Subtarefas e Central de Prazos Concluídos, ao marcar o checkbox de uma subtarefa do prazo, abrirá o mesmo modal já usado no Planejador, exigindo um texto para concluir. O comentário aparece logo abaixo da descrição da subtarefa concluída. Desmarcar (reabrir) continua imediato e apaga o comentário.
-2. **Dados**: nova coluna `comentario_conclusao text NULL` em `deadline_subtarefas` — não impacta dados existentes (subtarefas antigas concluídas ficam com `NULL`, exibidas sem comentário). RPC `get_central_subtarefas` ganha um campo a mais no JSON; clientes antigos ignoram. RLS e GRANTs existentes da tabela cobrem a nova coluna automaticamente.
-3. **Riscos colaterais**: subtarefas já concluídas antes desta mudança não terão comentário (ficam como estão — não vamos forçar retroativamente). Nenhum trigger novo. Sem mudança em `deadlines` nem no fluxo de conclusão do prazo principal.
-4. **Quem é afetado**: todos os usuários (todos os tenants) que usam a Controladoria — admin, controller, advogado, financeiro, agenda etc. Sem distinção de papel: a regra de comentário obrigatório vale para qualquer um que conclua a subtarefa.
+**Usuário final**: nenhum. Nada muda na UI, dados ou fluxos hoje.
+
+**Dados**: nenhuma migration, nenhuma alteração em RLS/tabelas. Apenas a memória do projeto cresce.
+
+**Riscos colaterais**: nenhum técnico. Único risco é a memória ficar desatualizada se a Escavador alterar a API antes da migração — mitigável reconsultando antes de implementar.
+
+**Quem é afetado**: só o agente Lovable em sessões futuras (terá contexto pronto). Nenhum tenant, advogado, admin ou usuário final é tocado.
 
 ## Validação
+Após salvar, vou:
+1. Reler `mem://integrations/escavador-api` para confirmar que cobre os 11 módulos V1 + 2 módulos V2 + autenticação + callbacks + paginação + cobrança.
+2. Confirmar que `mem://index.md` referencia a nova memória com descrição específica o suficiente para retrieval futuro ("Escavador API reference for future Judit migration — monitoring focus").
+3. Te mostrar um resumo de uma página do que ficou salvo, para você validar antes de eu encerrar.
 
-1. Em Controladoria → Central de Subtarefas, marcar uma subtarefa pendente: confirmar que o modal abre, que o botão "Concluir" só habilita com texto e que após confirmar a subtarefa aparece riscada com o comentário em itálico.
-2. Desmarcar a mesma subtarefa: deve voltar a pendente sem abrir modal e sem comentário.
-3. Repetir o teste em Central de Prazos Concluídos.
-4. Recarregar a página: comentário persiste (vem do RPC).
-5. Subtarefas já concluídas anteriormente continuam exibindo apenas a data, sem texto — comportamento esperado.
+Quando você pedir a migração no futuro, basta dizer "migra X da Judit pra Escavador" — eu vou consultar essa memória e propor o plano detalhado já com os endpoints corretos.
