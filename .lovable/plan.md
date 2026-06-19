@@ -1,34 +1,47 @@
-## Causa raiz
+# Origem de cada arquivo no diálogo de Documentos de Reuniões (Super Admin)
 
-O diálogo carrega 0 arquivos para SOLVENZA mesmo havendo 20 em `reuniao_arquivos` e 1 em `reuniao_cliente_arquivos`. As policies RLS dessas tabelas só liberam linhas onde `tenant_id = get_user_tenant_id()` — ou seja, o tenant do próprio usuário logado. Como o Super Admin acessa o `tenant_id` de OUTRO cliente (SOLVENZA), o PostgREST devolve lista vazia. O mesmo bloqueio existe em `storage.objects` para os buckets `reuniao-attachments` e `reuniao-cliente-attachments`, então o download e o `remove()` também falhariam silenciosamente.
+## Causa raiz
+O diálogo atual lista arquivos só com nome/tamanho/data. Não mostra a qual reunião ou cliente cada arquivo pertence, então o super-admin baixa um backup "cego" e não consegue rastrear a origem antes de apagar.
 
 ## Correção
+Enriquecer o `load()` com um JOIN lógico para trazer o contexto de cada arquivo:
 
-Migration adicionando policies que liberam Super Admins (`is_super_admin(auth.uid())`) nas duas tabelas e nos dois buckets de storage:
+- Aba **Reuniões** (`reuniao_arquivos`) → buscar da tabela `reunioes`: `titulo`, `data`, `horario`, `cliente_nome`.
+- Aba **Dossiê do Cliente** (`reuniao_cliente_arquivos`) → buscar de `reuniao_clientes`: `nome`, `telefone`.
 
-1. `reuniao_arquivos`: policies SELECT e DELETE para super admin (sem filtro de tenant).
-2. `reuniao_cliente_arquivos`: policies SELECT e DELETE para super admin.
-3. `storage.objects` bucket `reuniao-attachments`: policies SELECT e DELETE para super admin.
-4. `storage.objects` bucket `reuniao-cliente-attachments`: policies SELECT e DELETE para super admin.
+Adicionar nova coluna **"Origem"** na tabela do diálogo entre "Nome" e "Tamanho", exibindo:
 
-Sem mudanças de código no diálogo — ele já consulta as duas tabelas e usa `download`/`createSignedUrl`/`remove`, que passarão a retornar dados quando RLS permitir.
+- Reuniões: `📅 {titulo} — {data} {horario}` (linha 2 menor: cliente vinculado)
+- Dossiê: `👤 {nome}` (linha 2 menor: telefone)
+
+Cada origem é clicável (atalho) e abre em nova aba a rota interna correspondente:
+- Reunião → `/reunioes?id={reuniao_id}` (ou rota equivalente já existente)
+- Cliente → `/reuniao-clientes?id={cliente_id}`
+
+Tooltip no item exibe IDs completos para diagnóstico.
+
+Quando o registro pai estiver ausente (órfão), exibir badge `Órfão` em destaque — útil para identificar lixo a apagar.
 
 ## Arquivos afetados
+- `src/components/SuperAdmin/TenantReuniaoArquivosDialog.tsx` — único arquivo alterado. Acrescenta:
+  - 2 queries adicionais em `load()` para `reunioes` e `reuniao_clientes` filtradas por `tenant.id` e pelos IDs presentes.
+  - Mapas `reuniaoById` / `clienteById` no estado.
+  - Nova coluna na tabela renderizada.
+  - Links de atalho (`<a target="_blank">`).
 
-- Nova migration em `supabase/migrations/` (gerada via tool de migração) com as 8 policies.
-- Nenhum arquivo de UI alterado.
+Sem mudanças de banco — as policies de super-admin já cobrem leitura dessas tabelas (a RLS de `is_super_admin` se aplica via `tenant_id` nos selects).
 
 ## Impacto
-
-1. **Usuário final (Super Admin):** ao abrir "Documentos reuniões" para qualquer tenant, a lista passa a popular corretamente; download individual, ZIP e exclusão funcionam.
-2. **Dados:** sem mudança de schema; apenas novas policies. Sem custo de performance relevante (RLS adiciona um `OR is_super_admin(auth.uid())`). Nenhuma migração de dados.
-3. **Riscos colaterais:** Super Admins ganham SELECT/DELETE em todas as linhas dessas duas tabelas e nos arquivos correspondentes do storage. É o nível de acesso esperado para o painel de Super Admin (já equivalente a outros buckets como `tenant-boletos`, `processo-documentos`).
-4. **Quem é afetado:** apenas Super Admins ganham capacidade extra. Tenants comuns continuam isolados pelas policies existentes — nenhuma policy é removida ou afrouxada.
+1. **Usuário final (super-admin)**: passa a ver, ao lado de cada arquivo, a reunião/cliente de origem com atalho clicável. Facilita auditoria antes de apagar e backup contextualizado.
+2. **Dados**: nenhuma migração, nenhuma RLS nova, nenhum trigger. Apenas 2 SELECTs extras por abertura do diálogo (limitados aos IDs já carregados).
+3. **Riscos colaterais**:
+   - Se o super-admin clicar no atalho, vai cair em rota do tenant alvo — pode não ter contexto de tenant ativo. Mitigação: abrir em nova aba e exibir aviso "abre como super-admin no tenant X".
+   - Arquivos órfãos (sem reunião/cliente correspondente) ficam visíveis como `Órfão` — comportamento desejado.
+4. **Quem é afetado**: somente super-admins. Tenants comuns não veem nada novo. A tela original que o usuário "já vê" (`ReuniaoArquivos.tsx`) **não é alterada** — o pedido é só replicar/atalho no super-admin.
 
 ## Validação
-
-- Após a migration, abrir SOLVENZA → "Documentos reuniões": deve mostrar 20 em "Reuniões" e 1 em "Dossiê do Cliente".
-- Baixar 1 arquivo individual e gerar ZIP de "tudo".
-- Apagar 1 arquivo de teste e confirmar que some do storage e da tabela.
-- Abrir um tenant sem arquivos (cordeiro/harles/oliveira) → deve continuar exibindo "Nenhum arquivo".
-- Logar como usuário comum de outro tenant e confirmar que o isolamento permanece (não vê arquivos de SOLVENZA).
+- Abrir SOLVENZA → "Documentos reuniões".
+- Conferir que cada uma das 20 linhas em "Reuniões" mostra título/data da reunião, e a linha do "Dossiê" mostra o nome do cliente.
+- Clicar no atalho de uma reunião → abre nova aba na reunião correta.
+- Forçar um arquivo órfão (deletar a reunião pai diretamente) → linha aparece com badge `Órfão`.
+- Tenant comum continua sem acesso à tela.
