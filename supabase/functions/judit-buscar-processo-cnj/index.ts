@@ -621,6 +621,8 @@ serve(async (req) => {
 
         if (!error) {
           andamentosInseridos++;
+        } else if ((error as any).code === '23505') {
+          // duplicado (idx_andamentos_unique_v3) — esperado em refresh
         } else {
           console.error('[Judit Import CNJ] Erro ao inserir andamento:', error.message);
         }
