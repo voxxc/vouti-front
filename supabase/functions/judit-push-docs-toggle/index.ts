@@ -44,20 +44,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verificar se é super admin
-    const { data: superAdmin } = await supabaseAuth
-      .from('super_admins')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (!superAdmin) {
-      return new Response(
-        JSON.stringify({ error: 'Acesso restrito a super admins' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const body: ToggleRequest = await req.json();
     const { pushDocId, action } = body;
 
@@ -79,6 +65,32 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Documento não encontrado' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Autorização: super admin OU admin/controller do tenant dono do push doc
+    const { data: superAdmin } = await supabaseAuth
+      .from('super_admins')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    let autorizado = !!superAdmin;
+    if (!autorizado && pushDoc.tenant_id) {
+      for (const role of ['admin', 'controller'] as const) {
+        const { data: ok } = await supabaseAuth.rpc('has_role_in_tenant', {
+          _role: role,
+          _tenant_id: pushDoc.tenant_id,
+          _user_id: user.id,
+        });
+        if (ok) { autorizado = true; break; }
+      }
+    }
+
+    if (!autorizado) {
+      return new Response(
+        JSON.stringify({ error: 'Acesso negado para este monitoramento' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
