@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import JSZip from 'jszip';
-import { Download, Trash2, Loader2, AlertTriangle, FolderArchive } from 'lucide-react';
+import { Download, Trash2, Loader2, AlertTriangle, FolderArchive, Calendar, User, ExternalLink } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -39,6 +39,21 @@ interface ArquivoRow {
   file_size: number | null;
   file_type: string | null;
   created_at: string;
+  parent_id: string | null;
+}
+
+interface ReuniaoInfo {
+  id: string;
+  titulo: string | null;
+  data: string | null;
+  horario: string | null;
+  cliente_nome: string | null;
+}
+
+interface ClienteInfo {
+  id: string;
+  nome: string | null;
+  telefone: string | null;
 }
 
 interface Props {
@@ -85,6 +100,8 @@ async function runWithConcurrency<T, R>(
 export function TenantReuniaoArquivosDialog({ open, onOpenChange, tenant }: Props) {
   const [loading, setLoading] = useState(false);
   const [arquivos, setArquivos] = useState<ArquivoRow[]>([]);
+  const [reunioesById, setReunioesById] = useState<Record<string, ReuniaoInfo>>({});
+  const [clientesById, setClientesById] = useState<Record<string, ClienteInfo>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState<ArquivoSource>('reuniao');
   const [busy, setBusy] = useState<string | null>(null);
@@ -99,23 +116,67 @@ export function TenantReuniaoArquivosDialog({ open, onOpenChange, tenant }: Prop
       const [a, b] = await Promise.all([
         supabase
           .from('reuniao_arquivos')
-          .select('id,file_name,file_path,file_size,file_type,created_at')
+          .select('id,file_name,file_path,file_size,file_type,created_at,reuniao_id')
           .eq('tenant_id', tenant.id)
           .order('created_at', { ascending: false }),
         supabase
           .from('reuniao_cliente_arquivos')
-          .select('id,file_name,file_path,file_size,file_type,created_at')
+          .select('id,file_name,file_path,file_size,file_type,created_at,cliente_id')
           .eq('tenant_id', tenant.id)
           .order('created_at', { ascending: false }),
       ]);
       if (a.error) throw a.error;
       if (b.error) throw b.error;
       const rows: ArquivoRow[] = [
-        ...(a.data || []).map((r) => ({ ...r, source: 'reuniao' as const, bucket: BUCKET_BY_SOURCE.reuniao })),
-        ...(b.data || []).map((r) => ({ ...r, source: 'reuniao_cliente' as const, bucket: BUCKET_BY_SOURCE.reuniao_cliente })),
+        ...(a.data || []).map((r: any) => ({
+          id: r.id,
+          file_name: r.file_name,
+          file_path: r.file_path,
+          file_size: r.file_size,
+          file_type: r.file_type,
+          created_at: r.created_at,
+          parent_id: r.reuniao_id ?? null,
+          source: 'reuniao' as const,
+          bucket: BUCKET_BY_SOURCE.reuniao,
+        })),
+        ...(b.data || []).map((r: any) => ({
+          id: r.id,
+          file_name: r.file_name,
+          file_path: r.file_path,
+          file_size: r.file_size,
+          file_type: r.file_type,
+          created_at: r.created_at,
+          parent_id: r.cliente_id ?? null,
+          source: 'reuniao_cliente' as const,
+          bucket: BUCKET_BY_SOURCE.reuniao_cliente,
+        })),
       ];
       setArquivos(rows);
       setSelected(new Set());
+
+      // Carrega contexto (reuniões / clientes) para exibir origem
+      const reuniaoIds = Array.from(new Set((a.data || []).map((r: any) => r.reuniao_id).filter(Boolean)));
+      const clienteIds = Array.from(new Set((b.data || []).map((r: any) => r.cliente_id).filter(Boolean)));
+      const [rRes, cRes] = await Promise.all([
+        reuniaoIds.length
+          ? supabase
+              .from('reunioes')
+              .select('id,titulo,data,horario,cliente_nome')
+              .in('id', reuniaoIds as string[])
+          : Promise.resolve({ data: [] as any[], error: null }),
+        clienteIds.length
+          ? supabase
+              .from('reuniao_clientes')
+              .select('id,nome,telefone')
+              .in('id', clienteIds as string[])
+          : Promise.resolve({ data: [] as any[], error: null }),
+      ]);
+      const rMap: Record<string, ReuniaoInfo> = {};
+      (rRes.data || []).forEach((r: any) => { rMap[r.id] = r; });
+      const cMap: Record<string, ClienteInfo> = {};
+      (cRes.data || []).forEach((c: any) => { cMap[c.id] = c; });
+      setReunioesById(rMap);
+      setClientesById(cMap);
     } catch (e) {
       console.error(e);
       toast.error('Erro ao carregar arquivos');
@@ -276,6 +337,7 @@ export function TenantReuniaoArquivosDialog({ open, onOpenChange, tenant }: Prop
           <tr className="text-left">
             <th className="p-2 w-8"></th>
             <th className="p-2">Nome</th>
+            <th className="p-2">Origem</th>
             <th className="p-2 w-24">Tamanho</th>
             <th className="p-2 w-32">Data</th>
             <th className="p-2 w-24 text-right">Ações</th>
@@ -283,7 +345,7 @@ export function TenantReuniaoArquivosDialog({ open, onOpenChange, tenant }: Prop
         </thead>
         <tbody>
           {rows.length === 0 && (
-            <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Nenhum arquivo</td></tr>
+            <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Nenhum arquivo</td></tr>
           )}
           {rows.map((r) => (
             <tr key={r.id} className="border-t border-border hover:bg-muted/30">
@@ -291,6 +353,7 @@ export function TenantReuniaoArquivosDialog({ open, onOpenChange, tenant }: Prop
                 <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
               </td>
               <td className="p-2 truncate max-w-[280px]" title={r.file_name}>{r.file_name}</td>
+              <td className="p-2 max-w-[260px]">{renderOrigem(r)}</td>
               <td className="p-2 text-muted-foreground">{formatBytes(r.file_size)}</td>
               <td className="p-2 text-muted-foreground">{format(new Date(r.created_at), 'dd/MM/yyyy')}</td>
               <td className="p-2">
@@ -309,6 +372,59 @@ export function TenantReuniaoArquivosDialog({ open, onOpenChange, tenant }: Prop
       </table>
     </ScrollArea>
   );
+
+  const renderOrigem = (r: ArquivoRow) => {
+    if (!r.parent_id) {
+      return <Badge variant="destructive" className="text-[10px]">Órfão</Badge>;
+    }
+    if (r.source === 'reuniao') {
+      const info = reunioesById[r.parent_id];
+      if (!info) {
+        return (
+          <span className="inline-flex items-center gap-1 text-xs">
+            <Badge variant="destructive" className="text-[10px]">Órfão</Badge>
+            <span className="text-muted-foreground truncate" title={r.parent_id}>{r.parent_id.slice(0, 8)}…</span>
+          </span>
+        );
+      }
+      const dataStr = info.data ? format(new Date(`${info.data}T12:00:00`), 'dd/MM/yyyy') : '';
+      const href = `/reunioes?id=${info.id}`;
+      return (
+        <a href={href} target="_blank" rel="noopener noreferrer" className="block hover:underline" title={info.id}>
+          <span className="inline-flex items-center gap-1 text-xs font-medium">
+            <Calendar className="h-3 w-3" />
+            <span className="truncate max-w-[200px]">{info.titulo || 'Sem título'}</span>
+            <ExternalLink className="h-3 w-3 opacity-60" />
+          </span>
+          <span className="block text-[11px] text-muted-foreground truncate">
+            {dataStr}{info.horario ? ` ${info.horario}` : ''}{info.cliente_nome ? ` · ${info.cliente_nome}` : ''}
+          </span>
+        </a>
+      );
+    }
+    const info = clientesById[r.parent_id];
+    if (!info) {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs">
+          <Badge variant="destructive" className="text-[10px]">Órfão</Badge>
+          <span className="text-muted-foreground truncate" title={r.parent_id}>{r.parent_id.slice(0, 8)}…</span>
+        </span>
+      );
+    }
+    const href = `/reuniao-clientes?id=${info.id}`;
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="block hover:underline" title={info.id}>
+        <span className="inline-flex items-center gap-1 text-xs font-medium">
+          <User className="h-3 w-3" />
+          <span className="truncate max-w-[200px]">{info.nome || 'Sem nome'}</span>
+          <ExternalLink className="h-3 w-3 opacity-60" />
+        </span>
+        {info.telefone && (
+          <span className="block text-[11px] text-muted-foreground truncate">{info.telefone}</span>
+        )}
+      </a>
+    );
+  };
 
   const selectedRows = arquivos.filter((a) => selected.has(a.id));
 
