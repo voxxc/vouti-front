@@ -185,12 +185,19 @@ Deno.serve(async (req) => {
       };
     });
 
+    // Filtra status localmente (Judit não aceita 'active'/'paused' em todos os casos).
+    const statusFiltered = enriched.filter((it) => {
+      if (status === 'active') return it.status === 'active' || it.status === 'created';
+      if (status === 'paused') return it.status === 'paused';
+      return true;
+    });
+
     return new Response(
       JSON.stringify({
         success: true,
-        total: enriched.length,
+        total: statusFiltered.length,
         totalReported,
-        items: enriched,
+        items: statusFiltered,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
