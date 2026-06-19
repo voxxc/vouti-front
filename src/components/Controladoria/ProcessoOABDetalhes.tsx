@@ -447,27 +447,16 @@ export const ProcessoOABDetalhes = ({
     if (!processo) return;
     setRebuscandoAndamentos(true);
     try {
-      const credAtual = credenciaisJudit.find(
-        (c) => c.customer_key === processo.judit_customer_key,
-      );
       const { data, error } = await supabase.functions.invoke(
-        'judit-buscar-processo-cnj',
+        'judit-rebuscar-andamentos',
         {
-          body: {
-            numeroCnj: processo.numero_cnj,
-            oabId: processo.oab_id,
-            tenantId,
-            userId: currentUserId || undefined,
-            juditCustomerKey: credAtual?.customer_key || processo.judit_customer_key || undefined,
-            juditSystemName: credAtual?.system_name || processo.judit_system_name || undefined,
-            processoOabIdExistente: processo.id,
-          },
+          body: { processoOabId: processo.id },
         },
       );
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Falha ao re-buscar andamentos');
       toast({
-        title: '✅ Andamentos atualizados',
+        title: '✅ Andamentos atualizados (sem custo)',
         description: data.andamentosInseridos > 0
           ? `${data.andamentosInseridos} novo(s) andamento(s) importado(s).`
           : (data.mensagem || 'Nenhum andamento novo encontrado.'),
