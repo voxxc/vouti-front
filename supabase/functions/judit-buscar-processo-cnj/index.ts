@@ -33,12 +33,18 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Limpar numero do processo (apenas digitos)
+    // Limpar numero do processo (apenas digitos) — usado em validações
     const numeroLimpo = numeroCnj.replace(/\D/g, '');
-    
-    // Para apartado, o search_key é sempre o CNJ base (20 dígitos)
-    // O sufixo é usado apenas para diferenciar no banco de dados
-    let searchKey = numeroLimpo;
+
+    // search_key: enviar CNJ com máscara quando recebido formatado, igual ao
+    // payload validado no Postman. Para apartado, sempre o CNJ base.
+    const cnjMascarado = numeroCnj.includes('-')
+      ? numeroCnj
+      : numeroLimpo.replace(
+          /^(\d{7})(\d{2})(\d{4})(\d)(\d{2})(\d{4})$/,
+          '$1-$2.$3.$4.$5.$6',
+        );
+    let searchKey = cnjMascarado;
     if (apartado && sufixoApartado) {
       console.log('[Judit Import CNJ] Processo apartado - sufixo:', sufixoApartado, '- search_key (CNJ base):', searchKey);
     }
@@ -139,7 +145,8 @@ serve(async (req) => {
         ...(customerKey && {
           search_params: { credential: { customer_key: customerKey } }
         })
-      }
+      },
+      with_attachments: false,
     };
 
     console.log('[Judit Import CNJ] Payload:', JSON.stringify(requestPayload));
@@ -206,13 +213,26 @@ serve(async (req) => {
     
     console.log('[Judit Import CNJ] Request ID:', requestId);
 
-    // Polling para obter resultado - aumentado para 90 segundos (45 tentativas x 2s)
+    // Polling: aguardar até 'steps' chegarem (até ~2 min). On-demand com
+    // credencial costuma devolver primeiro a capa (steps:[]) e só depois
+    // o resultado completo do tribunal — então não basta page_data > 0.
     let attempts = 0;
-    const maxAttempts = 45;
-    let resultData = null;
+    const maxAttempts = 60;
+    let resultData: any = null;
+    let resultDataCapa: any = null; // fallback: ao menos a capa, se steps nunca vierem
 
-    // Aguardar 3 segundos iniciais para dar tempo da API processar
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Aguardar 5 segundos iniciais para dar tempo da API processar
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
+    const hasStepsInPageData = (pd: any[]) => {
+      for (const item of pd || []) {
+        const d = item.response_data || item;
+        const s =
+          d.steps || d.movements || d.andamentos || d.history || d.last_steps || [];
+        if (Array.isArray(s) && s.length > 0) return true;
+      }
+      return false;
+    };
 
     while (attempts < maxAttempts) {
       const statusResponse = await fetch(
@@ -229,26 +249,45 @@ serve(async (req) => {
       if (!statusResponse.ok) {
         console.log('[Judit Import CNJ] Polling erro:', statusResponse.status);
         attempts++;
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 3000));
         continue;
       }
 
       const statusData = await statusResponse.json();
       const pageDataLength = statusData.page_data?.length || 0;
-      
-      // Log a cada 5 tentativas para reduzir ruído
+      const stepsReady = hasStepsInPageData(statusData.page_data);
+
       if (attempts % 5 === 0 || pageDataLength > 0) {
-        console.log('[Judit Import CNJ] Polling tentativa', attempts + 1, '- page_data:', pageDataLength);
+        console.log(
+          '[Judit Import CNJ] Polling tentativa', attempts + 1,
+          '- page_data:', pageDataLength, '- stepsReady:', stepsReady,
+        );
       }
 
-      if (statusData.page_data && statusData.page_data.length > 0) {
+      if (stepsReady) {
         resultData = statusData;
-        console.log('[Judit Import CNJ] Dados recebidos após', attempts + 1, 'tentativas');
+        console.log('[Judit Import CNJ] Steps recebidos após', attempts + 1, 'tentativas');
         break;
       }
 
+      // Guardar a capa caso steps nunca cheguem, para preservar o caminho
+      // "processo mínimo".
+      if (pageDataLength > 0 && !resultDataCapa) {
+        resultDataCapa = statusData;
+      }
+
       attempts++;
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Espera maior nas primeiras tentativas (consulta no tribunal demora).
+      await new Promise(resolve =>
+        setTimeout(resolve, attempts < 10 ? 3000 : 2000),
+      );
+    }
+
+    // Se não chegamos a ter steps, mas temos a capa, seguir com ela —
+    // mantém o comportamento atual (processo criado com dados parciais).
+    if (!resultData && resultDataCapa) {
+      console.log('[Judit Import CNJ] Steps não chegaram em 2 min — usando apenas a capa.');
+      resultData = resultDataCapa;
     }
 
     // Se não recebeu dados completos, cadastrar processo com informações mínimas
