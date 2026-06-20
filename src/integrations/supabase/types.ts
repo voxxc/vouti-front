@@ -5251,6 +5251,65 @@ export type Database = {
           },
         ]
       }
+      processo_oab_monitoramento_escavador: {
+        Row: {
+          created_at: string
+          escavador_data: Json | null
+          escavador_id: string | null
+          frequencia: string
+          id: string
+          monitoramento_ativo: boolean
+          monitoramento_id: string | null
+          numero_cnj: string
+          processo_oab_id: string
+          tenant_id: string
+          total_atualizacoes: number
+          ultima_atualizacao: string | null
+          ultima_consulta: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          escavador_data?: Json | null
+          escavador_id?: string | null
+          frequencia?: string
+          id?: string
+          monitoramento_ativo?: boolean
+          monitoramento_id?: string | null
+          numero_cnj: string
+          processo_oab_id: string
+          tenant_id: string
+          total_atualizacoes?: number
+          ultima_atualizacao?: string | null
+          ultima_consulta?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          escavador_data?: Json | null
+          escavador_id?: string | null
+          frequencia?: string
+          id?: string
+          monitoramento_ativo?: boolean
+          monitoramento_id?: string | null
+          numero_cnj?: string
+          processo_oab_id?: string
+          tenant_id?: string
+          total_atualizacoes?: number
+          ultima_atualizacao?: string | null
+          ultima_consulta?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processo_oab_monitoramento_escavador_processo_oab_id_fkey"
+            columns: ["processo_oab_id"]
+            isOneToOne: true
+            referencedRelation: "processos_oab"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       processos: {
         Row: {
           advogado_responsavel_id: string | null
