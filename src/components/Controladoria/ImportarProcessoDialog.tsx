@@ -29,7 +29,7 @@ export const ImportarProcessoDialog = ({
   const { navigate } = useTenantNavigation();
   const { podeMonitorarProcesso, uso, limites } = usePlanoLimites();
   const [importando, setImportando] = useState(false);
-  const [ativarMonitoramento, setAtivarMonitoramento] = useState(true);
+  const [ativarMonitoramento, setAtivarMonitoramento] = useState(false);
   
   const limiteMonitoramentoAtingido = !podeMonitorarProcesso();
   
