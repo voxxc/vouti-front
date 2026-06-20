@@ -20,6 +20,93 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    const escavadorIdentifier = String(
+      payload.processo_id ?? payload.id ?? payload?.processo?.id ?? ''
+    );
+    const numeroCnj: string | undefined =
+      payload.numero_cnj || payload?.processo?.numero_cnj || payload?.valor;
+    const monitoramentoIdPayload = String(
+      payload.monitoramento_id ?? payload?.monitoramento?.id ?? ''
+    );
+
+    // === Caminho OAB (novo) ===
+    let oabRow: any = null;
+    if (escavadorIdentifier) {
+      const { data } = await supabaseClient
+        .from('processo_oab_monitoramento_escavador')
+        .select('id, processo_oab_id, tenant_id, total_atualizacoes')
+        .eq('escavador_id', escavadorIdentifier)
+        .maybeSingle();
+      oabRow = data;
+    }
+    if (!oabRow && monitoramentoIdPayload) {
+      const { data } = await supabaseClient
+        .from('processo_oab_monitoramento_escavador')
+        .select('id, processo_oab_id, tenant_id, total_atualizacoes')
+        .eq('monitoramento_id', monitoramentoIdPayload)
+        .maybeSingle();
+      oabRow = data;
+    }
+    if (!oabRow && numeroCnj) {
+      const { data } = await supabaseClient
+        .from('processo_oab_monitoramento_escavador')
+        .select('id, processo_oab_id, tenant_id, total_atualizacoes')
+        .eq('numero_cnj', numeroCnj)
+        .eq('monitoramento_ativo', true)
+        .maybeSingle();
+      oabRow = data;
+    }
+
+    if (oabRow) {
+      const movs: any[] = Array.isArray(payload.movimentacoes)
+        ? payload.movimentacoes
+        : Array.isArray(payload.itens)
+          ? payload.itens
+          : [payload];
+
+      let inseridos = 0;
+      for (const mov of movs) {
+        const descricao = mov?.conteudo || mov?.descricao || mov?.texto || 'Sem descrição';
+        const dataMov = mov?.data || mov?.data_evento || new Date().toISOString();
+        const hashSrc = `${oabRow.processo_oab_id}|${(descricao || '').trim().slice(0, 200)}|${(dataMov || '').slice(0, 19)}`;
+        let h = 0;
+        for (let i = 0; i < hashSrc.length; i++) {
+          h = ((h << 5) - h) + hashSrc.charCodeAt(i);
+          h |= 0;
+        }
+        const dedup = `esc_${Math.abs(h)}`;
+
+        const { error: insErr } = await supabaseClient
+          .from('processos_oab_andamentos')
+          .insert({
+            processo_oab_id: oabRow.processo_oab_id,
+            tenant_id: oabRow.tenant_id,
+            data_movimentacao: dataMov,
+            tipo_movimentacao: mov?.tipo || mov?.evento || 'movimentacao',
+            descricao,
+            dados_completos: { ...mov, _origem: 'escavador' },
+            lida: false,
+            dedup_hash: dedup,
+          });
+        if (!insErr) inseridos++;
+      }
+
+      await supabaseClient
+        .from('processo_oab_monitoramento_escavador')
+        .update({
+          ultima_atualizacao: new Date().toISOString(),
+          total_atualizacoes: (oabRow.total_atualizacoes || 0) + inseridos,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', oabRow.id);
+
+      console.log(`[Escavador Webhook] OAB: ${inseridos} andamentos inseridos`);
+      return new Response(
+        JSON.stringify({ success: true, fluxo: 'oab', inseridos }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
     // Buscar o monitoramento pelo escavador_id
     const { data: monitoramento, error: fetchError } = await supabaseClient
       .from('processo_monitoramento_escavador')
