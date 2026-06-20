@@ -518,22 +518,45 @@ export const useProcessosOAB = (oabId: string | null) => {
     onProcessoCompartilhadoAtualizado?: (cnj: string, oabsAfetadas: string[]) => void
   ) => {
     try {
-      const { data, error } = await supabase.functions.invoke('judit-ativar-monitoramento-oab', {
-        body: { processoOabId: processoId, numeroCnj, ativar, tenantId, userId: user?.id, oabId }
-      });
+      let data: any;
+      if (ativar) {
+        const res = await supabase.functions.invoke('escavador-ativar-monitoramento-oab', {
+          body: { processoOabId: processoId, numeroCnj, tenantId },
+        });
+        if (res.error) throw res.error;
+        data = res.data;
+        if (!data?.success) throw new Error(data?.error || 'Erro ao ativar monitoramento');
 
-      if (error) throw error;
-      
-      if (!data?.success) {
-        throw new Error(data?.error || 'Erro ao alterar monitoramento');
+        toast({
+          title: 'Monitoramento ativado',
+          description: data?.processoEncontrado
+            ? `${data?.totalAndamentos ?? 0} andamento(s) sincronizado(s). Atualizações semanais via Escavador.`
+            : 'Processo registrado para monitoramento semanal via Escavador.',
+        });
+      } else {
+        const [resEsc, resJudit] = await Promise.allSettled([
+          supabase.functions.invoke('escavador-desativar-monitoramento-oab', {
+            body: { processoOabId: processoId },
+          }),
+          supabase.functions.invoke('judit-desativar-monitoramento', {
+            body: { processoId },
+          }),
+        ]);
+        if (resEsc.status === 'rejected' || (resEsc.value as any)?.error) {
+          throw new Error(
+            (resEsc.status === 'rejected' ? resEsc.reason?.message : (resEsc.value as any)?.error?.message)
+              || 'Erro ao desativar monitoramento',
+          );
+        }
+        if (resJudit.status === 'rejected') {
+          console.warn('[useOABs.toggleMonitoramento] cleanup Judit falhou (ignorado):', resJudit.reason);
+        }
+        data = { success: true };
+        toast({
+          title: 'Monitoramento desativado',
+          description: 'Histórico de andamentos mantido.',
+        });
       }
-
-      toast({
-        title: ativar ? 'Monitoramento ativado' : 'Monitoramento desativado',
-        description: ativar 
-          ? 'Voce recebera atualizacoes diarias' 
-          : 'Historico de andamentos mantido'
-      });
 
       await fetchProcessos();
 
