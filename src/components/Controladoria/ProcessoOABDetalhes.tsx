@@ -839,64 +839,6 @@ export const ProcessoOABDetalhes = ({
 
           </Card>
 
-          {/* Monitoramento via Escavador (beta) - apenas para usuários com flag */}
-          {escavadorBeta && (
-            <Card className="p-4 border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/10">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Bot className="w-5 h-5 text-amber-600 shrink-0" />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <Label className="font-medium">Monitoramento via Escavador</Label>
-                      <Badge variant="outline" className="text-[10px] uppercase border-amber-500 text-amber-700 dark:text-amber-400">
-                        Beta
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {escavadorAtivo
-                        ? 'Monitoramento Escavador ativo para este processo.'
-                        : 'Ativa consulta e monitoramento recorrente via API do Escavador.'}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  variant={escavadorAtivo ? 'outline' : 'default'}
-                  onClick={() => setConfirmEscavadorOpen(true)}
-                  disabled={ativandoEscavador}
-                >
-                  {ativandoEscavador ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4 mr-1" />
-                  )}
-                  {escavadorAtivo ? 'Reconsultar' : 'Ativar monitoramento'}
-                </Button>
-              </div>
-            </Card>
-          )}
-
-          {/* Confirmação Escavador */}
-          <AlertDialog open={confirmEscavadorOpen} onOpenChange={setConfirmEscavadorOpen}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {escavadorAtivo ? 'Reconsultar via Escavador?' : 'Ativar monitoramento via Escavador?'}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta ação consulta a API paga do Escavador e sincroniza as movimentações deste processo.
-                  Ao ativar, o processo entra em monitoramento recorrente via Escavador.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={handleAtivarEscavador}>
-                  {escavadorAtivo ? 'Reconsultar' : 'Ativar'}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
           {/* Modal de Confirmacao de Monitoramento */}
           <AlertDialog open={confirmMonitoramentoOpen} onOpenChange={setConfirmMonitoramentoOpen}>
             <AlertDialogContent>
@@ -906,8 +848,8 @@ export const ProcessoOABDetalhes = ({
                 </AlertDialogTitle>
                 <AlertDialogDescription>
                   {processo.monitoramento_ativo 
-                    ? 'O monitoramento diario sera desativado. O historico de andamentos sera mantido.'
-                    : 'O monitoramento diario sera ativado. Voce recebera notificacoes automaticas de novos andamentos.'}
+                    ? 'O monitoramento semanal (Escavador) sera desativado. O historico de andamentos sera mantido.'
+                    : 'O monitoramento semanal (Escavador) sera ativado. Voce recebera notificacoes automaticas de novos andamentos.'}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

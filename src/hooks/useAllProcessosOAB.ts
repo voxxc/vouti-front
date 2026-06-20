@@ -140,20 +140,52 @@ export const useAllProcessosOAB = () => {
     oabId?: string
   ) => {
     try {
-      const { data, error } = await supabase.functions.invoke('judit-ativar-monitoramento-oab', {
-        body: { processoOabId: processoId, numeroCnj, ativar, tenantId, userId: user?.id, oabId }
-      });
+      if (ativar) {
+        const { data, error } = await supabase.functions.invoke(
+          'escavador-ativar-monitoramento-oab',
+          { body: { processoOabId: processoId, numeroCnj, tenantId } },
+        );
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || 'Erro ao ativar monitoramento');
 
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Erro ao alterar monitoramento');
+        toast({
+          title: 'Monitoramento ativado',
+          description: data?.processoEncontrado
+            ? `${data?.totalAndamentos ?? 0} andamento(s) sincronizado(s). Atualizações semanais via Escavador.`
+            : 'Processo registrado para monitoramento semanal via Escavador.',
+        });
 
-      toast({
-        title: ativar ? 'Monitoramento ativado' : 'Monitoramento desativado',
-        description: ativar ? 'Você receberá atualizações diárias' : 'Histórico de andamentos mantido'
-      });
+        await fetchProcessos();
+        return data;
+      } else {
+        // Desativar Escavador (principal) + cleanup Judit (best-effort)
+        const [resEsc, resJudit] = await Promise.allSettled([
+          supabase.functions.invoke('escavador-desativar-monitoramento-oab', {
+            body: { processoOabId: processoId },
+          }),
+          supabase.functions.invoke('judit-desativar-monitoramento', {
+            body: { processoId },
+          }),
+        ]);
 
-      await fetchProcessos();
-      return data;
+        if (resEsc.status === 'rejected' || (resEsc.value as any)?.error) {
+          throw new Error(
+            (resEsc.status === 'rejected' ? resEsc.reason?.message : (resEsc.value as any)?.error?.message)
+              || 'Erro ao desativar monitoramento',
+          );
+        }
+        if (resJudit.status === 'rejected') {
+          console.warn('[toggleMonitoramento] cleanup Judit falhou (ignorado):', resJudit.reason);
+        }
+
+        toast({
+          title: 'Monitoramento desativado',
+          description: 'Histórico de andamentos mantido.',
+        });
+
+        await fetchProcessos();
+        return { success: true };
+      }
     } catch (error: any) {
       console.error('[useAllProcessosOAB] Erro toggle:', error);
       toast({ title: 'Erro ao alterar monitoramento', description: error.message, variant: 'destructive' });

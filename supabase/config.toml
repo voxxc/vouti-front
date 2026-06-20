@@ -15,6 +15,12 @@ verify_jwt = true
 [functions.escavador-ativar-e-buscar]
 verify_jwt = true
 
+[functions.escavador-ativar-monitoramento-oab]
+verify_jwt = true
+
+[functions.escavador-desativar-monitoramento-oab]
+verify_jwt = true
+
 [functions.escavador-webhook]
 verify_jwt = false
 
