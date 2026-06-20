@@ -121,27 +121,6 @@ export const ImportarProcessoDialog = ({
 
       console.log('[Importar] ✅ Processo criado:', novoProcesso.id);
 
-      // 2. Ativar monitoramento se selecionado
-      if (ativarMonitoramento) {
-        console.log('[Importar] 🔔 Ativando monitoramento...');
-        
-        const { error: monitoramentoError } = await supabase.functions.invoke(
-          'judit-ativar-monitoramento',
-          {
-            body: {
-              processoId: novoProcesso.id,
-              numeroProcesso: processo.numero_cnj
-            }
-          }
-        );
-
-        if (monitoramentoError) {
-          console.error('[Importar] ⚠️ Erro ao ativar monitoramento:', monitoramentoError);
-        } else {
-          console.log('[Importar] ✅ Monitoramento ativado');
-        }
-      }
-
       // Fechar dialog imediatamente e mostrar toast
       toast({
         title: "✅ Processo importado!",
@@ -153,29 +132,28 @@ export const ImportarProcessoDialog = ({
       // Redirecionar para detalhes do processo
       navigate(`/controladoria/processos/${novoProcesso.id}`);
 
-      // 3. Disparar busca de andamentos em background (não aguarda)
-      console.log('[Importar] 📋 Disparando busca de andamentos em background...');
-      
-      supabase.functions.invoke('judit-buscar-detalhes-processo', {
+      // Disparar busca via Escavador em background (capa + andamentos + monitoramento opcional)
+      console.log('[Importar] 📋 Disparando importação Escavador em background...');
+
+      supabase.functions.invoke('escavador-importar-processo', {
         body: {
-          processoOabId: novoProcesso.id,
-          numeroCnj: processo.numero_cnj,
+          processoId: novoProcesso.id,
+          numeroProcesso: processo.numero_cnj,
           tenantId,
-          userId: user.id,
-          oabId: (processo as any).oab_id || null
-        }
+          ativarMonitoramento,
+        },
       }).then(({ data, error }) => {
-        if (error) {
-          console.error('[Importar] ⚠️ Erro ao carregar andamentos:', error);
+        if (error || !data?.success) {
+          console.error('[Importar] ⚠️ Erro ao carregar andamentos:', error || data);
           toast({
             title: "⚠️ Andamentos não carregados",
-            description: "Abra o processo para carregar manualmente",
+            description: data?.message || "Abra o processo para tentar novamente",
           });
         } else {
           console.log('[Importar] ✅ Andamentos carregados:', data);
           toast({
             title: "📋 Andamentos carregados",
-            description: `${data?.andamentosInseridos || 0} andamentos registrados`,
+            description: `${data?.andamentosInseridos || 0} andamentos registrados${data?.monitoramentoAtivado ? ' • monitoramento ativo' : ''}`,
           });
         }
       });
