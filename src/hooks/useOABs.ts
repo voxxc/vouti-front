@@ -78,7 +78,7 @@ function sortAndamentos<T extends { super_admin_ordem?: number | null; data_movi
     const bo = b.super_admin_ordem;
     const aHas = ao !== null && ao !== undefined;
     const bHas = bo !== null && bo !== undefined;
-    if (aHas && bHas) return (ao as number) - (bo as number);
+    if (aHas && bHas) return (bo as number) - (ao as number);
     if (aHas) return -1;
     if (bHas) return 1;
     const da = a.data_movimentacao ? new Date(a.data_movimentacao).getTime() : 0;
