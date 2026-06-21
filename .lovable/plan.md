@@ -1,52 +1,66 @@
 ## Causa raiz
 
-- Toast vermelho: `new row for relation "processos_oab" violates check constraint "processos_oab_api_provider_check"`.
-- A constraint atual aceita apenas `judit` ou `codilo`:
-  `CHECK (api_provider = ANY (ARRAY['judit','codilo']))`.
-- O novo importador grava `api_provider = 'escavador'`, o que viola a constraint e aborta o INSERT.
+- O Escavador V2 retorna a capa aninhada em `proc.fontes[0].capa.*` (classe, assunto, area, valor_causa, data_distribuicao, orgao_julgador), com `proc.classe` etc. ficando `null` no nível raiz.
+- A edge function `escavador-importar-processo` lê só `proc.classe`, `proc.assunto`, `proc.area`, `proc.tribunal`, `proc.valor_causa`, `proc.data_distribuicao`, então grava `NULL` em `processo_monitoramento_escavador` mesmo recebendo dados completos.
+- A função também não atualiza `processos_oab` nem extrai `envolvidos` (partes/advogados) do payload, então a aba OAB segue mostrando o resumo vazio.
 
 ## Correção
 
-Opção A (preferida): expandir a constraint para incluir `'escavador'`.
-- Migration:
-  - `ALTER TABLE public.processos_oab DROP CONSTRAINT processos_oab_api_provider_check;`
-  - `ALTER TABLE public.processos_oab ADD CONSTRAINT processos_oab_api_provider_check CHECK (api_provider = ANY (ARRAY['judit','codilo','escavador']));`
-- Mantém `api_provider = 'escavador'` no insert do dialog para diferenciar a origem.
+1. Atualizar `escavador-importar-processo` para escolher a melhor `fonte` e ler a capa de lá:
+   - Selecionar `melhorFonte = proc.fontes` priorizando: maior `grau`, presença de `capa`, `arquivado != true`, `instancias`/`audiencias`. Fallback: `fontes[0]`.
+   - Resolver capa via fallback em cadeia: `proc.<campo> ?? melhorFonte?.capa?.<campo> ?? melhorFonte?.<campo>`.
+   - Campos: `classe`, `assunto` (string completa), `area`, `tribunal` (de `melhorFonte.tribunal` ou `melhorFonte.sigla`), `valor_causa.valor`, `data_distribuicao`, `orgao_julgador` (= juizo), `situacao`/`fase`.
+   - Extrair `parte_ativa`/`parte_passiva` de `melhorFonte.envolvidos` (`polo === 'ATIVO'` / `'PASSIVO'`), juntando nomes; salvar `partes_completas` (jsonb) com array bruto.
+   - Extrair `advogados_partes` agrupando advogados de cada envolvido.
+   - Aceitar tanto `proc.fontes` quanto `capa.fontes` (ambos os formatos).
 
-Opção B: não alterar a constraint e gravar `api_provider = 'judit'` no insert mesmo usando Escavador.
-- Não recomendado: confunde rastreabilidade e quebra qualquer filtro que dependa de `api_provider`.
+2. Persistir capa em três tabelas, sem regredir dado existente:
+   - `processo_monitoramento_escavador` (já é feito, mas com novos campos preenchidos).
+   - `processos`: além de `tipo_acao_nome`, `tribunal_nome`, `valor_causa`, `data_distribuicao`, gravar `juizo`, `fase_processual`, `parte_ativa`, `parte_passiva`, `advogados_partes` quando vierem e os atuais estiverem vazios.
+   - `processos_oab` (a tabela exibida na aba): atualizar via `numero_cnj = numeroProcesso AND tenant_id = tenantId` com `tribunal`, `tribunal_sigla`, `parte_ativa`, `parte_passiva`, `partes_completas`, `data_distribuicao`, `valor_causa`, `juizo`, `fase_processual`, `capa_completa` (objeto com a capa estruturada), `detalhes_carregados = true`, `ultima_atualizacao_detalhes = now()`. Sem `oab_id` no filtro porque a função não recebe esse parâmetro; o par `numero_cnj + tenant_id` é suficiente para o caso atual (1 OAB por tenant para esse CNJ); se houver múltiplas linhas, atualiza todas.
 
-Vou seguir a opção A.
+3. Resposta da função:
+   - Incluir `capa` expandida (`classe`, `assunto`, `area`, `tribunal`, `tribunal_sigla`, `valor_causa`, `data_distribuicao`, `juizo`, `fase_processual`, `parte_ativa`, `parte_passiva`).
+   - Manter `andamentosInseridos`, `creditosUtilizados`, `monitoramentoAtivado`.
+
+4. `ImportarProcessoCNJDialog.tsx` (frontend): após sucesso, parar de fazer um `update` redundante; a edge function já atualiza `processos_oab`. Manter apenas `onSuccess()` para refetch.
+
+5. Reprocessar o `0123417-95.2025.8.16.0000` sem nova cobrança:
+   - Os dados já estão em `processo_monitoramento_escavador.escavador_data`. Criar um trecho no início da função que, se `proc` vier de cache (não vamos refazer fetch), refaça só o parse + persist. Estratégia mais simples: adicionar um modo `reparseSomente: true` que pula o fetch e usa o `escavador_data` existente. Útil para esse caso e para reprocessamentos futuros.
+   - Disparar manualmente esse modo para o processo afetado, sem custo de API.
 
 ## Arquivos afetados
 
-- Migration nova alterando a constraint `processos_oab_api_provider_check`.
-- `src/components/Controladoria/ImportarProcessoCNJDialog.tsx` — sem mudanças (já grava `'escavador'`).
+- `supabase/functions/escavador-importar-processo/index.ts` — extração da capa via `fontes`, partes, atualização de `processos_oab` e `processos`, modo `reparseSomente`.
+- `src/components/Controladoria/ImportarProcessoCNJDialog.tsx` — remover `update` pós-import redundante e usar capa da resposta apenas para toast.
+- Banco: sem migration, apenas reprocessamento pontual via edge function.
 
 ## Impacto
 
 1. Usuário final
-   - O import por CNJ na aba OAB volta a funcionar; o processo `0123417-95.2025.8.16.0000` será inserido em `processos_oab` e a chamada ao Escavador será disparada.
-   - Sem mudança visual.
+   - Resumo do processo na aba OAB passa a mostrar partes, advogados, classe, assunto, valor da causa, juízo e tribunal.
+   - Funciona retroativamente para o `0123417-95...` via reparse, sem nova cobrança.
+   - Próximos imports já preenchem tudo direto.
 
 2. Dados
-   - Constraint passa a aceitar `escavador` além de `judit` e `codilo`.
-   - Sem alteração em RLS, sem migração de dados, sem perda.
+   - `processo_monitoramento_escavador`, `processos` e `processos_oab` ficam consistentes.
+   - Sem migration, sem mudança de RLS, sem schema novo.
+   - O `escavador_data` segue sendo a fonte de verdade bruta.
 
 3. Riscos colaterais
-   - Mínimos: apenas amplia o conjunto de valores válidos. Linhas existentes continuam válidas.
-   - Filtros/relatórios que listam por `api_provider` agora podem ver linhas `escavador`.
+   - Se a capa vier diferente em outros tribunais, o fallback em cadeia evita sobrescrever com `null`.
+   - O update em `processos_oab` por `numero_cnj + tenant_id` pode atualizar múltiplas linhas (mais de uma OAB no mesmo tenant com mesmo CNJ); aceitável e desejado.
+   - Reprocessamento idempotente: andamentos já existentes são deduplicados pela chave `data_evento|descricao` que já está implementada.
 
 4. Quem é afetado
-   - Usuários que importam CNJ pela aba OAB.
-   - Admin/controladoria que filtra por provider em relatórios.
+   - Todos os tenants que usam o import por CNJ via Escavador.
+   - Admin/controladoria/advogado que abre o processo na aba OAB.
 
 ## Validação
 
-- Rodar a migration.
-- Reimportar `0123417-95.2025.8.16.0000` pela aba OAB.
-- Confirmar:
-  - Sem toast de erro de check constraint.
-  - Linha aparece em `processos_oab` para o `oab_id` atual com `api_provider='escavador'`.
-  - Chamada `escavador-importar-processo` aparece nos logs.
-  - Capa/andamentos populados em `processo_monitoramento_escavador` / `processo_atualizacoes_escavador`.
+- Reparse do `0123417-95.2025.8.16.0000` (sem custo) e conferir:
+  - `processo_monitoramento_escavador`: `classe`, `assunto`, `area`, `tribunal`, `data_distribuicao`, `valor_causa` preenchidos.
+  - `processos_oab`: `parte_ativa`, `parte_passiva`, `tribunal`, `valor_causa`, `data_distribuicao`, `juizo`, `detalhes_carregados=true`.
+  - `processos`: `tipo_acao_nome`, `tribunal_nome`, `valor_causa`, `data_distribuicao`, `parte_ativa`, `parte_passiva` preenchidos.
+- Importar um CNJ novo e confirmar que tudo é preenchido na primeira chamada.
+- Reimportar o mesmo CNJ e confirmar que não duplica andamentos nem regride campos populados.
