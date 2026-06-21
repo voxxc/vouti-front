@@ -1,55 +1,67 @@
 ## Causa raiz
 
-A função foi até o Escavador (cobrou crédito) mas voltou com `classe`, `tribunal` e movimentações **vazios**. Isso porque estamos usando os endpoints **V1** (`/api/v1/busca` + `/api/v1/processos/{id}`), que retornam apenas metadados básicos do índice de busca. Os dados ricos (capa estruturada + andamentos) só vêm na **API V2**:
-
-- `GET /api/v2/processos/numero_cnj/{cnj}` → capa completa (classe, assunto, tribunal, fontes, polos, valor causa, datas).
-- `GET /api/v2/processos/numero_cnj/{cnj}/movimentacoes` → andamentos paginados por cursor.
-
-Log da última execução comprova: `id: 6156439, classe: undefined, tribunal: undefined, totalMovimentacoes: 0` — ou seja, V1 entregou só o id.
+- Confirmei pelos logs: não houve chamada recente para `escavador-importar-processo`.
+- O CNJ `0123417-95.2025.8.16.0000` já existe em `processos`, mas com `tenant_id` nulo e sem capa útil (`classe`/`tribunal` nulos) nem andamentos.
+- A regra atual trata `escavador_id` sozinho como “capa completa”; por isso, ao tentar importar de novo, o frontend entende que já está completo e não chama o Escavador.
+- Além disso, a tela onde você pesquisou lista `processos_oab`, enquanto o importador manual por CNJ está gravando/buscando em `processos`. Mesmo quando grava, pode não aparecer nessa aba.
 
 ## Correção
 
-Reescrever `escavador-importar-processo` para usar V2:
+1. Corrigir a regra de “dados completos”.
+   - Não considerar `escavador_id` sozinho como processo completo.
+   - Só bloquear nova consulta se houver capa útil, por exemplo `classe`, `tribunal`, `assunto` ou andamentos carregados.
+   - Se existir apenas `escavador_id` sem dados, chamar o Escavador novamente.
 
-1. Remover busca em `/api/v1/busca` e `/api/v1/processos/{id}`.
-2. Chamar `GET /api/v2/processos/numero_cnj/{cnj}` (1 requisição → capa completa).
-3. Chamar `GET /api/v2/processos/numero_cnj/{cnj}/movimentacoes?limit=100` e seguir `links.next` até esgotar (ou cap em 500 movimentações para evitar timeout em processos antigos).
-4. Mapear V2 → schema atual:
-   - `classe.nome` → `processo_monitoramento_escavador.classe` e `processos.tipo_acao_nome`
-   - `assunto.nome` (ou primeiro de `assuntos[]`) → `assunto`
-   - `tribunal.sigla` ou `tribunal.nome` → `tribunal` / `processos.tribunal_nome`
-   - `valor_causa.valor` → `valor_causa`
-   - `data_inicio` → `data_distribuicao`
-   - `area.nome` → `area`
-5. Para cada movimentação V2 (`{ data, tipo, conteudo, fonte, classificacao }`), inserir em `processo_atualizacoes_escavador`:
-   - `descricao` = `conteudo` (fallback: `tipo`)
-   - `data_evento` = `data`
-   - `dados_completos` = objeto inteiro
-   - `tipo_atualizacao` = `'importacao_inicial'`
-6. Preservar idempotência: deduplicar movimentações por hash (`data + conteudo`) antes de inserir, para o caso de o usuário re-importar.
-7. Logar `Creditos-Utilizados` (header da resposta V2) para rastreabilidade do custo.
+2. Corrigir o destino da importação por CNJ dentro da aba OAB.
+   - O botão “Importar Processo por CNJ” deve criar/reaproveitar registro em `processos_oab`, pois essa é a tabela exibida nessa tela.
+   - Usar duplicidade por `oab_id + numero_cnj`, não por `processos.numero_processo` global.
+   - Preencher `tenant_id`, `oab_id`, `numero_cnj`, `tribunal_sigla`, `importado_manualmente`, `importado_por`, credencial Judit selecionada e flags de apartado.
+
+3. Disparar a consulta correta após criar/reaproveitar.
+   - Para a aba OAB, acionar o fluxo que popula detalhes/andamentos de `processos_oab`.
+   - Se o fluxo OAB ainda depender de Judit, manter isso isolado; não deixar a chamada ao Escavador genérico bloquear a visibilidade na aba OAB.
+   - Atualizar a lista via `onSuccess`/`fetchProcessos` ao final.
+
+4. Corrigir o caso já quebrado.
+   - Inserir/vincular `0123417-95.2025.8.16.0000` em `processos_oab` para a OAB/tenant correto, sem apagar o registro antigo em `processos`.
+   - Garantir que ele apareça na busca da aba OAB após a correção.
 
 ## Arquivos afetados
 
-- `supabase/functions/escavador-importar-processo/index.ts` — reescrita completa do fluxo de fetch e parsing.
-
-Sem mudanças em frontend, banco, RLS ou tipos.
+- `src/components/Controladoria/ImportarProcessoCNJDialog.tsx`
+  - Corrigir duplicidade, tabela-alvo e atualização pós-importação.
+- Possivelmente `src/hooks/useOABs.ts`
+  - Reaproveitar ou expor uma função de recarregamento/consulta de detalhes para `processos_oab`.
+- Banco de dados
+  - Sem migration prevista.
+  - Pode haver apenas correção pontual de dados do CNJ já testado.
 
 ## Impacto
 
-- **Usuário final (UX):** após importar, a capa do processo passa a aparecer preenchida (classe, tribunal, valor, data) e a aba de andamentos mostra a lista real de movimentações vindas do Escavador. Toast continua mostrando a contagem correta.
-- **Dados:** mais linhas reais em `processo_atualizacoes_escavador` (uma por movimentação V2). `processo_monitoramento_escavador.escavador_data` passa a guardar o JSON V2 (mais rico). Sem migrations, sem mudança de RLS.
-- **Riscos colaterais:**
-  - V2 cobra por chamada; cada importação consome ~2 requisições (capa + 1ª página de movimentações). Processos com muita movimentação podem fazer 2-5 chamadas extras pela paginação. Cap de 500 movs evita custo descontrolado.
-  - V2 às vezes retorna *cache* — se o usuário precisar de dados frescos, há `POST /api/v2/processos/numero_cnj/{cnj}/solicitar-atualizacao` (não incluído neste plano; pode ser adicionado depois como botão "Atualizar agora").
-  - Rate limit global de 500 req/min; dentro do esperado.
-- **Quem é afetado:** apenas usuários do tenant atual ao importar processos via `ImportarProcessoDialog` ou `ImportarProcessoCNJDialog`. Demais fluxos (Judit, OAB) seguem intactos.
+1. Usuário final
+   - Ao importar CNJ pela aba OAB, o processo passa a aparecer na própria lista/pesquisa da OAB.
+   - Se o processo já existir mas estiver incompleto, ele será reconsultado em vez de “não acontecer nada”.
+   - O toast passa a refletir o estado real: importado, atualizado, já completo ou erro.
+
+2. Dados
+   - Novos imports manuais por CNJ serão gravados em `processos_oab` com `tenant_id` preenchido.
+   - Não há mudança estrutural, migration ou alteração de RLS prevista.
+   - O registro antigo em `processos` com `tenant_id` nulo deixa de bloquear o fluxo da aba OAB.
+
+3. Riscos colaterais
+   - Baixo risco, limitado ao botão “Importar Processo por CNJ” na aba OAB.
+   - Reconsultar processo incompleto pode consumir nova requisição/crédito no provedor usado pelo fluxo de detalhes.
+   - Precisa preservar o importador separado de processos gerais (`ImportarProcessoDialog.tsx`).
+
+4. Quem é afetado
+   - Usuários que importam CNJ manualmente pela aba OAB na Controladoria.
+   - Admins/controladoria/advogados que visualizam processos por OAB.
+   - Todos os tenants que usam esse fluxo, com reforço do isolamento por `tenant_id`.
 
 ## Validação
 
-1. Importar de novo o mesmo CNJ (`0123417-95.2025.8.16.0000`) com checkbox desmarcado.
-2. Conferir logs da função: deve aparecer `classe: <nome>`, `tribunal: TJPR`, `Movs: N (>0)`.
-3. Abrir o processo no Vouti → capa deve mostrar classe, tribunal, valor.
-4. Aba de andamentos → lista de movimentações com data e descrição.
-5. Conferir `processo_atualizacoes_escavador` via `read_query`: rows com `data_evento` e `descricao` populados.
-6. Reimportar (caso exista trigger manual) → não duplicar andamentos.
+- Reimportar `0123417-95.2025.8.16.0000` pela mesma aba OAB.
+- Confirmar que uma requisição de consulta é disparada quando o processo está incompleto.
+- Confirmar que o processo aparece na lista/pesquisa da OAB.
+- Confirmar no banco que existe em `processos_oab` com `tenant_id` e `oab_id` corretos.
+- Importar novamente o mesmo CNJ e confirmar que não cria duplicado nem falha silenciosamente.
