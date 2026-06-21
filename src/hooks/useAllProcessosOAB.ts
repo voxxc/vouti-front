@@ -16,16 +16,105 @@ export interface ProcessoOABComOAB extends ProcessoOAB {
 
 const PAGE_SIZE = 20;
 
-export const useAllProcessosOAB = () => {
+export type FiltroPrincipal =
+  | 'todos'
+  | 'monitorados'
+  | 'sigilosos'
+  | 'nao-lidos'
+  | { tipo: 'uf'; uf: string }
+  | { tipo: 'oab'; numero: string; uf: string };
+
+export type FiltroApartado = 'todos' | 'apartados' | 'nao_apartados';
+
+export interface GlobalCounts {
+  total: number;
+  monitorados: number;
+  sigilosos: number;
+  naoLidos: number;
+  ufs: { uf: string; count: number }[];
+  oabs: { oab: string; count: number }[];
+}
+
+export const useAllProcessosOAB = (
+  filtroPrincipal: FiltroPrincipal = 'todos',
+  filtroApartado: FiltroApartado = 'todos',
+) => {
   const [processos, setProcessos] = useState<ProcessoOABComOAB[]>([]);
   const [loading, setLoading] = useState(false);
   const [carregandoDetalhes, setCarregandoDetalhes] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+  const [globalCounts, setGlobalCounts] = useState<GlobalCounts>({
+    total: 0, monitorados: 0, sigilosos: 0, naoLidos: 0, ufs: [], oabs: [],
+  });
   const { toast } = useToast();
   const { user } = useAuth();
   const { tenantId } = useTenantId();
+
+  // ---------- Global counters (independent of pagination/filter) ----------
+  const fetchGlobalCounts = useCallback(async () => {
+    if (!tenantId) return;
+    try {
+      const [totalRes, monRes, sigRes, naoLidosRes, listaRes] = await Promise.all([
+        supabase
+          .from('processos_oab')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId),
+        supabase
+          .from('processos_oab')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId)
+          .eq('monitoramento_ativo', true),
+        supabase
+          .from('processos_oab')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId)
+          .gt('capa_completa->>secrecy_level', '0'),
+        supabase.rpc('get_andamentos_nao_lidos_por_processo', { p_tenant_id: tenantId }),
+        // Lista global enxuta para alimentar selects de UF/OAB
+        (async () => {
+          const { fetchAllPaginated } = await import('@/lib/supabasePagination');
+          return await fetchAllPaginated<any>(() =>
+            supabase
+              .from('processos_oab')
+              .select('numero_cnj, tribunal_sigla, oabs_cadastradas!inner(oab_numero, oab_uf)')
+              .eq('tenant_id', tenantId)
+              .order('id')
+          );
+        })(),
+      ]);
+
+      const naoLidos = (naoLidosRes.data || []).filter((r: any) => (r.nao_lidos || 0) > 0).length;
+
+      const ufMap = new Map<string, number>();
+      const oabMap = new Map<string, number>();
+      (listaRes.data || []).forEach((p: any) => {
+        const uf = extrairUFFromRow(p.tribunal_sigla, p.numero_cnj);
+        if (uf) ufMap.set(uf, (ufMap.get(uf) || 0) + 1);
+        const oc = p.oabs_cadastradas;
+        if (oc?.oab_numero && oc?.oab_uf) {
+          const k = `${oc.oab_numero}/${oc.oab_uf}`;
+          oabMap.set(k, (oabMap.get(k) || 0) + 1);
+        }
+      });
+
+      setGlobalCounts({
+        total: totalRes.count || 0,
+        monitorados: monRes.count || 0,
+        sigilosos: sigRes.count || 0,
+        naoLidos,
+        ufs: Array.from(ufMap.entries()).sort((a, b) => b[1] - a[1]).map(([uf, count]) => ({ uf, count })),
+        oabs: Array.from(oabMap.entries()).sort((a, b) => b[1] - a[1]).map(([oab, count]) => ({ oab, count })),
+      });
+    } catch (err) {
+      console.error('[useAllProcessosOAB] globalCounts erro:', err);
+    }
+  }, [tenantId]);
+
+  useEffect(() => {
+    fetchGlobalCounts();
+  }, [fetchGlobalCounts]);
 
   const fetchProcessos = useCallback(async () => {
     if (!tenantId) return;
@@ -35,6 +124,22 @@ export const useAllProcessosOAB = () => {
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
+      // Pré-carrega lista de IDs com andamentos não lidos quando filtro 'nao-lidos'
+      let idsNaoLidos: string[] | null = null;
+      if (filtroPrincipal === 'nao-lidos') {
+        const { data: rpcData } = await supabase
+          .rpc('get_andamentos_nao_lidos_por_processo', { p_tenant_id: tenantId });
+        idsNaoLidos = (rpcData || [])
+          .filter((r: any) => (r.nao_lidos || 0) > 0)
+          .map((r: any) => r.processo_oab_id);
+        if (idsNaoLidos.length === 0) {
+          setProcessos([]);
+          setTotalCount(0);
+          setLoading(false);
+          return;
+        }
+      }
+
       // Main query WITHOUT heavy andamentos join, with pagination
       let query = supabase
         .from('processos_oab')
@@ -43,6 +148,27 @@ export const useAllProcessosOAB = () => {
           oabs_cadastradas!inner(id, oab_numero, oab_uf, nome_advogado, email_advogado, telefone_advogado, endereco_advogado, cidade_advogado, cep_advogado, logo_url, ordem, ultima_sincronizacao, total_processos, ultimo_request_id, request_id_data, created_at)
         `, { count: 'exact' })
         .eq('tenant_id', tenantId);
+
+      // Filtros principais (server-side)
+      if (filtroPrincipal === 'monitorados') {
+        query = query.eq('monitoramento_ativo', true);
+      } else if (filtroPrincipal === 'sigilosos') {
+        query = query.gt('capa_completa->>secrecy_level', '0');
+      } else if (filtroPrincipal === 'nao-lidos' && idsNaoLidos) {
+        query = query.in('id', idsNaoLidos);
+      } else if (typeof filtroPrincipal === 'object' && filtroPrincipal.tipo === 'uf') {
+        query = query.ilike('tribunal_sigla', `TJ${filtroPrincipal.uf}%`);
+      } else if (typeof filtroPrincipal === 'object' && filtroPrincipal.tipo === 'oab') {
+        query = query
+          .eq('oabs_cadastradas.oab_numero', filtroPrincipal.numero)
+          .eq('oabs_cadastradas.oab_uf', filtroPrincipal.uf);
+      }
+
+      if (filtroApartado === 'apartados') {
+        query = query.eq('apartado', true);
+      } else if (filtroApartado === 'nao_apartados') {
+        query = query.or('apartado.is.null,apartado.eq.false');
+      }
 
       // Server-side search
       if (searchTerm.trim()) {
@@ -120,7 +246,9 @@ export const useAllProcessosOAB = () => {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, toast, page, searchTerm]);
+    // Atualiza contagens globais em paralelo para refletir mudanças (delete/toggle).
+    fetchGlobalCounts();
+  }, [tenantId, toast, page, searchTerm, JSON.stringify(filtroPrincipal), filtroApartado, fetchGlobalCounts]);
 
   useEffect(() => {
     fetchProcessos();
@@ -314,6 +442,35 @@ export const useAllProcessosOAB = () => {
     consultarDetalhesRequest,
     resetarProcesso,
     excluirProcesso,
-    atualizarProcesso
+    atualizarProcesso,
+    globalCounts,
+    refetchGlobalCounts: fetchGlobalCounts,
   };
 };
+
+// Helper local — duplicado do GeralTab para manter o hook independente
+const TRIBUNAL_UF_MAP_HOOK: Record<string, string> = {
+  '01': 'AC', '02': 'AL', '03': 'AP', '04': 'AM', '05': 'BA',
+  '06': 'CE', '07': 'DF', '08': 'ES', '09': 'GO', '10': 'MA',
+  '11': 'MT', '12': 'MS', '13': 'MG', '14': 'PA', '15': 'PB',
+  '16': 'PR', '17': 'PE', '18': 'PI', '19': 'RJ', '20': 'RN',
+  '21': 'RS', '22': 'RO', '23': 'RR', '24': 'SC', '25': 'SE',
+  '26': 'SP', '27': 'TO',
+};
+
+function extrairUFFromRow(tribunalSigla: string | null | undefined, numeroCnj?: string | null): string | null {
+  if (tribunalSigla) {
+    const m = tribunalSigla.match(/TJ([A-Z]{2})/);
+    if (m) return m[1];
+  }
+  if (numeroCnj) {
+    const match = numeroCnj.match(/\.\d{4}\.(\d)\.(\d{2})\./);
+    if (match) {
+      const segmento = match[1];
+      const codigoTribunal = match[2];
+      if (segmento === '8' && TRIBUNAL_UF_MAP_HOOK[codigoTribunal]) return TRIBUNAL_UF_MAP_HOOK[codigoTribunal];
+      return `${segmento}.${codigoTribunal}`;
+    }
+  }
+  return null;
+}
