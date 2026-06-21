@@ -385,3 +385,119 @@ export function SuperAdminProcessoOABDetalhesPanel({
     </>
   );
 }
+
+interface AndamentoCardProps {
+  andamento: any;
+  destravado: boolean;
+  tribunaisMap: Record<string, TribunalTag>;
+  tribunais: TribunalTag[];
+  onExcluir: () => void;
+  onAtualizar: (patch: { sigiloso?: boolean; tribunal_tag?: string | null }) => void;
+}
+
+function AndamentoCard({ andamento: a, destravado, tribunaisMap, tribunais, onExcluir, onAtualizar }: AndamentoCardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: a.id, disabled: !destravado });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1 };
+  const dc = (a.dados_completos || {}) as any;
+  const isManual = dc?.origem === 'manual';
+  const anexo = dc?.anexo;
+  const sigiloso = !!dc?.sigiloso;
+  const tag: string | null = dc?.tribunal_tag || null;
+  const tagInfo = tag ? tribunaisMap[tag] : null;
+
+  return (
+    <Card ref={setNodeRef} style={style} className="p-3">
+      <div className="flex items-start gap-2">
+        {destravado && (
+          <button
+            type="button"
+            className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 -ml-1"
+            {...attributes}
+            {...listeners}
+            title="Arrastar para reordenar"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="text-xs font-mono text-muted-foreground">
+              {formatDataCurta(a.data_movimentacao)}
+            </span>
+            {a.tipo_movimentacao && (
+              <Badge variant="outline" className="text-xs">{a.tipo_movimentacao}</Badge>
+            )}
+            {isManual && <Badge variant="secondary" className="text-xs">Manual</Badge>}
+            {!a.lida && <Badge variant="default" className="text-xs">Não lida</Badge>}
+            {sigiloso && (
+              <Badge variant="destructive" className="text-xs inline-flex items-center gap-1">
+                <EyeOff className="h-3 w-3" /> Sigiloso
+              </Badge>
+            )}
+            {tag && (
+              <Badge
+                variant="outline"
+                className="text-xs"
+                style={tagInfo?.cor ? { borderColor: tagInfo.cor, color: tagInfo.cor } : undefined}
+              >
+                {tagInfo?.nome || tag}
+              </Badge>
+            )}
+          </div>
+          <p className="text-sm whitespace-pre-wrap break-words">{a.descricao}</p>
+          {anexo && (
+            <div className="mt-2 flex items-center gap-1 text-xs text-primary">
+              <Paperclip className="h-3 w-3" />
+              <span className="truncate">{anexo.nome}</span>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar metadados">
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64" align="end">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={`sig-${a.id}`}
+                    checked={sigiloso}
+                    onCheckedChange={(v) => onAtualizar({ sigiloso: v === true })}
+                  />
+                  <Label htmlFor={`sig-${a.id}`} className="text-sm font-normal cursor-pointer flex items-center gap-1">
+                    <EyeOff className="h-3.5 w-3.5" /> Sigiloso
+                  </Label>
+                </div>
+                <div>
+                  <Label className="text-xs">Tribunal</Label>
+                  <select
+                    value={tag ?? ''}
+                    onChange={(e) => onAtualizar({ tribunal_tag: e.target.value || null })}
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                  >
+                    <option value="">Sem tribunal</option>
+                    {tribunais.map((t) => (
+                      <option key={t.id} value={t.slug}>{t.nome}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-destructive"
+            onClick={onExcluir}
+            title="Excluir movimento"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
