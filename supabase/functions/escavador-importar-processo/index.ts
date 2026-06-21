@@ -462,9 +462,15 @@ serve(async (req) => {
 
         // Inserir andamentos OAB (idempotente via dedup_hash)
         let inseridosNesteOab = 0;
+        let duplicadosNesteOab = 0;
+        let erroNesteOab = 0;
         for (const mov of movimentacoes) {
           const descricao = mov.conteudo || mov.descricao || mov.texto || mov.tipo || 'Sem descrição';
-          const dataMov = mov.data || mov.data_evento || new Date().toISOString();
+          const rawData = mov.data || mov.data_evento || new Date().toISOString();
+          // Normaliza "YYYY-MM-DD" para ISO com hora 12:00 UTC (evita ambiguidade de timezone e colisão no truncate_minute)
+          const dataMov = /^\d{4}-\d{2}-\d{2}$/.test(rawData)
+            ? `${rawData}T12:00:00.000Z`
+            : rawData;
           const dedup = dedupHashOab(oab.id, descricao, dataMov);
 
           const { error: insErr } = await supabaseClient
@@ -482,8 +488,22 @@ serve(async (req) => {
           if (!insErr) {
             inseridosNesteOab++;
             totalOabSalvas++;
+          } else if (insErr.code === '23505') {
+            duplicadosNesteOab++;
+          } else {
+            erroNesteOab++;
+            console.error(
+              '[Escavador Importar V2] erro insert OAB andamento:',
+              insErr.code,
+              insErr.message,
+              { dataMov, descricao: String(descricao).slice(0, 80) }
+            );
           }
         }
+
+        console.log(
+          `[Escavador Importar V2] OAB ${oab.id} insert detail: novos=${inseridosNesteOab} duplicados=${duplicadosNesteOab} erros=${erroNesteOab}`
+        );
 
         if (inseridosNesteOab > 0) {
           // Atualiza contador
