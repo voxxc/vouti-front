@@ -100,6 +100,8 @@ export function AdicionarMovimentoManualDialog({
       const inicial = novaAba(hoje);
       setAbas([inicial]);
       setAtivaId(inicial.id);
+      setSalvando(false);
+      salvandoRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -154,6 +156,8 @@ export function AdicionarMovimentoManualDialog({
 
   const handleSalvar = async () => {
     if (salvandoRef.current) return;
+    salvandoRef.current = true;
+    setSalvando(true);
 
     // valida todas as abas
     for (let i = 0; i < abas.length; i++) {
@@ -161,17 +165,19 @@ export function AdicionarMovimentoManualDialog({
       if (!a.tipo.trim()) {
         setAtivaId(a.id);
         toast.error(`Informe o nome do movimento na aba "${labelAba(a, i)}".`);
+        salvandoRef.current = false;
+        setSalvando(false);
         return;
       }
       if (a.descricao.trim().length < 10) {
         setAtivaId(a.id);
         toast.error(`A descrição precisa de ao menos 10 caracteres na aba "${labelAba(a, i)}".`);
+        salvandoRef.current = false;
+        setSalvando(false);
         return;
       }
     }
 
-    salvandoRef.current = true;
-    setSalvando(true);
     // ordem: da última (mais antiga) para a primeira (mais nova)
     const ordem = [...abas].reverse();
     const idsSalvos: string[] = [];
@@ -416,7 +422,11 @@ export function AdicionarMovimentoManualDialog({
           </Button>
           <Button onClick={handleSalvar} disabled={salvando}>
             {salvando && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {abas.length === 1 ? 'Salvar movimento' : `Salvar ${abas.length} movimentos`}
+            {salvando
+              ? 'Salvando...'
+              : abas.length === 1
+                ? 'Salvar movimento'
+                : `Salvar ${abas.length} movimentos`}
           </Button>
         </DialogFooter>
       </DialogContent>
