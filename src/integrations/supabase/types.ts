@@ -5668,6 +5668,8 @@ export type Database = {
           prazo_automatico_ativo: boolean | null
           prazo_usuarios_marcados: string[] | null
           status_processual: string | null
+          super_admin_atualizado_em: string | null
+          super_admin_atualizado_por: string | null
           tenant_id: string | null
           tracking_id: string | null
           tracking_request_data: string | null
@@ -5715,6 +5717,8 @@ export type Database = {
           prazo_automatico_ativo?: boolean | null
           prazo_usuarios_marcados?: string[] | null
           status_processual?: string | null
+          super_admin_atualizado_em?: string | null
+          super_admin_atualizado_por?: string | null
           tenant_id?: string | null
           tracking_id?: string | null
           tracking_request_data?: string | null
@@ -5762,6 +5766,8 @@ export type Database = {
           prazo_automatico_ativo?: boolean | null
           prazo_usuarios_marcados?: string[] | null
           status_processual?: string | null
+          super_admin_atualizado_em?: string | null
+          super_admin_atualizado_por?: string | null
           tenant_id?: string | null
           tracking_id?: string | null
           tracking_request_data?: string | null
