@@ -72,6 +72,8 @@ export function SuperAdminProcessoOABDetalhesPanel({
   const [data, setData] = useState<DetalhesResponse | null>(null);
   const [adicionarOpen, setAdicionarOpen] = useState(false);
   const [destravado, setDestravado] = useState(false);
+  const [ordemDirty, setOrdemDirty] = useState(false);
+  const [salvandoOrdem, setSalvandoOrdem] = useState(false);
   const [tribunais, setTribunais] = useState<TribunalTag[]>([]);
   const [andamentos, setAndamentos] = useState<any[]>([]);
 
