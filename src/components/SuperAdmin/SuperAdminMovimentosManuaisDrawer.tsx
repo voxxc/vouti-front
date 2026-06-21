@@ -6,6 +6,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Search, FilePlus2, Bell, BellOff, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tenant } from '@/types/superadmin';
@@ -27,13 +28,20 @@ interface ProcessoLite {
   monitoramento_ativo?: boolean;
   total_andamentos?: number;
   ultima_atualizacao_detalhes?: string | null;
+  super_admin_atualizado_em?: string | null;
 }
+
+type Aba = 'total' | 'atualizado';
 
 export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }: Props) {
   const [loading, setLoading] = useState(false);
   const [processos, setProcessos] = useState<ProcessoLite[]>([]);
   const [busca, setBusca] = useState('');
   const [selecionado, setSelecionado] = useState<ProcessoLite | null>(null);
+  const [aba, setAba] = useState<Aba>('total');
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const recarregar = () => setReloadKey((k) => k + 1);
 
   useEffect(() => {
     if (!open) return;
@@ -43,7 +51,7 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
       try {
         const { data, error } = await supabase.functions.invoke(
           'super-admin-listar-processos-oab',
-          { body: { tenant_id: tenant.id } },
+          { body: { tenant_id: tenant.id, aba } },
         );
         if (error) throw error;
         if (!cancel) setProcessos((data as any)?.processos || []);
@@ -57,7 +65,7 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
     return () => {
       cancel = true;
     };
-  }, [open, tenant.id]);
+  }, [open, tenant.id, aba, reloadKey]);
 
   const filtrados = useMemo(() => {
     const t = busca.trim().toLowerCase();
@@ -89,6 +97,25 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
               dos usuários do tenant.
             </p>
           </SheetHeader>
+
+          <div className="px-6 pt-3">
+            <Tabs value={aba} onValueChange={(v) => setAba(v as Aba)}>
+              <TabsList className="bg-transparent border-b w-full justify-start rounded-none p-0 h-auto">
+                <TabsTrigger
+                  value="total"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2"
+                >
+                  Total
+                </TabsTrigger>
+                <TabsTrigger
+                  value="atualizado"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2"
+                >
+                  Atualizado
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
 
           <div className="px-6 py-3 border-b flex items-center gap-3">
             <div className="relative flex-1 max-w-md">
@@ -123,6 +150,9 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
                     <TableHead className="w-[90px]">Tribunal</TableHead>
                     <TableHead className="w-[110px] text-center">Andamentos</TableHead>
                     <TableHead className="w-[110px] text-center">Monitor.</TableHead>
+                    {aba === 'atualizado' && (
+                      <TableHead className="w-[160px]">Atualizado</TableHead>
+                    )}
                     <TableHead className="w-[40px]" />
                   </TableRow>
                 </TableHeader>
@@ -160,6 +190,19 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
                           </span>
                         )}
                       </TableCell>
+                      {aba === 'atualizado' && (
+                        <TableCell className="text-xs text-muted-foreground">
+                          {(() => {
+                            if (!p.super_admin_atualizado_em) return '—';
+                            const ms =
+                              new Date(p.super_admin_atualizado_em).getTime() +
+                              7 * 24 * 60 * 60 * 1000 -
+                              Date.now();
+                            const dias = Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+                            return `expira em ${dias}d`;
+                          })()}
+                        </TableCell>
+                      )}
                       <TableCell>
                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </TableCell>
@@ -178,6 +221,7 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
           onOpenChange={(o) => !o && setSelecionado(null)}
           processo={selecionado}
           tenantNome={tenant.name}
+          onAndamentoCriado={recarregar}
         />
       )}
     </>
