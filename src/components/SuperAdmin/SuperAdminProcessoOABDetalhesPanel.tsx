@@ -72,6 +72,8 @@ export function SuperAdminProcessoOABDetalhesPanel({
   const [data, setData] = useState<DetalhesResponse | null>(null);
   const [adicionarOpen, setAdicionarOpen] = useState(false);
   const [destravado, setDestravado] = useState(false);
+  const [ordemDirty, setOrdemDirty] = useState(false);
+  const [salvandoOrdem, setSalvandoOrdem] = useState(false);
   const [tribunais, setTribunais] = useState<TribunalTag[]>([]);
   const [andamentos, setAndamentos] = useState<any[]>([]);
 
@@ -112,6 +114,7 @@ export function SuperAdminProcessoOABDetalhesPanel({
     if (!open) return;
     setData(null);
     setDestravado(false);
+    setOrdemDirty(false);
     carregar();
     carregarTribunais();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -126,16 +129,28 @@ export function SuperAdminProcessoOABDetalhesPanel({
     const newIndex = andamentos.findIndex((a) => a.id === over.id);
     if (oldIndex < 0 || newIndex < 0) return;
     const novo = arrayMove(andamentos, oldIndex, newIndex);
-    const anterior = andamentos;
     setAndamentos(novo);
+    setOrdemDirty(true);
+  };
+
+  const salvarOrdem = async () => {
+    if (!ordemDirty) {
+      setDestravado(false);
+      return;
+    }
+    setSalvandoOrdem(true);
     try {
       const { error } = await supabase.functions.invoke('super-admin-reordenar-andamentos', {
-        body: { processo_oab_id: processo.id, ordem: novo.map((a) => a.id) },
+        body: { processo_oab_id: processo.id, ordem: andamentos.map((a) => a.id) },
       });
       if (error) throw error;
+      toast.success('Ordem salva.');
+      setOrdemDirty(false);
+      setDestravado(false);
     } catch (e: any) {
-      setAndamentos(anterior);
-      toast.error(e?.message || 'Erro ao reordenar');
+      toast.error(e?.message || 'Erro ao salvar ordem');
+    } finally {
+      setSalvandoOrdem(false);
     }
   };
 
@@ -302,11 +317,19 @@ export function SuperAdminProcessoOABDetalhesPanel({
                     <Button
                       variant={destravado ? 'default' : 'ghost'}
                       size="sm"
-                      onClick={() => setDestravado((v) => !v)}
-                      title={destravado ? 'Travar ordem' : 'Destravar para reordenar'}
+                      disabled={salvandoOrdem}
+                      onClick={() => {
+                        if (destravado) {
+                          salvarOrdem();
+                        } else {
+                          setOrdemDirty(false);
+                          setDestravado(true);
+                        }
+                      }}
+                      title={destravado ? 'Travar e salvar ordem' : 'Destravar para reordenar'}
                     >
                       {destravado ? <LockOpen className="h-4 w-4 mr-1" /> : <Lock className="h-4 w-4 mr-1" />}
-                      {destravado ? 'Reordenando' : 'Reordenar'}
+                      {destravado ? (salvandoOrdem ? 'Salvando...' : (ordemDirty ? 'Salvar ordem' : 'Travar')) : 'Reordenar'}
                     </Button>
                     <Button variant="ghost" size="sm" onClick={carregar}>
                       <RefreshCw className="h-4 w-4 mr-1" /> Atualizar
