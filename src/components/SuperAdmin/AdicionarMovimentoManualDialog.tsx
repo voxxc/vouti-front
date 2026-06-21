@@ -233,6 +233,7 @@ export function AdicionarMovimentoManualDialog({
   if (!ativa) return null;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(o) => onOpenChange(o)}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
