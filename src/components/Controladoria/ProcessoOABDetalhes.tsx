@@ -330,6 +330,38 @@ export const ProcessoOABDetalhes = ({
     }
   };
 
+  const handleReprocessarResumo = async () => {
+    setConfirmReparseOpen(false);
+    setReprocessandoResumo(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'escavador-importar-processo',
+        {
+          body: {
+            processoId: processo.id,
+            numeroProcesso: processo.numero_cnj,
+            reparseSomente: true,
+          },
+        },
+      );
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Falha ao reprocessar');
+      toast({
+        title: '✅ Resumo reprocessado',
+        description: 'Os campos foram atualizados a partir do cache do Escavador (sem nova cobrança).',
+      });
+      onUpdate?.();
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao reprocessar',
+        description: err?.message || 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setReprocessandoResumo(false);
+    }
+  };
+
   // Estados de edição - Resumo
   const [editandoResumo, setEditandoResumo] = useState(false);
   const [salvandoResumo, setSalvandoResumo] = useState(false);
