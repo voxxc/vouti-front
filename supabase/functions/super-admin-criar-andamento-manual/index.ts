@@ -17,6 +17,7 @@ const BodySchema = z.object({
   tipo_movimentacao: z.string().trim().min(1).max(120),
   descricao: z.string().trim().min(10).max(8000),
   marcar_nao_lido: z.boolean().optional().default(true),
+  marcar_como_atualizado: z.boolean().optional().default(false),
   anexo: z
     .object({
       nome: z.string().min(1).max(255),
@@ -191,6 +192,20 @@ Deno.serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Marca o processo como "atualizado" (janela de 7 dias) quando solicitado
+    if (body.marcar_como_atualizado) {
+      const { error: updErr } = await admin
+        .from('processos_oab')
+        .update({
+          super_admin_atualizado_em: new Date().toISOString(),
+          super_admin_atualizado_por: user.id,
+        })
+        .eq('id', proc.id);
+      if (updErr) {
+        console.error('marcar_como_atualizado error', updErr);
+      }
     }
 
     return new Response(

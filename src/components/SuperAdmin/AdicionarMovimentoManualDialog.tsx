@@ -49,6 +49,7 @@ export function AdicionarMovimentoManualDialog({
   const [tipo, setTipo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [marcarNaoLido, setMarcarNaoLido] = useState(true);
+  const [marcarComoAtualizado, setMarcarComoAtualizado] = useState(true);
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -57,6 +58,7 @@ export function AdicionarMovimentoManualDialog({
     setTipo('');
     setDescricao('');
     setMarcarNaoLido(true);
+    setMarcarComoAtualizado(true);
     setArquivo(null);
   };
 
@@ -94,6 +96,7 @@ export function AdicionarMovimentoManualDialog({
         tipo_movimentacao: tipo.trim(),
         descricao: descricao.trim(),
         marcar_nao_lido: marcarNaoLido,
+        marcar_como_atualizado: marcarComoAtualizado,
       };
       if (arquivo) {
         const base64 = await fileToBase64(arquivo);
@@ -202,6 +205,17 @@ export function AdicionarMovimentoManualDialog({
             />
             <Label htmlFor="mov-naolido" className="text-sm font-normal cursor-pointer">
               Marcar como não lido para os usuários do tenant
+            </Label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="mov-atualizado"
+              checked={marcarComoAtualizado}
+              onCheckedChange={(v) => setMarcarComoAtualizado(v === true)}
+            />
+            <Label htmlFor="mov-atualizado" className="text-sm font-normal cursor-pointer">
+              Marcar processo como atualizado (move para a aba Atualizado por 7 dias)
             </Label>
           </div>
         </div>

@@ -9,6 +9,7 @@ const corsHeaders = {
 
 const BodySchema = z.object({
   tenant_id: z.string().uuid(),
+  aba: z.enum(['total', 'atualizado']).optional().default('total'),
 });
 
 Deno.serve(async (req) => {
@@ -67,21 +68,35 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
-    const { tenant_id } = parsed.data;
+    const { tenant_id, aba } = parsed.data;
+
+    // Janela de 7 dias para a marcação "atualizado"
+    const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
     // Pagina manualmente para evitar limite de 1000 linhas
     const PAGE = 1000;
     const all: any[] = [];
     let from = 0;
     while (true) {
-      const { data, error } = await admin
+      let query = admin
         .from('processos_oab')
         .select(
-          'id, numero_cnj, parte_ativa, parte_passiva, tribunal_sigla, monitoramento_ativo, ultima_atualizacao_detalhes',
+          'id, numero_cnj, parte_ativa, parte_passiva, tribunal_sigla, monitoramento_ativo, ultima_atualizacao_detalhes, super_admin_atualizado_em',
         )
-        .eq('tenant_id', tenant_id)
-        .order('numero_cnj', { ascending: true })
-        .range(from, from + PAGE - 1);
+        .eq('tenant_id', tenant_id);
+
+      if (aba === 'atualizado') {
+        query = query
+          .gte('super_admin_atualizado_em', seteDiasAtras)
+          .order('super_admin_atualizado_em', { ascending: false });
+      } else {
+        // total: nulo OU fora da janela de 7 dias
+        query = query
+          .or(`super_admin_atualizado_em.is.null,super_admin_atualizado_em.lt.${seteDiasAtras}`)
+          .order('numero_cnj', { ascending: true });
+      }
+
+      const { data, error } = await query.range(from, from + PAGE - 1);
       if (error) throw error;
       if (!data || data.length === 0) break;
       all.push(...data);
