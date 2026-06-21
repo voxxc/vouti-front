@@ -333,6 +333,8 @@ export const ProcessoOABDetalhes = ({
   // Estados de edição - Resumo
   const [editandoResumo, setEditandoResumo] = useState(false);
   const [salvandoResumo, setSalvandoResumo] = useState(false);
+  const [reprocessandoResumo, setReprocessandoResumo] = useState(false);
+  const [confirmReparseOpen, setConfirmReparseOpen] = useState(false);
   const [formResumo, setFormResumo] = useState({
     parte_ativa: '',
     parte_passiva: '',
