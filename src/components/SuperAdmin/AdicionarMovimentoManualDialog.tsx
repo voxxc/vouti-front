@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -52,6 +52,7 @@ export function AdicionarMovimentoManualDialog({
   const [marcarComoAtualizado, setMarcarComoAtualizado] = useState(true);
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const salvandoRef = useRef(false);
 
   const reset = () => {
     setData(hoje);
@@ -80,6 +81,7 @@ export function AdicionarMovimentoManualDialog({
   };
 
   const handleSalvar = async () => {
+    if (salvandoRef.current) return;
     if (!tipo.trim() || tipo.trim().length < 1) {
       toast.error('Informe o nome do movimento.');
       return;
@@ -88,6 +90,7 @@ export function AdicionarMovimentoManualDialog({
       toast.error('A descrição precisa de ao menos 10 caracteres.');
       return;
     }
+    salvandoRef.current = true;
     setSalvando(true);
     try {
       const payload: any = {
@@ -121,6 +124,7 @@ export function AdicionarMovimentoManualDialog({
       toast.error(e?.message || 'Erro ao lançar movimento.');
     } finally {
       setSalvando(false);
+      salvandoRef.current = false;
     }
   };
 
