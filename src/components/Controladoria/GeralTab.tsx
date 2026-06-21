@@ -303,7 +303,7 @@ export const GeralTab = () => {
 
           {filtroUF !== 'todos' && (
             <Badge variant="secondary">
-              {processosFiltrados.length} {processosFiltrados.length === 1 ? 'processo' : 'processos'}
+              {totalCount} {totalCount === 1 ? 'processo' : 'processos'}
             </Badge>
           )}
 
