@@ -349,6 +349,43 @@ export function AdicionarMovimentoManualDialog({
             </p>
           </div>
 
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <Label htmlFor="mov-tribunal" className="text-sm">Tribunal</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setGerenciarOpen(true)}
+              >
+                <Settings2 className="h-3.5 w-3.5 mr-1" /> Gerenciar
+              </Button>
+            </div>
+            <select
+              id="mov-tribunal"
+              value={ativa.tribunalTag ?? ''}
+              onChange={(e) => updateAtiva({ tribunalTag: e.target.value || null })}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+            >
+              <option value="">Sem tribunal</option>
+              {tribunais.map((t) => (
+                <option key={t.id} value={t.slug}>{t.nome}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="mov-sigiloso"
+              checked={ativa.sigiloso}
+              onCheckedChange={(v) => updateAtiva({ sigiloso: v === true })}
+            />
+            <Label htmlFor="mov-sigiloso" className="text-sm font-normal cursor-pointer flex items-center gap-1">
+              <EyeOff className="h-3.5 w-3.5" /> Sigiloso
+            </Label>
+          </div>
+
           <div className="flex items-center gap-2">
             <Checkbox
               id="mov-naolido"
@@ -383,5 +420,11 @@ export function AdicionarMovimentoManualDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <GerenciarTribunaisDialog
+      open={gerenciarOpen}
+      onOpenChange={setGerenciarOpen}
+      onChanged={carregarTribunais}
+    />
+    </>
   );
 }
