@@ -10,6 +10,16 @@ const V2_BASE = 'https://api.escavador.com/api/v2';
 const MAX_MOVS = 500;
 const PAGE_LIMIT = 100;
 
+function dedupHashOab(processoOabId: string, descricao: string, dataMov: string): string {
+  const hashSrc = `${processoOabId}|${(descricao || '').trim().slice(0, 200)}|${(dataMov || '').slice(0, 19)}`;
+  let h = 0;
+  for (let i = 0; i < hashSrc.length; i++) {
+    h = ((h << 5) - h) + hashSrc.charCodeAt(i);
+    h |= 0;
+  }
+  return `esc_${Math.abs(h)}`;
+}
+
 function pickName(obj: any): string | null {
   if (!obj) return null;
   if (typeof obj === 'string') return obj;
