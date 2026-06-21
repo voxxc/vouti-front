@@ -129,6 +129,24 @@ serve(async (req) => {
       throw upsertError;
     }
 
+    // === 2.1 ATUALIZAR DADOS DA CAPA NO PROCESSO ===
+    try {
+      const updates: Record<string, any> = {};
+      if (processoDetalhado.classe) updates.tipo_acao_nome = processoDetalhado.classe;
+      if (processoDetalhado.tribunal) updates.tribunal_nome = processoDetalhado.tribunal;
+      if (processoDetalhado.valor_causa != null) updates.valor_causa = processoDetalhado.valor_causa;
+      if (processoDetalhado.data_distribuicao) updates.data_distribuicao = processoDetalhado.data_distribuicao;
+      if (Object.keys(updates).length > 0) {
+        const { error: pUpdErr } = await supabaseClient
+          .from('processos')
+          .update(updates)
+          .eq('id', processoId);
+        if (pUpdErr) console.error('[Escavador Importar] update processos:', pUpdErr.message);
+      }
+    } catch (e) {
+      console.error('[Escavador Importar] erro update processos:', e);
+    }
+
     // === 3. SALVAR MOVIMENTAÇÕES ===
     const movimentacoes: any[] =
       processoDetalhado.movimentacoes ||
