@@ -263,7 +263,7 @@ export const GeralTab = () => {
               <SelectValue placeholder="Filtrar" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos ({totalCount})</SelectItem>
+              <SelectItem value="todos">Todos ({globalCounts.total})</SelectItem>
               {naoLidosCount > 0 && (
                 <SelectItem value="nao-lidos">
                   <span className="flex items-center gap-2">
