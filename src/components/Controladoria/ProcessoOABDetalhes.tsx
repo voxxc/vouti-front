@@ -350,7 +350,7 @@ export const ProcessoOABDetalhes = ({
         title: '✅ Resumo reprocessado',
         description: 'Os campos foram atualizados a partir do cache do Escavador (sem nova cobrança).',
       });
-      onUpdate?.();
+      await onRefreshProcessos?.();
     } catch (err: any) {
       toast({
         title: 'Erro ao reprocessar',
