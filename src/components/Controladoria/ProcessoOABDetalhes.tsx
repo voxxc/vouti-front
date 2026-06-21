@@ -1497,6 +1497,9 @@ export const ProcessoOABDetalhes = ({
                         | { bucket?: string; storage_path?: string; nome?: string }
                         | null
                         | undefined;
+                      const isSigiloso = (andamento as any).dados_completos?.sigiloso === true;
+                      const tribunalTag = (andamento as any).dados_completos?.tribunal_tag as string | null | undefined;
+                      const tribunalInfo = tribunalTag ? tribunaisTagsMap.get(tribunalTag) : null;
                       
                       return (
                         <Card 
@@ -1543,6 +1546,20 @@ export const ProcessoOABDetalhes = ({
                                   <Badge variant="secondary" className="text-xs gap-1">
                                     <Paperclip className="w-2.5 h-2.5" />
                                     {anexosDoAndamento.length}
+                                  </Badge>
+                                )}
+                                {isSigiloso && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    Sigiloso
+                                  </Badge>
+                                )}
+                                {tribunalTag && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs"
+                                    style={tribunalInfo?.cor ? { borderColor: tribunalInfo.cor, color: tribunalInfo.cor } : undefined}
+                                  >
+                                    {tribunalInfo?.nome || tribunalTag}
                                   </Badge>
                                 )}
                               </div>
