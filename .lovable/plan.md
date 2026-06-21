@@ -1,47 +1,55 @@
 ## Causa raiz
 
-A edge function `escavador-importar-processo` foi criada em `supabase/functions/escavador-importar-processo/index.ts`, mas **não foi registrada em `supabase/config.toml`**. Sem essa entrada, a função não é deployada — por isso não há logs nem efeito ao clicar em "Importar". A chamada `supabase.functions.invoke('escavador-importar-processo', ...)` provavelmente retorna 404, mas como ela roda em background `.then(...)`, o erro só aparece no toast de "Andamentos não carregados" (ou nem chega a aparecer claramente).
+A função foi até o Escavador (cobrou crédito) mas voltou com `classe`, `tribunal` e movimentações **vazios**. Isso porque estamos usando os endpoints **V1** (`/api/v1/busca` + `/api/v1/processos/{id}`), que retornam apenas metadados básicos do índice de busca. Os dados ricos (capa estruturada + andamentos) só vêm na **API V2**:
 
-Além disso, vale revisar o payload que enviamos ao Escavador: o endpoint `GET /api/v1/busca?qo=processos` retorna apenas a *capa* básica do processo — para obter as **movimentações** geralmente é preciso uma segunda chamada em `GET /api/v1/processos/{id}` ou `GET /api/v1/processo-tribunal/{numero}`. Hoje o código lê `processoEncontrado.movimentacoes`, que normalmente vem vazio nesse endpoint, então mesmo se a função rodasse, salvaria 0 andamentos.
+- `GET /api/v2/processos/numero_cnj/{cnj}` → capa completa (classe, assunto, tribunal, fontes, polos, valor causa, datas).
+- `GET /api/v2/processos/numero_cnj/{cnj}/movimentacoes` → andamentos paginados por cursor.
+
+Log da última execução comprova: `id: 6156439, classe: undefined, tribunal: undefined, totalMovimentacoes: 0` — ou seja, V1 entregou só o id.
 
 ## Correção
 
-1. **Registrar a função em `supabase/config.toml`**:
-   ```
-   [functions.escavador-importar-processo]
-   verify_jwt = true
-   ```
-   Isso dispara o deploy automático.
+Reescrever `escavador-importar-processo` para usar V2:
 
-2. **Ajustar a edge function `escavador-importar-processo/index.ts`** para de fato trazer andamentos:
-   - Após `GET /api/v1/busca` obter o `processoEncontrado.id`, chamar `GET /api/v1/processos/{id}` para pegar a capa completa + movimentações.
-   - Se o Escavador retornar movimentações paginadas, ler ao menos a primeira página (limit=100).
-   - Manter o upsert em `processo_monitoramento_escavador` com os dados da capa.
-   - Inserir as movimentações em `processo_atualizacoes_escavador` com `tipo_atualizacao = 'importacao_inicial'`.
-   - Logar `andamentosInseridos` claramente.
-
-3. **Melhorar feedback no `ImportarProcessoDialog.tsx`**:
-   - No `.then`, se `error` (rede/404) for não-nulo, mostrar mensagem específica (`error.message`) em vez do toast genérico.
-   - Manter o resto do fluxo intacto.
+1. Remover busca em `/api/v1/busca` e `/api/v1/processos/{id}`.
+2. Chamar `GET /api/v2/processos/numero_cnj/{cnj}` (1 requisição → capa completa).
+3. Chamar `GET /api/v2/processos/numero_cnj/{cnj}/movimentacoes?limit=100` e seguir `links.next` até esgotar (ou cap em 500 movimentações para evitar timeout em processos antigos).
+4. Mapear V2 → schema atual:
+   - `classe.nome` → `processo_monitoramento_escavador.classe` e `processos.tipo_acao_nome`
+   - `assunto.nome` (ou primeiro de `assuntos[]`) → `assunto`
+   - `tribunal.sigla` ou `tribunal.nome` → `tribunal` / `processos.tribunal_nome`
+   - `valor_causa.valor` → `valor_causa`
+   - `data_inicio` → `data_distribuicao`
+   - `area.nome` → `area`
+5. Para cada movimentação V2 (`{ data, tipo, conteudo, fonte, classificacao }`), inserir em `processo_atualizacoes_escavador`:
+   - `descricao` = `conteudo` (fallback: `tipo`)
+   - `data_evento` = `data`
+   - `dados_completos` = objeto inteiro
+   - `tipo_atualizacao` = `'importacao_inicial'`
+6. Preservar idempotência: deduplicar movimentações por hash (`data + conteudo`) antes de inserir, para o caso de o usuário re-importar.
+7. Logar `Creditos-Utilizados` (header da resposta V2) para rastreabilidade do custo.
 
 ## Arquivos afetados
 
-- `supabase/config.toml` — adicionar bloco da nova função
-- `supabase/functions/escavador-importar-processo/index.ts` — segunda chamada para `/processos/{id}` e tratamento de movimentações
-- `src/components/Controladoria/ImportarProcessoDialog.tsx` — toast de erro mais claro
+- `supabase/functions/escavador-importar-processo/index.ts` — reescrita completa do fluxo de fetch e parsing.
+
+Sem mudanças em frontend, banco, RLS ou tipos.
 
 ## Impacto
 
-- **Usuário final (UX):** importação de processo passará a efetivamente carregar capa + andamentos via Escavador. O toast "📋 Andamentos carregados" mostrará a contagem real (>0). Se algo falhar, o usuário vê o motivo.
-- **Dados:** registros em `processo_monitoramento_escavador` (1 por processo) e `processo_atualizacoes_escavador` (N andamentos). Sem migrations, sem mudanças de RLS.
-- **Riscos colaterais:** cada importação consome 1 chamada ao endpoint de busca + 1 ao de processo no Escavador (≈ R$ 0,10 a R$ 0,20 por processo, conforme tabela). Sem monitoramento ativo (default), não há custo recorrente.
-- **Quem é afetado:** apenas usuários do tenant atual que importam processos pela tela `Controladoria > Importar Processo`. Outros fluxos (Judit, OAB, drawer) seguem intactos.
+- **Usuário final (UX):** após importar, a capa do processo passa a aparecer preenchida (classe, tribunal, valor, data) e a aba de andamentos mostra a lista real de movimentações vindas do Escavador. Toast continua mostrando a contagem correta.
+- **Dados:** mais linhas reais em `processo_atualizacoes_escavador` (uma por movimentação V2). `processo_monitoramento_escavador.escavador_data` passa a guardar o JSON V2 (mais rico). Sem migrations, sem mudança de RLS.
+- **Riscos colaterais:**
+  - V2 cobra por chamada; cada importação consome ~2 requisições (capa + 1ª página de movimentações). Processos com muita movimentação podem fazer 2-5 chamadas extras pela paginação. Cap de 500 movs evita custo descontrolado.
+  - V2 às vezes retorna *cache* — se o usuário precisar de dados frescos, há `POST /api/v2/processos/numero_cnj/{cnj}/solicitar-atualizacao` (não incluído neste plano; pode ser adicionado depois como botão "Atualizar agora").
+  - Rate limit global de 500 req/min; dentro do esperado.
+- **Quem é afetado:** apenas usuários do tenant atual ao importar processos via `ImportarProcessoDialog` ou `ImportarProcessoCNJDialog`. Demais fluxos (Judit, OAB) seguem intactos.
 
 ## Validação
 
-1. Após deploy, abrir Controladoria → Importar Processo → CNJ válido com checkbox desmarcado.
-2. Conferir toast "📋 Andamentos carregados: N andamentos registrados".
-3. Verificar logs da função no Supabase: deve mostrar "Processo encontrado" e "N movimentações salvas".
-4. Conferir tabela `processo_atualizacoes_escavador` com novos rows (`tipo_atualizacao = 'importacao_inicial'`).
-5. Conferir `processo_monitoramento_escavador.monitoramento_ativo = false` (checkbox desmarcado).
-6. Repetir com checkbox marcado → `monitoramento_ativo = true`.
+1. Importar de novo o mesmo CNJ (`0123417-95.2025.8.16.0000`) com checkbox desmarcado.
+2. Conferir logs da função: deve aparecer `classe: <nome>`, `tribunal: TJPR`, `Movs: N (>0)`.
+3. Abrir o processo no Vouti → capa deve mostrar classe, tribunal, valor.
+4. Aba de andamentos → lista de movimentações com data e descrição.
+5. Conferir `processo_atualizacoes_escavador` via `read_query`: rows com `data_evento` e `descricao` populados.
+6. Reimportar (caso exista trigger manual) → não duplicar andamentos.
