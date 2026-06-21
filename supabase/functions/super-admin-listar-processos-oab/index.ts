@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
     const ids = all.map((p) => p.id);
     const counts: Record<string, number> = {};
     if (ids.length > 0) {
-      const CHUNK = 500;
+      const CHUNK = 80;
       for (let i = 0; i < ids.length; i += CHUNK) {
         const slice = ids.slice(i, i + CHUNK);
         const { data: rows, error: cErr } = await admin
