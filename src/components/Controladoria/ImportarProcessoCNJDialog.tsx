@@ -411,33 +411,6 @@ export const ImportarProcessoCNJDialog = ({
             </TabsTrigger>
           </TabsList>
 
-          {/* Seletor de credencial Judit — vale para os dois modos */}
-          <div className="space-y-2 pt-4">
-            <Label htmlFor="credencial-judit">Tribunal / Credencial</Label>
-            <Select value={credencialValue} onValueChange={setCredencialValue}>
-              <SelectTrigger id="credencial-judit">
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={PUBLICO_VALUE}>Público (sem credencial)</SelectItem>
-                {credenciais.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.apelido
-                      ? `${c.apelido}${c.system_name && c.system_name !== '*' ? ` — ${c.system_name}` : ''}`
-                      : c.system_name === '*'
-                        ? `* (todos) — ${c.customer_key}`
-                        : `${c.system_name} — ${c.customer_key}`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {credencialSelecionada
-                ? `Monitoramento será criado usando esta credencial.`
-                : `Sem credencial: processos sigilosos podem voltar sem andamentos.`}
-            </p>
-          </div>
-
           {/* Modo Único */}
           <TabsContent value="single" className="space-y-4 pt-2">
             <div className="space-y-2">
