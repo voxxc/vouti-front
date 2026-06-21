@@ -282,24 +282,41 @@ export const ProcessoOABDetalhes = ({
   useEffect(() => {
     if (!escavadorBeta || !processo?.id) {
       setEscavadorAtivo(null);
+      setEscavadorImportado(false);
       return;
     }
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('processo_monitoramento_escavador')
+      // 1) Prioridade: monitoramento vinculado diretamente ao processo_oab
+      const { data: oabMon } = await supabase
+        .from('processo_oab_monitoramento_escavador')
         .select('monitoramento_ativo, escavador_data')
-        .eq('processo_id', processo.id)
+        .eq('processo_oab_id', processo.id)
+        .eq('tenant_id', tenantId ?? processo.tenant_id)
         .maybeSingle();
+
+      let data: any = oabMon;
+
+      // 2) Fallback: monitoramento antigo vinculado a processos pelo numero CNJ
+      if (!data && processo.numero_cnj) {
+        const { data: legacyMon } = await supabase
+          .from('processo_monitoramento_escavador')
+          .select('monitoramento_ativo, escavador_data')
+          .eq('numero_cnj', processo.numero_cnj)
+          .eq('tenant_id', tenantId ?? processo.tenant_id)
+          .maybeSingle();
+        data = legacyMon;
+      }
+
       if (!cancelled) {
-        setEscavadorAtivo(!!(data as any)?.monitoramento_ativo);
-        setEscavadorImportado(!!(data as any)?.escavador_data);
+        setEscavadorAtivo(!!data?.monitoramento_ativo);
+        setEscavadorImportado(!!data?.escavador_data);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [escavadorBeta, processo?.id]);
+  }, [escavadorBeta, processo?.id, processo?.numero_cnj, processo?.tenant_id, tenantId]);
 
   const handleAtivarEscavador = async () => {
     setConfirmEscavadorOpen(false);
