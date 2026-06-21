@@ -1,0 +1,2 @@
+ALTER TABLE public.processos_oab DROP CONSTRAINT processos_oab_api_provider_check;
+ALTER TABLE public.processos_oab ADD CONSTRAINT processos_oab_api_provider_check CHECK (api_provider = ANY (ARRAY['judit'::text, 'codilo'::text, 'escavador'::text]));
