@@ -471,7 +471,6 @@ serve(async (req) => {
           const dataMov = /^\d{4}-\d{2}-\d{2}$/.test(rawData)
             ? `${rawData}T12:00:00.000Z`
             : rawData;
-          const dedup = dedupHashOab(oab.id, descricao, dataMov);
 
           const { error: insErr } = await supabaseClient
             .from('processos_oab_andamentos')
@@ -483,7 +482,6 @@ serve(async (req) => {
               descricao,
               dados_completos: { ...mov, _origem: 'escavador' },
               lida: false,
-              dedup_hash: dedup,
             });
           if (!insErr) {
             inseridosNesteOab++;
