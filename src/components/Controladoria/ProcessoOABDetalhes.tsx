@@ -231,6 +231,7 @@ export const ProcessoOABDetalhes = ({
   const escavadorBeta = useEscavadorBeta();
   const [ativandoEscavador, setAtivandoEscavador] = useState(false);
   const [escavadorAtivo, setEscavadorAtivo] = useState<boolean | null>(null);
+  const [escavadorImportado, setEscavadorImportado] = useState<boolean>(false);
   const [confirmEscavadorOpen, setConfirmEscavadorOpen] = useState(false);
   // Credencial escolhida para o reset (CNJ sigiloso): valor "__publico__"
   // significa sem credencial; senão é o id da credencial Judit do tenant.
@@ -287,10 +288,13 @@ export const ProcessoOABDetalhes = ({
     (async () => {
       const { data } = await supabase
         .from('processo_monitoramento_escavador')
-        .select('monitoramento_ativo')
+        .select('monitoramento_ativo, escavador_data')
         .eq('processo_id', processo.id)
         .maybeSingle();
-      if (!cancelled) setEscavadorAtivo(!!(data as any)?.monitoramento_ativo);
+      if (!cancelled) {
+        setEscavadorAtivo(!!(data as any)?.monitoramento_ativo);
+        setEscavadorImportado(!!(data as any)?.escavador_data);
+      }
     })();
     return () => {
       cancelled = true;
