@@ -93,78 +93,56 @@ export const ImportarProcessoCNJDialog = ({
       return { success: false, error: 'Usuário não autenticado' };
     }
 
-    // Verificar duplicidade
+    // Verificar duplicidade na própria OAB (tabela correta exibida na tela)
     const { data: existente } = await supabase
-      .from('processos')
-      .select('id')
-      .eq('numero_processo', numeroFinal)
+      .from('processos_oab')
+      .select('id, detalhes_carregados, capa_completa, tribunal')
+      .eq('oab_id', oab.id)
+      .eq('numero_cnj', numeroFinal)
       .maybeSingle();
 
     if (existente) {
-      // Já existe — verificar se a capa do Escavador foi populada
-      const { data: monit } = await supabase
-        .from('processo_monitoramento_escavador')
-        .select('classe, tribunal, escavador_id')
-        .eq('processo_id', existente.id)
-        .maybeSingle();
-
-      const temCapa = !!(monit && (monit.classe || monit.tribunal || monit.escavador_id));
+      const temCapa = !!(
+        existente.detalhes_carregados ||
+        existente.tribunal ||
+        (existente.capa_completa && Object.keys(existente.capa_completa as object).length > 0)
+      );
       if (temCapa) {
         return { success: false, duplicado: true };
       }
 
-      // Reaproveitar: chamar Escavador para popular capa + andamentos
-      const { data: dataReuse, error: errReuse } = await supabase.functions.invoke('escavador-importar-processo', {
-        body: {
-          processoId: existente.id,
-          numeroProcesso: numeroFinal,
-          tenantId,
-          ativarMonitoramento: false,
-        },
+      // Reaproveitar: refazer consulta Judit para popular capa + andamentos
+      const { data: dataReuse, error: errReuse } = await supabase.functions.invoke('judit-resetar-processo', {
+        body: { processoOabId: existente.id, userId: user.id },
       });
       if (errReuse) return { success: false, error: errReuse.message };
-      if (!dataReuse?.success) return { success: false, error: dataReuse?.message || dataReuse?.error || 'Falha no Escavador' };
-      return { success: true, reaproveitado: true, andamentosInseridos: dataReuse.andamentosInseridos ?? 0 };
+      if (!dataReuse?.success) return { success: false, error: dataReuse?.error || 'Falha ao consultar Judit' };
+      return {
+        success: true,
+        reaproveitado: true,
+        andamentosInseridos: dataReuse.andamentosInseridos ?? dataReuse.totalAndamentos ?? 0,
+      };
     }
 
-    // Resolver tribunal
-    const sigla = extrairTribunalDoNumeroProcesso(numeroFinal);
-    const { data: tribunalData } = await supabase
-      .from('tribunais')
-      .select('id')
-      .eq('sigla', sigla)
-      .maybeSingle();
-
-    // Criar processo mínimo
-    const { data: novoProcesso, error: insertError } = await supabase
-      .from('processos')
-      .insert({
-        numero_processo: numeroFinal,
-        tribunal_id: tribunalData?.id || null,
-        created_by: user.id,
-        status: 'em_andamento',
-        parte_ativa: '',
-        parte_passiva: '',
-      })
-      .select()
-      .single();
-
-    if (insertError || !novoProcesso) {
-      return { success: false, error: insertError?.message || 'Erro ao criar processo' };
-    }
-
-    // Buscar capa + andamentos via Escavador
-    const { data, error } = await supabase.functions.invoke('escavador-importar-processo', {
+    // Importar via Judit (cria registro em processos_oab com importado_manualmente=true)
+    const { data, error } = await supabase.functions.invoke('judit-buscar-processo-cnj', {
       body: {
-        processoId: novoProcesso.id,
-        numeroProcesso: numeroFinal,
+        numeroCnj: cnj,
+        oabId: oab.id,
         tenantId,
-        ativarMonitoramento: false,
+        userId: user.id,
+        apartado: !!opts.apartado,
+        sufixoApartado: opts.sufixo || null,
+        juditSystemName,
+        juditCustomerKey,
       },
     });
 
     if (error) return { success: false, error: error.message };
-    if (!data?.success) return { success: false, error: data?.message || data?.error || 'Falha no Escavador' };
+    if (!data?.success) {
+      if (data?.duplicado) return { success: false, duplicado: true };
+      return { success: false, error: data?.error || data?.message || 'Falha ao importar processo' };
+    }
 
     return { success: true, andamentosInseridos: data.andamentosInseridos ?? 0 };
   };
