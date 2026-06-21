@@ -519,6 +519,10 @@ serve(async (req) => {
         monitoramentoAtivado: !!ativarMonitoramento,
         creditosUtilizados: creditosTotal,
         capa: capaEstruturada,
+        modo,
+        movimentacoesStatus: movsStatus,
+        movimentacoesError: movsError,
+        totalMovsColetadas: movimentacoes.length,
       },
       { headers: corsHeaders }
     );
