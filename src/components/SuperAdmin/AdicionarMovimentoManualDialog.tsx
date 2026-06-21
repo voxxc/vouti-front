@@ -115,6 +115,7 @@ export function AdicionarMovimentoManualDialog({
       toast.success('Movimento manual lançado com sucesso.');
       reset();
       onSuccess();
+      onOpenChange(false);
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || 'Erro ao lançar movimento.');
