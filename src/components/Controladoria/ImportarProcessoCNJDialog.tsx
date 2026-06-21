@@ -28,7 +28,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useJuditSystemNames } from '@/hooks/useJuditSystemNames';
-import { extrairTribunalDoNumeroProcesso } from '@/utils/processoHelpers';
 
 const PUBLICO_VALUE = '__publico__';
 
