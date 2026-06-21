@@ -5813,6 +5813,7 @@ export type Database = {
           id: string
           lida: boolean | null
           processo_oab_id: string
+          super_admin_ordem: number | null
           tenant_id: string
           tipo_movimentacao: string | null
         }
@@ -5825,6 +5826,7 @@ export type Database = {
           id?: string
           lida?: boolean | null
           processo_oab_id: string
+          super_admin_ordem?: number | null
           tenant_id: string
           tipo_movimentacao?: string | null
         }
@@ -5837,6 +5839,7 @@ export type Database = {
           id?: string
           lida?: boolean | null
           processo_oab_id?: string
+          super_admin_ordem?: number | null
           tenant_id?: string
           tipo_movimentacao?: string | null
         }
@@ -9061,6 +9064,36 @@ export type Database = {
           severity?: string
           status?: string
           title?: string
+        }
+        Relationships: []
+      }
+      super_admin_tribunais_andamento: {
+        Row: {
+          cor: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          nome: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          cor?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          cor?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome?: string
+          slug?: string
+          updated_at?: string
         }
         Relationships: []
       }
