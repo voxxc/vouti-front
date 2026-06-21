@@ -20,8 +20,6 @@ Deno.serve(async (req) => {
     const { data: userRes } = await userClient.auth.getUser();
     if (!userRes.user) return new Response(JSON.stringify({ error: 'invalid_token' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-    const { data: sa } = await admin.from('super_admins').select('id').eq('user_id', userRes.user.id).maybeSingle();
-    if (!sa) return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     const { data, error } = await admin.from('super_admin_tribunais_andamento').select('id, slug, nome, cor').order('nome');
     if (error) throw error;
     return new Response(JSON.stringify({ tribunais: data || [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
