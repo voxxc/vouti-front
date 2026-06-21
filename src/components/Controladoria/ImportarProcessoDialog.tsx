@@ -147,7 +147,8 @@ export const ImportarProcessoDialog = ({
           console.error('[Importar] ⚠️ Erro ao carregar andamentos:', error || data);
           toast({
             title: "⚠️ Andamentos não carregados",
-            description: data?.message || "Abra o processo para tentar novamente",
+            description: error?.message || data?.message || data?.error || "Abra o processo para tentar novamente",
+            variant: 'destructive',
           });
         } else {
           console.log('[Importar] ✅ Andamentos carregados:', data);
