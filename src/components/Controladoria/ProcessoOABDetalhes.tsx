@@ -344,7 +344,7 @@ export const ProcessoOABDetalhes = ({
           body: {
             processoId: processo.id,
             numeroProcesso: processo.numero_cnj,
-            tenantId: processo.tenant_id ?? null,
+            tenantId: tenantId ?? null,
             reparseSomente: true,
           },
         },
@@ -382,7 +382,7 @@ export const ProcessoOABDetalhes = ({
           body: {
             processoId: processo.id,
             numeroProcesso: processo.numero_cnj,
-            tenantId: processo.tenant_id ?? null,
+            tenantId: tenantId ?? null,
             ativarMonitoramento: false,
             reparseSomente: false,
           },
