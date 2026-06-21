@@ -1492,7 +1492,6 @@ export const ProcessoOABDetalhes = ({
                       const stepId = andamento.dados_completos?.id || andamento.dados_completos?.step_id;
                       const anexosDoAndamento = stepId ? (anexosPorStep.get(stepId) || []) : [];
                       const temAnexos = anexosDoAndamento.length > 0;
-                      const isManual = (andamento as any).dados_completos?.origem === 'manual';
                       const anexoManual = (andamento as any).dados_completos?.anexo as
                         | { bucket?: string; storage_path?: string; nome?: string }
                         | null
@@ -1535,11 +1534,6 @@ export const ProcessoOABDetalhes = ({
                                 {andamento.tipo_movimentacao && (
                                   <Badge variant="outline" className="text-xs">
                                     {andamento.tipo_movimentacao}
-                                  </Badge>
-                                )}
-                                {isManual && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    Manual
                                   </Badge>
                                 )}
                                 {temAnexos && (
