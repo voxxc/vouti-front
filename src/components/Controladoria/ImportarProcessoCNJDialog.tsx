@@ -203,7 +203,7 @@ export const ImportarProcessoCNJDialog = ({
         if (res.duplicado) {
           toast({
             title: '⚠️ Processo já cadastrado',
-            description: 'Este processo já consta na sua base de dados.',
+            description: 'Este processo já consta na sua base de dados com dados completos.',
           });
         } else if (!res.success) {
           toast({
@@ -213,7 +213,7 @@ export const ImportarProcessoCNJDialog = ({
           });
         } else {
           toast({
-            title: 'Processo importado',
+            title: res.reaproveitado ? 'Processo atualizado' : 'Processo importado',
             description: `${res.andamentosInseridos ?? 0} andamentos registrados`,
           });
           onSuccess?.();
