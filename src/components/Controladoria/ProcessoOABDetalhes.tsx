@@ -1112,7 +1112,7 @@ export const ProcessoOABDetalhes = ({
                     </Card>
                   ) : (
                     <div className="flex justify-end flex-wrap gap-2">
-                      {escavadorBeta && escavadorImportado && (
+                      {escavadorImportado && (
                         <Button
                           variant="outline"
                           size="sm"
