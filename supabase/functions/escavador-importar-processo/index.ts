@@ -83,6 +83,26 @@ serve(async (req) => {
       );
     }
 
+    // === 1.1 BUSCAR DETALHES COMPLETOS (capa + movimentações) ===
+    let processoDetalhado: any = processoEncontrado;
+    try {
+      const detalheUrl = `https://api.escavador.com/api/v1/processos/${processoEncontrado.id}`;
+      const detalheResp = await fetch(detalheUrl, {
+        headers: {
+          'Authorization': `Bearer ${escavadorToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (detalheResp.ok) {
+        processoDetalhado = await detalheResp.json();
+        console.log('[Escavador Importar] ✅ Detalhe carregado. Movs:', processoDetalhado.movimentacoes?.length || 0);
+      } else {
+        console.log('[Escavador Importar] ⚠️ /processos/{id} falhou:', detalheResp.status);
+      }
+    } catch (e) {
+      console.error('[Escavador Importar] erro detalhe:', e);
+    }
+
     // === 2. UPSERT MONITORAMENTO (capa) ===
     const { error: upsertError } = await supabaseClient
       .from('processo_monitoramento_escavador')
@@ -90,14 +110,14 @@ serve(async (req) => {
         {
           processo_id: processoId,
           tenant_id: tenantId,
-          escavador_id: String(processoEncontrado.id ?? ''),
-          escavador_data: processoEncontrado,
-          classe: processoEncontrado.classe ?? null,
-          assunto: processoEncontrado.assunto ?? null,
-          area: processoEncontrado.area ?? null,
-          tribunal: processoEncontrado.tribunal ?? null,
-          data_distribuicao: processoEncontrado.data_distribuicao ?? null,
-          valor_causa: processoEncontrado.valor_causa ?? null,
+          escavador_id: String(processoDetalhado.id ?? processoEncontrado.id ?? ''),
+          escavador_data: processoDetalhado,
+          classe: processoDetalhado.classe ?? null,
+          assunto: processoDetalhado.assunto ?? null,
+          area: processoDetalhado.area ?? null,
+          tribunal: processoDetalhado.tribunal ?? null,
+          data_distribuicao: processoDetalhado.data_distribuicao ?? null,
+          valor_causa: processoDetalhado.valor_causa ?? null,
           monitoramento_ativo: !!ativarMonitoramento,
           ultima_consulta: new Date().toISOString(),
         },
@@ -110,7 +130,11 @@ serve(async (req) => {
     }
 
     // === 3. SALVAR MOVIMENTAÇÕES ===
-    const movimentacoes: any[] = processoEncontrado.movimentacoes || [];
+    const movimentacoes: any[] =
+      processoDetalhado.movimentacoes ||
+      processoDetalhado.andamentos ||
+      processoEncontrado.movimentacoes ||
+      [];
     let totalSalvas = 0;
 
     console.log(`[Escavador Importar] Salvando ${movimentacoes.length} movimentações...`);
@@ -141,10 +165,10 @@ serve(async (req) => {
         andamentosInseridos: totalSalvas,
         monitoramentoAtivado: !!ativarMonitoramento,
         capa: {
-          classe: processoEncontrado.classe ?? null,
-          assunto: processoEncontrado.assunto ?? null,
-          area: processoEncontrado.area ?? null,
-          tribunal: processoEncontrado.tribunal ?? null,
+          classe: processoDetalhado.classe ?? null,
+          assunto: processoDetalhado.assunto ?? null,
+          area: processoDetalhado.area ?? null,
+          tribunal: processoDetalhado.tribunal ?? null,
         },
       },
       { headers: corsHeaders }

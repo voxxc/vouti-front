@@ -170,3 +170,6 @@ verify_jwt = true
 
 [functions.super-admin-update-own-password]
 verify_jwt = true
+
+[functions.escavador-importar-processo]
+verify_jwt = true
