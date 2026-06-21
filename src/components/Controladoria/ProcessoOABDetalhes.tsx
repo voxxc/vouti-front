@@ -404,6 +404,7 @@ export const ProcessoOABDetalhes = ({
             tenantId: tenantId ?? null,
             ativarMonitoramento: false,
             reparseSomente: false,
+            modo: 'completo',
           },
         },
       );
@@ -411,9 +412,15 @@ export const ProcessoOABDetalhes = ({
       if (!data?.success) throw new Error(data?.error || 'Falha ao reimportar');
       const oabIns = data?.andamentosOabInseridos ?? 0;
       const cred = data?.creditosUtilizados ?? 0;
+      const totalMovs = data?.totalMovsColetadas ?? 0;
+      const movsStatus = data?.movimentacoesStatus ?? 'ok';
       toast({
-        title: '✅ Reimportação concluída',
-        description: `Capa e andamentos atualizados do Escavador. ${oabIns} novo(s) andamento(s). Créditos: ${cred}.`,
+        title: movsStatus === 'pending' ? '⚠️ Capa atualizada, andamentos pendentes' : '✅ Reimportação concluída',
+        description:
+          movsStatus === 'pending'
+            ? `Capa importada, mas falha ao buscar andamentos: ${data?.movimentacoesError || 'erro desconhecido'}. Tente novamente em alguns minutos.`
+            : `Capa + ${totalMovs} movimentações coletadas. ${oabIns} novo(s) andamento(s) inserido(s). Créditos: ${cred}.`,
+        variant: movsStatus === 'pending' ? 'destructive' : undefined,
       });
       await onRefreshProcessos?.();
       await fetchAndamentos();
