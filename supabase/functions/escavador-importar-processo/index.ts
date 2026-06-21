@@ -9,6 +9,7 @@ const corsHeaders = {
 const V2_BASE = 'https://api.escavador.com/api/v2';
 const MAX_MOVS = 500;
 const PAGE_LIMIT = 100;
+const RAPIDO_MAX_MOVS = 100; // 1 página
 
 function dedupHashOab(processoOabId: string, descricao: string, dataMov: string): string {
   const hashSrc = `${processoOabId}|${(descricao || '').trim().slice(0, 200)}|${(dataMov || '').slice(0, 19)}`;
