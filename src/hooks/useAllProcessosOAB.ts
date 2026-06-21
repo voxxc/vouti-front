@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTenantId } from './useTenantId';
 import { ProcessoOAB, OABCadastrada } from './useOABs';
 import { formatCnjFromDigits } from '@/utils/processoHelpers';
+import { cnjUFFromRow, buildUFOrFilter } from '@/utils/cnjUFMap';
 
 export interface ProcessoOABComOAB extends ProcessoOAB {
   oab_numero: string;
@@ -90,7 +91,7 @@ export const useAllProcessosOAB = (
       const ufMap = new Map<string, number>();
       const oabMap = new Map<string, number>();
       (listaRes.data || []).forEach((p: any) => {
-        const uf = extrairUFFromRow(p.tribunal_sigla, p.numero_cnj);
+        const uf = cnjUFFromRow(p.tribunal_sigla, p.numero_cnj);
         if (uf) ufMap.set(uf, (ufMap.get(uf) || 0) + 1);
         const oc = p.oabs_cadastradas;
         if (oc?.oab_numero && oc?.oab_uf) {
@@ -157,7 +158,8 @@ export const useAllProcessosOAB = (
       } else if (filtroPrincipal === 'nao-lidos' && idsNaoLidos) {
         query = query.in('id', idsNaoLidos);
       } else if (typeof filtroPrincipal === 'object' && filtroPrincipal.tipo === 'uf') {
-        query = query.ilike('tribunal_sigla', `TJ${filtroPrincipal.uf}%`);
+        const orClause = buildUFOrFilter(filtroPrincipal.uf);
+        if (orClause) query = query.or(orClause);
       } else if (typeof filtroPrincipal === 'object' && filtroPrincipal.tipo === 'oab') {
         query = query
           .eq('oabs_cadastradas.oab_numero', filtroPrincipal.numero)
