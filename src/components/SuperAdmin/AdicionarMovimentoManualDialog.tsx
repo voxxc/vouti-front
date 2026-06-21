@@ -154,6 +154,8 @@ export function AdicionarMovimentoManualDialog({
 
   const handleSalvar = async () => {
     if (salvandoRef.current) return;
+    salvandoRef.current = true;
+    setSalvando(true);
 
     // valida todas as abas
     for (let i = 0; i < abas.length; i++) {
@@ -161,17 +163,19 @@ export function AdicionarMovimentoManualDialog({
       if (!a.tipo.trim()) {
         setAtivaId(a.id);
         toast.error(`Informe o nome do movimento na aba "${labelAba(a, i)}".`);
+        salvandoRef.current = false;
+        setSalvando(false);
         return;
       }
       if (a.descricao.trim().length < 10) {
         setAtivaId(a.id);
         toast.error(`A descrição precisa de ao menos 10 caracteres na aba "${labelAba(a, i)}".`);
+        salvandoRef.current = false;
+        setSalvando(false);
         return;
       }
     }
 
-    salvandoRef.current = true;
-    setSalvando(true);
     // ordem: da última (mais antiga) para a primeira (mais nova)
     const ordem = [...abas].reverse();
     const idsSalvos: string[] = [];
