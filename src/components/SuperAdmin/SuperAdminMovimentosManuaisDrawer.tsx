@@ -8,7 +8,6 @@ import { Loader2, Search, FilePlus2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tenant } from '@/types/superadmin';
 import { AdicionarMovimentoManualDialog } from './AdicionarMovimentoManualDialog';
-import { fetchAllPaginated } from '@/lib/supabasePagination';
 import { toast } from 'sonner';
 
 interface Props {
@@ -37,16 +36,12 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
     (async () => {
       setLoading(true);
       try {
-        const { data, error } = await fetchAllPaginated<ProcessoLite>(
-          () =>
-            supabase
-              .from('processos_oab')
-              .select('id, numero_cnj, parte_ativa, parte_passiva, tribunal_sigla')
-              .eq('tenant_id', tenant.id)
-              .order('numero_cnj', { ascending: true }) as any,
+        const { data, error } = await supabase.functions.invoke(
+          'super-admin-listar-processos-oab',
+          { body: { tenant_id: tenant.id } },
         );
         if (error) throw error;
-        if (!cancel) setProcessos(data || []);
+        if (!cancel) setProcessos((data as any)?.processos || []);
       } catch (e) {
         console.error(e);
         toast.error('Erro ao carregar processos do tenant');
