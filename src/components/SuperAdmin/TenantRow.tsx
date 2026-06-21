@@ -3,6 +3,7 @@ import {
   Settings, ExternalLink, Users, Database, Trash2, AlertTriangle, Activity,
   CreditCard, Key, Hash, ChevronRight, ChevronDown, UserPlus, FileStack,
   Loader2, FileWarning, Clock, MoreHorizontal, IdCard, ShieldAlert, FolderArchive,
+  FilePlus2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +21,7 @@ import { TenantProcessosIncompletosDialog } from './TenantProcessosIncompletosDi
 import { TenantProcessosParadosDialog } from './TenantProcessosParadosDialog';
 import { TenantProcessosSigilososDialog } from './TenantProcessosSigilososDialog';
 import { TenantReuniaoArquivosDialog } from './TenantReuniaoArquivosDialog';
+import { SuperAdminMovimentosManuaisDrawer } from './SuperAdminMovimentosManuaisDrawer';
 import { PlanoIndicator } from '@/components/Common/PlanoIndicator';
 import CloudIcon from '@/components/CloudIcon';
 import { supabase } from '@/integrations/supabase/client';
@@ -66,6 +68,7 @@ export function TenantRow({
   const [showParados, setShowParados] = useState(false);
   const [showSigilosos, setShowSigilosos] = useState(false);
   const [showReuniaoArquivos, setShowReuniaoArquivos] = useState(false);
+  const [showMovManuais, setShowMovManuais] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [whatsAppLoading, setWhatsAppLoading] = useState(false);
@@ -246,6 +249,7 @@ export function TenantRow({
                 <PillButton icon={Hash} onClick={() => setShowBancoIds(true)}>Banco de IDs</PillButton>
                 <PillButton icon={ShieldAlert} onClick={() => setShowSigilosos(true)}>Processos sigilosos</PillButton>
                 <PillButton icon={FolderArchive} onClick={() => setShowReuniaoArquivos(true)}>Documentos reuniões</PillButton>
+                <PillButton icon={FilePlus2} onClick={() => setShowMovManuais(true)}>Movimentos manuais</PillButton>
               </ActionGroup>
 
               <ActionGroup label="Integrações">
@@ -319,6 +323,7 @@ export function TenantRow({
       <TenantProcessosParadosDialog open={showParados} onOpenChange={setShowParados} tenant={tenant} />
       <TenantProcessosSigilososDialog open={showSigilosos} onOpenChange={setShowSigilosos} tenant={tenant} />
       <TenantReuniaoArquivosDialog open={showReuniaoArquivos} onOpenChange={setShowReuniaoArquivos} tenant={tenant} />
+      <SuperAdminMovimentosManuaisDrawer open={showMovManuais} onOpenChange={setShowMovManuais} tenant={tenant} />
     </>
   );
 }
