@@ -82,8 +82,9 @@ Deno.serve(async (req) => {
     const [andRes, anxRes, monRes] = await Promise.all([
       admin
         .from('processos_oab_andamentos')
-        .select('id, data_movimentacao, tipo_movimentacao, descricao, dados_completos, lida, created_at')
+        .select('id, data_movimentacao, tipo_movimentacao, descricao, dados_completos, lida, created_at, super_admin_ordem')
         .eq('processo_oab_id', processo_oab_id)
+        .order('super_admin_ordem', { ascending: false, nullsFirst: false })
         .order('data_movimentacao', { ascending: false })
         .limit(500),
       admin
