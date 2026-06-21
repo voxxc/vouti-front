@@ -81,11 +81,52 @@ export const ImportarProcessoDialog = ({
         .maybeSingle();
 
       if (existente) {
+        // Verificar se a capa do Escavador já foi populada
+        const { data: monit } = await supabase
+          .from('processo_monitoramento_escavador')
+          .select('classe, tribunal, escavador_id')
+          .eq('processo_id', existente.id)
+          .maybeSingle();
+
+        const temCapa = !!(monit && (monit.classe || monit.tribunal || monit.escavador_id));
+        if (temCapa) {
+          toast({
+            title: '⚠️ Processo já cadastrado',
+            description: 'Este processo já consta na sua base com dados completos.',
+          });
+          onOpenChange(false);
+          return;
+        }
+
+        // Reaproveitar processo existente: chamar Escavador para popular capa + andamentos
         toast({
-          title: '⚠️ Processo já cadastrado',
-          description: 'Este processo já consta na sua base de dados.',
+          title: '🔄 Atualizando processo existente',
+          description: 'Carregando dados do Escavador em segundo plano...',
         });
         onOpenChange(false);
+        navigate(`/controladoria/processos/${existente.id}`);
+
+        supabase.functions.invoke('escavador-importar-processo', {
+          body: {
+            processoId: existente.id,
+            numeroProcesso: processo.numero_cnj,
+            tenantId,
+            ativarMonitoramento,
+          },
+        }).then(({ data, error }) => {
+          if (error || !data?.success) {
+            toast({
+              title: '⚠️ Andamentos não carregados',
+              description: error?.message || data?.message || data?.error || 'Abra o processo para tentar novamente',
+              variant: 'destructive',
+            });
+          } else {
+            toast({
+              title: '📋 Processo atualizado',
+              description: `${data?.andamentosInseridos || 0} andamentos registrados${data?.monitoramentoAtivado ? ' • monitoramento ativo' : ''}`,
+            });
+          }
+        });
         return;
       }
 

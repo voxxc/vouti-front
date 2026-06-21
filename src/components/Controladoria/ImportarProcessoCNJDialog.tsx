@@ -86,7 +86,7 @@ export const ImportarProcessoCNJDialog = ({
   const importarUmCnj = async (
     cnj: string,
     opts: { apartado?: boolean; sufixo?: string } = {}
-  ): Promise<{ success: boolean; duplicado?: boolean; andamentosInseridos?: number; error?: string }> => {
+  ): Promise<{ success: boolean; duplicado?: boolean; reaproveitado?: boolean; andamentosInseridos?: number; error?: string }> => {
     const numeroFinal = opts.apartado && opts.sufixo ? `${cnj}${opts.sufixo}` : cnj;
 
     if (!user?.id) {
@@ -101,7 +101,30 @@ export const ImportarProcessoCNJDialog = ({
       .maybeSingle();
 
     if (existente) {
-      return { success: false, duplicado: true };
+      // Já existe — verificar se a capa do Escavador foi populada
+      const { data: monit } = await supabase
+        .from('processo_monitoramento_escavador')
+        .select('classe, tribunal, escavador_id')
+        .eq('processo_id', existente.id)
+        .maybeSingle();
+
+      const temCapa = !!(monit && (monit.classe || monit.tribunal || monit.escavador_id));
+      if (temCapa) {
+        return { success: false, duplicado: true };
+      }
+
+      // Reaproveitar: chamar Escavador para popular capa + andamentos
+      const { data: dataReuse, error: errReuse } = await supabase.functions.invoke('escavador-importar-processo', {
+        body: {
+          processoId: existente.id,
+          numeroProcesso: numeroFinal,
+          tenantId,
+          ativarMonitoramento: false,
+        },
+      });
+      if (errReuse) return { success: false, error: errReuse.message };
+      if (!dataReuse?.success) return { success: false, error: dataReuse?.message || dataReuse?.error || 'Falha no Escavador' };
+      return { success: true, reaproveitado: true, andamentosInseridos: dataReuse.andamentosInseridos ?? 0 };
     }
 
     // Resolver tribunal
@@ -180,7 +203,7 @@ export const ImportarProcessoCNJDialog = ({
         if (res.duplicado) {
           toast({
             title: '⚠️ Processo já cadastrado',
-            description: 'Este processo já consta na sua base de dados.',
+            description: 'Este processo já consta na sua base de dados com dados completos.',
           });
         } else if (!res.success) {
           toast({
@@ -190,7 +213,7 @@ export const ImportarProcessoCNJDialog = ({
           });
         } else {
           toast({
-            title: 'Processo importado',
+            title: res.reaproveitado ? 'Processo atualizado' : 'Processo importado',
             description: `${res.andamentosInseridos ?? 0} andamentos registrados`,
           });
           onSuccess?.();
@@ -296,7 +319,7 @@ export const ImportarProcessoCNJDialog = ({
         sucesso++;
         toast({
           title: `Progresso: ${i + 1}/${total}`,
-          description: `Processo ${cnj.slice(0, 15)}... importado`
+          description: `Processo ${cnj.slice(0, 15)}... ${res.reaproveitado ? 'atualizado' : 'importado'}`
         });
       } catch (err: any) {
         erros++;
