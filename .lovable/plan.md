@@ -1,58 +1,85 @@
-# Importar processo no Escavador trazendo movimentações na mesma operação
+# Corrigir inserção de andamentos OAB que falha silenciosamente
 
 ## Causa raiz
-A edge `escavador-importar-processo` chama hoje só `GET /api/v2/processos/numero_cnj/{cnj}` (capa). Esse endpoint **não retorna o array de movimentações** — só o contador `quantidade_movimentacoes`. Para popular `processos_oab_andamentos` é preciso uma segunda chamada (`GET /api/v2/processos/{cnj}/movimentacoes`), que hoje só roda no fluxo "Reimportar tudo" pós-importação.
+Os logs da última importação mostram que tudo funcionou **menos** o espelhamento para `processos_oab_andamentos`:
+
+```
+[Escavador Importar V2] coletadas 18 movs | modo: rapido | status: ok
+[Escavador Importar V2] ✅ 18 novas movs salvas         ← legacy table OK
+[Escavador Importar V2] OAB 6a06...4b17b1: 0 novos andamentos  ← falha silenciosa
+```
+
+Investigando o schema, a tabela `processos_oab_andamentos` tem um índice **UNIQUE** com expressões:
+
+```sql
+idx_andamentos_unique_v3 ON (
+  processo_oab_id,
+  truncate_minute(data_movimentacao),
+  normalize_descricao(descricao)
+)
+```
+
+E o código atual em `supabase/functions/escavador-importar-processo/index.ts` (linhas 449-465) faz **`.insert()` puro** dos 18 andamentos e **ignora silenciosamente erros individuais** (`if (!insErr) { inseridosNesteOab++; }`). Sem nenhum `console.error`, qualquer falha — colisão de UNIQUE, NOT NULL, parse de timestamp, função `normalize_descricao` retornando NULL, etc. — some sem rastro. O resultado é os 18 inserts falharem todos sem que vejamos o motivo.
+
+A 2ª causa provável: muitas movimentações do Escavador vêm com `mov.data` em formato só-data (`"2026-03-18"`). Quando duas mov compartilham a mesma data e descrições começam parecidas, `truncate_minute` + `normalize_descricao` podem colapsar várias para a mesma chave → o 1º insert vira conflito UNIQUE para os demais, e como é `insert` puro (não `upsert`), todos os subsequentes erram.
 
 ## Correção
 
-### 1. Encadear capa + movimentações na própria importação
-Dentro de `supabase/functions/escavador-importar-processo/index.ts`, após gravar a capa, disparar a chamada de movimentações na mesma execução:
+### 1. Trocar `insert` por `upsert` idempotente
+Em `supabase/functions/escavador-importar-processo/index.ts`, no laço dos OABs:
 
 ```ts
-// 1) GET capa  → grava processo_oab + processo_oab_monitoramento_escavador
-// 2) GET /api/v2/processos/{cnj}/movimentacoes?limit=100
-//    → guarda array em escavador_data._movimentacoes_cache
-//    → espelha (upsert por external_id) em processos_oab_andamentos
+const { error: insErr } = await supabaseClient
+  .from('processos_oab_andamentos')
+  .upsert({ ... }, {
+    onConflict: 'processo_oab_id,data_movimentacao,descricao',
+    ignoreDuplicates: true,
+  });
 ```
 
-Detalhes:
-- **Limite:** `limit=100` na 1ª página cobre 95% dos processos (mediana ~30 mov.). Se `meta.has_next` e o usuário pediu modo completo, paginar até teto (ex.: 500). Para "importação rápida", parar na 1ª página.
-- **Idempotência:** upsert em `processos_oab_andamentos` por `(processo_oab_id, external_id)` — já existe constraint nesse formato (validar antes).
-- **Tolerância a falha parcial:** se a 2ª chamada falhar (timeout, 402 saldo, 5xx), commit da capa permanece e marca `escavador_data._movimentacoes_status = 'pending'` para o usuário poder reprocessar sem reimportar a capa.
-- **Logs:** registrar em `auditoria_andamentos` quantidade inserida/atualizada.
+Como o índice UNIQUE é por **expressão** (`truncate_minute`, `normalize_descricao`), o PostgREST não consegue usá-lo como `onConflict` direto. Solução: usar `ignoreDuplicates` com a chave canônica e tratar `23505` (unique_violation) como sucesso silencioso, contando apenas inserts que não colidem.
 
-### 2. Flag opcional de modo
-Aceitar `body.modo: 'rapido' | 'completo'`:
-- `rapido` (default da UI de importação): só capa + 1 página de movimentações.
-- `completo`: capa + paginação até esgotar (ou 500). Reusado pelo botão "Reimportar tudo".
+Plano B (mais robusto): fazer um **SELECT** prévio das chaves já existentes (mesmo padrão já usado para a legacy table nas linhas 378-385) e pular movs que coincidem antes de chamar o insert. Isso garante 0 erros de UNIQUE.
 
-Isso mantém um único caminho para os dois fluxos e evita duplicação de código.
+### 2. Logar todo erro de insert
+Substituir `if (!insErr) { ... }` por:
 
-### 3. UI de importação
-Em `ProcessoOABDetalhes.tsx` (e nas telas de busca OAB que disparam importação), adicionar toast com contagem: "Capa + 18 andamentos importados".
+```ts
+if (insErr) {
+  if (insErr.code === '23505') {
+    // duplicado — ok, ignora
+  } else {
+    console.error('[Escavador Importar V2] erro insert OAB andamento:', insErr.code, insErr.message, { dataMov, descricao: descricao.slice(0,80) });
+  }
+} else {
+  inseridosNesteOab++;
+  totalOabSalvas++;
+}
+```
+
+### 3. Garantir que `data_movimentacao` seja sempre um ISO completo
+Normalizar `mov.data` para `YYYY-MM-DDT00:00:00Z` quando vier só com a data, evitando ambiguidade no `truncate_minute`.
+
+### 4. Endpoint de "reespelhamento" via reparse
+Como o cache já está populado (18 movs em `escavador_data._movimentacoes_cache`), depois do fix o usuário só precisa clicar **Reprocessar resumo (do cache, grátis)** que os 18 andamentos serão inseridos sem nova cobrança Escavador.
 
 ## Arquivos afetados
-- `supabase/functions/escavador-importar-processo/index.ts` — encadear chamada de movimentações, parsear, gravar, suportar `modo`.
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — passar `modo: 'completo'` no botão "Reimportar tudo"; ajustar mensagem de sucesso.
-- (Eventual) hook que dispara importação na busca OAB — passar `modo: 'rapido'` explicitamente.
-- Sem migrations: tabelas `processo_oab_monitoramento_escavador` e `processos_oab_andamentos` já existem com as colunas necessárias.
+- `supabase/functions/escavador-importar-processo/index.ts` — laço de inserção em `processos_oab_andamentos` (linhas ~442-487).
+- Sem migrations, sem mudanças em outras tabelas, sem mudança de RLS, sem alteração de UI.
 
 ## Impacto
-1. **UX:** Ao importar um processo via OAB, o usuário já vê na ficha capa + andamentos preenchidos sem precisar clicar em "Reimportar tudo". Reduz uma etapa manual.
-2. **Dados:** Cada importação passa a fazer 2 requisições ao Escavador (capa ~R$ 0,05 + movimentações ~R$ 0,05–0,10) em vez de 1. Tabela `processos_oab_andamentos` cresce no momento da importação. Sem mudança de schema, RLS ou índice.
-3. **Riscos colaterais:**
-   - **Custo Escavador dobra por importação** — todo processo importado, mesmo que o usuário só queira a capa, vai consumir movimentações. Mitigação: o modo `rapido` limita a 1 página.
-   - Importação fica ~1–2 s mais lenta (chamada extra).
-   - Se houver importação em massa (lote), o consumo escala linearmente — sugiro um aviso de saldo antes de lotes grandes.
-4. **Quem é afetado:** Todos os tenants que importam processos via OAB (Controladoria/Busca OAB). Admin e advogado veem o mesmo comportamento. Processos já importados antes da mudança continuam sem movimentações até clicarem em "Reimportar tudo".
+1. **UX:** Após o fix, importações novas trazem capa **e** andamentos visíveis na ficha OAB. Para o processo atual `0123417-95.2025.8.16.0000`, basta clicar **Reprocessar resumo** (grátis, usa cache) que os 18 andamentos aparecem.
+2. **Dados:** Inserts viram idempotentes — reimportar/reprocessar não duplica nem polui logs com erros 23505. Nenhuma mudança de schema, RLS ou índices. Performance equivalente (1 SELECT prévio + N inserts em vez de N inserts cegos).
+3. **Riscos colaterais:** Mínimos. O dedup já é validado pelo índice UNIQUE existente; o pré-SELECT só replica essa validação no app antes do insert. Se o cliente já tinha andamentos inseridos manualmente com a mesma chave, eles continuam preservados (não são sobrescritos).
+4. **Quem é afetado:** Todos os tenants que importam processos via OAB. Especialmente quem teve importações com "0 andamentos" silenciosos no passado — após o fix, podem clicar em "Reprocessar resumo" e popular sem custo.
 
 ## Validação
-- Importar um processo novo via Busca OAB → ficha abre com Resumo + Andamentos preenchidos em uma única ação.
-- Conferir no painel Escavador 2 cobranças seguidas (capa + movimentações).
-- Reimportar o mesmo processo → não duplica linhas em `processos_oab_andamentos` (upsert por external_id).
-- Simular falha na chamada de movimentações (token inválido) → capa fica gravada, `_movimentacoes_status='pending'`, botão "Reprocessar" funciona.
-- Para o caso atual (`0123417-95.2025.8.16.0000`): rodar em modo `completo` traz os 18 andamentos.
+1. Deploy da edge.
+2. No processo `0123417-95.2025.8.16.0000`, clicar em **Reprocessar resumo** (modo cache, sem cobrança no Escavador).
+3. Logs devem mostrar `OAB ...: 18 novos andamentos` (ou similar) e zero erros silenciosos.
+4. `SELECT count(*) FROM processos_oab_andamentos WHERE processo_oab_id = '6a06...4b17b1'` deve retornar 18.
+5. Aba **Andamentos** na ficha do processo deve listar as 18 movimentações.
+6. Reprocessar de novo: `count` continua 18 (idempotência confirmada).
+7. Importar um processo novo do zero (outro CNJ): capa + andamentos vêm na mesma operação.
 
-## Decisões abertas
-1. Modo default da importação: **`rapido` (1 página, ~100 mov.)** ou **`completo` (até 500)**? Recomendo `rapido` para conter custo.
-2. Importação em lote (múltiplas OABs/CNJs): também buscar movimentações ou só capa, com botão "Buscar andamentos" depois?
+Confirma para eu implementar?
