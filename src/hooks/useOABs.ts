@@ -69,6 +69,22 @@ export interface AndamentoOAB {
   dados_completos: any;
   lida: boolean;
   created_at: string;
+  super_admin_ordem?: number | null;
+}
+
+function sortAndamentos<T extends { super_admin_ordem?: number | null; data_movimentacao: string | null }>(list: T[]): T[] {
+  return [...list].sort((a, b) => {
+    const ao = a.super_admin_ordem;
+    const bo = b.super_admin_ordem;
+    const aHas = ao !== null && ao !== undefined;
+    const bHas = bo !== null && bo !== undefined;
+    if (aHas && bHas) return (ao as number) - (bo as number);
+    if (aHas) return -1;
+    if (bHas) return 1;
+    const da = a.data_movimentacao ? new Date(a.data_movimentacao).getTime() : 0;
+    const db = b.data_movimentacao ? new Date(b.data_movimentacao).getTime() : 0;
+    return db - da;
+  });
 }
 
 export const useOABs = () => {
