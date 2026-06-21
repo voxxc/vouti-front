@@ -85,13 +85,14 @@ serve(async (req) => {
       tenantId = null,
       ativarMonitoramento = false,
       reparseSomente = false,
+      modo = 'rapido', // 'rapido' = 1 página (~100 movs); 'completo' = até MAX_MOVS
     } = await req.json();
 
     if (!processoId || !numeroProcesso) {
       throw new Error('processoId e numeroProcesso sao obrigatorios');
     }
 
-    console.log('[Escavador Importar V2] 🔧 Iniciando:', numeroProcesso, '| monitoramento:', ativarMonitoramento, '| reparse:', reparseSomente);
+    console.log('[Escavador Importar V2] 🔧 Iniciando:', numeroProcesso, '| monitoramento:', ativarMonitoramento, '| reparse:', reparseSomente, '| modo:', modo);
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
