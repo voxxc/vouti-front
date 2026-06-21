@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProcessoOAB, OABCadastrada } from '@/hooks/useOABs';
-import { useAllProcessosOAB, ProcessoOABComOAB } from '@/hooks/useAllProcessosOAB';
+import { useAllProcessosOAB, ProcessoOABComOAB, FiltroPrincipal, FiltroApartado } from '@/hooks/useAllProcessosOAB';
 import { useCanUseApartados } from '@/hooks/useCanUseApartados';
 import { ProcessoOABDetalhes } from './ProcessoOABDetalhes';
 import { toast as sonnerToast } from 'sonner';
@@ -49,11 +49,28 @@ const extrairUF = (tribunalSigla: string | null | undefined, numeroCnj?: string 
 };
 
 export const GeralTab = () => {
+  const [filtroUF, setFiltroUF] = useState<string>('todos');
+  const { canUse: canUseApartados } = useCanUseApartados();
+  const [filtroApartado, setFiltroApartado] = useState<FiltroApartado>('todos');
+
+  // Converte string do Select para FiltroPrincipal estruturado
+  const filtroPrincipal: FiltroPrincipal = useMemo(() => {
+    if (filtroUF === 'todos' || filtroUF === 'monitorados' || filtroUF === 'sigilosos' || filtroUF === 'nao-lidos') {
+      return filtroUF;
+    }
+    if (filtroUF.startsWith('oab:')) {
+      const [numero, uf] = filtroUF.replace('oab:', '').split('/');
+      return { tipo: 'oab', numero, uf };
+    }
+    return { tipo: 'uf', uf: filtroUF };
+  }, [filtroUF]);
+
   const {
     processos, loading, carregandoDetalhes, page, setPage, totalCount, pageSize,
     searchTerm, setSearchTerm, fetchProcessos, carregarDetalhes, toggleMonitoramento,
-    consultarDetalhesRequest, resetarProcesso, excluirProcesso, atualizarProcesso
-  } = useAllProcessosOAB();
+    consultarDetalhesRequest, resetarProcesso, excluirProcesso, atualizarProcesso,
+    globalCounts,
+  } = useAllProcessosOAB(filtroPrincipal, canUseApartados ? filtroApartado : 'todos');
 
   const [selectedProcesso, setSelectedProcesso] = useState<ProcessoOABComOAB | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -65,9 +82,6 @@ export const GeralTab = () => {
     }
   }, [processos]);
 
-  const [filtroUF, setFiltroUF] = useState<string>('todos');
-  const { canUse: canUseApartados } = useCanUseApartados();
-  const [filtroApartado, setFiltroApartado] = useState<'todos' | 'apartados' | 'nao_apartados'>('todos');
   const [processoParaExcluir, setProcessoParaExcluir] = useState<ProcessoOABComOAB | null>(null);
   const [excluindo, setExcluindo] = useState(false);
   const [inputBusca, setInputBusca] = useState('');
@@ -92,59 +106,18 @@ export const GeralTab = () => {
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
-  useEffect(() => { setPage(0); }, [filtroUF, setPage]);
+  useEffect(() => { setPage(0); }, [filtroUF, filtroApartado, setPage]);
 
   // Reset selection on filter/page/search changes
   useEffect(() => { setSelectedIds(new Set()); }, [filtroUF, filtroApartado, page, searchTerm]);
 
-  const naoLidosCount = useMemo(() => processos.filter(p => (p.andamentos_nao_lidos || 0) > 0).length, [processos]);
-  const monitoradosCount = useMemo(() => processos.filter(p => p.monitoramento_ativo).length, [processos]);
-  const sigilososCount = useMemo(() => processos.filter(p => (p.capa_completa?.secrecy_level ?? 0) >= 1).length, [processos]);
-
-  const ufsDisponiveis = useMemo(() => {
-    const ufMap = new Map<string, number>();
-    processos.forEach(p => {
-      const uf = extrairUF(p.tribunal_sigla, p.numero_cnj);
-      ufMap.set(uf, (ufMap.get(uf) || 0) + 1);
-    });
-    return Array.from(ufMap.entries()).sort((a, b) => b[1] - a[1]).map(([uf, count]) => ({ uf, count }));
-  }, [processos]);
-
-  const oabsDisponiveis = useMemo(() => {
-    const oabMap = new Map<string, number>();
-    processos.forEach(p => {
-      const key = `${p.oab_numero}/${p.oab_uf}`;
-      oabMap.set(key, (oabMap.get(key) || 0) + 1);
-    });
-    return Array.from(oabMap.entries()).sort((a, b) => b[1] - a[1]).map(([oab, count]) => ({ oab, count }));
-  }, [processos]);
-
-  const processosFiltrados = useMemo(() => {
-    let resultado = processos;
-    if (filtroUF === 'nao-lidos') {
-      resultado = resultado.filter(p => (p.andamentos_nao_lidos || 0) > 0)
-        .sort((a, b) => {
-          const dateA = a.ultima_movimentacao ? new Date(a.ultima_movimentacao).getTime() : 0;
-          const dateB = b.ultima_movimentacao ? new Date(b.ultima_movimentacao).getTime() : 0;
-          return dateB - dateA;
-        });
-    } else if (filtroUF === 'monitorados') {
-      resultado = resultado.filter(p => p.monitoramento_ativo);
-    } else if (filtroUF === 'sigilosos') {
-      resultado = resultado.filter(p => (p.capa_completa?.secrecy_level ?? 0) >= 1);
-    } else if (filtroUF.startsWith('oab:')) {
-      const oabKey = filtroUF.replace('oab:', '');
-      resultado = resultado.filter(p => `${p.oab_numero}/${p.oab_uf}` === oabKey);
-    } else if (filtroUF !== 'todos') {
-      resultado = resultado.filter(p => extrairUF(p.tribunal_sigla, p.numero_cnj) === filtroUF);
-    }
-    if (canUseApartados && filtroApartado !== 'todos') {
-      resultado = resultado.filter(p =>
-        filtroApartado === 'apartados' ? !!(p as any).apartado : !(p as any).apartado
-      );
-    }
-    return resultado;
-  }, [processos, filtroUF, filtroApartado, canUseApartados]);
+  // Filtragem agora é server-side. A página já vem com os processos corretos.
+  const processosFiltrados = processos;
+  const naoLidosCount = globalCounts.naoLidos;
+  const monitoradosCount = globalCounts.monitorados;
+  const sigilososCount = globalCounts.sigilosos;
+  const ufsDisponiveis = globalCounts.ufs;
+  const oabsDisponiveis = globalCounts.oabs;
 
   const handleVerDetalhes = async (processo: ProcessoOABComOAB) => {
     setSelectedProcesso(processo);
