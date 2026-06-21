@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -33,6 +33,29 @@ interface ProcessoLite {
 
 type Aba = 'total' | 'atualizado';
 
+const VISITADO_KEY = 'superadmin:processo-visitado:v1';
+const VISITADO_TTL_MS = 24 * 60 * 60 * 1000;
+
+function lerVisitados(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(VISITADO_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, number>;
+    const agora = Date.now();
+    let mudou = false;
+    for (const k of Object.keys(parsed)) {
+      if (typeof parsed[k] !== 'number' || agora - parsed[k] >= VISITADO_TTL_MS) {
+        delete parsed[k];
+        mudou = true;
+      }
+    }
+    if (mudou) localStorage.setItem(VISITADO_KEY, JSON.stringify(parsed));
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
 export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }: Props) {
   const [loading, setLoading] = useState(false);
   const [processos, setProcessos] = useState<ProcessoLite[]>([]);
@@ -40,6 +63,26 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
   const [selecionado, setSelecionado] = useState<ProcessoLite | null>(null);
   const [aba, setAba] = useState<Aba>('total');
   const [reloadKey, setReloadKey] = useState(0);
+  const [visitados, setVisitados] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (open) setVisitados(lerVisitados());
+  }, [open, reloadKey]);
+
+  const marcarVisitado = useCallback((id: string) => {
+    setVisitados((prev) => {
+      const novo = { ...prev, [id]: Date.now() };
+      try {
+        localStorage.setItem(VISITADO_KEY, JSON.stringify(novo));
+      } catch {}
+      return novo;
+    });
+  }, []);
+
+  const isVisitado = (id: string) => {
+    const t = visitados[id];
+    return typeof t === 'number' && Date.now() - t < VISITADO_TTL_MS;
+  };
 
   const recarregar = () => setReloadKey((k) => k + 1);
 
@@ -160,10 +203,28 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
                   {filtrados.map((p) => (
                     <TableRow
                       key={p.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => setSelecionado(p)}
+                      className={
+                        'cursor-pointer ' +
+                        (isVisitado(p.id)
+                          ? 'hover:bg-muted/50'
+                          : 'bg-orange-50 hover:bg-orange-100 dark:bg-orange-500/10 dark:hover:bg-orange-500/15')
+                      }
+                      onClick={() => {
+                        marcarVisitado(p.id);
+                        setSelecionado(p);
+                      }}
                     >
-                      <TableCell className="font-mono text-xs">{p.numero_cnj}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        <span className="inline-flex items-center gap-2">
+                          {!isVisitado(p.id) && (
+                            <span
+                              className="h-2 w-2 rounded-full bg-orange-500 shrink-0"
+                              aria-label="Não visitado nas últimas 24h"
+                            />
+                          )}
+                          {p.numero_cnj}
+                        </span>
+                      </TableCell>
                       <TableCell className="text-xs max-w-md">
                         <div className="truncate">
                           <span className="text-foreground">{p.parte_ativa || '—'}</span>

@@ -1,70 +1,44 @@
-## Causa raiz
+# Marcador laranja de "não visitado" nos processos do tenant
 
-O drawer de Movimentos Manuais (super admin) hoje mostra uma única lista plana de processos. Para revisão semanal, falta um mecanismo de "fila de trabalho": separar o que ainda precisa ser revisado do que já foi atualizado nesta rodada, com expiração automática de 7 dias.
+## Causa raiz
+Hoje não há indicação visual de quais processos da lista já foram abertos pelo super admin durante a revisão semanal. Isso dificulta o controle de "qual já vi e qual ainda falta".
 
 ## Correção
+Adicionar uma marcação laranja em cada linha da tabela de processos do drawer "Movimentos manuais". Comportamento:
 
-### 1. Persistência da marcação "atualizado"
+- Toda linha aparece com fundo/realce laranja sutil + uma "bolinha" laranja na coluna CNJ por padrão.
+- Ao clicar na linha (abrir o painel de detalhes), aquele processo é marcado como "visitado" e o laranja some imediatamente.
+- A marcação de "visitado" expira em 24h. Após 24h sem novo clique, a linha volta a ficar laranja.
+- O estado é por usuário (super admin) e por processo. Não é compartilhado entre dispositivos — fica em `localStorage` do navegador (estado puramente visual de controle pessoal, não precisa de banco).
 
-Adicionar duas colunas em `public.processos_oab`:
-
-- `super_admin_atualizado_em timestamptz null`
-- `super_admin_atualizado_por uuid null`
-
-Sem migration de RLS nova — a tabela já tem políticas; a edge function escreve via service role.
-
-Regra de janela: um processo está "Atualizado" enquanto `super_admin_atualizado_em >= now() - interval '7 days'`. Após isso some da aba Atualizado e reaparece em Total automaticamente (consulta baseada em data, sem job).
-
-### 2. Edge function `super-admin-listar-processos-oab`
-
-- Aceitar parâmetro `aba: 'total' | 'atualizado'`.
-- `total`: retorna processos cujo `super_admin_atualizado_em` é nulo OU `< now() - 7 dias` (ou seja, exclui os marcados nos últimos 7 dias — conforme a regra confirmada de não duplicar entre abas).
-- `atualizado`: retorna apenas processos com `super_admin_atualizado_em >= now() - 7 dias`, ordenados por essa data desc.
-- Incluir `super_admin_atualizado_em` no payload para exibir "marcado há X dias" e a contagem regressiva (faltam Y dias).
-
-### 3. Edge function `super-admin-criar-andamento-manual`
-
-- Aceitar novo campo opcional `marcar_como_atualizado: boolean` no body.
-- Quando `true`: após inserir o andamento, fazer `update processos_oab set super_admin_atualizado_em = now(), super_admin_atualizado_por = auth.uid() where id = ...`.
-- Quando `false`/omitido: comportamento atual, sem alterar a marcação.
-
-### 4. UI — `SuperAdminMovimentosManuaisDrawer.tsx`
-
-- Adicionar `Tabs` com underline ("Total" | "Atualizado") logo abaixo do header.
-- Cada aba dispara um fetch separado ao mudar (passa `aba` para a edge function); manter busca/paginação por aba.
-- Badge com contagem ao lado de cada aba.
-- Coluna extra na tabela quando `aba === 'atualizado'`: "Atualizado em" com data e "expira em N dias".
-
-### 5. UI — `AdicionarMovimentoManualDialog.tsx`
-
-- Novo checkbox abaixo de "Marcar como não lido": **"Marcar processo como atualizado (move para a aba Atualizado por 7 dias)"**, default `true`.
-- Encaminhar o valor para a edge function via `marcar_como_atualizado`.
-
-### 6. UI — `SuperAdminProcessoOABDetalhesPanel.tsx`
-
-- Mostrar badge no header quando `super_admin_atualizado_em` estiver dentro da janela ("Atualizado · expira em N dias").
-- Após salvar movimento, recarregar a lista do drawer pai (já existe `onAndamentoCriado`) para refletir a movimentação entre abas.
+Aplica-se nas duas abas (Total e Atualizado) — em ambas o laranja indica "ainda não abri nas últimas 24h".
 
 ## Arquivos afetados
+- `src/components/SuperAdmin/SuperAdminMovimentosManuaisDrawer.tsx`
+  - Novo helper `useProcessoVisitado` (inline ou hook próprio em `src/hooks/useProcessoVisitadoSuperAdmin.ts`) que:
+    - Lê/grava em `localStorage` na chave `superadmin:processo-visitado:v1`.
+    - Estrutura: `{ [processoId]: timestampISO }`.
+    - Considera "visitado" se `Date.now() - timestamp < 24h`.
+    - Faz limpeza preguiçosa de entradas expiradas ao ler.
+  - No `onClick` da `TableRow`, além de `setSelecionado(p)`, chamar `marcarVisitado(p.id)`.
+  - Aplicar classe condicional na `TableRow`: quando NÃO visitado, usar `bg-orange-50 dark:bg-orange-500/10 hover:bg-orange-100 dark:hover:bg-orange-500/15` e um ponto `<span class="h-2 w-2 rounded-full bg-orange-500">` antes do número CNJ.
+  - Re-render: usar `useState` com versão (ex.: `tickVisitados`) que incrementa ao marcar, para a UI atualizar sem recarregar.
 
-- `supabase/migrations/<nova>` — adiciona as 2 colunas em `processos_oab` (sem mudar RLS/grants).
-- `supabase/functions/super-admin-listar-processos-oab/index.ts` — filtro por aba + campo no payload.
-- `supabase/functions/super-admin-criar-andamento-manual/index.ts` — aceitar `marcar_como_atualizado` e atualizar timestamp.
-- `src/components/SuperAdmin/SuperAdminMovimentosManuaisDrawer.tsx` — abas, contagens, coluna "Atualizado em".
-- `src/components/SuperAdmin/AdicionarMovimentoManualDialog.tsx` — checkbox novo, propagação do flag.
-- `src/components/SuperAdmin/SuperAdminProcessoOABDetalhesPanel.tsx` — badge de status atualizado.
+Nenhuma alteração de banco, edge function, RLS ou tipos.
 
 ## Impacto
-
-1. **Usuário final (super admin)**: ganha fluxo de revisão semanal — abre Total, processa um a um, marca movimento + "atualizado", o processo migra automaticamente para Atualizado e some de Total. Após 7 dias volta para Total para nova revisão. Demais usuários do tenant não veem nada novo.
-2. **Dados**: 2 colunas nullable em `processos_oab` (sem default pesado, backfill desnecessário). Nenhum índice obrigatório agora — volume cabe sem índice; se o filtro ficar lento, adicionar índice parcial em `super_admin_atualizado_em` depois. Sem mudança de RLS/grants.
-3. **Riscos colaterais**: pequeno — colunas só são lidas/escritas pelas edge functions de super admin. Nenhum hook ou componente do tenant consulta essas colunas. Cuidado para a query de Total NÃO contar processos marcados (a contagem de "andamentos" exibida hoje continua igual).
-4. **Quem é afetado**: apenas super admins usando o drawer de Movimentos Manuais. Tenants, advogados, agenda, financeiro etc. não percebem nada.
+1. **Usuário final (super admin):** ganha pista visual clara — linhas laranjas = ainda não abri hoje; linhas neutras = já abri nas últimas 24h. Após 24h tudo volta ao laranja automaticamente, alinhado com a rotina semanal de revisão.
+2. **Dados:** zero. Estado mora apenas em `localStorage` do navegador do super admin. Não há migration, não há RLS, não há custo de banco.
+3. **Riscos colaterais:**
+   - Estado não sincroniza entre dispositivos/navegadores (aceitável; é controle pessoal).
+   - Limpar dados do navegador remove o histórico de "visitados" — todas as linhas voltam a laranja.
+   - O laranja precisa funcionar em tema claro e escuro; usar tons via Tailwind (`orange-50`/`orange-500/10`) ou tokens semânticos do projeto.
+4. **Quem é afetado:** apenas o super admin, dentro do drawer "Movimentos manuais". Usuários normais do tenant não enxergam nada disso.
 
 ## Validação
-
-- Marcar um processo como atualizado via dialog → some de Total, aparece em Atualizado com "expira em 7 dias".
-- Desmarcar o checkbox ao salvar → processo permanece em Total, recebe o andamento normalmente.
-- Simular `super_admin_atualizado_em` para 8 dias atrás (UPDATE manual) → recarregar drawer; processo deve voltar para Total e sumir de Atualizado.
-- Contagens das abas batem com o número de linhas exibidas.
-- Usuário comum (não super admin) chamando a edge function continua recebendo 403.
+- Abrir o drawer: todas as linhas aparecem com tom laranja e bolinha laranja no CNJ.
+- Clicar em uma linha → painel de detalhes abre → ao fechar, aquela linha está sem laranja.
+- Recarregar a página dentro de 24h: linha continua sem laranja.
+- Forçar `localStorage` com timestamp de 25h atrás para um id e recarregar: aquela linha volta a ficar laranja.
+- Trocar entre abas Total/Atualizado: o estado de visitado é o mesmo (mesma chave por `processoId`).
+- Tema escuro: contraste do laranja continua legível.
