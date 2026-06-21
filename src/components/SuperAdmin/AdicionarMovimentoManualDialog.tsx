@@ -100,6 +100,8 @@ export function AdicionarMovimentoManualDialog({
       const inicial = novaAba(hoje);
       setAbas([inicial]);
       setAtivaId(inicial.id);
+      setSalvando(false);
+      salvandoRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -420,7 +422,11 @@ export function AdicionarMovimentoManualDialog({
           </Button>
           <Button onClick={handleSalvar} disabled={salvando}>
             {salvando && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {abas.length === 1 ? 'Salvar movimento' : `Salvar ${abas.length} movimentos`}
+            {salvando
+              ? 'Salvando...'
+              : abas.length === 1
+                ? 'Salvar movimento'
+                : `Salvar ${abas.length} movimentos`}
           </Button>
         </DialogFooter>
       </DialogContent>
