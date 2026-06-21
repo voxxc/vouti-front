@@ -184,6 +184,8 @@ export function AdicionarMovimentoManualDialog({
           descricao: a.descricao.trim(),
           marcar_nao_lido: a.marcarNaoLido,
           marcar_como_atualizado: a.marcarComoAtualizado,
+          sigiloso: a.sigiloso,
+          tribunal_tag: a.tribunalTag || null,
         };
         if (a.arquivo) {
           const base64 = await fileToBase64(a.arquivo);
