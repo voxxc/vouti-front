@@ -78,6 +78,7 @@ export const ImportarProcessoDialog = ({
         .from('processos')
         .select('id')
         .eq('numero_processo', processo.numero_cnj)
+        .eq('tenant_id', tenantId)
         .maybeSingle();
 
       if (existente) {
@@ -136,6 +137,7 @@ export const ImportarProcessoDialog = ({
         .from('processos')
         .insert({
           numero_processo: processo.numero_cnj,
+          tenant_id: tenantId,
           parte_ativa: partesExtraidas.parte_ativa,
           parte_passiva: partesExtraidas.parte_passiva,
           advogados_partes: partesExtraidas.advogados_partes,
