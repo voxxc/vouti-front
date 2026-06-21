@@ -1,30 +1,57 @@
 ## Causa raiz
-O clique em **Salvar movimento** está chegando na UI, mas não há feedback nem chamada para `super-admin-criar-andamento-manual`. A causa provável é o fluxo de modal aninhado (`Sheet` + `Dialog`) deixando o clique/estado sem resposta visível, além da validação atual depender apenas de toast.
+
+No print, o processo claramente é sigiloso (Parte Ativa = "Sigilo"), mas nenhum badge nem alerta aparecem. Em `src/components/Controladoria/ProcessoOABDetalhes.tsx` (linha 715), a detecção só olha:
+
+```ts
+const isProcessoSigiloso = capa.secrecy_level >= 1;
+```
+
+Quando a Judit retorna o processo sem `capa_completa.secrecy_level` populado (ou = 0) mas com partes mascaradas como "Sigilo"/"Segredo de Justiça", o sistema não marca como sigiloso, então:
+
+- O badge âmbar "Sigiloso" no cabeçalho não aparece.
+- O Card de alerta (linhas 793–807) não é renderizado.
+- O texto atual também é genérico demais ("Algumas informações podem estar indisponíveis. Use o modo edição para preencher manualmente.") — não explica o impacto real (sem andamentos públicos, precisa entrar no filtro de sigilosos, monitoramento continua válido).
 
 ## Correção
-1. Ajustar `AdicionarMovimentoManualDialog.tsx` para dar feedback imediato no botão assim que o usuário clica:
-   - ativar `salvando` antes da validação;
-   - mostrar spinner e texto `Salvando...`;
-   - sempre destravar o estado no `finally` ou em falha de validação.
-2. Tornar validações bloqueantes visíveis e inequívocas:
-   - se faltar nome ou descrição mínima, focar a aba/campo e exibir toast;
-   - garantir que o botão volte ao normal após erro.
-3. Adicionar proteção contra clique perdido/estado travado:
-   - evitar `salvandoRef` preso;
-   - impedir duplo clique sem bloquear permanentemente.
-4. Se necessário no mesmo arquivo, ajustar o `Dialog` para não herdar bloqueio de pointer-events do `Sheet` pai quando aberto sobre o painel do super-admin.
+
+1. **Ampliar a detecção de sigilo** em `ProcessoOABDetalhes.tsx`:
+   ```ts
+   const partesSigilosasRegex = /^\s*(sigilo|segredo de justi[cç]a|sob sigilo)\s*$/i;
+   const partesMascaradas =
+     partesSigilosasRegex.test(processo.parte_ativa || '') ||
+     partesSigilosasRegex.test(processo.parte_passiva || '') ||
+     partesSigilosasRegex.test(capa.parte_ativa || '') ||
+     partesSigilosasRegex.test(capa.parte_passiva || '');
+   const isProcessoSigiloso =
+     (capa.secrecy_level ?? 0) >= 1 ||
+     capa.justice_secret === true ||
+     partesMascaradas;
+   ```
+
+2. **Reescrever o Card de alerta** (linhas 793–807) com texto explicativo melhor, mantendo a paleta âmbar e o ícone `Shield`:
+
+   > **Processo em Segredo de Justiça**
+   > Os dados públicos (partes, andamentos e documentos) ficam mascarados pelo tribunal e **não retornam pela consulta automática**. Por isso este caso não exibirá andamentos aqui — eles precisam ser registrados manualmente por quem tem credencial habilitada no processo.
+   >
+   > • O **monitoramento diário continua disponível** e pode ser ativado normalmente — ele acompanha mudanças de status e movimentações públicas (quando o tribunal liberar).
+   > • Para visualizá-lo nas listagens, use o **filtro "Sigilosos"** na tela de processos; ele não aparece nas buscas padrão.
+   > • Para destravar a capa completa, vincule abaixo uma **credencial Judit** com acesso ao CNJ.
+
+3. **Manter o badge "Sigiloso"** no cabeçalho usando a mesma flag ampliada (linhas 775–780), sem mudanças adicionais.
 
 ## Arquivos afetados
-- `src/components/SuperAdmin/AdicionarMovimentoManualDialog.tsx`
+
+- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — única alteração: ampliar `isProcessoSigiloso` e reescrever o Card de alerta. Sem mudanças em hooks, edge functions ou banco.
 
 ## Impacto
-1. **Usuário final / UX:** ao clicar em salvar, o botão reage imediatamente com spinner; se houver erro de preenchimento, o erro aparece e o botão volta ao normal; se estiver válido, o movimento é enviado.
-2. **Dados / Supabase:** sem migration, sem mudança de RLS e sem mudança de tabelas. A edge function existente continua sendo usada.
-3. **Riscos colaterais:** baixo; mudança restrita ao modal de criação manual de movimento. O principal cuidado é não deixar o botão em loading se a validação falhar.
-4. **Quem é afetado:** super-admins que adicionam movimentos manuais; tenants/usuários comuns só percebem o movimento depois de salvo.
+
+- **Usuário final (UX):** processos sigilosos passam a exibir o badge âmbar e o card de aviso mesmo quando a Judit não preenche `secrecy_level`. O texto deixa claro por que não há andamentos, que monitoramento continua válido e que precisa do filtro "Sigilosos" para encontrar o caso.
+- **Dados:** nenhuma migration, nenhuma RLS, nenhum custo extra de query.
+- **Riscos colaterais:** o regex de partes pode dar falso positivo se algum cliente literalmente se chamar "Sigilo" — risco baixo e o efeito (mostrar aviso + badge) é benigno.
+- **Quem é afetado:** todos os tenants/usuários que abrem o drawer de processos OAB na Controladoria; nenhum impacto em super-admin, agenda, financeiro ou outros módulos.
 
 ## Validação
-- Abrir Super Admin > movimentos manuais > processo.
-- Preencher movimento válido e clicar em **Salvar movimento**.
-- Confirmar spinner imediato, chamada à função `super-admin-criar-andamento-manual`, toast de sucesso e atualização da lista.
-- Testar campos inválidos para garantir que aparece erro e o botão não fica travado.
+
+1. Abrir o processo do print (`0032703-55.2026.8.16.0000`) → badge "Sigiloso" e o novo card âmbar com texto reescrito devem aparecer; aba Andamentos pode continuar vazia, conforme esperado.
+2. Abrir um processo público qualquer → nenhum badge nem card de sigilo.
+3. Abrir um processo com `secrecy_level >= 1` (caminho antigo) → comportamento idêntico ao anterior, agora com o texto novo.

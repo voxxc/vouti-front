@@ -711,8 +711,17 @@ export const ProcessoOABDetalhes = ({
   // Extrair dados da capa_completa
   const capa = processo.capa_completa || {};
 
-  // Verificar se processo é sigiloso
-  const isProcessoSigiloso = capa.secrecy_level >= 1;
+  // Verificar se processo é sigiloso (detecção ampliada)
+  const partesSigilosasRegex = /^\s*(sigilo|sigiloso|sigilosa|segredo de justi[cç]a|sob sigilo)\s*$/i;
+  const partesMascaradas =
+    partesSigilosasRegex.test(processo.parte_ativa || '') ||
+    partesSigilosasRegex.test(processo.parte_passiva || '') ||
+    partesSigilosasRegex.test((capa as any).parte_ativa || '') ||
+    partesSigilosasRegex.test((capa as any).parte_passiva || '');
+  const isProcessoSigiloso =
+    (capa.secrecy_level ?? 0) >= 1 ||
+    (capa as any).justice_secret === true ||
+    partesMascaradas;
   const partesVazias = !processo.partes_completas || 
     !Array.isArray(processo.partes_completas) || 
     processo.partes_completas.length === 0;
@@ -795,13 +804,31 @@ export const ProcessoOABDetalhes = ({
             <Card className="p-3 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
               <div className="flex items-start gap-3">
                 <Shield className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-                <div>
+                <div className="space-y-2">
                   <p className="font-medium text-amber-800 dark:text-amber-200 text-sm">
                     Processo em Segredo de Justiça
                   </p>
-                  <p className="text-xs text-amber-700 dark:text-amber-300">
-                    Algumas informações podem estar indisponíveis. Use o modo edição para preencher manualmente.
+                  <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+                    Os dados públicos (partes, andamentos e documentos) ficam mascarados pelo tribunal e
+                    <strong> não retornam pela consulta automática</strong>. Por isso este caso não exibirá
+                    andamentos aqui — eles precisam ser registrados manualmente por quem tem credencial
+                    habilitada no processo.
                   </p>
+                  <ul className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed list-disc pl-4 space-y-1">
+                    <li>
+                      O <strong>monitoramento diário continua disponível</strong> e pode ser ativado
+                      normalmente — ele acompanha mudanças de status e movimentações públicas, quando o
+                      tribunal liberar.
+                    </li>
+                    <li>
+                      Para visualizá-lo nas listagens, use o <strong>filtro "Sigilosos"</strong> na tela de
+                      processos; ele não aparece nas buscas padrão.
+                    </li>
+                    <li>
+                      Para destravar a capa completa, vincule abaixo uma <strong>credencial Judit</strong>{' '}
+                      com acesso ao CNJ.
+                    </li>
+                  </ul>
                 </div>
               </div>
             </Card>
