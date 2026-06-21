@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Search, FilePlus2 } from 'lucide-react';
+import { Loader2, Search, FilePlus2, Bell, BellOff, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tenant } from '@/types/superadmin';
-import { AdicionarMovimentoManualDialog } from './AdicionarMovimentoManualDialog';
+import { SuperAdminProcessoOABDetalhesPanel } from './SuperAdminProcessoOABDetalhesPanel';
 import { toast } from 'sonner';
 
 interface Props {
@@ -22,6 +24,9 @@ interface ProcessoLite {
   parte_ativa: string | null;
   parte_passiva: string | null;
   tribunal_sigla: string | null;
+  monitoramento_ativo?: boolean;
+  total_andamentos?: number;
+  ultima_atualizacao_detalhes?: string | null;
 }
 
 export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }: Props) {
@@ -67,77 +72,112 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FilePlus2 className="h-5 w-5" />
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-none p-0 flex flex-col"
+          style={{ width: '100vw', maxWidth: '100vw' }}
+        >
+          <SheetHeader className="p-6 pb-3 border-b">
+            <SheetTitle className="flex items-center gap-2">
+              <FilePlus2 className="h-5 w-5 text-primary" />
               Movimentos manuais — {tenant.name}
-            </DialogTitle>
-            <DialogDescription>
-              Selecione um processo para lançar um andamento manualmente. Ele aparecerá na Central
-              de Não Lidos dos usuários do tenant.
-            </DialogDescription>
-          </DialogHeader>
+            </SheetTitle>
+            <p className="text-xs text-muted-foreground">
+              Selecione um processo para ver detalhes, monitoramento e lançar movimentos
+              manualmente. Movimentos manuais aparecem imediatamente na Central de Não Lidos
+              dos usuários do tenant.
+            </p>
+          </SheetHeader>
 
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por CNJ, parte ativa ou passiva…"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              className="pl-8"
-            />
+          <div className="px-6 py-3 border-b flex items-center gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por CNJ, parte ativa ou passiva…"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {loading ? 'Carregando…' : `${filtrados.length} processo(s)`}
+            </div>
           </div>
 
-          <div className="text-xs text-muted-foreground">
-            {loading ? 'Carregando…' : `${filtrados.length} processo(s)`}
-          </div>
-
-          <ScrollArea className="flex-1 min-h-[300px] pr-3">
+          <ScrollArea className="flex-1">
             {loading ? (
-              <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-5 w-5 animate-spin" />
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : filtrados.length === 0 ? (
-              <div className="text-center py-10 text-sm text-muted-foreground">
+              <div className="text-center py-16 text-sm text-muted-foreground">
                 Nenhum processo encontrado.
               </div>
             ) : (
-              <div className="space-y-2">
-                {filtrados.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setSelecionado(p)}
-                    className="w-full text-left rounded-md border border-border/60 hover:bg-muted/40 transition-colors p-3"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-mono text-sm">{p.numero_cnj}</span>
-                      {p.tribunal_sigla && (
-                        <Badge variant="outline" className="text-xs">
-                          {p.tribunal_sigla}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {p.parte_ativa || '—'} <span className="opacity-60">×</span>{' '}
-                      {p.parte_passiva || '—'}
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10">
+                  <TableRow>
+                    <TableHead className="w-[210px]">CNJ</TableHead>
+                    <TableHead>Partes</TableHead>
+                    <TableHead className="w-[90px]">Tribunal</TableHead>
+                    <TableHead className="w-[110px] text-center">Andamentos</TableHead>
+                    <TableHead className="w-[110px] text-center">Monitor.</TableHead>
+                    <TableHead className="w-[40px]" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtrados.map((p) => (
+                    <TableRow
+                      key={p.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setSelecionado(p)}
+                    >
+                      <TableCell className="font-mono text-xs">{p.numero_cnj}</TableCell>
+                      <TableCell className="text-xs max-w-md">
+                        <div className="truncate">
+                          <span className="text-foreground">{p.parte_ativa || '—'}</span>
+                          <span className="opacity-60 mx-1">×</span>
+                          <span className="text-muted-foreground">{p.parte_passiva || '—'}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {p.tribunal_sigla ? (
+                          <Badge variant="outline" className="text-xs">{p.tribunal_sigla}</Badge>
+                        ) : <span className="text-xs text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell className="text-center text-xs">
+                        {p.total_andamentos ?? 0}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {p.monitoramento_ativo ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-emerald-500">
+                            <Bell className="h-3 w-3" /> Ativo
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            <BellOff className="h-3 w-3" /> Pausado
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </ScrollArea>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {selecionado && (
-        <AdicionarMovimentoManualDialog
+        <SuperAdminProcessoOABDetalhesPanel
           open={!!selecionado}
           onOpenChange={(o) => !o && setSelecionado(null)}
           processo={selecionado}
           tenantNome={tenant.name}
-          onSuccess={() => setSelecionado(null)}
         />
       )}
     </>

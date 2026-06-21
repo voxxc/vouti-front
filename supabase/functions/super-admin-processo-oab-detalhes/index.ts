@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 const BodySchema = z.object({
-  tenant_id: z.string().uuid(),
+  processo_oab_id: z.string().uuid(),
 });
 
 Deno.serve(async (req) => {
@@ -43,14 +43,12 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const user = userRes.user;
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-
     const { data: sa } = await admin
       .from('super_admins')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', userRes.user.id)
       .maybeSingle();
     if (!sa) {
       return new Response(JSON.stringify({ error: 'forbidden' }), {
@@ -59,64 +57,65 @@ Deno.serve(async (req) => {
       });
     }
 
-    const raw = await req.json();
-    const parsed = BodySchema.safeParse(raw);
+    const parsed = BodySchema.safeParse(await req.json());
     if (!parsed.success) {
       return new Response(
         JSON.stringify({ error: 'invalid_input', details: parsed.error.flatten() }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
-    const { tenant_id } = parsed.data;
+    const { processo_oab_id } = parsed.data;
 
-    // Pagina manualmente para evitar limite de 1000 linhas
-    const PAGE = 1000;
-    const all: any[] = [];
-    let from = 0;
-    while (true) {
-      const { data, error } = await admin
-        .from('processos_oab')
-        .select(
-          'id, numero_cnj, parte_ativa, parte_passiva, tribunal_sigla, monitoramento_ativo, ultima_atualizacao_detalhes',
-        )
-        .eq('tenant_id', tenant_id)
-        .order('numero_cnj', { ascending: true })
-        .range(from, from + PAGE - 1);
-      if (error) throw error;
-      if (!data || data.length === 0) break;
-      all.push(...data);
-      if (data.length < PAGE) break;
-      from += PAGE;
+    const { data: processo, error: pErr } = await admin
+      .from('processos_oab')
+      .select('*')
+      .eq('id', processo_oab_id)
+      .maybeSingle();
+    if (pErr) throw pErr;
+    if (!processo) {
+      return new Response(JSON.stringify({ error: 'not_found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Conta andamentos por processo (uma chamada agregada)
-    const ids = all.map((p) => p.id);
-    const counts: Record<string, number> = {};
-    if (ids.length > 0) {
-      const CHUNK = 500;
-      for (let i = 0; i < ids.length; i += CHUNK) {
-        const slice = ids.slice(i, i + CHUNK);
-        const { data: rows, error: cErr } = await admin
-          .from('processos_oab_andamentos')
-          .select('processo_oab_id')
-          .in('processo_oab_id', slice);
-        if (cErr) throw cErr;
-        for (const r of rows || []) {
-          counts[(r as any).processo_oab_id] = (counts[(r as any).processo_oab_id] || 0) + 1;
-        }
-      }
-    }
-    const processos = all.map((p) => ({ ...p, total_andamentos: counts[p.id] || 0 }));
+    const [andRes, anxRes, monRes] = await Promise.all([
+      admin
+        .from('processos_oab_andamentos')
+        .select('id, data_movimentacao, tipo_movimentacao, descricao, dados_completos, lida, created_at')
+        .eq('processo_oab_id', processo_oab_id)
+        .order('data_movimentacao', { ascending: false })
+        .limit(500),
+      admin
+        .from('processos_oab_anexos')
+        .select('id, attachment_id, attachment_name, extension, status, content_description, step_id, created_at')
+        .eq('processo_oab_id', processo_oab_id)
+        .order('created_at', { ascending: false })
+        .limit(200),
+      admin
+        .from('processo_oab_monitoramento_escavador')
+        .select('monitoramento_ativo, frequencia, ultima_consulta, ultima_atualizacao, total_atualizacoes, monitoramento_id')
+        .eq('processo_oab_id', processo_oab_id)
+        .maybeSingle(),
+    ]);
 
-    return new Response(JSON.stringify({ processos }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    });
+    if (andRes.error) throw andRes.error;
+    if (anxRes.error) throw anxRes.error;
+
+    return new Response(
+      JSON.stringify({
+        processo,
+        andamentos: andRes.data || [],
+        anexos: anxRes.data || [],
+        monitoramento_escavador: monRes.data || null,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
+    );
   } catch (e) {
-    console.error('[super-admin-listar-processos-oab]', e);
-    return new Response(JSON.stringify({ error: 'internal', message: String(e?.message ?? e) }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('[super-admin-processo-oab-detalhes]', e);
+    return new Response(
+      JSON.stringify({ error: 'internal', message: String((e as any)?.message ?? e) }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
   }
 });
