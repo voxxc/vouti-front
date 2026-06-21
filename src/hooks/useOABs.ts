@@ -69,6 +69,22 @@ export interface AndamentoOAB {
   dados_completos: any;
   lida: boolean;
   created_at: string;
+  super_admin_ordem?: number | null;
+}
+
+function sortAndamentos<T extends { super_admin_ordem?: number | null; data_movimentacao: string | null }>(list: T[]): T[] {
+  return [...list].sort((a, b) => {
+    const ao = a.super_admin_ordem;
+    const bo = b.super_admin_ordem;
+    const aHas = ao !== null && ao !== undefined;
+    const bHas = bo !== null && bo !== undefined;
+    if (aHas && bHas) return (ao as number) - (bo as number);
+    if (aHas) return -1;
+    if (bHas) return 1;
+    const da = a.data_movimentacao ? new Date(a.data_movimentacao).getTime() : 0;
+    const db = b.data_movimentacao ? new Date(b.data_movimentacao).getTime() : 0;
+    return db - da;
+  });
 }
 
 export const useOABs = () => {
@@ -720,10 +736,11 @@ export const useAndamentosOAB = (processoOabId: string | null) => {
         .from('processos_oab_andamentos')
         .select('*')
         .eq('processo_oab_id', processoOabId)
+        .order('super_admin_ordem', { ascending: true, nullsFirst: false })
         .order('data_movimentacao', { ascending: false });
 
       if (error) throw error;
-      setAndamentos((data as AndamentoOAB[]) || []);
+      setAndamentos(sortAndamentos((data as AndamentoOAB[]) || []));
     } catch (error: any) {
       console.error('[useAndamentosOAB] Erro:', error);
     } finally {
@@ -754,13 +771,7 @@ export const useAndamentosOAB = (processoOabId: string | null) => {
           setAndamentos(prev => {
             // Evitar duplicatas
             if (prev.some(a => a.id === newAndamento.id)) return prev;
-            // Inserir ordenado por data
-            const updated = [newAndamento, ...prev];
-            return updated.sort((a, b) => {
-              const dateA = a.data_movimentacao ? new Date(a.data_movimentacao).getTime() : 0;
-              const dateB = b.data_movimentacao ? new Date(b.data_movimentacao).getTime() : 0;
-              return dateB - dateA;
-            });
+            return sortAndamentos([newAndamento, ...prev]);
           });
         }
       )
@@ -774,8 +785,8 @@ export const useAndamentosOAB = (processoOabId: string | null) => {
         },
         (payload) => {
           const updatedAndamento = payload.new as AndamentoOAB;
-          setAndamentos(prev => 
-            prev.map(a => a.id === updatedAndamento.id ? updatedAndamento : a)
+          setAndamentos(prev =>
+            sortAndamentos(prev.map(a => a.id === updatedAndamento.id ? updatedAndamento : a))
           );
         }
       )

@@ -238,6 +238,26 @@ export const ProcessoOABDetalhes = ({
   const [resetCredencialValue, setResetCredencialValue] = useState<string>('__publico__');
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmacaoFinalOpen, setConfirmacaoFinalOpen] = useState(false);
+  const [tribunaisTagsMap, setTribunaisTagsMap] = useState<Map<string, { nome: string; cor: string | null }>>(new Map());
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelado = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('super-admin-listar-tribunais-andamento', { body: {} });
+        if (error) throw error;
+        if (cancelado) return;
+        const list = ((data as any)?.tribunais || []) as Array<{ slug: string; nome: string; cor: string | null }>;
+        const m = new Map<string, { nome: string; cor: string | null }>();
+        list.forEach((t) => { if (t?.slug) m.set(t.slug, { nome: t.nome, cor: t.cor ?? null }); });
+        setTribunaisTagsMap(m);
+      } catch (e) {
+        // Falha silenciosa: badges caem para fallback (slug)
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [open]);
   const [carregandoAndamentos, setCarregandoAndamentos] = useState(false);
   const [activeTab, setActiveTab] = useState("resumo");
   const [prazosRefreshKey, setPrazosRefreshKey] = useState(0);
@@ -1477,6 +1497,9 @@ export const ProcessoOABDetalhes = ({
                         | { bucket?: string; storage_path?: string; nome?: string }
                         | null
                         | undefined;
+                      const isSigiloso = (andamento as any).dados_completos?.sigiloso === true;
+                      const tribunalTag = (andamento as any).dados_completos?.tribunal_tag as string | null | undefined;
+                      const tribunalInfo = tribunalTag ? tribunaisTagsMap.get(tribunalTag) : null;
                       
                       return (
                         <Card 
@@ -1523,6 +1546,20 @@ export const ProcessoOABDetalhes = ({
                                   <Badge variant="secondary" className="text-xs gap-1">
                                     <Paperclip className="w-2.5 h-2.5" />
                                     {anexosDoAndamento.length}
+                                  </Badge>
+                                )}
+                                {isSigiloso && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    Sigiloso
+                                  </Badge>
+                                )}
+                                {tribunalTag && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs"
+                                    style={tribunalInfo?.cor ? { borderColor: tribunalInfo.cor, color: tribunalInfo.cor } : undefined}
+                                  >
+                                    {tribunalInfo?.nome || tribunalTag}
                                   </Badge>
                                 )}
                               </div>
