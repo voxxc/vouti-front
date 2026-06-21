@@ -5,10 +5,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Paperclip, Plus, X } from 'lucide-react';
+import { EyeOff, Loader2, Paperclip, Plus, Settings2, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { GerenciarTribunaisDialog, TribunalTag } from './GerenciarTribunaisDialog';
 
 interface ProcessoLite {
   id: string;
@@ -46,6 +47,8 @@ interface AbaMovimento {
   marcarNaoLido: boolean;
   marcarComoAtualizado: boolean;
   arquivo: File | null;
+  sigiloso: boolean;
+  tribunalTag: string | null;
 }
 
 function novaAba(hoje: string): AbaMovimento {
@@ -57,6 +60,8 @@ function novaAba(hoje: string): AbaMovimento {
     marcarNaoLido: true,
     marcarComoAtualizado: false,
     arquivo: null,
+    sigiloso: false,
+    tribunalTag: null,
   };
 }
 
@@ -72,6 +77,22 @@ export function AdicionarMovimentoManualDialog({
   const [ativaId, setAtivaId] = useState<string>(() => '');
   const [salvando, setSalvando] = useState(false);
   const salvandoRef = useRef(false);
+  const [tribunais, setTribunais] = useState<TribunalTag[]>([]);
+  const [gerenciarOpen, setGerenciarOpen] = useState(false);
+
+  const carregarTribunais = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('super-admin-listar-tribunais-andamento', { body: {} });
+      if (error) throw error;
+      setTribunais(((data as any)?.tribunais || []) as TribunalTag[]);
+    } catch (e) {
+      console.warn('falha ao listar tribunais', e);
+    }
+  };
+
+  useEffect(() => {
+    if (open) carregarTribunais();
+  }, [open]);
 
   // inicializa quando abre
   useEffect(() => {
