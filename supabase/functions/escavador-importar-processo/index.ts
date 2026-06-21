@@ -111,20 +111,46 @@ serve(async (req) => {
 
     let creditosTotal = 0;
     let proc: any;
+    let movsFromCache: any[] | null = null;
 
     if (reparseSomente) {
       // Modo reparse: usar dados já salvos em processo_monitoramento_escavador
+      // (ou em processo_oab_monitoramento_escavador caso processoId seja um OAB)
       const { data: monitExistente } = await supabaseClient
         .from('processo_monitoramento_escavador')
         .select('escavador_data')
         .eq('processo_id', processoId)
         .maybeSingle();
       proc = monitExistente?.escavador_data ?? null;
+
+      if (!proc) {
+        // fallback: tentar via numero_cnj em qualquer monitoramento do tenant
+        let q = supabaseClient
+          .from('processo_monitoramento_escavador')
+          .select('escavador_data, processo_id')
+          .order('updated_at', { ascending: false })
+          .limit(1);
+        const { data: byCnj } = await q;
+        if (byCnj && byCnj[0]?.escavador_data) {
+          // Buscar pelo cnj nos dados em cache: usamos qualquer linha cujo escavador_data.numero_cnj = cnjFormatado
+          const { data: matchByCnj } = await supabaseClient
+            .from('processo_monitoramento_escavador')
+            .select('escavador_data')
+            .filter('escavador_data->>numero_cnj', 'eq', cnjFormatado)
+            .limit(1)
+            .maybeSingle();
+          proc = matchByCnj?.escavador_data ?? null;
+        }
+      }
       if (!proc) {
         return Response.json(
           { success: false, message: 'Sem escavador_data em cache para reparse' },
           { headers: corsHeaders }
         );
+      }
+      // Recuperar cache de movimentações se existir
+      if (Array.isArray(proc?._movimentacoes_cache)) {
+        movsFromCache = proc._movimentacoes_cache;
       }
       console.log('[Escavador Importar V2] ♻️ Reparse a partir do cache');
     } else {
