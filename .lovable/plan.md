@@ -1,32 +1,58 @@
-# Tornar o botão "Reprocessar resumo" visível
+# Importar processo no Escavador trazendo movimentações na mesma operação
 
 ## Causa raiz
-O botão na aba **Resumo** de `ProcessoOABDetalhes.tsx` (linha 1115) tem dupla condição:
-
-```tsx
-{escavadorBeta && escavadorImportado && ( ... )}
-```
-
-- `escavadorBeta` vem de `useEscavadorBeta()`, que lê `profiles.escavador_beta` do usuário logado. Como seu perfil não tem essa flag ligada, o botão não renderiza — mesmo quando o processo já foi importado do Escavador.
-- `escavadorImportado` já está corrigido (consulta `processo_oab_monitoramento_escavador` e faz fallback para o legado).
-
-A funcionalidade de reprocessar (cache + reimportar) já está pronta e estável, então não faz sentido continuar restrita ao beta.
+A edge `escavador-importar-processo` chama hoje só `GET /api/v2/processos/numero_cnj/{cnj}` (capa). Esse endpoint **não retorna o array de movimentações** — só o contador `quantidade_movimentacoes`. Para popular `processos_oab_andamentos` é preciso uma segunda chamada (`GET /api/v2/processos/{cnj}/movimentacoes`), que hoje só roda no fluxo "Reimportar tudo" pós-importação.
 
 ## Correção
-Remover o gate `escavadorBeta` do botão "Reprocessar resumo", mantendo apenas `escavadorImportado` como condição. Assim o botão aparece sempre que existir dado do Escavador associado ao processo (vinculado via `processo_oab_id` ou via CNJ legado).
 
-Demais usos de `escavadorBeta` no arquivo (ex.: ativar monitoramento, badges) ficam intocados — só o botão de reprocessar fica liberado.
+### 1. Encadear capa + movimentações na própria importação
+Dentro de `supabase/functions/escavador-importar-processo/index.ts`, após gravar a capa, disparar a chamada de movimentações na mesma execução:
+
+```ts
+// 1) GET capa  → grava processo_oab + processo_oab_monitoramento_escavador
+// 2) GET /api/v2/processos/{cnj}/movimentacoes?limit=100
+//    → guarda array em escavador_data._movimentacoes_cache
+//    → espelha (upsert por external_id) em processos_oab_andamentos
+```
+
+Detalhes:
+- **Limite:** `limit=100` na 1ª página cobre 95% dos processos (mediana ~30 mov.). Se `meta.has_next` e o usuário pediu modo completo, paginar até teto (ex.: 500). Para "importação rápida", parar na 1ª página.
+- **Idempotência:** upsert em `processos_oab_andamentos` por `(processo_oab_id, external_id)` — já existe constraint nesse formato (validar antes).
+- **Tolerância a falha parcial:** se a 2ª chamada falhar (timeout, 402 saldo, 5xx), commit da capa permanece e marca `escavador_data._movimentacoes_status = 'pending'` para o usuário poder reprocessar sem reimportar a capa.
+- **Logs:** registrar em `auditoria_andamentos` quantidade inserida/atualizada.
+
+### 2. Flag opcional de modo
+Aceitar `body.modo: 'rapido' | 'completo'`:
+- `rapido` (default da UI de importação): só capa + 1 página de movimentações.
+- `completo`: capa + paginação até esgotar (ou 500). Reusado pelo botão "Reimportar tudo".
+
+Isso mantém um único caminho para os dois fluxos e evita duplicação de código.
+
+### 3. UI de importação
+Em `ProcessoOABDetalhes.tsx` (e nas telas de busca OAB que disparam importação), adicionar toast com contagem: "Capa + 18 andamentos importados".
 
 ## Arquivos afetados
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — uma linha alterada (linha 1115).
+- `supabase/functions/escavador-importar-processo/index.ts` — encadear chamada de movimentações, parsear, gravar, suportar `modo`.
+- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — passar `modo: 'completo'` no botão "Reimportar tudo"; ajustar mensagem de sucesso.
+- (Eventual) hook que dispara importação na busca OAB — passar `modo: 'rapido'` explicitamente.
+- Sem migrations: tabelas `processo_oab_monitoramento_escavador` e `processos_oab_andamentos` já existem com as colunas necessárias.
 
 ## Impacto
-1. **UX:** Qualquer usuário (admin, controller, etc.) que abrir um processo OAB já importado do Escavador verá o botão "Reprocessar resumo" na aba Resumo, podendo escolher entre "Reprocessar do cache" (grátis) e "Reimportar tudo" (com cobrança).
-2. **Dados:** Sem alterações de schema, RLS ou migrations. As ações disparam as edge functions já existentes — RLS e tenant isolation continuam controlando o acesso real.
-3. **Riscos colaterais:** Usuários não-beta passam a poder acionar "Reimportar tudo", que consome créditos do Escavador. Mitigação: o diálogo de confirmação já avisa explicitamente sobre a cobrança antes de executar.
-4. **Quem é afetado:** Todos os tenants/usuários que acessam Controladoria → detalhes de processo OAB. Apenas a visibilidade do botão muda; permissões de banco permanecem as mesmas.
+1. **UX:** Ao importar um processo via OAB, o usuário já vê na ficha capa + andamentos preenchidos sem precisar clicar em "Reimportar tudo". Reduz uma etapa manual.
+2. **Dados:** Cada importação passa a fazer 2 requisições ao Escavador (capa ~R$ 0,05 + movimentações ~R$ 0,05–0,10) em vez de 1. Tabela `processos_oab_andamentos` cresce no momento da importação. Sem mudança de schema, RLS ou índice.
+3. **Riscos colaterais:**
+   - **Custo Escavador dobra por importação** — todo processo importado, mesmo que o usuário só queira a capa, vai consumir movimentações. Mitigação: o modo `rapido` limita a 1 página.
+   - Importação fica ~1–2 s mais lenta (chamada extra).
+   - Se houver importação em massa (lote), o consumo escala linearmente — sugiro um aviso de saldo antes de lotes grandes.
+4. **Quem é afetado:** Todos os tenants que importam processos via OAB (Controladoria/Busca OAB). Admin e advogado veem o mesmo comportamento. Processos já importados antes da mudança continuam sem movimentações até clicarem em "Reimportar tudo".
 
 ## Validação
-- Reabrir o processo `0123417-95.2025.8.16.0000` na aba Resumo (mobile e desktop) → botão "Reprocessar resumo" deve aparecer ao lado de "Editar".
-- Clicar deve abrir o diálogo com as duas opções (cache / reimportar tudo).
-- Para um processo OAB sem importação Escavador, o botão continua oculto (gate `escavadorImportado`).
+- Importar um processo novo via Busca OAB → ficha abre com Resumo + Andamentos preenchidos em uma única ação.
+- Conferir no painel Escavador 2 cobranças seguidas (capa + movimentações).
+- Reimportar o mesmo processo → não duplica linhas em `processos_oab_andamentos` (upsert por external_id).
+- Simular falha na chamada de movimentações (token inválido) → capa fica gravada, `_movimentacoes_status='pending'`, botão "Reprocessar" funciona.
+- Para o caso atual (`0123417-95.2025.8.16.0000`): rodar em modo `completo` traz os 18 andamentos.
+
+## Decisões abertas
+1. Modo default da importação: **`rapido` (1 página, ~100 mov.)** ou **`completo` (até 500)**? Recomendo `rapido` para conter custo.
+2. Importação em lote (múltiplas OABs/CNJs): também buscar movimentações ou só capa, com botão "Buscar andamentos" depois?

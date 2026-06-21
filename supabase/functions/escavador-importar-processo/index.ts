@@ -9,6 +9,7 @@ const corsHeaders = {
 const V2_BASE = 'https://api.escavador.com/api/v2';
 const MAX_MOVS = 500;
 const PAGE_LIMIT = 100;
+const RAPIDO_MAX_MOVS = 100; // 1 página
 
 function dedupHashOab(processoOabId: string, descricao: string, dataMov: string): string {
   const hashSrc = `${processoOabId}|${(descricao || '').trim().slice(0, 200)}|${(dataMov || '').slice(0, 19)}`;
@@ -84,13 +85,14 @@ serve(async (req) => {
       tenantId = null,
       ativarMonitoramento = false,
       reparseSomente = false,
+      modo = 'rapido', // 'rapido' = 1 página (~100 movs); 'completo' = até MAX_MOVS
     } = await req.json();
 
     if (!processoId || !numeroProcesso) {
       throw new Error('processoId e numeroProcesso sao obrigatorios');
     }
 
-    console.log('[Escavador Importar V2] 🔧 Iniciando:', numeroProcesso, '| monitoramento:', ativarMonitoramento, '| reparse:', reparseSomente);
+    console.log('[Escavador Importar V2] 🔧 Iniciando:', numeroProcesso, '| monitoramento:', ativarMonitoramento, '| reparse:', reparseSomente, '| modo:', modo);
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -261,30 +263,49 @@ serve(async (req) => {
 
     // === 2. COLETAR MOVIMENTAÇÕES (antes do upsert para gravar cache) ===
     let movimentacoes: any[] = [];
+    let movsStatus: 'ok' | 'pending' | 'partial' = 'ok';
+    let movsError: string | null = null;
     if (reparseSomente) {
       movimentacoes = movsFromCache ?? [];
       console.log(`[Escavador Importar V2] ♻️ Reparse: ${movimentacoes.length} movs do cache`);
     } else {
+      const teto = modo === 'completo' ? MAX_MOVS : RAPIDO_MAX_MOVS;
       let nextUrl: string | null =
         `${V2_BASE}/processos/numero_cnj/${encodeURIComponent(cnjFormatado)}/movimentacoes?limit=${PAGE_LIMIT}`;
-      while (nextUrl && movimentacoes.length < MAX_MOVS) {
-        const movResp = await fetch(nextUrl, { headers });
-        creditosTotal += Number(movResp.headers.get('Creditos-Utilizados') || 0);
-        if (!movResp.ok) {
-          console.error('[Escavador Importar V2] movs falhou:', movResp.status, await movResp.text());
-          break;
+      try {
+        while (nextUrl && movimentacoes.length < teto) {
+          const movResp = await fetch(nextUrl, { headers });
+          creditosTotal += Number(movResp.headers.get('Creditos-Utilizados') || 0);
+          if (!movResp.ok) {
+            const txt = await movResp.text();
+            console.error('[Escavador Importar V2] movs falhou:', movResp.status, txt);
+            movsError = `HTTP ${movResp.status}: ${txt.slice(0, 200)}`;
+            movsStatus = movimentacoes.length > 0 ? 'partial' : 'pending';
+            break;
+          }
+          const page = await movResp.json();
+          const items: any[] = page?.items ?? page?.data ?? [];
+          movimentacoes.push(...items);
+          nextUrl = page?.links?.next ?? null;
+          if (!items.length) break;
         }
-        const page = await movResp.json();
-        const items: any[] = page?.items ?? page?.data ?? [];
-        movimentacoes.push(...items);
-        nextUrl = page?.links?.next ?? null;
-        if (!items.length) break;
+      } catch (e: any) {
+        console.error('[Escavador Importar V2] exceção em movs:', e?.message);
+        movsError = e?.message || String(e);
+        movsStatus = movimentacoes.length > 0 ? 'partial' : 'pending';
       }
-      console.log(`[Escavador Importar V2] coletadas ${movimentacoes.length} movs | créditos: ${creditosTotal}`);
+      console.log(`[Escavador Importar V2] coletadas ${movimentacoes.length} movs | modo: ${modo} | teto: ${teto} | créditos: ${creditosTotal} | status: ${movsStatus}`);
     }
 
     // Persistir cache de movs dentro do escavador_data (para reparse futuro)
-    const procToStore = { ...proc, _movimentacoes_cache: movimentacoes };
+    const procToStore = {
+      ...proc,
+      _movimentacoes_cache: movimentacoes,
+      _movimentacoes_status: movsStatus,
+      _movimentacoes_error: movsError,
+      _movimentacoes_modo: modo,
+      _movimentacoes_updated_at: new Date().toISOString(),
+    };
 
     // === 2.1 UPSERT MONITORAMENTO (capa + cache) ===
     const { error: upsertError } = await supabaseClient
@@ -498,6 +519,10 @@ serve(async (req) => {
         monitoramentoAtivado: !!ativarMonitoramento,
         creditosUtilizados: creditosTotal,
         capa: capaEstruturada,
+        modo,
+        movimentacoesStatus: movsStatus,
+        movimentacoesError: movsError,
+        totalMovsColetadas: movimentacoes.length,
       },
       { headers: corsHeaders }
     );

@@ -112,6 +112,7 @@ export const ImportarProcessoDialog = ({
             numeroProcesso: processo.numero_cnj,
             tenantId,
             ativarMonitoramento,
+            modo: 'rapido',
           },
         }).then(({ data, error }) => {
           if (error || !data?.success) {
@@ -182,6 +183,7 @@ export const ImportarProcessoDialog = ({
           numeroProcesso: processo.numero_cnj,
           tenantId,
           ativarMonitoramento,
+          modo: 'rapido',
         },
       }).then(({ data, error }) => {
         if (error || !data?.success) {
