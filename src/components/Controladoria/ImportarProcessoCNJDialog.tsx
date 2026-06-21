@@ -89,6 +89,10 @@ export const ImportarProcessoCNJDialog = ({
   ): Promise<{ success: boolean; duplicado?: boolean; andamentosInseridos?: number; error?: string }> => {
     const numeroFinal = opts.apartado && opts.sufixo ? `${cnj}${opts.sufixo}` : cnj;
 
+    if (!user?.id) {
+      return { success: false, error: 'Usuário não autenticado' };
+    }
+
     // Verificar duplicidade
     const { data: existente } = await supabase
       .from('processos')
@@ -114,7 +118,7 @@ export const ImportarProcessoCNJDialog = ({
       .insert({
         numero_processo: numeroFinal,
         tribunal_id: tribunalData?.id || null,
-        created_by: user?.id,
+        created_by: user.id,
         status: 'em_andamento',
       })
       .select()
