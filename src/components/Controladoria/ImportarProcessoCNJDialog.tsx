@@ -172,6 +172,7 @@ export const ImportarProcessoCNJDialog = ({
         numeroProcesso: numeroFinal,
         tenantId,
         ativarMonitoramento: false,
+        modo: 'rapido',
       },
     });
 
