@@ -126,16 +126,28 @@ export function SuperAdminProcessoOABDetalhesPanel({
     const newIndex = andamentos.findIndex((a) => a.id === over.id);
     if (oldIndex < 0 || newIndex < 0) return;
     const novo = arrayMove(andamentos, oldIndex, newIndex);
-    const anterior = andamentos;
     setAndamentos(novo);
+    setOrdemDirty(true);
+  };
+
+  const salvarOrdem = async () => {
+    if (!ordemDirty) {
+      setDestravado(false);
+      return;
+    }
+    setSalvandoOrdem(true);
     try {
       const { error } = await supabase.functions.invoke('super-admin-reordenar-andamentos', {
-        body: { processo_oab_id: processo.id, ordem: novo.map((a) => a.id) },
+        body: { processo_oab_id: processo.id, ordem: andamentos.map((a) => a.id) },
       });
       if (error) throw error;
+      toast.success('Ordem salva.');
+      setOrdemDirty(false);
+      setDestravado(false);
     } catch (e: any) {
-      setAndamentos(anterior);
-      toast.error(e?.message || 'Erro ao reordenar');
+      toast.error(e?.message || 'Erro ao salvar ordem');
+    } finally {
+      setSalvandoOrdem(false);
     }
   };
 
