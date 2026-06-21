@@ -289,19 +289,9 @@ export const ImportarProcessoCNJDialog = ({
     for (let i = 0; i < processosParaImportar.length; i++) {
       const cnj = processosParaImportar[i];
       try {
-        const { data, error } = await supabase.functions.invoke('judit-buscar-processo-cnj', {
-          body: {
-            numeroCnj: cnj,
-            oabId: oab.id,
-            tenantId,
-            userId: user?.id,
-            juditSystemName: systemNameSelecionado,
-            juditCustomerKey: customerKeySelecionada,
-          }
-        });
-
-        if (error) throw error;
-        if (!data?.success) throw new Error(data?.error || 'Erro');
+        const res = await importarUmCnj(cnj);
+        if (res.duplicado) throw new Error('Já cadastrado');
+        if (!res.success) throw new Error(res.error || 'Erro');
 
         sucesso++;
         toast({
