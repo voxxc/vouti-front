@@ -259,7 +259,34 @@ serve(async (req) => {
       partePassiva,
     });
 
-    // === 2. UPSERT MONITORAMENTO (capa) ===
+    // === 2. COLETAR MOVIMENTAÇÕES (antes do upsert para gravar cache) ===
+    let movimentacoes: any[] = [];
+    if (reparseSomente) {
+      movimentacoes = movsFromCache ?? [];
+      console.log(`[Escavador Importar V2] ♻️ Reparse: ${movimentacoes.length} movs do cache`);
+    } else {
+      let nextUrl: string | null =
+        `${V2_BASE}/processos/numero_cnj/${encodeURIComponent(cnjFormatado)}/movimentacoes?limit=${PAGE_LIMIT}`;
+      while (nextUrl && movimentacoes.length < MAX_MOVS) {
+        const movResp = await fetch(nextUrl, { headers });
+        creditosTotal += Number(movResp.headers.get('Creditos-Utilizados') || 0);
+        if (!movResp.ok) {
+          console.error('[Escavador Importar V2] movs falhou:', movResp.status, await movResp.text());
+          break;
+        }
+        const page = await movResp.json();
+        const items: any[] = page?.items ?? page?.data ?? [];
+        movimentacoes.push(...items);
+        nextUrl = page?.links?.next ?? null;
+        if (!items.length) break;
+      }
+      console.log(`[Escavador Importar V2] coletadas ${movimentacoes.length} movs | créditos: ${creditosTotal}`);
+    }
+
+    // Persistir cache de movs dentro do escavador_data (para reparse futuro)
+    const procToStore = { ...proc, _movimentacoes_cache: movimentacoes };
+
+    // === 2.1 UPSERT MONITORAMENTO (capa + cache) ===
     const { error: upsertError } = await supabaseClient
       .from('processo_monitoramento_escavador')
       .upsert(
@@ -267,7 +294,7 @@ serve(async (req) => {
           processo_id: processoId,
           tenant_id: tenantId,
           escavador_id: escavadorIdStr,
-          escavador_data: proc,
+          escavador_data: procToStore,
           classe: classeNome,
           assunto: assuntoNome,
           area: areaNome,
@@ -285,7 +312,7 @@ serve(async (req) => {
       throw upsertError;
     }
 
-    // === 2.1 ATUALIZAR DADOS DA CAPA NO PROCESSO ===
+    // === 2.2 ATUALIZAR DADOS DA CAPA NO PROCESSO (espelho) ===
     try {
       const updates: Record<string, any> = {};
       if (classeNome) updates.tipo_acao_nome = classeNome;
@@ -308,7 +335,8 @@ serve(async (req) => {
       console.error('[Escavador Importar V2] erro update processos:', e);
     }
 
-    // === 2.2 ATUALIZAR processos_oab COM A CAPA ===
+    // === 2.3 ATUALIZAR processos_oab COM A CAPA + LOCALIZAR OABS ===
+    let oabRows: any[] = [];
     try {
       const oabUpdates: Record<string, any> = {
         detalhes_carregados: true,
@@ -332,47 +360,21 @@ serve(async (req) => {
       if (tenantId) q = q.eq('tenant_id', tenantId);
       const { error: oabErr } = await q;
       if (oabErr) console.error('[Escavador Importar V2] update processos_oab:', oabErr.message);
+
+      // Localizar OAB rows para espelhar andamentos
+      let qSel = supabaseClient
+        .from('processos_oab')
+        .select('id, tenant_id')
+        .eq('numero_cnj', cnjFormatado);
+      if (tenantId) qSel = qSel.eq('tenant_id', tenantId);
+      const { data: oabsFound } = await qSel;
+      oabRows = oabsFound || [];
+      console.log(`[Escavador Importar V2] processos_oab encontrados: ${oabRows.length}`);
     } catch (e) {
       console.error('[Escavador Importar V2] erro update processos_oab:', e);
     }
 
-    if (reparseSomente) {
-      // Não refaz movimentações, só repreenche capa
-      return Response.json(
-        {
-          success: true,
-          reparse: true,
-          andamentosInseridos: 0,
-          monitoramentoAtivado: !!ativarMonitoramento,
-          creditosUtilizados: 0,
-          capa: capaEstruturada,
-        },
-        { headers: corsHeaders }
-      );
-    }
-
-    // === 3. MOVIMENTAÇÕES (V2 paginado por cursor) ===
-    const movimentacoes: any[] = [];
-    let nextUrl: string | null =
-      `${V2_BASE}/processos/numero_cnj/${encodeURIComponent(cnjFormatado)}/movimentacoes?limit=${PAGE_LIMIT}`;
-
-    while (nextUrl && movimentacoes.length < MAX_MOVS) {
-      const movResp = await fetch(nextUrl, { headers });
-      creditosTotal += Number(movResp.headers.get('Creditos-Utilizados') || 0);
-      if (!movResp.ok) {
-        console.error('[Escavador Importar V2] movs falhou:', movResp.status, await movResp.text());
-        break;
-      }
-      const page = await movResp.json();
-      const items: any[] = page?.items ?? page?.data ?? [];
-      movimentacoes.push(...items);
-      nextUrl = page?.links?.next ?? null;
-      if (!items.length) break;
-    }
-
-    console.log(`[Escavador Importar V2] coletadas ${movimentacoes.length} movs | créditos: ${creditosTotal}`);
-
-    // Deduplicar contra o que já existe (idempotência)
+    // === 3. INSERIR MOVS em processo_atualizacoes_escavador (idempotente) ===
     const { data: existentes } = await supabaseClient
       .from('processo_atualizacoes_escavador')
       .select('descricao, data_evento')
@@ -384,7 +386,7 @@ serve(async (req) => {
 
     let totalSalvas = 0;
     for (const mov of movimentacoes) {
-      const descricao = mov.conteudo || mov.tipo || mov.descricao || 'Sem descrição';
+      const descricao = mov.conteudo || mov.descricao || mov.texto || mov.tipo || 'Sem descrição';
       const dataEvento = mov.data || mov.data_evento || new Date().toISOString();
       const chave = `${dataEvento}|${String(descricao).slice(0, 200)}`;
       if (chaveExistente.has(chave)) continue;
@@ -394,7 +396,7 @@ serve(async (req) => {
         .insert({
           processo_id: processoId,
           tenant_id: tenantId,
-          tipo_atualizacao: 'importacao_inicial',
+          tipo_atualizacao: reparseSomente ? 'reparse_cache' : 'importacao_inicial',
           descricao,
           data_evento: dataEvento,
           dados_completos: mov,
@@ -412,10 +414,87 @@ serve(async (req) => {
 
     console.log(`[Escavador Importar V2] ✅ ${totalSalvas} novas movs salvas`);
 
+    // === 4. ESPELHAR EM processos_oab_andamentos + processo_oab_monitoramento_escavador ===
+    let totalOabSalvas = 0;
+    for (const oab of oabRows) {
+      try {
+        // Upsert do monitoramento OAB (cache + capa)
+        const { error: oabMonitErr } = await supabaseClient
+          .from('processo_oab_monitoramento_escavador')
+          .upsert(
+            {
+              processo_oab_id: oab.id,
+              tenant_id: oab.tenant_id ?? tenantId,
+              numero_cnj: cnjFormatado,
+              escavador_id: escavadorIdStr,
+              escavador_data: procToStore,
+              monitoramento_ativo: !!ativarMonitoramento,
+              ultima_consulta: new Date().toISOString(),
+              ultima_atualizacao: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'processo_oab_id' }
+          );
+        if (oabMonitErr) {
+          console.error('[Escavador Importar V2] upsert monitoramento OAB falhou:', oabMonitErr.message);
+        }
+
+        // Inserir andamentos OAB (idempotente via dedup_hash)
+        let inseridosNesteOab = 0;
+        for (const mov of movimentacoes) {
+          const descricao = mov.conteudo || mov.descricao || mov.texto || mov.tipo || 'Sem descrição';
+          const dataMov = mov.data || mov.data_evento || new Date().toISOString();
+          const dedup = dedupHashOab(oab.id, descricao, dataMov);
+
+          const { error: insErr } = await supabaseClient
+            .from('processos_oab_andamentos')
+            .insert({
+              processo_oab_id: oab.id,
+              tenant_id: oab.tenant_id ?? tenantId,
+              data_movimentacao: dataMov,
+              tipo_movimentacao: mov.tipo || mov.evento || 'movimentacao',
+              descricao,
+              dados_completos: { ...mov, _origem: 'escavador' },
+              lida: false,
+              dedup_hash: dedup,
+            });
+          if (!insErr) {
+            inseridosNesteOab++;
+            totalOabSalvas++;
+          }
+        }
+
+        if (inseridosNesteOab > 0) {
+          // Atualiza contador
+          const { data: monitRow } = await supabaseClient
+            .from('processo_oab_monitoramento_escavador')
+            .select('total_atualizacoes')
+            .eq('processo_oab_id', oab.id)
+            .maybeSingle();
+          await supabaseClient
+            .from('processo_oab_monitoramento_escavador')
+            .update({
+              total_atualizacoes: (monitRow?.total_atualizacoes || 0) + inseridosNesteOab,
+              ultima_atualizacao: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('processo_oab_id', oab.id);
+        }
+
+        console.log(`[Escavador Importar V2] OAB ${oab.id}: ${inseridosNesteOab} novos andamentos`);
+      } catch (e) {
+        console.error('[Escavador Importar V2] erro espelhando para OAB:', e);
+      }
+    }
+
     return Response.json(
       {
         success: true,
+        reparse: !!reparseSomente,
         andamentosInseridos: totalSalvas,
+        andamentosOabInseridos: totalOabSalvas,
+        oabsAtualizados: oabRows.length,
+        temCacheMovs: movimentacoes.length > 0,
         monitoramentoAtivado: !!ativarMonitoramento,
         creditosUtilizados: creditosTotal,
         capa: capaEstruturada,
