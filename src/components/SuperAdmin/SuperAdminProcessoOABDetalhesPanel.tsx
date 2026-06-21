@@ -114,6 +114,7 @@ export function SuperAdminProcessoOABDetalhesPanel({
     if (!open) return;
     setData(null);
     setDestravado(false);
+    setOrdemDirty(false);
     carregar();
     carregarTribunais();
     // eslint-disable-next-line react-hooks/exhaustive-deps
