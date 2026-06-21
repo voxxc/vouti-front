@@ -319,7 +319,7 @@ export const ImportarProcessoCNJDialog = ({
         sucesso++;
         toast({
           title: `Progresso: ${i + 1}/${total}`,
-          description: `Processo ${cnj.slice(0, 15)}... importado`
+          description: `Processo ${cnj.slice(0, 15)}... ${res.reaproveitado ? 'atualizado' : 'importado'}`
         });
       } catch (err: any) {
         erros++;
