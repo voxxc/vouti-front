@@ -1018,6 +1018,23 @@ export const ProcessoOABDetalhes = ({
                     </Card>
                   ) : (
                     <div className="flex justify-end">
+                      {escavadorBeta && escavadorAtivo && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setConfirmReparseOpen(true)}
+                          disabled={reprocessandoResumo}
+                          className="mr-2"
+                          title="Reprocessa o resumo usando o cache do Escavador, sem nova cobrança"
+                        >
+                          {reprocessandoResumo ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-4 h-4 mr-1" />
+                          )}
+                          Reprocessar resumo
+                        </Button>
+                      )}
                       <Button 
                         variant="outline" 
                         size="sm" 
