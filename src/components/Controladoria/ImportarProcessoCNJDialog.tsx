@@ -120,6 +120,8 @@ export const ImportarProcessoCNJDialog = ({
         tribunal_id: tribunalData?.id || null,
         created_by: user.id,
         status: 'em_andamento',
+        parte_ativa: '',
+        parte_passiva: '',
       })
       .select()
       .single();
