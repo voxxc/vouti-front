@@ -736,7 +736,7 @@ export const useAndamentosOAB = (processoOabId: string | null) => {
         .from('processos_oab_andamentos')
         .select('*')
         .eq('processo_oab_id', processoOabId)
-        .order('super_admin_ordem', { ascending: true, nullsFirst: false })
+        .order('super_admin_ordem', { ascending: false, nullsFirst: false })
         .order('data_movimentacao', { ascending: false });
 
       if (error) throw error;
