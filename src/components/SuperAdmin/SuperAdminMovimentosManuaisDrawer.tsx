@@ -37,7 +37,7 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
     (async () => {
       setLoading(true);
       try {
-        const data = await fetchAllPaginated<ProcessoLite>(
+        const { data, error } = await fetchAllPaginated<ProcessoLite>(
           () =>
             supabase
               .from('processos_oab')
@@ -45,6 +45,7 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
               .eq('tenant_id', tenant.id)
               .order('numero_cnj', { ascending: true }) as any,
         );
+        if (error) throw error;
         if (!cancel) setProcessos(data || []);
       } catch (e) {
         console.error(e);
