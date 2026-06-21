@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTenantId } from './useTenantId';
 import { ProcessoOAB, OABCadastrada } from './useOABs';
 import { formatCnjFromDigits } from '@/utils/processoHelpers';
+import { cnjUFFromRow, buildUFOrFilter } from '@/utils/cnjUFMap';
 
 export interface ProcessoOABComOAB extends ProcessoOAB {
   oab_numero: string;
@@ -90,7 +91,7 @@ export const useAllProcessosOAB = (
       const ufMap = new Map<string, number>();
       const oabMap = new Map<string, number>();
       (listaRes.data || []).forEach((p: any) => {
-        const uf = extrairUFFromRow(p.tribunal_sigla, p.numero_cnj);
+        const uf = cnjUFFromRow(p.tribunal_sigla, p.numero_cnj);
         if (uf) ufMap.set(uf, (ufMap.get(uf) || 0) + 1);
         const oc = p.oabs_cadastradas;
         if (oc?.oab_numero && oc?.oab_uf) {
@@ -157,7 +158,8 @@ export const useAllProcessosOAB = (
       } else if (filtroPrincipal === 'nao-lidos' && idsNaoLidos) {
         query = query.in('id', idsNaoLidos);
       } else if (typeof filtroPrincipal === 'object' && filtroPrincipal.tipo === 'uf') {
-        query = query.ilike('tribunal_sigla', `TJ${filtroPrincipal.uf}%`);
+        const orClause = buildUFOrFilter(filtroPrincipal.uf);
+        if (orClause) query = query.or(orClause);
       } else if (typeof filtroPrincipal === 'object' && filtroPrincipal.tipo === 'oab') {
         query = query
           .eq('oabs_cadastradas.oab_numero', filtroPrincipal.numero)
@@ -447,30 +449,3 @@ export const useAllProcessosOAB = (
     refetchGlobalCounts: fetchGlobalCounts,
   };
 };
-
-// Helper local — duplicado do GeralTab para manter o hook independente
-const TRIBUNAL_UF_MAP_HOOK: Record<string, string> = {
-  '01': 'AC', '02': 'AL', '03': 'AP', '04': 'AM', '05': 'BA',
-  '06': 'CE', '07': 'DF', '08': 'ES', '09': 'GO', '10': 'MA',
-  '11': 'MT', '12': 'MS', '13': 'MG', '14': 'PA', '15': 'PB',
-  '16': 'PR', '17': 'PE', '18': 'PI', '19': 'RJ', '20': 'RN',
-  '21': 'RS', '22': 'RO', '23': 'RR', '24': 'SC', '25': 'SE',
-  '26': 'SP', '27': 'TO',
-};
-
-function extrairUFFromRow(tribunalSigla: string | null | undefined, numeroCnj?: string | null): string | null {
-  if (tribunalSigla) {
-    const m = tribunalSigla.match(/TJ([A-Z]{2})/);
-    if (m) return m[1];
-  }
-  if (numeroCnj) {
-    const match = numeroCnj.match(/\.\d{4}\.(\d)\.(\d{2})\./);
-    if (match) {
-      const segmento = match[1];
-      const codigoTribunal = match[2];
-      if (segmento === '8' && TRIBUNAL_UF_MAP_HOOK[codigoTribunal]) return TRIBUNAL_UF_MAP_HOOK[codigoTribunal];
-      return `${segmento}.${codigoTribunal}`;
-    }
-  }
-  return null;
-}

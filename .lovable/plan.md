@@ -1,56 +1,63 @@
 ## Causa raiz
 
-Na aba **OABs > Geral**, os filtros (Monitorados, Sigilosos, Não lidos, UF, OAB, Apartado) são aplicados **somente sobre a página atual** (20 itens já paginados pelo servidor). O fluxo hoje é:
+Hoje o filtro de **UF** na aba OABs > Geral tem dois problemas:
 
-1. `useAllProcessosOAB` faz `range(from, to)` no Supabase → traz 20 processos da página
-2. `GeralTab` chama `processos.filter(p => p.monitoramento_ativo)` em cima desses 20
+1. **A lista de UFs no Select é "suja"**: `extrairUFFromRow` só mapeia `segmento = 8` (Justiça Estadual) para sigla de estado (ex.: `8.16 → PR`). Para Justiça Federal (`4.xx`) e Trabalho (`5.xx`) ela retorna o rótulo bruto `4.04`, `5.09`, etc. Resultado: o Select mostra ao mesmo tempo "PR (123)", "8.16 (X)", "5.09 (Y)", "4.04 (Z)" — o usuário não consegue filtrar **todos os processos do Paraná** num único clique.
 
-Por isso "Monitorados (384)" aparece como contador, mas ao clicar mostra só os monitorados que por acaso estão entre os 20 visíveis. O `totalCount` exibido na paginação continua sendo o de "todos os processos", não o do filtro ativo.
+2. **O filtro server-side é restritivo demais**: quando o usuário clica em "PR", o hook aplica somente `.ilike('tribunal_sigla', 'TJPR%')`. Isso:
+   - ignora TRT-9 (`5.09`), TRF-4 (`4.04`) e demais tribunais do PR;
+   - quebra para processos sem `tribunal_sigla` cadastrada (cai fora do resultado);
+   - quando o valor escolhido é um rótulo bruto tipo `8.16`, vira `ilike('tribunal_sigla', 'TJ8.16%')` que nunca casa, gerando "nenhum resultado" — e em algumas linhas com `tribunal_sigla` nulo combinado com outros estados a página pode estourar contadores zerados (sensação de "deu erro").
+
+A "página de erro" que você viu vem desse segundo ponto: clicar num rótulo numérico (`5.09`, `4.04`) ou em "PR" zera tudo, deixando a paginação inconsistente em relação ao badge global.
 
 ## Correção
 
-Mover os filtros para o **servidor**, dentro de `useAllProcessosOAB`, e recalcular os contadores globais separadamente.
+Centralizar um mapa **UF ↔ códigos CNJ por segmento** e usá-lo nos dois lados (UI e query):
 
-1. **Hook `useAllProcessosOAB`** passa a aceitar:
-   - `filtroPrincipal`: `'todos' | 'monitorados' | 'sigilosos' | 'nao-lidos' | 'uf:XX' | 'oab:numero/uf'`
-   - `filtroApartado`: `'todos' | 'apartados' | 'nao_apartados'`
+```text
+PR → segmento 8 código 16 (TJPR) | segmento 5 código 09 (TRT-9) | segmento 4 código 04 (TRF-4)
+SP → 8.26 | 5.02 | 4.03
+RJ → 8.19 | 5.01 | 4.02
+... (todos os 27 estados, mais STJ/STF como categorias separadas)
+```
 
-2. **Aplicar no query Supabase** (em vez de filtrar no cliente):
-   - Monitorados → `.eq('monitoramento_ativo', true)`
-   - Sigilosos → `.gte('capa_completa->>secrecy_level', 1)` (filtro em JSON)
-   - UF → `.ilike('tribunal_sigla', \`TJ${uf}%\`)` (mantém fallback de extração para badges)
-   - OAB → `.eq('oabs_cadastradas.oab_numero', n).eq('oabs_cadastradas.oab_uf', uf)` no inner join
-   - Apartado → `.eq('apartado', true/false)`
-   - Não-lidos → primeiro chamar RPC `get_andamentos_nao_lidos_por_processo`, extrair ids com `nao_lidos > 0`, depois `.in('id', ids)` na query principal
+1. **Novo helper `src/utils/cnjUFMap.ts`** com:
+   - `UF_TO_CNJ_CODES`: `{ PR: { tj: '16', trt: '09', trf: '04' }, ... }`
+   - `cnjUFFromRow(tribunal_sigla, numero_cnj)` — substitui `extrairUFFromRow`, agora **sempre** retorna sigla de estado (PR/SP/RJ...) ou `null`. Reconhece TJxx, TRTx, TRFx via regex e cai no CNJ se necessário.
+   - `buildUFOrFilter(uf)` — gera string para `.or()` do Supabase: `numero_cnj.like.%.8.16.%,numero_cnj.like.%.5.09.%,numero_cnj.like.%.4.04.%,tribunal_sigla.eq.TJPR,tribunal_sigla.eq.TRT9,tribunal_sigla.eq.TRF4`.
 
-3. **`totalCount`** passa a refletir o filtro (count: 'exact' já considera os WHEREs aplicados). Paginação 1..N se adapta automaticamente ao subconjunto.
+2. **`useAllProcessosOAB.ts`**:
+   - `fetchGlobalCounts` passa a usar `cnjUFFromRow` → `globalCounts.ufs` fica limpo (só PR, SP, RJ, etc.). Linhas sem UF detectável vão para uma chave `null` e ficam fora do Select.
+   - No `fetchProcessos`, quando `filtroPrincipal.tipo === 'uf'`, trocar o `ilike` por `query.or(buildUFOrFilter(uf))`. Cobre TJ + TRT + TRF do estado num só filtro.
+   - Remover `TRIBUNAL_UF_MAP_HOOK` local (passa a vir do helper).
 
-4. **Badges globais** (441 / 384 / X sigilosos / X não-lidos) deixam de vir de `processos` (que é só a página) e passam a vir de queries de contagem dedicadas em paralelo:
-   - `count: 'exact', head: true` para monitorados e sigilosos no tenant
-   - RPC já usada para não-lidos retorna lista global → contar `length` dela
-   - Resultado fixo independente da página/filtro atual
+3. **`GeralTab.tsx`**:
+   - A lista de UFs no Select já vem limpa via `globalCounts.ufs` (sem mudança de código no componente — só os valores melhoram).
+   - Ajustar o rótulo para mostrar nome do estado (opcional, já que hoje mostra a sigla).
+
+Sem migrations, sem mudança de RLS, sem nova RPC.
 
 ## Arquivos afetados
 
-- `src/hooks/useAllProcessosOAB.ts` — receber filtros, aplicar server-side, expor `globalCounts` (total, monitorados, sigilosos, naoLidos)
-- `src/components/Controladoria/GeralTab.tsx` — passar filtros pro hook, remover `processosFiltrados` (usar `processos` direto), ler badges de `globalCounts`, manter selects de UF/OAB usando contagens globais (nova RPC simples ou lista pré-carregada uma única vez)
-
-Sem migrations, sem mudanças de RLS.
+- `src/utils/cnjUFMap.ts` *(novo)* — mapa estado→códigos e helpers `cnjUFFromRow` / `buildUFOrFilter`.
+- `src/hooks/useAllProcessosOAB.ts` — usa o helper em `fetchGlobalCounts` e troca o `ilike` de UF por `or(...)` cobrindo TJ/TRT/TRF.
+- `src/components/Controladoria/GeralTab.tsx` — opcionalmente exibir nome do estado ao lado da sigla na linha do Select.
 
 ## Impacto
 
-1. **Usuário final (UX)**: clicar em "Monitorados (384)" passa a listar realmente 384 processos paginados em ~20 páginas. O contador "Página X de Y (N processos)" reflete o filtro. Badges no Select sempre globais, não mudam ao trocar de página.
-2. **Dados**: +2 queries `count head:true` no carregamento (leves). RPC de não-lidos já é chamada hoje, reaproveitada para o badge. Sem novas tabelas, sem migrations.
+1. **Usuário final (UX)**: clicar em "PR" passa a listar **todos** os processos do Paraná — TJPR (8.16), TRT-9 (5.09), TRF-4 (4.04) — paginados corretamente. Os rótulos numéricos `5.09`, `4.04`, `8.16` somem do Select. Contador da UF reflete a soma das três justiças.
+2. **Dados**: zero mudança em DB. As queries trocam `ilike` por `or(...)` com 3 a 6 condições (rápido, todas em colunas indexadas: `numero_cnj`, `tribunal_sigla`).
 3. **Riscos colaterais**:
-   - Deduplicação por `numero_cnj` continua sendo feita no cliente após o range — em filtros amplos isso pode resultar numa página com 18-20 itens em vez de 20 quando há OABs duplicadas no mesmo CNJ. Aceitável (já acontece hoje).
-   - Filtro de UF por `tribunal_sigla` ignora processos sem sigla cadastrada (raros). A extração via `numero_cnj` continua sendo usada apenas para o **rótulo** de UF na tabela.
-   - Lista de UFs/OABs no Select hoje vem de `processos` (só a página). Será carregada uma vez via agregação separada (ou aceito que mostre só as da página, com aviso). Proposta: carregar a lista global via uma única query `select tribunal_sigla, oabs_cadastradas(oab_numero, oab_uf) where tenant_id = ...` paginada com `fetchAllPaginated` (já existe utilitário no projeto).
-4. **Quem é afetado**: usuários da Controladoria (todos os papéis com acesso a OABs). Não afeta CRM, Agenda, outros tenants nem outras abas.
+   - Processos com `tribunal_sigla` em formato exótico (ex.: `TRT-09`, `TRT09 - PR`) podem ficar fora se o helper não normalizar; mitigado adicionando match por `numero_cnj` no `or(...)` (cobre todos via CNJ).
+   - Tribunais superiores (STJ, STF, TST, TSE) continuam fora do filtro por UF — aparecerão só em "Todos".
+   - Linhas sem `numero_cnj` válido **e** sem `tribunal_sigla` ficam invisíveis ao filtro de UF (já era assim hoje).
+4. **Quem é afetado**: somente usuários da Controladoria > OABs > Geral. Nenhum impacto em CRM, Agenda, outras abas, outros tenants ou edge functions.
 
 ## Validação
 
-- Filtrar "Monitorados": confirmar `totalCount = 384` e navegar até a última página
-- Filtrar "Sigilosos", "Não lidos", UF, OAB, Apartado — paginação respeita cada filtro
-- Combinar filtro + busca por CNJ — ambos aplicam no servidor
-- Trocar de página com filtro ativo — badges "(384)" não mudam
-- Limpar filtro → volta ao total geral 441
+- Selecionar "PR": badge "Total" deve bater com soma TJPR + TRT-9 + TRF-4; paginar até a última página sem queda do total.
+- Selecionar "SP": confere TJSP (8.26) + TRT-2 (5.02) + TRF-3 (4.03).
+- Combinar UF + busca CNJ + filtro de Apartado: tudo aplica server-side junto.
+- Conferir que `5.09`, `4.04`, `8.16` não aparecem mais como opções no Select.
+- Limpar filtro: volta ao total geral sem inconsistência.
