@@ -180,18 +180,7 @@ export const ImportarProcessoCNJDialog = ({
       return { success: false, error: data?.error || data?.message || 'Falha ao importar processo' };
     }
 
-    // 6. Marcar processos_oab como detalhes carregados, copiando capa
-    const capa = data?.capa ?? {};
-    await supabase
-      .from('processos_oab')
-      .update({
-        detalhes_carregados: true,
-        tribunal: capa.tribunal ?? null,
-        ultima_atualizacao_detalhes: new Date().toISOString(),
-      })
-      .eq('oab_id', oab.id)
-      .eq('numero_cnj', numeroFinal);
-
+    // A própria edge function já atualiza processos_oab com a capa completa.
     return {
       success: true,
       reaproveitado: !!existenteOab,
