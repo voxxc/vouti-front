@@ -1042,14 +1042,13 @@ export const ProcessoOABDetalhes = ({
                       </div>
                     </Card>
                   ) : (
-                    <div className="flex justify-end">
-                      {escavadorBeta && escavadorAtivo && (
+                    <div className="flex justify-end flex-wrap gap-2">
+                      {escavadorBeta && escavadorImportado && (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setConfirmReparseOpen(true)}
                           disabled={reprocessandoResumo}
-                          className="mr-2"
                           title="Reprocessa o resumo usando o cache do Escavador, sem nova cobrança"
                         >
                           {reprocessandoResumo ? (
