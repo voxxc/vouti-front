@@ -76,7 +76,9 @@ Deno.serve(async (req) => {
     while (true) {
       const { data, error } = await admin
         .from('processos_oab')
-        .select('id, numero_cnj, parte_ativa, parte_passiva, tribunal_sigla')
+        .select(
+          'id, numero_cnj, parte_ativa, parte_passiva, tribunal_sigla, monitoramento_ativo, ultima_atualizacao_detalhes',
+        )
         .eq('tenant_id', tenant_id)
         .order('numero_cnj', { ascending: true })
         .range(from, from + PAGE - 1);
@@ -87,7 +89,26 @@ Deno.serve(async (req) => {
       from += PAGE;
     }
 
-    return new Response(JSON.stringify({ processos: all }), {
+    // Conta andamentos por processo (uma chamada agregada)
+    const ids = all.map((p) => p.id);
+    const counts: Record<string, number> = {};
+    if (ids.length > 0) {
+      const CHUNK = 500;
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const slice = ids.slice(i, i + CHUNK);
+        const { data: rows, error: cErr } = await admin
+          .from('processos_oab_andamentos')
+          .select('processo_oab_id')
+          .in('processo_oab_id', slice);
+        if (cErr) throw cErr;
+        for (const r of rows || []) {
+          counts[(r as any).processo_oab_id] = (counts[(r as any).processo_oab_id] || 0) + 1;
+        }
+      }
+    }
+    const processos = all.map((p) => ({ ...p, total_andamentos: counts[p.id] || 0 }));
+
+    return new Response(JSON.stringify({ processos }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
