@@ -895,6 +895,27 @@ export const ProcessoOABDetalhes = ({
             </AlertDialogContent>
           </AlertDialog>
 
+          {/* Confirmação de reprocessamento do resumo (Escavador cache) */}
+          <AlertDialog open={confirmReparseOpen} onOpenChange={setConfirmReparseOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Reprocessar resumo do Escavador?</AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-2 text-sm">
+                    <p>Reextrai os dados (classe, assunto, partes, advogados, juízo, fase) a partir do <strong>cache</strong> do Escavador, sem nova cobrança da API.</p>
+                    <p className="text-amber-600 dark:text-amber-400">⚠️ Edições manuais nos campos do resumo serão sobrescritas.</p>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleReprocessarResumo}>
+                  Reprocessar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
           {/* Confirmação de reset/atualização forçada */}
           <AlertDialog open={confirmResetOpen} onOpenChange={setConfirmResetOpen}>
             <AlertDialogContent>
