@@ -71,7 +71,7 @@ export const useAllProcessosOAB = (
           .from('processos_oab')
           .select('id', { count: 'exact', head: true })
           .eq('tenant_id', tenantId)
-          .gt('capa_completa->>secrecy_level', '0'),
+          .or('capa_completa->>secrecy_level.gt.0,capa_completa->>secrecy_level.is.null,capa_completa.is.null'),
         supabase.rpc('get_andamentos_nao_lidos_por_processo', { p_tenant_id: tenantId }),
         // Lista global enxuta para alimentar selects de UF/OAB
         (async () => {
@@ -154,7 +154,7 @@ export const useAllProcessosOAB = (
       if (filtroPrincipal === 'monitorados') {
         query = query.eq('monitoramento_ativo', true);
       } else if (filtroPrincipal === 'sigilosos') {
-        query = query.gt('capa_completa->>secrecy_level', '0');
+        query = query.or('capa_completa->>secrecy_level.gt.0,capa_completa->>secrecy_level.is.null,capa_completa.is.null');
       } else if (filtroPrincipal === 'nao-lidos' && idsNaoLidos) {
         query = query.in('id', idsNaoLidos);
       } else if (typeof filtroPrincipal === 'object' && filtroPrincipal.tipo === 'uf') {
