@@ -316,11 +316,19 @@ export function SuperAdminProcessoOABDetalhesPanel({
                     <Button
                       variant={destravado ? 'default' : 'ghost'}
                       size="sm"
-                      onClick={() => setDestravado((v) => !v)}
-                      title={destravado ? 'Travar ordem' : 'Destravar para reordenar'}
+                      disabled={salvandoOrdem}
+                      onClick={() => {
+                        if (destravado) {
+                          salvarOrdem();
+                        } else {
+                          setOrdemDirty(false);
+                          setDestravado(true);
+                        }
+                      }}
+                      title={destravado ? 'Travar e salvar ordem' : 'Destravar para reordenar'}
                     >
                       {destravado ? <LockOpen className="h-4 w-4 mr-1" /> : <Lock className="h-4 w-4 mr-1" />}
-                      {destravado ? 'Reordenando' : 'Reordenar'}
+                      {destravado ? (salvandoOrdem ? 'Salvando...' : (ordemDirty ? 'Salvar ordem' : 'Travar')) : 'Reordenar'}
                     </Button>
                     <Button variant="ghost" size="sm" onClick={carregar}>
                       <RefreshCw className="h-4 w-4 mr-1" /> Atualizar
