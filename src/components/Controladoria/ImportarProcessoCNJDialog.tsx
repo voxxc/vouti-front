@@ -107,6 +107,8 @@ export const ImportarProcessoCNJDialog = ({
           numero_processo: numeroFinal,
           tenant_id: tenantId,
           created_by: user.id,
+          parte_ativa: '',
+          parte_passiva: '',
           status: 'em_andamento',
         })
         .select('id')
@@ -320,8 +322,6 @@ export const ImportarProcessoCNJDialog = ({
     }
 
     const total = processosParaImportar.length;
-    const systemNameSelecionado = juditSystemName;
-    const customerKeySelecionada = juditCustomerKey;
 
     // Fecha o dialog imediatamente
     setCnjList([]);
