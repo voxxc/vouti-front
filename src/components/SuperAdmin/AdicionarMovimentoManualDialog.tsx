@@ -1,13 +1,14 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Paperclip, X } from 'lucide-react';
+import { Loader2, Paperclip, Plus, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface ProcessoLite {
   id: string;
@@ -37,6 +38,28 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+interface AbaMovimento {
+  id: string;
+  data: string;
+  tipo: string;
+  descricao: string;
+  marcarNaoLido: boolean;
+  marcarComoAtualizado: boolean;
+  arquivo: File | null;
+}
+
+function novaAba(hoje: string): AbaMovimento {
+  return {
+    id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Math.random()),
+    data: hoje,
+    tipo: '',
+    descricao: '',
+    marcarNaoLido: true,
+    marcarComoAtualizado: false,
+    arquivo: null,
+  };
+}
+
 export function AdicionarMovimentoManualDialog({
   open,
   onOpenChange,
@@ -45,27 +68,30 @@ export function AdicionarMovimentoManualDialog({
   onSuccess,
 }: Props) {
   const hoje = new Date().toISOString().slice(0, 10);
-  const [data, setData] = useState(hoje);
-  const [tipo, setTipo] = useState('');
-  const [descricao, setDescricao] = useState('');
-  const [marcarNaoLido, setMarcarNaoLido] = useState(true);
-  const [marcarComoAtualizado, setMarcarComoAtualizado] = useState(true);
-  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [abas, setAbas] = useState<AbaMovimento[]>([novaAba(hoje)]);
+  const [ativaId, setAtivaId] = useState<string>(() => '');
   const [salvando, setSalvando] = useState(false);
   const salvandoRef = useRef(false);
 
-  const reset = () => {
-    setData(hoje);
-    setTipo('');
-    setDescricao('');
-    setMarcarNaoLido(true);
-    setMarcarComoAtualizado(true);
-    setArquivo(null);
+  // inicializa quando abre
+  useEffect(() => {
+    if (open) {
+      const inicial = novaAba(hoje);
+      setAbas([inicial]);
+      setAtivaId(inicial.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const ativa = abas.find((a) => a.id === ativaId) ?? abas[0];
+
+  const updateAtiva = (patch: Partial<AbaMovimento>) => {
+    setAbas((prev) => prev.map((a) => (a.id === ativa.id ? { ...a, ...patch } : a)));
   };
 
   const handleArquivo = (f: File | null) => {
     if (!f) {
-      setArquivo(null);
+      updateAtiva({ arquivo: null });
       return;
     }
     const ext = (f.name.split('.').pop() || '').toLowerCase();
@@ -77,50 +103,103 @@ export function AdicionarMovimentoManualDialog({
       toast.error('Arquivo maior que 25 MB.');
       return;
     }
-    setArquivo(f);
+    updateAtiva({ arquivo: f });
   };
+
+  const adicionarAba = () => {
+    const aba = novaAba(hoje);
+    setAbas((prev) => [aba, ...prev]); // nova aba no topo
+    setAtivaId(aba.id);
+  };
+
+  const removerAba = (id: string) => {
+    if (abas.length <= 1) {
+      toast.info('Pelo menos uma aba precisa existir.');
+      return;
+    }
+    const alvo = abas.find((a) => a.id === id);
+    if (!alvo) return;
+    const temConteudo = alvo.tipo.trim() || alvo.descricao.trim() || alvo.arquivo;
+    if (temConteudo && !confirm('Esta aba tem conteúdo preenchido. Remover mesmo assim?')) return;
+    setAbas((prev) => {
+      const restante = prev.filter((a) => a.id !== id);
+      if (id === ativaId) setAtivaId(restante[0]?.id ?? '');
+      return restante;
+    });
+  };
+
+  const labelAba = (a: AbaMovimento, idx: number) =>
+    a.tipo.trim() ? a.tipo.trim().slice(0, 24) : `Movimento ${abas.length - idx}`;
 
   const handleSalvar = async () => {
     if (salvandoRef.current) return;
-    if (!tipo.trim() || tipo.trim().length < 1) {
-      toast.error('Informe o nome do movimento.');
-      return;
+
+    // valida todas as abas
+    for (let i = 0; i < abas.length; i++) {
+      const a = abas[i];
+      if (!a.tipo.trim()) {
+        setAtivaId(a.id);
+        toast.error(`Informe o nome do movimento na aba "${labelAba(a, i)}".`);
+        return;
+      }
+      if (a.descricao.trim().length < 10) {
+        setAtivaId(a.id);
+        toast.error(`A descrição precisa de ao menos 10 caracteres na aba "${labelAba(a, i)}".`);
+        return;
+      }
     }
-    if (descricao.trim().length < 10) {
-      toast.error('A descrição precisa de ao menos 10 caracteres.');
-      return;
-    }
+
     salvandoRef.current = true;
     setSalvando(true);
+    // ordem: da última (mais antiga) para a primeira (mais nova)
+    const ordem = [...abas].reverse();
+    const idsSalvos: string[] = [];
     try {
-      const payload: any = {
-        processo_oab_id: processo.id,
-        data_movimentacao: data,
-        tipo_movimentacao: tipo.trim(),
-        descricao: descricao.trim(),
-        marcar_nao_lido: marcarNaoLido,
-        marcar_como_atualizado: marcarComoAtualizado,
-      };
-      if (arquivo) {
-        const base64 = await fileToBase64(arquivo);
-        payload.anexo = {
-          nome: arquivo.name,
-          content_type: arquivo.type || 'application/octet-stream',
-          base64,
+      for (const a of ordem) {
+        const payload: any = {
+          processo_oab_id: processo.id,
+          data_movimentacao: a.data,
+          tipo_movimentacao: a.tipo.trim(),
+          descricao: a.descricao.trim(),
+          marcar_nao_lido: a.marcarNaoLido,
+          marcar_como_atualizado: a.marcarComoAtualizado,
         };
+        if (a.arquivo) {
+          const base64 = await fileToBase64(a.arquivo);
+          payload.anexo = {
+            nome: a.arquivo.name,
+            content_type: a.arquivo.type || 'application/octet-stream',
+            base64,
+          };
+        }
+        const { data: resp, error } = await supabase.functions.invoke(
+          'super-admin-criar-andamento-manual',
+          { body: payload },
+        );
+        if (error) throw error;
+        if (resp?.error) throw new Error(resp.error);
+        idsSalvos.push(a.id);
       }
-      const { data: resp, error } = await supabase.functions.invoke(
-        'super-admin-criar-andamento-manual',
-        { body: payload },
+      toast.success(
+        ordem.length === 1
+          ? 'Movimento manual lançado com sucesso.'
+          : `${ordem.length} movimentos lançados com sucesso.`,
       );
-      if (error) throw error;
-      if (resp?.error) throw new Error(resp.error);
-      toast.success('Movimento manual lançado com sucesso.');
-      reset();
       onSuccess();
       onOpenChange(false);
     } catch (e: any) {
       console.error(e);
+      // remove apenas as abas já salvas com sucesso
+      if (idsSalvos.length) {
+        setAbas((prev) => {
+          const restante = prev.filter((a) => !idsSalvos.includes(a.id));
+          if (!restante.find((a) => a.id === ativaId)) {
+            setAtivaId(restante[0]?.id ?? '');
+          }
+          return restante.length ? restante : [novaAba(hoje)];
+        });
+        onSuccess();
+      }
       toast.error(e?.message || 'Erro ao lançar movimento.');
     } finally {
       setSalvando(false);
@@ -128,8 +207,10 @@ export function AdicionarMovimentoManualDialog({
     }
   };
 
+  if (!ativa) return null;
+
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
+    <Dialog open={open} onOpenChange={(o) => onOpenChange(o)}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Adicionar movimento manual</DialogTitle>
@@ -138,14 +219,57 @@ export function AdicionarMovimentoManualDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {/* Faixa de abas */}
+        <div className="flex items-center gap-1 overflow-x-auto border-b pb-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0 h-8"
+            onClick={adicionarAba}
+            disabled={salvando}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Nova aba
+          </Button>
+          {abas.map((a, idx) => (
+            <div
+              key={a.id}
+              className={cn(
+                'group shrink-0 inline-flex items-center gap-1 h-8 px-2 rounded-md border text-xs cursor-pointer select-none',
+                a.id === ativaId
+                  ? 'bg-primary/10 border-primary text-foreground'
+                  : 'bg-background hover:bg-muted border-border text-muted-foreground',
+              )}
+              onClick={() => setAtivaId(a.id)}
+            >
+              <span className="truncate max-w-[140px]">{labelAba(a, idx)}</span>
+              {abas.length > 1 && (
+                <button
+                  type="button"
+                  className="opacity-60 group-hover:opacity-100 hover:text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removerAba(a.id);
+                  }}
+                  title="Remover aba"
+                  disabled={salvando}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
         <div className="space-y-3">
           <div>
             <Label htmlFor="mov-data">Data da movimentação</Label>
             <Input
               id="mov-data"
               type="date"
-              value={data}
-              onChange={(e) => setData(e.target.value)}
+              value={ativa.data}
+              onChange={(e) => updateAtiva({ data: e.target.value })}
               max={hoje}
             />
           </div>
@@ -154,8 +278,8 @@ export function AdicionarMovimentoManualDialog({
             <Label htmlFor="mov-tipo">Nome do movimento</Label>
             <Input
               id="mov-tipo"
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
+              value={ativa.tipo}
+              onChange={(e) => updateAtiva({ tipo: e.target.value })}
               placeholder="Ex.: Intimação, Decisão, Sentença, Audiência…"
               maxLength={120}
             />
@@ -165,8 +289,8 @@ export function AdicionarMovimentoManualDialog({
             <Label htmlFor="mov-descricao">Detalhe / descrição</Label>
             <Textarea
               id="mov-descricao"
-              value={descricao}
-              onChange={(e) => setDescricao(e.target.value)}
+              value={ativa.descricao}
+              onChange={(e) => updateAtiva({ descricao: e.target.value })}
               rows={5}
               placeholder="Descreva o conteúdo do movimento (mínimo 10 caracteres)…"
               maxLength={8000}
@@ -185,12 +309,12 @@ export function AdicionarMovimentoManualDialog({
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                 onChange={(e) => handleArquivo(e.target.files?.[0] ?? null)}
               />
-              {arquivo && (
+              {ativa.arquivo && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={() => setArquivo(null)}
+                  onClick={() => updateAtiva({ arquivo: null })}
                   title="Remover arquivo"
                 >
                   <X className="h-4 w-4" />
@@ -205,8 +329,8 @@ export function AdicionarMovimentoManualDialog({
           <div className="flex items-center gap-2">
             <Checkbox
               id="mov-naolido"
-              checked={marcarNaoLido}
-              onCheckedChange={(v) => setMarcarNaoLido(v === true)}
+              checked={ativa.marcarNaoLido}
+              onCheckedChange={(v) => updateAtiva({ marcarNaoLido: v === true })}
             />
             <Label htmlFor="mov-naolido" className="text-sm font-normal cursor-pointer">
               Marcar como não lido para os usuários do tenant
@@ -216,8 +340,8 @@ export function AdicionarMovimentoManualDialog({
           <div className="flex items-center gap-2">
             <Checkbox
               id="mov-atualizado"
-              checked={marcarComoAtualizado}
-              onCheckedChange={(v) => setMarcarComoAtualizado(v === true)}
+              checked={ativa.marcarComoAtualizado}
+              onCheckedChange={(v) => updateAtiva({ marcarComoAtualizado: v === true })}
             />
             <Label htmlFor="mov-atualizado" className="text-sm font-normal cursor-pointer">
               Marcar processo como atualizado (move para a aba Atualizado por 7 dias)
@@ -231,7 +355,7 @@ export function AdicionarMovimentoManualDialog({
           </Button>
           <Button onClick={handleSalvar} disabled={salvando}>
             {salvando && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Salvar movimento
+            {abas.length === 1 ? 'Salvar movimento' : `Salvar ${abas.length} movimentos`}
           </Button>
         </DialogFooter>
       </DialogContent>
