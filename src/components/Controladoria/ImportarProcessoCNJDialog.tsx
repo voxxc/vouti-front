@@ -20,16 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { OABCadastrada } from '@/hooks/useOABs';
 import { usePlanoLimites } from '@/hooks/usePlanoLimites';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { useJuditSystemNames } from '@/hooks/useJuditSystemNames';
-
-const PUBLICO_VALUE = '__publico__';
+import { extrairTribunalDoNumeroProcesso } from '@/utils/processoHelpers';
 
 interface ImportarProcessoCNJDialogProps {
   open: boolean;
@@ -74,14 +65,6 @@ export const ImportarProcessoCNJDialog = ({
   const [cnjList, setCnjList] = useState<string[]>([]);
   const [novoCnj, setNovoCnj] = useState('');
 
-  // Credencial Judit selecionada (vale para os dois modos)
-  const [credencialValue, setCredencialValue] = useState<string>(PUBLICO_VALUE);
-  const { data: credenciais = [] } = useJuditSystemNames(tenantId);
-
-  const credencialSelecionada = credenciais.find((c) => c.id === credencialValue);
-  const juditSystemName = credencialSelecionada?.system_name ?? null;
-  const juditCustomerKey = credencialSelecionada?.customer_key ?? null;
-
   const importarUmCnj = async (
     cnj: string,
     opts: { apartado?: boolean; sufixo?: string } = {}
@@ -92,58 +75,126 @@ export const ImportarProcessoCNJDialog = ({
       return { success: false, error: 'Usuário não autenticado' };
     }
 
-    // Verificar duplicidade na própria OAB (tabela correta exibida na tela)
-    const { data: existente } = await supabase
+    // 1. Verificar duplicidade na OAB atual (tabela exibida na tela)
+    const { data: existenteOab } = await supabase
       .from('processos_oab')
       .select('id, detalhes_carregados, capa_completa, tribunal')
       .eq('oab_id', oab.id)
       .eq('numero_cnj', numeroFinal)
       .maybeSingle();
 
-    if (existente) {
+    // 2. Garantir registro espelho em `processos` (o Escavador grava capa/andamentos lá)
+    let processoId: string;
+    const { data: procExistente } = await supabase
+      .from('processos')
+      .select('id, tenant_id')
+      .eq('numero_processo', numeroFinal)
+      .maybeSingle();
+
+    if (procExistente) {
+      processoId = procExistente.id;
+      // Se estava sem tenant, vincular ao tenant atual
+      if (!procExistente.tenant_id && tenantId) {
+        await supabase
+          .from('processos')
+          .update({ tenant_id: tenantId })
+          .eq('id', processoId);
+      }
+    } else {
+      const { data: novoProc, error: errNovoProc } = await supabase
+        .from('processos')
+        .insert({
+          numero_processo: numeroFinal,
+          tenant_id: tenantId,
+          created_by: user.id,
+          status: 'em_andamento',
+        })
+        .select('id')
+        .single();
+      if (errNovoProc || !novoProc) {
+        return { success: false, error: errNovoProc?.message || 'Falha ao criar processo' };
+      }
+      processoId = novoProc.id;
+    }
+
+    // 3. Verificar se a capa já está completa (não considerar escavador_id sozinho)
+    if (existenteOab) {
+      const { data: monit } = await supabase
+        .from('processo_monitoramento_escavador')
+        .select('classe, tribunal, assunto')
+        .eq('processo_id', processoId)
+        .maybeSingle();
+
+      const { count: andamentosCount } = await supabase
+        .from('processo_atualizacoes_escavador')
+        .select('id', { count: 'exact', head: true })
+        .eq('processo_id', processoId);
+
       const temCapa = !!(
-        existente.detalhes_carregados ||
-        existente.tribunal ||
-        (existente.capa_completa && Object.keys(existente.capa_completa as object).length > 0)
+        existenteOab.detalhes_carregados ||
+        existenteOab.tribunal ||
+        (existenteOab.capa_completa && Object.keys(existenteOab.capa_completa as object).length > 0) ||
+        (monit && (monit.classe || monit.tribunal || monit.assunto)) ||
+        (andamentosCount ?? 0) > 0
       );
       if (temCapa) {
         return { success: false, duplicado: true };
       }
-
-      // Reaproveitar: refazer consulta Judit para popular capa + andamentos
-      const { data: dataReuse, error: errReuse } = await supabase.functions.invoke('judit-resetar-processo', {
-        body: { processoOabId: existente.id, userId: user.id },
-      });
-      if (errReuse) return { success: false, error: errReuse.message };
-      if (!dataReuse?.success) return { success: false, error: dataReuse?.error || 'Falha ao consultar Judit' };
-      return {
-        success: true,
-        reaproveitado: true,
-        andamentosInseridos: dataReuse.andamentosInseridos ?? dataReuse.totalAndamentos ?? 0,
-      };
+    } else {
+      // 4. Criar registro em processos_oab para que apareça na lista da OAB
+      const tribunalSigla = extrairTribunalDoNumeroProcesso(numeroFinal);
+      const { error: errOab } = await supabase
+        .from('processos_oab')
+        .insert({
+          oab_id: oab.id,
+          numero_cnj: numeroFinal,
+          tribunal_sigla: tribunalSigla,
+          tenant_id: tenantId,
+          importado_manualmente: true,
+          importado_por: user.id,
+          importado_por_email: user.email ?? null,
+          api_provider: 'escavador',
+          apartado: !!opts.apartado,
+          apartado_em: opts.apartado ? new Date().toISOString() : null,
+          apartado_por: opts.apartado ? user.id : null,
+        });
+      if (errOab) {
+        return { success: false, error: errOab.message };
+      }
     }
 
-    // Importar via Judit (cria registro em processos_oab com importado_manualmente=true)
-    const { data, error } = await supabase.functions.invoke('judit-buscar-processo-cnj', {
+    // 5. Disparar Escavador (capa + andamentos)
+    const { data, error } = await supabase.functions.invoke('escavador-importar-processo', {
       body: {
-        numeroCnj: cnj,
-        oabId: oab.id,
+        processoId,
+        numeroProcesso: numeroFinal,
         tenantId,
-        userId: user.id,
-        apartado: !!opts.apartado,
-        sufixoApartado: opts.sufixo || null,
-        juditSystemName,
-        juditCustomerKey,
+        ativarMonitoramento: false,
       },
     });
 
     if (error) return { success: false, error: error.message };
     if (!data?.success) {
-      if (data?.duplicado) return { success: false, duplicado: true };
       return { success: false, error: data?.error || data?.message || 'Falha ao importar processo' };
     }
 
-    return { success: true, andamentosInseridos: data.andamentosInseridos ?? 0 };
+    // 6. Marcar processos_oab como detalhes carregados, copiando capa
+    const capa = data?.capa ?? {};
+    await supabase
+      .from('processos_oab')
+      .update({
+        detalhes_carregados: true,
+        tribunal: capa.tribunal ?? null,
+        ultima_atualizacao_detalhes: new Date().toISOString(),
+      })
+      .eq('oab_id', oab.id)
+      .eq('numero_cnj', numeroFinal);
+
+    return {
+      success: true,
+      reaproveitado: !!existenteOab,
+      andamentosInseridos: data?.andamentosInseridos ?? 0,
+    };
   };
 
   const handleImportar = () => {
@@ -332,7 +383,6 @@ export const ImportarProcessoCNJDialog = ({
     setCnjList([]);
     setNovoCnj('');
     setMode('single');
-    setCredencialValue(PUBLICO_VALUE);
     onOpenChange(false);
   };
 
