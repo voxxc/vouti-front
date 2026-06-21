@@ -1,65 +1,127 @@
 ## Objetivo
-Permitir lançar múltiplos movimentos manuais de uma vez no diálogo "Adicionar movimento manual", organizados em abas independentes dentro do mesmo diálogo.
+No painel de detalhes do processo (Super Admin), permitir: (1) excluir qualquer movimento, (2) marcar movimentos como "sigiloso" e atribuir tag de tribunal (eproc, projudi, pje, esaj, tjgo antigo, ou customizado), (3) gerenciar (CRUD) os tribunais via sub-diálogo, (4) reordenar movimentos via drag-and-drop liberado por um cadeado.
 
 ## Causa raiz
-Hoje `AdicionarMovimentoManualDialog` salva apenas um movimento por abertura. Para registrar vários andamentos de um mesmo processo, o usuário precisa reabrir o diálogo várias vezes.
+O painel atual só lista andamentos e permite criar via diálogo. Não há exclusão, metadados de "sigiloso"/"tribunal-tag", catálogo de tribunais customizáveis nem ordenação manual.
 
 ## Correção
 
-### 1. UI do diálogo com abas
-- Substituir o formulário único por uma estrutura com lista de abas + painel de conteúdo da aba selecionada.
-- Lista vertical/horizontal de abas no topo do `DialogContent`, com:
-  - Botão "+ Nova aba" que cria uma nova aba e a posiciona **no topo da lista** (índice 0), tornando-a a aba ativa.
-  - Cada aba mostra um rótulo dinâmico: nome do movimento (`tipo`) ou data, e um `X` para remover.
-  - Remoção pede confirmação (via `confirm` simples) se a aba tiver `tipo` ou `descricao` preenchidos. Não permite remover a última aba (sempre deve haver pelo menos uma).
-- Ao abrir, o diálogo já cria 1 aba vazia com a data de hoje.
+### A. Banco
 
-### 2. Estado por aba
-Cada aba é um objeto:
-```ts
-{ id: string, data: string, tipo: string, descricao: string,
-  marcarNaoLido: boolean, marcarComoAtualizado: boolean, arquivo: File | null }
-```
-- `data` default = hoje.
-- `marcarNaoLido` default = `true`.
-- `marcarComoAtualizado` default = **`false`** (conforme pedido: não vem mais sempre marcado).
-- Os campos do formulário leem/escrevem na aba ativa.
+#### A.1. Nova tabela `super_admin_tribunais_andamento`
+Catálogo global gerenciado pelo Super Admin.
+- Colunas: `id`, `slug` (único, `lower`), `nome`, `cor` (hex, opcional), `created_by`, `created_at`, `updated_at`.
+- RLS: SELECT para `authenticated` (qualquer usuário pode ler — só vai ver no painel se for Super Admin); INSERT/UPDATE/DELETE só para super admin (via Edge Function com service role; RLS deny por padrão exceto super admins via `EXISTS super_admins`).
+- GRANTs: `SELECT, INSERT, UPDATE, DELETE` para `authenticated`; `ALL` para `service_role`.
+- Seed inicial: `eproc`, `projudi`, `pje`, `esaj`, `tjgo-antigo`.
 
-### 3. Salvamento
-- Botão único "Salvar movimentos" (texto plural).
-- Validação por aba antes de enviar: tipo obrigatório, descrição mínima de 10 caracteres. Se alguma aba falhar a validação, abrir essa aba e mostrar toast com índice/nome.
-- Ordem de envio: **da última aba (mais antiga, no fim da lista) para a primeira (mais nova, no topo)** — isso garante que o histórico fique cronológico no banco e que a aba "mais nova" seja a última criada.
-- Loop sequencial chamando o Edge Function `super-admin-criar-andamento-manual` (sem mudanças na função).
-- Loader no botão durante o envio; guarda contra duplo clique já existe.
-- Em caso de erro em uma das chamadas: parar o loop, manter abas já salvas removidas, manter abas restantes no diálogo, mostrar toast com qual aba falhou.
-- Sucesso total: `reset()`, `onSuccess()`, `onOpenChange(false)`, toast "N movimentos lançados".
+#### A.2. Coluna `super_admin_ordem` em `processos_oab_andamentos`
+- `ALTER TABLE processos_oab_andamentos ADD COLUMN super_admin_ordem INTEGER`.
+- Quando `NULL`, usar `data_movimentacao` como fallback de ordenação.
+- Quando preenchido, ordena DESC por `super_admin_ordem` (números maiores aparecem em cima).
 
-### 4. Layout das abas
-- Faixa horizontal rolável no topo (`overflow-x-auto`), com chips:
-  - aba ativa em destaque (`bg-primary/10 border-primary`)
-  - hover com `bg-muted`
-  - botão `X` aparece em hover
-- Botão "+ Nova aba" fica como o primeiro item à esquerda da faixa.
-- Conteúdo do formulário renderiza apenas a aba ativa (todos os campos atuais permanecem).
+Sigiloso e tag de tribunal vão em `dados_completos` (JSON, sem schema change):
+- `dados_completos.sigiloso: boolean`
+- `dados_completos.tribunal_tag: string` (slug do catálogo)
+
+### B. Edge Functions
+
+#### B.1. `super-admin-listar-tribunais-andamento` (GET-like via POST)
+Retorna lista do catálogo. Validação: super admin.
+
+#### B.2. `super-admin-gerenciar-tribunal-andamento`
+Action union: `criar`, `editar`, `excluir`. Body:
+- criar: `{ slug, nome, cor? }`
+- editar: `{ id, nome?, cor? }` (slug imutável após criação para não quebrar refs)
+- excluir: `{ id }` — bloqueia se houver andamentos referenciando o slug, ou faz soft warn.
+
+#### B.3. `super-admin-deletar-andamento`
+Body: `{ andamento_id }`. Apaga o registro de `processos_oab_andamentos` e o anexo no Storage (se houver `dados_completos.anexo.storage_path`). Valida super admin.
+
+#### B.4. `super-admin-atualizar-andamento`
+Body: `{ andamento_id, sigiloso?, tribunal_tag?: string|null }`. Faz merge no `dados_completos` (preservando outros campos) via update parcial.
+
+#### B.5. `super-admin-reordenar-andamentos`
+Body: `{ processo_oab_id, ordem: string[] }` — array de IDs do topo para o fim. Atribui `super_admin_ordem` decrescente (ex.: N, N-1, …) em uma transação.
+
+#### B.6. Atualizações no `super-admin-criar-andamento-manual`
+- Aceitar `sigiloso?: boolean` e `tribunal_tag?: string` no body.
+- Ao criar com `super_admin_ordem` ausente, atribuir `(MAX(super_admin_ordem) ou 0) + 1` no processo, garantindo que o novo apareça no topo da lista reordenada.
+
+#### B.7. `super-admin-processo-oab-detalhes`
+- Adicionar `super_admin_ordem` ao `select` dos andamentos.
+- Ordenar por `super_admin_ordem DESC NULLS LAST, data_movimentacao DESC`.
+
+### C. Frontend
+
+#### C.1. `AdicionarMovimentoManualDialog` (já com abas)
+- Adicionar por aba: checkbox "Sigiloso" e seletor "Tribunal" (Combobox com itens do catálogo + "Sem tribunal").
+- Botão "Gerenciar tribunais" no rodapé do seletor → abre `GerenciarTribunaisDialog`.
+- Enviar `sigiloso` e `tribunal_tag` no payload do salvar.
+
+#### C.2. Novo `GerenciarTribunaisDialog`
+- Lista do catálogo com nome, slug, swatch de cor.
+- Adicionar (form com nome, slug auto-derivado editável, cor).
+- Editar nome/cor inline.
+- Excluir com confirmação.
+- Atualiza o seletor pai ao fechar.
+
+#### C.3. `SuperAdminProcessoOABDetalhesPanel`
+- Cabeçalho da seção "Andamentos": ícone de cadeado (`Lock`/`LockOpen`). Estado local `reordenando`. Ao destravar:
+  - Cards exibem alça de arrastar (`GripVertical`).
+  - DnD via `@dnd-kit/core` + `@dnd-kit/sortable` (já presentes no projeto — verificar `package.json`; instalar se necessário).
+  - Ao soltar, chamada otimista que reordena o array local e dispara `super-admin-reordenar-andamentos`. Em erro, reverte.
+  - Travar (clicar de novo no cadeado) é só visual.
+- Em cada card de andamento, novos badges:
+  - "Sigiloso" (variant `destructive`) se `dados_completos.sigiloso`.
+  - Tribunal (variant `outline` colorido) se `dados_completos.tribunal_tag` resolver no catálogo.
+- Ações inline em cada card (visíveis sempre):
+  - Editar metadados (sigiloso/tribunal) → pequeno popover/dialog.
+  - Excluir (lixeira) → `confirm`, depois `super-admin-deletar-andamento`, recarrega.
+- Ao recarregar, preserva ordem ditada pelo backend.
 
 ## Arquivos afetados
-- `src/components/SuperAdmin/AdicionarMovimentoManualDialog.tsx` (refatoração ampla para multi-aba)
 
-Sem alterações em backend, banco ou Edge Function.
+Migrations:
+- nova migration: tabela `super_admin_tribunais_andamento`, coluna `super_admin_ordem`, seed.
+
+Edge Functions:
+- nova: `supabase/functions/super-admin-listar-tribunais-andamento/index.ts`
+- nova: `supabase/functions/super-admin-gerenciar-tribunal-andamento/index.ts`
+- nova: `supabase/functions/super-admin-deletar-andamento/index.ts`
+- nova: `supabase/functions/super-admin-atualizar-andamento/index.ts`
+- nova: `supabase/functions/super-admin-reordenar-andamentos/index.ts`
+- editada: `supabase/functions/super-admin-criar-andamento-manual/index.ts`
+- editada: `supabase/functions/super-admin-processo-oab-detalhes/index.ts`
+
+Frontend:
+- editado: `src/components/SuperAdmin/AdicionarMovimentoManualDialog.tsx`
+- novo: `src/components/SuperAdmin/GerenciarTribunaisDialog.tsx`
+- novo: `src/components/SuperAdmin/EditarMetaAndamentoPopover.tsx` (sigiloso/tribunal inline)
+- editado: `src/components/SuperAdmin/SuperAdminProcessoOABDetalhesPanel.tsx`
 
 ## Impacto
-1. **UX**: o Super Admin lança vários movimentos do mesmo processo em uma única sessão do diálogo. A nova aba aparece sempre no topo, espelhando a ordem do resumo (mais novo em cima). A checkbox "marcar como atualizado por 7 dias" deixa de vir pré-marcada — só ativa se o usuário quiser.
-2. **Dados**: continuam sendo criados N registros independentes em `processos_oab_andamentos` (um por aba), via a mesma Edge Function. Nenhuma mudança de schema, RLS ou storage.
+1. **UX**:
+   - Super Admin ganha controle total sobre os andamentos: excluir, marcar sigiloso, taggear tribunal e reordenar livremente.
+   - Catálogo de tribunais é compartilhado entre todos os processos/tenants — o que for criado aqui aparece em todos os formulários.
+   - O cadeado fica visível só no painel; precisa destravar antes de arrastar (evita reordenação acidental).
+2. **Dados**:
+   - Nova tabela `super_admin_tribunais_andamento` (5 linhas seed iniciais).
+   - Nova coluna `super_admin_ordem` em `processos_oab_andamentos` (default `NULL` — não impacta dados existentes).
+   - Anexos órfãos: ao excluir um andamento manual, o objeto correspondente no bucket `andamentos-manuais-docs` é removido.
+   - Ordenação muda quando há `super_admin_ordem`; processos sem reordenação manual continuam exatamente como hoje (ordenados por `data_movimentacao`).
 3. **Riscos colaterais**:
-   - Se a rede falhar no meio do salvamento sequencial, parte dos movimentos pode ter sido criada e parte não — mitigado fechando apenas as abas já salvas e mostrando o erro.
-   - Mudança de default do "marcar como atualizado" altera o comportamento atual (era pré-marcado). Aceito pelo usuário.
-4. **Quem é afetado**: apenas o Super Admin que usa o drawer "Movimentos manuais". Tenants e advogados não veem mudança de fluxo, só recebem os andamentos lançados.
+   - Excluir andamentos automáticos (Judit/Escavador) é destrutivo — eles podem reaparecer se o monitoramento rodar e re-sincronizar (depende da lógica de dedup `dedup_hash`). Usuário ciente.
+   - Mudar ordem manual para um andamento e depois receber novos andamentos automáticos: novos entram com `super_admin_ordem = NULL` e caem por baixo dos manualmente ordenados. Aceitável; pode ser revisto futuramente.
+   - Excluir um tribunal do catálogo deixa andamentos com `tribunal_tag` orfão; a UI mostra a tag bruta como fallback, sem cor.
+4. **Quem é afetado**: apenas Super Admins. Tenants/advogados continuam vendo os andamentos como hoje, com badges adicionais ("Sigiloso"/tribunal) quando o Super Admin marcar.
 
 ## Validação
-1. Abrir o drawer Super Admin → selecionar processo → "Adicionar movimento manual".
-2. Verificar que abre com 1 aba vazia, data de hoje, "marcar como atualizado" **desmarcado**.
-3. Preencher tipo/descrição → clicar "+ Nova aba" → confirmar que a nova aba aparece **no topo** e fica ativa.
-4. Preencher a segunda aba; alternar entre abas e ver que cada uma mantém seus próprios dados/anexo/checkboxes.
-5. Remover uma aba com conteúdo: confirmar que pede confirmação; remover uma aba vazia: remove direto. Tentar remover a última: bloqueada.
-6. Clicar "Salvar movimentos": confirmar 2 chamadas ao Edge Function (mais antiga primeiro), toast de sucesso, diálogo fecha, drawer recarrega e os 2 movimentos aparecem no resumo na ordem correta.
-7. Forçar erro de validação em uma aba (descrição curta) e ver se o diálogo abre nessa aba com toast.
+1. Rodar a migração e confirmar 5 tribunais seed (`eproc`, `projudi`, `pje`, `esaj`, `tjgo-antigo`).
+2. Abrir um processo OAB e verificar que a ordem inicial dos andamentos não mudou.
+3. No diálogo de novo movimento: marcar sigiloso, escolher tribunal "pje", salvar; confirmar que o card mostra os badges "Sigiloso" e "PJE".
+4. Abrir "Gerenciar tribunais": criar "TJSP-1G" com cor; editar nome; usar no formulário; excluir o tribunal e ver fallback bruto no card existente.
+5. Clicar na lixeira de um andamento: confirmar exclusão; se manual com anexo, validar que o arquivo sumiu do bucket.
+6. Destravar cadeado, arrastar 3º card para o topo, travar; recarregar a página; ordem persistiu.
+7. Voltar a checkbox de sigiloso: editar inline e ver o badge sumir; trocar tribunal e ver a tag mudar.
+8. Tentar usar todas as funções deslogado / sem ser super admin → 401/403.

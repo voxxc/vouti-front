@@ -18,6 +18,8 @@ const BodySchema = z.object({
   descricao: z.string().trim().min(10).max(8000),
   marcar_nao_lido: z.boolean().optional().default(true),
   marcar_como_atualizado: z.boolean().optional().default(false),
+  sigiloso: z.boolean().optional().default(false),
+  tribunal_tag: z.string().trim().max(60).nullable().optional(),
   anexo: z
     .object({
       nome: z.string().min(1).max(255),
@@ -169,7 +171,20 @@ Deno.serve(async (req) => {
       super_admin_email: user.email,
       criado_em: new Date().toISOString(),
       anexo: anexoMeta,
+      sigiloso: !!body.sigiloso,
+      tribunal_tag: body.tribunal_tag || null,
     };
+
+    // calcula próxima posição se já existir reordenação manual no processo
+    const { data: maxRow } = await admin
+      .from('processos_oab_andamentos')
+      .select('super_admin_ordem')
+      .eq('processo_oab_id', proc.id)
+      .order('super_admin_ordem', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    const proximaOrdem = (maxRow?.super_admin_ordem ?? 0) + 1;
+    const usaOrdem = !!maxRow?.super_admin_ordem;
 
     const { data: andamento, error: insErr } = await admin
       .from('processos_oab_andamentos')
@@ -181,6 +196,7 @@ Deno.serve(async (req) => {
         descricao: body.descricao,
         lida: !body.marcar_nao_lido,
         dados_completos: dadosCompletos,
+        super_admin_ordem: usaOrdem ? proximaOrdem : null,
       })
       .select('id')
       .single();

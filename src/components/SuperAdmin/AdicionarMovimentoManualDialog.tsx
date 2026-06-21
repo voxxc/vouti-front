@@ -5,10 +5,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Paperclip, Plus, X } from 'lucide-react';
+import { EyeOff, Loader2, Paperclip, Plus, Settings2, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { GerenciarTribunaisDialog, TribunalTag } from './GerenciarTribunaisDialog';
 
 interface ProcessoLite {
   id: string;
@@ -46,6 +47,8 @@ interface AbaMovimento {
   marcarNaoLido: boolean;
   marcarComoAtualizado: boolean;
   arquivo: File | null;
+  sigiloso: boolean;
+  tribunalTag: string | null;
 }
 
 function novaAba(hoje: string): AbaMovimento {
@@ -57,6 +60,8 @@ function novaAba(hoje: string): AbaMovimento {
     marcarNaoLido: true,
     marcarComoAtualizado: false,
     arquivo: null,
+    sigiloso: false,
+    tribunalTag: null,
   };
 }
 
@@ -72,6 +77,22 @@ export function AdicionarMovimentoManualDialog({
   const [ativaId, setAtivaId] = useState<string>(() => '');
   const [salvando, setSalvando] = useState(false);
   const salvandoRef = useRef(false);
+  const [tribunais, setTribunais] = useState<TribunalTag[]>([]);
+  const [gerenciarOpen, setGerenciarOpen] = useState(false);
+
+  const carregarTribunais = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('super-admin-listar-tribunais-andamento', { body: {} });
+      if (error) throw error;
+      setTribunais(((data as any)?.tribunais || []) as TribunalTag[]);
+    } catch (e) {
+      console.warn('falha ao listar tribunais', e);
+    }
+  };
+
+  useEffect(() => {
+    if (open) carregarTribunais();
+  }, [open]);
 
   // inicializa quando abre
   useEffect(() => {
@@ -163,6 +184,8 @@ export function AdicionarMovimentoManualDialog({
           descricao: a.descricao.trim(),
           marcar_nao_lido: a.marcarNaoLido,
           marcar_como_atualizado: a.marcarComoAtualizado,
+          sigiloso: a.sigiloso,
+          tribunal_tag: a.tribunalTag || null,
         };
         if (a.arquivo) {
           const base64 = await fileToBase64(a.arquivo);
@@ -210,6 +233,7 @@ export function AdicionarMovimentoManualDialog({
   if (!ativa) return null;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(o) => onOpenChange(o)}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
@@ -326,6 +350,43 @@ export function AdicionarMovimentoManualDialog({
             </p>
           </div>
 
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <Label htmlFor="mov-tribunal" className="text-sm">Tribunal</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setGerenciarOpen(true)}
+              >
+                <Settings2 className="h-3.5 w-3.5 mr-1" /> Gerenciar
+              </Button>
+            </div>
+            <select
+              id="mov-tribunal"
+              value={ativa.tribunalTag ?? ''}
+              onChange={(e) => updateAtiva({ tribunalTag: e.target.value || null })}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+            >
+              <option value="">Sem tribunal</option>
+              {tribunais.map((t) => (
+                <option key={t.id} value={t.slug}>{t.nome}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="mov-sigiloso"
+              checked={ativa.sigiloso}
+              onCheckedChange={(v) => updateAtiva({ sigiloso: v === true })}
+            />
+            <Label htmlFor="mov-sigiloso" className="text-sm font-normal cursor-pointer flex items-center gap-1">
+              <EyeOff className="h-3.5 w-3.5" /> Sigiloso
+            </Label>
+          </div>
+
           <div className="flex items-center gap-2">
             <Checkbox
               id="mov-naolido"
@@ -360,5 +421,11 @@ export function AdicionarMovimentoManualDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <GerenciarTribunaisDialog
+      open={gerenciarOpen}
+      onOpenChange={setGerenciarOpen}
+      onChanged={carregarTribunais}
+    />
+    </>
   );
 }
