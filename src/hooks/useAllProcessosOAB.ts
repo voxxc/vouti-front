@@ -246,7 +246,9 @@ export const useAllProcessosOAB = (
     } finally {
       setLoading(false);
     }
-  }, [tenantId, toast, page, searchTerm, JSON.stringify(filtroPrincipal), filtroApartado]);
+    // Atualiza contagens globais em paralelo para refletir mudanças (delete/toggle).
+    fetchGlobalCounts();
+  }, [tenantId, toast, page, searchTerm, JSON.stringify(filtroPrincipal), filtroApartado, fetchGlobalCounts]);
 
   useEffect(() => {
     fetchProcessos();
