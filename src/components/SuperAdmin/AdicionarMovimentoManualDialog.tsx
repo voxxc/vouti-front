@@ -77,6 +77,7 @@ export function AdicionarMovimentoManualDialog({
   const [ativaId, setAtivaId] = useState<string>(() => '');
   const [salvando, setSalvando] = useState(false);
   const salvandoRef = useRef(false);
+  const [erroSalvar, setErroSalvar] = useState<string | null>(null);
   const [tribunais, setTribunais] = useState<TribunalTag[]>([]);
   const [gerenciarOpen, setGerenciarOpen] = useState(false);
 
@@ -101,6 +102,7 @@ export function AdicionarMovimentoManualDialog({
       setAbas([inicial]);
       setAtivaId(inicial.id);
       setSalvando(false);
+      setErroSalvar(null);
       salvandoRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -109,6 +111,7 @@ export function AdicionarMovimentoManualDialog({
   const ativa = abas.find((a) => a.id === ativaId) ?? abas[0];
 
   const updateAtiva = (patch: Partial<AbaMovimento>) => {
+    setErroSalvar(null);
     setAbas((prev) => prev.map((a) => (a.id === ativa.id ? { ...a, ...patch } : a)));
   };
 
@@ -156,38 +159,42 @@ export function AdicionarMovimentoManualDialog({
 
   const handleSalvar = async () => {
     if (salvandoRef.current) return;
-    salvandoRef.current = true;
-    setSalvando(true);
+    setErroSalvar(null);
 
     // valida todas as abas
     for (let i = 0; i < abas.length; i++) {
       const a = abas[i];
-      if (!a.tipo.trim()) {
+      if (!a.data) {
         setAtivaId(a.id);
-        toast.error(`Informe o nome do movimento na aba "${labelAba(a, i)}".`);
-        salvandoRef.current = false;
-        setSalvando(false);
+        setErroSalvar(`Informe a data da movimentação na aba "${labelAba(a, i)}".`);
         return;
       }
-      if (a.descricao.trim().length < 10) {
+      if (!a.tipo.trim()) {
         setAtivaId(a.id);
-        toast.error(`A descrição precisa de ao menos 10 caracteres na aba "${labelAba(a, i)}".`);
-        salvandoRef.current = false;
-        setSalvando(false);
+        setErroSalvar(`Informe o nome do movimento na aba "${labelAba(a, i)}".`);
         return;
       }
     }
+
+    salvandoRef.current = true;
+    setSalvando(true);
 
     // ordem: da última (mais antiga) para a primeira (mais nova)
     const ordem = [...abas].reverse();
     const idsSalvos: string[] = [];
     try {
       for (const a of ordem) {
+        const descricaoDigitada = a.descricao.trim();
+        const descricaoComFallback = descricaoDigitada.length >= 10
+          ? descricaoDigitada
+          : `${a.tipo.trim()}${descricaoDigitada ? ` — ${descricaoDigitada}` : ''}`.trim();
         const payload: any = {
           processo_oab_id: processo.id,
           data_movimentacao: a.data,
           tipo_movimentacao: a.tipo.trim(),
-          descricao: a.descricao.trim(),
+          descricao: descricaoComFallback.length >= 10
+            ? descricaoComFallback
+            : `Movimento manual: ${a.tipo.trim()}`,
           marcar_nao_lido: a.marcarNaoLido,
           marcar_como_atualizado: a.marcarComoAtualizado,
           sigiloso: a.sigiloso,
