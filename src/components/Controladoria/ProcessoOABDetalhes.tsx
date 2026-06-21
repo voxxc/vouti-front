@@ -330,9 +330,43 @@ export const ProcessoOABDetalhes = ({
     }
   };
 
+  const handleReprocessarResumo = async () => {
+    setConfirmReparseOpen(false);
+    setReprocessandoResumo(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'escavador-importar-processo',
+        {
+          body: {
+            processoId: processo.id,
+            numeroProcesso: processo.numero_cnj,
+            reparseSomente: true,
+          },
+        },
+      );
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Falha ao reprocessar');
+      toast({
+        title: '✅ Resumo reprocessado',
+        description: 'Os campos foram atualizados a partir do cache do Escavador (sem nova cobrança).',
+      });
+      await onRefreshProcessos?.();
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao reprocessar',
+        description: err?.message || 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setReprocessandoResumo(false);
+    }
+  };
+
   // Estados de edição - Resumo
   const [editandoResumo, setEditandoResumo] = useState(false);
   const [salvandoResumo, setSalvandoResumo] = useState(false);
+  const [reprocessandoResumo, setReprocessandoResumo] = useState(false);
+  const [confirmReparseOpen, setConfirmReparseOpen] = useState(false);
   const [formResumo, setFormResumo] = useState({
     parte_ativa: '',
     parte_passiva: '',
@@ -861,6 +895,27 @@ export const ProcessoOABDetalhes = ({
             </AlertDialogContent>
           </AlertDialog>
 
+          {/* Confirmação de reprocessamento do resumo (Escavador cache) */}
+          <AlertDialog open={confirmReparseOpen} onOpenChange={setConfirmReparseOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Reprocessar resumo do Escavador?</AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-2 text-sm">
+                    <p>Reextrai os dados (classe, assunto, partes, advogados, juízo, fase) a partir do <strong>cache</strong> do Escavador, sem nova cobrança da API.</p>
+                    <p className="text-amber-600 dark:text-amber-400">⚠️ Edições manuais nos campos do resumo serão sobrescritas.</p>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleReprocessarResumo}>
+                  Reprocessar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
           {/* Confirmação de reset/atualização forçada */}
           <AlertDialog open={confirmResetOpen} onOpenChange={setConfirmResetOpen}>
             <AlertDialogContent>
@@ -984,6 +1039,23 @@ export const ProcessoOABDetalhes = ({
                     </Card>
                   ) : (
                     <div className="flex justify-end">
+                      {escavadorBeta && escavadorAtivo && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setConfirmReparseOpen(true)}
+                          disabled={reprocessandoResumo}
+                          className="mr-2"
+                          title="Reprocessa o resumo usando o cache do Escavador, sem nova cobrança"
+                        >
+                          {reprocessandoResumo ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-4 h-4 mr-1" />
+                          )}
+                          Reprocessar resumo
+                        </Button>
+                      )}
                       <Button 
                         variant="outline" 
                         size="sm" 
