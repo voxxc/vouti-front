@@ -1472,6 +1472,11 @@ export const ProcessoOABDetalhes = ({
                       const stepId = andamento.dados_completos?.id || andamento.dados_completos?.step_id;
                       const anexosDoAndamento = stepId ? (anexosPorStep.get(stepId) || []) : [];
                       const temAnexos = anexosDoAndamento.length > 0;
+                      const isManual = (andamento as any).dados_completos?.origem === 'manual';
+                      const anexoManual = (andamento as any).dados_completos?.anexo as
+                        | { bucket?: string; storage_path?: string; nome?: string }
+                        | null
+                        | undefined;
                       
                       return (
                         <Card 
@@ -1509,6 +1514,11 @@ export const ProcessoOABDetalhes = ({
                                     {andamento.tipo_movimentacao}
                                   </Badge>
                                 )}
+                                {isManual && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Manual
+                                  </Badge>
+                                )}
                                 {temAnexos && (
                                   <Badge variant="secondary" className="text-xs gap-1">
                                     <Paperclip className="w-2.5 h-2.5" />
@@ -1518,6 +1528,29 @@ export const ProcessoOABDetalhes = ({
                               </div>
                               <p className="text-sm">{andamento.descricao}</p>
                               
+                              {/* Anexo manual (super admin) */}
+                              {anexoManual?.storage_path && (
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const { data, error } = await supabase.storage
+                                        .from(anexoManual.bucket || 'andamentos-manuais-docs')
+                                        .createSignedUrl(anexoManual.storage_path!, 3600);
+                                      if (error || !data?.signedUrl) throw error;
+                                      window.open(data.signedUrl, '_blank');
+                                    } catch (err) {
+                                      console.error(err);
+                                    }
+                                  }}
+                                  className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                >
+                                  <Paperclip className="w-3 h-3" />
+                                  {anexoManual.nome || 'Documento anexado'}
+                                </button>
+                              )}
+
                               {/* Inline attachments */}
                               {temAnexos && (
                                 <AndamentoAnexos
