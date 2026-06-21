@@ -180,7 +180,6 @@ Deno.serve(async (req) => {
         tipo_movimentacao: body.tipo_movimentacao,
         descricao: body.descricao,
         lida: !body.marcar_nao_lido,
-        dedup_hash: `manual-${manualId}`,
         dados_completos: dadosCompletos,
       })
       .select('id')
