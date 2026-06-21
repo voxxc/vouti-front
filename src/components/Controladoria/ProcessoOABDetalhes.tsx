@@ -344,20 +344,63 @@ export const ProcessoOABDetalhes = ({
           body: {
             processoId: processo.id,
             numeroProcesso: processo.numero_cnj,
+            tenantId: processo.tenant_id ?? null,
             reparseSomente: true,
           },
         },
       );
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Falha ao reprocessar');
+      const oabIns = data?.andamentosOabInseridos ?? 0;
+      const temCache = !!data?.temCacheMovs;
       toast({
         title: '✅ Resumo reprocessado',
-        description: 'Os campos foram atualizados a partir do cache do Escavador (sem nova cobrança).',
+        description: temCache
+          ? `Capa atualizada do cache. ${oabIns} andamento(s) reinserido(s).`
+          : 'Capa atualizada do cache. Sem movimentações em cache — use "Reimportar tudo" para buscar no Escavador (consulta paga).',
       });
       await onRefreshProcessos?.();
+      await fetchAndamentos();
     } catch (err: any) {
       toast({
         title: 'Erro ao reprocessar',
+        description: err?.message || 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setReprocessandoResumo(false);
+    }
+  };
+
+  const handleReimportarTudo = async () => {
+    setConfirmReparseOpen(false);
+    setReprocessandoResumo(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'escavador-importar-processo',
+        {
+          body: {
+            processoId: processo.id,
+            numeroProcesso: processo.numero_cnj,
+            tenantId: processo.tenant_id ?? null,
+            ativarMonitoramento: false,
+            reparseSomente: false,
+          },
+        },
+      );
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Falha ao reimportar');
+      const oabIns = data?.andamentosOabInseridos ?? 0;
+      const cred = data?.creditosUtilizados ?? 0;
+      toast({
+        title: '✅ Reimportação concluída',
+        description: `Capa e andamentos atualizados do Escavador. ${oabIns} novo(s) andamento(s). Créditos: ${cred}.`,
+      });
+      await onRefreshProcessos?.();
+      await fetchAndamentos();
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao reimportar',
         description: err?.message || 'Tente novamente.',
         variant: 'destructive',
       });
