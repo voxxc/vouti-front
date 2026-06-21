@@ -1,85 +1,42 @@
-# Corrigir inserção de andamentos OAB que falha silenciosamente
+# Causa raiz
 
-## Causa raiz
-Os logs da última importação mostram que tudo funcionou **menos** o espelhamento para `processos_oab_andamentos`:
+A tabela `public.processos` está bloqueando o número do processo de forma global com `UNIQUE (numero_processo)`. Isso impede que o tenant **demorais** cadastre `0123417-95.2025.8.16.0000` porque ele já existe em outro tenant.
 
-```
-[Escavador Importar V2] coletadas 18 movs | modo: rapido | status: ok
-[Escavador Importar V2] ✅ 18 novas movs salvas         ← legacy table OK
-[Escavador Importar V2] OAB 6a06...4b17b1: 0 novos andamentos  ← falha silenciosa
-```
+Isso está errado para o modelo multi-tenant: o mesmo CNJ pode existir em vários escritórios/tenants, cada um com sua própria cópia, lista, dados internos, etiquetas, comentários, monitoramento e andamentos.
 
-Investigando o schema, a tabela `processos_oab_andamentos` tem um índice **UNIQUE** com expressões:
+# Correção
 
-```sql
-idx_andamentos_unique_v3 ON (
-  processo_oab_id,
-  truncate_minute(data_movimentacao),
-  normalize_descricao(descricao)
-)
-```
+1. **Banco de dados**
+   - Remover a constraint global `processos_numero_processo_key`.
+   - Criar unicidade por tenant: `(tenant_id, numero_processo)`.
+   - Resultado: o mesmo número pode existir em tenants diferentes, mas não duplica dentro do mesmo tenant.
 
-E o código atual em `supabase/functions/escavador-importar-processo/index.ts` (linhas 449-465) faz **`.insert()` puro** dos 18 andamentos e **ignora silenciosamente erros individuais** (`if (!insErr) { inseridosNesteOab++; }`). Sem nenhum `console.error`, qualquer falha — colisão de UNIQUE, NOT NULL, parse de timestamp, função `normalize_descricao` retornando NULL, etc. — some sem rastro. O resultado é os 18 inserts falharem todos sem que vejamos o motivo.
+2. **Importação pela busca OAB**
+   - Ajustar o pré-check de duplicidade para procurar apenas dentro do `tenant_id` atual.
+   - Se o processo existir em outro tenant, ignorar esse registro e criar um novo no tenant atual.
+   - Se já existir no mesmo tenant, aí sim reaproveitar/atualizar o registro daquele tenant.
 
-A 2ª causa provável: muitas movimentações do Escavador vêm com `mov.data` em formato só-data (`"2026-03-18"`). Quando duas mov compartilham a mesma data e descrições começam parecidas, `truncate_minute` + `normalize_descricao` podem colapsar várias para a mesma chave → o 1º insert vira conflito UNIQUE para os demais, e como é `insert` puro (não `upsert`), todos os subsequentes erram.
+3. **Importação por CNJ/manual**
+   - Aplicar a mesma regra: duplicidade só vale dentro do tenant atual.
+   - Remover lógica que tenta reaproveitar/vincular um processo encontrado fora do tenant atual.
 
-## Correção
+# Arquivos afetados
 
-### 1. Trocar `insert` por `upsert` idempotente
-Em `supabase/functions/escavador-importar-processo/index.ts`, no laço dos OABs:
+- `src/components/Controladoria/ImportarProcessoDialog.tsx`
+- `src/components/Controladoria/ImportarProcessoCNJDialog.tsx`
+- Migration Supabase para trocar a UNIQUE global por índice único composto `(tenant_id, numero_processo)`.
 
-```ts
-const { error: insErr } = await supabaseClient
-  .from('processos_oab_andamentos')
-  .upsert({ ... }, {
-    onConflict: 'processo_oab_id,data_movimentacao,descricao',
-    ignoreDuplicates: true,
-  });
-```
+# Impacto
 
-Como o índice UNIQUE é por **expressão** (`truncate_minute`, `normalize_descricao`), o PostgREST não consegue usá-lo como `onConflict` direto. Solução: usar `ignoreDuplicates` com a chave canônica e tratar `23505` (unique_violation) como sucesso silencioso, contando apenas inserts que não colidem.
+- **Usuário final:** ao importar `0123417-95.2025.8.16.0000` no tenant demorais, o sistema vai cadastrar uma cópia nova para o demorais e colocar na lista dele. Não vai apenas dizer que já está cadastrado em outro tenant.
+- **Dados:** registros existentes não serão apagados nem movidos. A mudança é estrutural: a unicidade deixa de ser global e passa a ser por tenant. RLS continua separando os dados por tenant.
+- **Riscos colaterais:** qualquer código que assumia `numero_processo` globalmente único precisa sempre usar `tenant_id` junto. Nesta correção, os fluxos de importação serão ajustados para isso.
+- **Quem é afetado:** todos os tenants. Cada escritório passa a poder ter sua própria versão do mesmo processo, sem interferir no outro.
 
-Plano B (mais robusto): fazer um **SELECT** prévio das chaves já existentes (mesmo padrão já usado para a legacy table nas linhas 378-385) e pular movs que coincidem antes de chamar o insert. Isso garante 0 erros de UNIQUE.
+# Validação
 
-### 2. Logar todo erro de insert
-Substituir `if (!insErr) { ... }` por:
-
-```ts
-if (insErr) {
-  if (insErr.code === '23505') {
-    // duplicado — ok, ignora
-  } else {
-    console.error('[Escavador Importar V2] erro insert OAB andamento:', insErr.code, insErr.message, { dataMov, descricao: descricao.slice(0,80) });
-  }
-} else {
-  inseridosNesteOab++;
-  totalOabSalvas++;
-}
-```
-
-### 3. Garantir que `data_movimentacao` seja sempre um ISO completo
-Normalizar `mov.data` para `YYYY-MM-DDT00:00:00Z` quando vier só com a data, evitando ambiguidade no `truncate_minute`.
-
-### 4. Endpoint de "reespelhamento" via reparse
-Como o cache já está populado (18 movs em `escavador_data._movimentacoes_cache`), depois do fix o usuário só precisa clicar **Reprocessar resumo (do cache, grátis)** que os 18 andamentos serão inseridos sem nova cobrança Escavador.
-
-## Arquivos afetados
-- `supabase/functions/escavador-importar-processo/index.ts` — laço de inserção em `processos_oab_andamentos` (linhas ~442-487).
-- Sem migrations, sem mudanças em outras tabelas, sem mudança de RLS, sem alteração de UI.
-
-## Impacto
-1. **UX:** Após o fix, importações novas trazem capa **e** andamentos visíveis na ficha OAB. Para o processo atual `0123417-95.2025.8.16.0000`, basta clicar **Reprocessar resumo** (grátis, usa cache) que os 18 andamentos aparecem.
-2. **Dados:** Inserts viram idempotentes — reimportar/reprocessar não duplica nem polui logs com erros 23505. Nenhuma mudança de schema, RLS ou índices. Performance equivalente (1 SELECT prévio + N inserts em vez de N inserts cegos).
-3. **Riscos colaterais:** Mínimos. O dedup já é validado pelo índice UNIQUE existente; o pré-SELECT só replica essa validação no app antes do insert. Se o cliente já tinha andamentos inseridos manualmente com a mesma chave, eles continuam preservados (não são sobrescritos).
-4. **Quem é afetado:** Todos os tenants que importam processos via OAB. Especialmente quem teve importações com "0 andamentos" silenciosos no passado — após o fix, podem clicar em "Reprocessar resumo" e popular sem custo.
-
-## Validação
-1. Deploy da edge.
-2. No processo `0123417-95.2025.8.16.0000`, clicar em **Reprocessar resumo** (modo cache, sem cobrança no Escavador).
-3. Logs devem mostrar `OAB ...: 18 novos andamentos` (ou similar) e zero erros silenciosos.
-4. `SELECT count(*) FROM processos_oab_andamentos WHERE processo_oab_id = '6a06...4b17b1'` deve retornar 18.
-5. Aba **Andamentos** na ficha do processo deve listar as 18 movimentações.
-6. Reprocessar de novo: `count` continua 18 (idempotência confirmada).
-7. Importar um processo novo do zero (outro CNJ): capa + andamentos vêm na mesma operação.
-
-Confirma para eu implementar?
+1. Confirmar que o banco aceita dois registros com o mesmo `numero_processo` em tenants diferentes.
+2. Importar `0123417-95.2025.8.16.0000` no tenant demorais.
+3. Confirmar que aparece na lista do tenant demorais.
+4. Confirmar que o registro do outro tenant continua separado.
+5. Reimportar o mesmo CNJ no próprio demorais e confirmar que não cria duplicado dentro do mesmo tenant.
