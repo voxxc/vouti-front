@@ -166,12 +166,16 @@ export function AdicionarMovimentoManualDialog({
       const a = abas[i];
       if (!a.data) {
         setAtivaId(a.id);
-        setErroSalvar(`Informe a data da movimentação na aba "${labelAba(a, i)}".`);
+        const mensagem = `Informe a data da movimentação na aba "${labelAba(a, i)}".`;
+        setErroSalvar(mensagem);
+        toast.error(mensagem);
         return;
       }
       if (!a.tipo.trim()) {
         setAtivaId(a.id);
-        setErroSalvar(`Informe o nome do movimento na aba "${labelAba(a, i)}".`);
+        const mensagem = `Informe o nome do movimento na aba "${labelAba(a, i)}".`;
+        setErroSalvar(mensagem);
+        toast.error(mensagem);
         return;
       }
     }
@@ -423,11 +427,24 @@ export function AdicionarMovimentoManualDialog({
           </div>
         </div>
 
+        {erroSalvar && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {erroSalvar}
+          </div>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={salvando}>
             Cancelar
           </Button>
-          <Button onClick={handleSalvar} disabled={salvando}>
+          <Button
+            type="button"
+            onPointerDown={() => {
+              if (!salvandoRef.current) setErroSalvar(null);
+            }}
+            onClick={handleSalvar}
+            disabled={salvando}
+          >
             {salvando && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {salvando
               ? 'Salvando...'
