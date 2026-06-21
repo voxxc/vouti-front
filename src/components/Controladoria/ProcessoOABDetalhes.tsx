@@ -290,7 +290,7 @@ export const ProcessoOABDetalhes = ({
       const tId = (tenantId ?? '') as string;
 
       // 1) Prioridade: monitoramento vinculado diretamente ao processo_oab
-      const { data: oabMon } = await supabase
+      const { data: oabMon } = await (supabase as any)
         .from('processo_oab_monitoramento_escavador')
         .select('monitoramento_ativo, escavador_data')
         .eq('processo_oab_id', processo.id)
@@ -301,7 +301,7 @@ export const ProcessoOABDetalhes = ({
 
       // 2) Fallback: monitoramento antigo vinculado a processos pelo numero CNJ
       if (!data && processo.numero_cnj) {
-        const { data: legacyMon } = await supabase
+        const { data: legacyMon } = await (supabase as any)
           .from('processo_monitoramento_escavador')
           .select('monitoramento_ativo, escavador_data')
           .eq('numero_cnj', processo.numero_cnj)
