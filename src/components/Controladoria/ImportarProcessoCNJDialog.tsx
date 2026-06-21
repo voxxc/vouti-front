@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useJuditSystemNames } from '@/hooks/useJuditSystemNames';
+import { extrairTribunalDoNumeroProcesso } from '@/utils/processoHelpers';
 
 const PUBLICO_VALUE = '__publico__';
 
@@ -82,6 +83,63 @@ export const ImportarProcessoCNJDialog = ({
   const juditSystemName = credencialSelecionada?.system_name ?? null;
   const juditCustomerKey = credencialSelecionada?.customer_key ?? null;
 
+  const importarUmCnj = async (
+    cnj: string,
+    opts: { apartado?: boolean; sufixo?: string } = {}
+  ): Promise<{ success: boolean; duplicado?: boolean; andamentosInseridos?: number; error?: string }> => {
+    const numeroFinal = opts.apartado && opts.sufixo ? `${cnj}${opts.sufixo}` : cnj;
+
+    // Verificar duplicidade
+    const { data: existente } = await supabase
+      .from('processos')
+      .select('id')
+      .eq('numero_processo', numeroFinal)
+      .maybeSingle();
+
+    if (existente) {
+      return { success: false, duplicado: true };
+    }
+
+    // Resolver tribunal
+    const sigla = extrairTribunalDoNumeroProcesso(numeroFinal);
+    const { data: tribunalData } = await supabase
+      .from('tribunais')
+      .select('id')
+      .eq('sigla', sigla)
+      .maybeSingle();
+
+    // Criar processo mínimo
+    const { data: novoProcesso, error: insertError } = await supabase
+      .from('processos')
+      .insert({
+        numero_processo: numeroFinal,
+        tribunal_id: tribunalData?.id || null,
+        created_by: user?.id,
+        status: 'em_andamento',
+      })
+      .select()
+      .single();
+
+    if (insertError || !novoProcesso) {
+      return { success: false, error: insertError?.message || 'Erro ao criar processo' };
+    }
+
+    // Buscar capa + andamentos via Escavador
+    const { data, error } = await supabase.functions.invoke('escavador-importar-processo', {
+      body: {
+        processoId: novoProcesso.id,
+        numeroProcesso: numeroFinal,
+        tenantId,
+        ativarMonitoramento: false,
+      },
+    });
+
+    if (error) return { success: false, error: error.message };
+    if (!data?.success) return { success: false, error: data?.message || data?.error || 'Falha no Escavador' };
+
+    return { success: true, andamentosInseridos: data.andamentosInseridos ?? 0 };
+  };
+
   const handleImportar = () => {
     if (!isValidCNJ(numeroCnj)) return;
     
@@ -98,8 +156,6 @@ export const ImportarProcessoCNJDialog = ({
     const cnjParaImportar = numeroCnj;
     const apartadoFlag = isApartado;
     const sufixo = sufixoApartado;
-    const systemNameSelecionado = juditSystemName;
-    const customerKeySelecionada = juditCustomerKey;
 
     // Fechar dialog imediatamente
     setNumeroCnj('');
@@ -113,64 +169,35 @@ export const ImportarProcessoCNJDialog = ({
       description: 'Buscando processo em segundo plano...'
     });
 
-    // Processar em background
-    supabase.functions.invoke('judit-buscar-processo-cnj', {
-      body: {
-        numeroCnj: cnjParaImportar,
-        oabId: oab.id,
-        tenantId,
-        userId: user?.id,
-        juditSystemName: systemNameSelecionado,
-        juditCustomerKey: customerKeySelecionada,
-        ...(apartadoFlag && { apartado: true, sufixoApartado: sufixo })
-      }
-    }).then(({ data, error }) => {
-      if (error) {
-        toast({
-          title: 'Erro ao importar processo',
-          description: error.message || 'Tente novamente',
-          variant: 'destructive'
-        });
-        return;
-      }
-
-      if (!data?.success) {
-        if (data?.duplicado) {
+    importarUmCnj(cnjParaImportar, { apartado: apartadoFlag, sufixo })
+      .then((res) => {
+        if (res.duplicado) {
           toast({
             title: '⚠️ Processo já cadastrado',
             description: 'Este processo já consta na sua base de dados.',
           });
-        } else {
+        } else if (!res.success) {
           toast({
             title: 'Erro ao importar processo',
-            description: data?.error || 'Tente novamente',
-            variant: 'destructive'
+            description: res.error || 'Tente novamente',
+            variant: 'destructive',
           });
+        } else {
+          toast({
+            title: 'Processo importado',
+            description: `${res.andamentosInseridos ?? 0} andamentos registrados`,
+          });
+          onSuccess?.();
         }
-        return;
-      }
-
-      if (data.dadosCompletos === false) {
+      })
+      .catch((err: any) => {
+        console.error('Erro ao importar:', err);
         toast({
-          title: 'Processo cadastrado',
-          description: 'Processo em sigilo ou dados indisponíveis. Cadastrado com informações mínimas.',
+          title: 'Erro ao importar processo',
+          description: err.message || 'Falha na conexão',
+          variant: 'destructive',
         });
-      } else {
-        toast({
-          title: 'Processo importado',
-          description: `${data.andamentosInseridos} andamentos registrados`
-        });
-      }
-
-      onSuccess?.();
-    }).catch((err: any) => {
-      console.error('Erro ao importar:', err);
-      toast({
-        title: 'Erro ao importar processo',
-        description: err.message || 'Falha na conexão',
-        variant: 'destructive'
       });
-    });
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
