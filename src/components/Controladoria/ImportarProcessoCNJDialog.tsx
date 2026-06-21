@@ -89,17 +89,11 @@ export const ImportarProcessoCNJDialog = ({
       .from('processos')
       .select('id, tenant_id')
       .eq('numero_processo', numeroFinal)
+      .eq('tenant_id', tenantId)
       .maybeSingle();
 
     if (procExistente) {
       processoId = procExistente.id;
-      // Se estava sem tenant, vincular ao tenant atual
-      if (!procExistente.tenant_id && tenantId) {
-        await supabase
-          .from('processos')
-          .update({ tenant_id: tenantId })
-          .eq('id', processoId);
-      }
     } else {
       const { data: novoProc, error: errNovoProc } = await supabase
         .from('processos')
