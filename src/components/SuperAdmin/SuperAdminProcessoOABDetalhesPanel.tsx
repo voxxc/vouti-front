@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import {
   Loader2, Plus, Bell, BellOff, Paperclip, Calendar, Building2, Scale,
-  ExternalLink, FileText, RefreshCw, Trash2, Lock, LockOpen, GripVertical, EyeOff, Pencil,
+  ExternalLink, FileText, RefreshCw, Trash2, Lock, LockOpen, GripVertical, EyeOff, Pencil, CheckCircle2,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -74,6 +74,7 @@ export function SuperAdminProcessoOABDetalhesPanel({
   const [destravado, setDestravado] = useState(false);
   const [ordemDirty, setOrdemDirty] = useState(false);
   const [salvandoOrdem, setSalvandoOrdem] = useState(false);
+  const [marcandoAtualizado, setMarcandoAtualizado] = useState(false);
   const [tribunais, setTribunais] = useState<TribunalTag[]>([]);
   const [andamentos, setAndamentos] = useState<any[]>([]);
 
@@ -151,6 +152,24 @@ export function SuperAdminProcessoOABDetalhesPanel({
       toast.error(e?.message || 'Erro ao salvar ordem');
     } finally {
       setSalvandoOrdem(false);
+    }
+  };
+
+  const marcarComoAtualizado = async () => {
+    setMarcandoAtualizado(true);
+    try {
+      const { data: resp, error } = await supabase.functions.invoke(
+        'super-admin-marcar-atualizado',
+        { body: { processo_id: processo.id } },
+      );
+      if (error) throw error;
+      if ((resp as any)?.error) throw new Error((resp as any).error);
+      toast.success('Marcado como atualizado');
+      onAndamentoCriado?.();
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao marcar como atualizado');
+    } finally {
+      setMarcandoAtualizado(false);
     }
   };
 
@@ -314,6 +333,20 @@ export function SuperAdminProcessoOABDetalhesPanel({
                     Andamentos ({andamentos.length})
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={marcarComoAtualizado}
+                      disabled={marcandoAtualizado}
+                      title="Marcar este processo como atualizado (aparece na aba Atualizado por 7 dias)"
+                    >
+                      {marcandoAtualizado ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4 mr-1" />
+                      )}
+                      Marcar como atualizado
+                    </Button>
                     <Button
                       variant={destravado ? 'default' : 'ghost'}
                       size="sm"
