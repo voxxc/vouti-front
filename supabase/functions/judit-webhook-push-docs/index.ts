@@ -10,6 +10,14 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  if (Deno.env.get('JUDIT_WEBHOOKS_ENABLED') !== 'true') {
+    console.info('[judit-webhook-push-docs] paused — payload descartado');
+    return new Response(JSON.stringify({ ok: true, paused: true }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const juditApiKey = Deno.env.get('JUDIT_API_KEY');
