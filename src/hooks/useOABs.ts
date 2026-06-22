@@ -567,23 +567,10 @@ export const useProcessosOAB = (oabId: string | null) => {
             : 'Processo registrado para monitoramento semanal via Escavador.',
         });
       } else {
-        const [resEsc, resJudit] = await Promise.allSettled([
-          supabase.functions.invoke('escavador-desativar-monitoramento-oab', {
-            body: { processoOabId: processoId },
-          }),
-          supabase.functions.invoke('judit-desativar-monitoramento', {
-            body: { processoId },
-          }),
-        ]);
-        if (resEsc.status === 'rejected' || (resEsc.value as any)?.error) {
-          throw new Error(
-            (resEsc.status === 'rejected' ? resEsc.reason?.message : (resEsc.value as any)?.error?.message)
-              || 'Erro ao desativar monitoramento',
-          );
-        }
-        if (resJudit.status === 'rejected') {
-          console.warn('[useOABs.toggleMonitoramento] cleanup Judit falhou (ignorado):', resJudit.reason);
-        }
+        const resEsc = await supabase.functions.invoke('escavador-desativar-monitoramento-oab', {
+          body: { processoOabId: processoId },
+        });
+        if (resEsc.error) throw resEsc.error;
         data = { success: true };
         toast({
           title: 'Monitoramento desativado',
