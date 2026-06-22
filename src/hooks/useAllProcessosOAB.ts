@@ -267,10 +267,27 @@ export const useAllProcessosOAB = (
     processoId: string,
     numeroCnj: string,
     ativar: boolean,
-    oabId?: string
+    oabId?: string,
+    _onProcessoCompartilhadoAtualizado?: (cnj: string, oabsAfetadas: string[]) => void,
+    sigiloso?: boolean
   ) => {
     try {
-      if (ativar) {
+      if (sigiloso) {
+        const { error: updErr } = await supabase
+          .from('processos_oab')
+          .update({ monitoramento_ativo: ativar })
+          .eq('id', processoId)
+          .eq('tenant_id', tenantId);
+        if (updErr) throw updErr;
+        toast({
+          title: ativar ? 'Monitoramento ativado' : 'Monitoramento desativado',
+          description: ativar
+            ? 'Processo sigiloso — atualizações serão registradas manualmente.'
+            : 'Histórico de andamentos mantido.',
+        });
+        await fetchProcessos();
+        return { success: true };
+      } else if (ativar) {
         const { data, error } = await supabase.functions.invoke(
           'escavador-ativar-monitoramento-oab',
           { body: { processoOabId: processoId, numeroCnj, tenantId } },
