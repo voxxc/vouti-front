@@ -514,6 +514,7 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
 
       {selecionado && (
         <SuperAdminProcessoOABDetalhesPanel
+          key={selecionado.id}
           open={!!selecionado}
           onOpenChange={(o) => !o && setSelecionado(null)}
           processo={selecionado}
