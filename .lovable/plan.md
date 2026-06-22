@@ -1,58 +1,73 @@
+## Diagnóstico
+
+Investiguei o CPF `095.224.619-89` (Willian Andriola, OAB 92124/PR, tenant `27492091-...`) em todas as fontes possíveis:
+
+**O que existe no banco:**
+- `oabs_cadastradas`: OAB cadastrada (id `6d48d18a-...`).
+- `credenciais_judit` (registro de envios ao cofre Judit): 3 entradas com `username = 09522461989`:
+  - 2026-01-12 — `customer_key = 09522461989`
+  - 2026-05-26 04:31 — `customer_key = willtjprgeral`
+  - 2026-05-26 04:36 — `customer_key = willtjmg`
+
+**O que NÃO existe (e por isso a senha sumiu):**
+- `credenciais_cliente`: zero linhas com esse CPF. Toda a senha/secret/system_name do CPF do Will nunca foi gravada no nosso banco.
+- `judit_api_logs`: só registra chamadas aos endpoints `/requests` e `/tracking`. A chamada `POST crawler.prod.judit.io/credentials` (envio ao cofre) não passa por essa tabela.
+- `projudi_credentials`, `tribunal_credentials`: nenhuma linha relacionada.
+- Logs da edge function `judit-cofre-credenciais` (`console.log`): só registram CPF mascarado (`095***`) e a presença do secret — **nunca a senha em claro**.
+
 ## Causa raiz
 
-**1. Drawer abre vazio sem disparar loading.**
-Em `SuperAdminMovimentosManuaisDrawer.tsx` o efeito que busca os processos roda quando `open=true`, mas:
-- `processos` não é resetado no início do fetch — então se a chamada anterior deixou estado, ou se a edge function devolve `[]` por uma falha silenciosa, a tabela "fica" sem feedback claro.
-- Não há estado de erro: se `supabase.functions.invoke` falhar (timeout, 500), só sai um `toast` e a tabela fica em "Nenhum processo encontrado." indistinguível de "realmente não há".
-- Não há botão de recarregar visível (apenas implícito via troca de aba), o que impede o usuário de tentar de novo sem fechar/abrir.
+A edge function `judit-cofre-credenciais` (a única usada nesses 3 envios — ela só recebe `cpf, senha, secret, customerKey, systemName` e repassa para a Judit) **não persiste nada no nosso Supabase**. Ela é "fire-and-forget" para o cofre da Judit. O registro em `credenciais_judit` é criado por outro fluxo (registry), que grava apenas `customer_key`, `username`, `system_name` — sem `senha`/`secret`.
 
-**2. Atualização "Atualizado" depende exclusivamente do fluxo de criar movimento.**
-Hoje `super_admin_atualizado_em` só é gravado em `super-admin-criar-andamento-manual` (linha 217). Se o admin esquece de marcar o checkbox "marcar como atualizado" ao criar o movimento, o processo nunca aparece na aba **Atualizado**. Não existe ação dedicada de "marcar como atualizado agora".
+Resultado: a senha e o TOTP secret do Willian Andriola estão **apenas dentro do cofre da Judit**, que é write-only. Não há cópia local para recuperar, nem dá para reler do cofre por API (a Judit não devolve senhas armazenadas).
 
-## Correção
+## Recuperação possível
 
-### A) Drawer com feedback robusto — `SuperAdminMovimentosManuaisDrawer.tsx`
+1. **Não temos como recuperar a senha/secret do cofre da Judit pelo nosso lado.** Esse dado nunca foi gravado e a Judit não expõe leitura.
+2. As únicas formas reais de recuperar são externas:
+   - Pedir ao próprio Willian Andriola a senha/TOTP que ele usou.
+   - Resetar a senha do cadastro dele no(s) tribunal(is) (TJMG, TJPR — `customer_key = willtjmg`, `willtjprgeral`, `09522461989`) e cadastrar de novo no cofre.
 
-1. Adicionar estado `erro: string | null`.
-2. No início do fetch: `setProcessos([])` + `setErro(null)` + `setLoading(true)` para garantir spinner visível e estado limpo.
-3. Em caso de erro do `invoke`, gravar mensagem em `erro` (além do toast).
-4. Renderizar 3 estados explícitos no `ScrollArea`:
-   - **Loading** → spinner (já existe).
-   - **Erro** → mensagem + botão "Tentar novamente" que chama `recarregar()`.
-   - **Vazio** → texto "Nenhum processo encontrado." com botão "Recarregar".
-5. Adicionar botão "Recarregar" pequeno na barra de filtros (ao lado do contador `${filtrados.length} processo(s)`), sempre visível, chamando `recarregar()`.
-6. Garantir que o efeito sempre execute ao abrir (já roda; só reforçar resetando estado anterior).
+## Correção sistêmica (para não acontecer mais)
 
-### B) Botão "Marcar como atualizado" no painel de detalhes
+Para que daqui em diante todo envio ao cofre Judit fique rastreável no super-admin, proponho:
 
-1. Nova edge function `super-admin-marcar-atualizado`:
-   - Body: `{ processo_id: string }`.
-   - Valida super admin (mesmo padrão das outras `super-admin-*`).
-   - `UPDATE processos_oab SET super_admin_atualizado_em = now() WHERE id = $1`.
-   - Retorna `{ ok: true, super_admin_atualizado_em }`.
-2. Em `SuperAdminProcessoOABDetalhesPanel.tsx`, na barra "Andamentos (N)" (linhas 312–341), adicionar **antes** do botão "Reordenar" um novo botão `<Button variant="outline" size="sm">` com ícone `CheckCircle2` e label **"Marcar como atualizado"**, que:
-   - Chama a nova edge function.
-   - Em sucesso: toast "Marcado como atualizado" + `onAndamentoCriado?.()` (já é o callback de recarregar do drawer pai, que joga o processo na aba Atualizado).
-   - Loading state local enquanto chama.
+### A) Persistir cópia criptografada em `credenciais_cliente` no momento do envio
+Atualizar `supabase/functions/judit-cofre-credenciais/index.ts` para, antes/depois do POST à Judit, fazer um `INSERT` em `credenciais_cliente` com:
+- `tenant_id`, `oab_id` (quando vier no body — adicionar no payload do frontend), `cpf`, `system_name`, `customer_key` (precisa adicionar coluna), `senha`, `secret`, `enviado_por`, `status`.
+- `senha` e `secret` armazenadas **criptografadas com AES-256-GCM**, no mesmo padrão já usado em `validar-credenciais-projudi` (chave `PROJUDI_ENCRYPTION_KEY` ou nova `JUDIT_CREDENTIAL_ENCRYPTION_KEY`).
+- O super-admin usa um endpoint dedicado para descriptografar sob demanda (com auditoria), nunca expõe senha em claro em listagens.
+
+### B) Adicionar `customer_key` em `credenciais_cliente`
+Hoje a tabela não tem essa coluna — o vínculo com `credenciais_judit` é frágil. Migration: `ALTER TABLE credenciais_cliente ADD COLUMN customer_key text` + índice.
+
+### C) Tela "Histórico de credenciais" no super-admin
+Já existe `CredenciaisCentralDialog` para pendentes. Adicionar aba/tab "Histórico" listando `credenciais_cliente` (status `enviado`) cruzado com `credenciais_judit`, com botão "Revelar senha" que chama edge function `super-admin-revelar-credencial` (auth + role check + log em `super_admin_security_hotfixes` ou tabela de auditoria nova).
 
 ## Arquivos afetados
 
-- `src/components/SuperAdmin/SuperAdminMovimentosManuaisDrawer.tsx` — estados de erro/vazio/recarregar.
-- `src/components/SuperAdmin/SuperAdminProcessoOABDetalhesPanel.tsx` — novo botão na barra de andamentos.
-- `supabase/functions/super-admin-marcar-atualizado/index.ts` — nova edge function (criada).
-- `supabase/config.toml` — registrar a nova função (auto-deploy).
+- `supabase/functions/judit-cofre-credenciais/index.ts` — passar a persistir + criptografar.
+- `supabase/functions/super-admin-revelar-credencial/index.ts` — nova, descriptografa sob auth de super-admin.
+- Migration: `ALTER TABLE credenciais_cliente ADD COLUMN customer_key text` + índice + (opcional) `tabela credenciais_cliente_audit_reveal`.
+- `src/components/SuperAdmin/CredenciaisCentralDialog.tsx` — aba "Histórico" + ação "Revelar".
+- Frontend que chama `judit-cofre-credenciais` — passar `oab_id` no body (hoje não passa).
 
 ## Impacto
 
-- **UX:** o admin nunca mais vê o drawer "vazio sem motivo": ou aparece spinner, ou erro com retry, ou empty state com botão recarregar. Ganha um botão dedicado para marcar o processo como atualizado mesmo sem criar movimento manual — corrige o caso "esqueci do checkbox".
-- **Dados:** sem migration. A nova edge function só atualiza `processos_oab.super_admin_atualizado_em` (coluna já existente). Mesma RLS já em vigor.
-- **Riscos colaterais:** baixos. A função é restrita a super admins (mesmo guarda das demais `super-admin-*`). O botão de recarregar dispara apenas o `invoke` já existente.
-- **Quem é afetado:** apenas usuários super admin operando o drawer "Movimentos manuais" — nenhum tenant final é afetado.
+- **Usuário final:** nada muda no fluxo de envio. Ganha aba "Histórico" no diálogo de credenciais do super-admin com botão para revelar senha sob demanda.
+- **Dados:** nova coluna `customer_key` em `credenciais_cliente`; novos registros gravados criptografados; senhas antigas (incluindo a do Will) **continuam perdidas** — não há retroatividade possível.
+- **Riscos colaterais:** precisa-se gerar/configurar o secret de criptografia (`JUDIT_CREDENTIAL_ENCRYPTION_KEY`) antes do deploy, senão a função falha. Auditoria de revelação precisa ser respeitada para LGPD.
+- **Quem é afetado:** super-admin (ganha ferramenta nova); todos os tenants (futuros envios passam a ser persistidos). Caso do Willian: **continua irrecuperável pelo sistema**, precisa ser refeito por reset externo.
 
 ## Validação
 
-- Abrir o drawer com tenant que tem processos → ver spinner e depois lista (não mais "vazio falso").
-- Forçar erro (desconectar rede) → ver mensagem de erro + botão "Tentar novamente" funcionando.
-- Aba "Atualizado" sem dados → ver empty state com botão "Recarregar".
-- Abrir um processo, clicar **"Marcar como atualizado"** → toast de sucesso, drawer pai recarrega, processo passa a aparecer na aba **Atualizado** com "expira em 7d".
-- Repetir o clique no mesmo processo → o `super_admin_atualizado_em` é refrescado (volta para 7d).
+- Enviar uma credencial de teste e conferir registro em `credenciais_cliente` com `senha`/`secret` criptografados.
+- Chamar `super-admin-revelar-credencial` como super-admin → retorna senha; como não-super-admin → 403.
+- Verificar log de auditoria para cada revelação.
+- Confirmar que a UI "Histórico" lista os envios com data/cpf/system_name/customer_key.
+
+## Sobre o caso específico do Will
+
+Antes de implementar, me confirme:
+1. Quer que eu prossiga com a correção sistêmica acima (não recupera o do Will, mas evita o próximo)?
+2. Para o caso do Willian, posso (a) abrir um aviso no super-admin pedindo reenvio das credenciais por ele, ou (b) marcar as 3 entradas em `credenciais_judit` (`willtjmg`, `willtjprgeral`, `09522461989`) como `pendente_reenvio` para forçar uma re-coleta?
