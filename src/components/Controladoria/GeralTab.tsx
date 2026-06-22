@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { isProcessoSigiloso } from '@/utils/processoOABHelpers';
 import {
   Eye, Bell, Loader2, FileText, Search, X, Filter, ChevronLeft, ChevronRight, Trash2, Scale, Link2, Users, FolderInput, ShieldAlert
 } from 'lucide-react';
