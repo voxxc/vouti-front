@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
       let query = admin
         .from('processos_oab')
         .select(
-          'id, numero_cnj, parte_ativa, parte_passiva, tribunal_sigla, monitoramento_ativo, ultima_atualizacao_detalhes, super_admin_atualizado_em, partes_completas, capa_completa',
+          'id, numero_cnj, parte_ativa, parte_passiva, tribunal_sigla, monitoramento_ativo, ultima_atualizacao_detalhes, super_admin_atualizado_em, capa_completa',
         )
         .eq('tenant_id', tenant_id);
 
@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
       const is_sigiloso = isSigiloso(p);
       const uf = extrairUF(p.tribunal_sigla, p.numero_cnj);
       // Não devolver judit_data/partes_completas/capa_completa para reduzir payload
-      const { partes_completas, capa_completa, ...rest } = p;
+      const { capa_completa, ...rest } = p;
       return { ...rest, total_andamentos: counts[p.id] || 0, is_sigiloso, uf };
     });
 
