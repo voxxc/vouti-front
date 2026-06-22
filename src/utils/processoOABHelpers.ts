@@ -7,6 +7,29 @@ export interface PartesExtraidas {
 }
 
 /**
+ * Detecta se um processo é sigiloso, considerando:
+ *  - secrecy_level >= 1 ou justice_secret === true na capa (judit_data.lawsuit)
+ *  - partes mascaradas com termos como "Sigilo", "Segredo de justiça", etc.
+ */
+const PARTES_SIGILOSAS_REGEX =
+  /^\s*(sigilo|sigiloso|sigilosa|segredo de justi[cç]a|sob sigilo)\s*$/i;
+
+export function isProcessoSigiloso(processo: any): boolean {
+  if (!processo) return false;
+  const capa = processo?.judit_data?.lawsuit || {};
+  const partesMascaradas =
+    PARTES_SIGILOSAS_REGEX.test(processo.parte_ativa || '') ||
+    PARTES_SIGILOSAS_REGEX.test(processo.parte_passiva || '') ||
+    PARTES_SIGILOSAS_REGEX.test((capa as any).parte_ativa || '') ||
+    PARTES_SIGILOSAS_REGEX.test((capa as any).parte_passiva || '');
+  return (
+    ((capa as any).secrecy_level ?? 0) >= 1 ||
+    (capa as any).justice_secret === true ||
+    partesMascaradas
+  );
+}
+
+/**
  * Extrai e organiza as partes do processo a partir dos dados da Judit
  * Suporta campo 'side' (Active, Passive, Interested) e fallbacks para 2ª instância
  */
