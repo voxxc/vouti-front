@@ -1,46 +1,27 @@
 ## Causa raiz
 
-Hoje, ao clicar "Finalizar" no `AdicionarMovimentoManualDialog`, o dialog fecha em segundo plano e o painel de detalhes (`SuperAdminProcessoOABDetalhesPanel`) continua aberto no processo recém-atualizado. O usuário precisa fechar manualmente, voltar à lista do drawer e clicar no próximo processo da fila — quebra o ritmo de trabalho em lote.
+No `SuperAdminProcessoOABDetalhesPanel`, o estado local `andamentos` (e `data`) só é resetado dentro de um `useEffect([open, processo.id])`. Quando o drawer troca `selecionado` para o próximo processo, o painel re-renderiza com o novo `processo.id` ANTES do efeito rodar — então o primeiro paint mostra os andamentos antigos. Mesmo após `carregar()` rodar, o `setData(null)` zera `data`, mas `setAndamentos([])` NUNCA é chamado no reset, então a lista do processo anterior persiste visualmente até o fetch completar e sobrescrever.
 
 ## Correção
 
-Implementar **auto-avanço** para o próximo processo da fila (`filtrados`) sempre que o atual sai do conjunto visível.
+Forçar remount completo do painel sempre que o processo muda, passando `key={selecionado.id}` no `<SuperAdminProcessoOABDetalhesPanel>` dentro do drawer. Isso garante que todo estado interno (`data`, `andamentos`, `destravado`, `ordemDirty`, etc.) seja descartado e recriado limpo para cada processo, eliminando qualquer flash de dados antigos.
 
-1. **`SuperAdminMovimentosManuaisDrawer.tsx`**
-   - Calcular o "próximo da fila" a partir da lista `filtrados` atual e do `selecionado.id` ANTES da mutação otimista (a remoção muda os índices).
-   - Estender `handleProcessoMutado(id, acao)` para, quando `acao === 'atualizado'`:
-     1. Identificar `proximoId = filtrados[indexAtual + 1]?.id ?? null` (somente quando `selecionado?.id === id`).
-     2. Aplicar a mutação otimista atual (remover da aba `'total'` / atualizar `super_admin_atualizado_em` na aba `'atualizado'`).
-     3. Se `proximoId` existir: `setSelecionado(proximoFromProcessos)` e marcar visitado.
-     4. Se não houver próximo: `setSelecionado(null)` (fecha o painel) e mostra toast `"Fila concluída"`.
-
-2. **`SuperAdminProcessoOABDetalhesPanel.tsx`**
-   - Não precisa de novas props: o `useEffect([open, processo.id])` já recarrega `detalhes` quando `processo.id` muda, então trocar `selecionado` no drawer já faz o painel re-renderizar com o próximo processo, sem fechar/abrir.
-   - Manter a chamada existente `onProcessoMutado?.(processo.id, 'atualizado')` em:
-     - `onSuccess` do `AdicionarMovimentoManualDialog` (gatilho principal pedido pelo usuário)
-     - `marcarComoAtualizado` (mesma UX, comportamento consistente)
-
-3. **Comportamento na aba `'atualizado'`**: como o processo não sai da lista, o auto-avanço NÃO é aplicado — o painel permanece aberto no processo atual (já atualizado), preservando o fluxo de revisão. Só auto-avança na aba `'total'`.
+Alternativa considerada e descartada: resetar `andamentos`/`data` via `useRef` sincronamente quando `processo.id` muda. Mais frágil e propenso a esquecer novos estados no futuro — `key` é a solução idiomática do React para esse caso.
 
 ## Arquivos afetados
 
-- `src/components/SuperAdmin/SuperAdminMovimentosManuaisDrawer.tsx` — estender `handleProcessoMutado` com lógica de "próximo da fila" + `setSelecionado`.
-- `src/components/SuperAdmin/SuperAdminProcessoOABDetalhesPanel.tsx` — nenhuma mudança estrutural; apenas confirmar que o `useEffect` de carregar detalhes depende de `processo.id` (já depende).
+- `src/components/SuperAdmin/SuperAdminMovimentosManuaisDrawer.tsx` — adicionar `key={selecionado.id}` na renderização do painel.
 
 ## Impacto
 
-- **Usuário final (UX)**: ao clicar "Finalizar" (ou "Marcar como atualizado") na aba "Total", o dialog fecha, o painel já troca instantaneamente para o próximo processo da fila — o usuário pode revisar/atualizar em sequência sem voltar à tabela. Quando a fila acaba, o painel fecha sozinho com toast "Fila concluída".
-- **Dados**: zero — nenhuma chamada de rede nova, sem migrations, sem RLS.
-- **Riscos colaterais**:
-  - Se o salvamento em segundo plano falhar, o usuário já estará no próximo processo. Mitigação: o toast de erro do background save (já existente) continua aparecendo no canto, e o caso anterior continuará na lista do drawer (a mutação otimista só roda no sucesso do `onSuccess`).
-  - "Próximo" é calculado pela ordem de `filtrados` no momento do clique — respeita busca/filtros aplicados.
-  - Se o usuário aplicar/mudar filtros enquanto um painel está aberto, o "próximo" pode ser diferente do que ele imaginava. Aceitável (sempre reflete o estado visível atual).
-- **Quem é afetado**: apenas super-admins usando o drawer de movimentos manuais.
+- **Usuário final (UX)**: ao auto-avançar para o próximo processo, o painel exibe imediatamente o spinner de loading e depois os andamentos corretos. Sem mais andamentos "fantasmas" do processo anterior.
+- **Dados**: zero — nenhuma mudança de rede, DB ou RLS.
+- **Riscos colaterais**: nenhum. O `key` apenas remonta o componente; o `useEffect` interno já dispara o fetch como esperado. Como o painel não mantém estado que precise persistir entre processos, remount é seguro.
+- **Quem é afetado**: super-admins usando o drawer de movimentos manuais.
 
 ## Validação
 
-1. Aba "Total", aplicar filtros, abrir o 1º processo, clicar "Finalizar" → painel troca para o 2º processo da lista sem skeleton de drawer.
-2. Repetir até o último processo → ao finalizar o último, painel fecha e toast "Fila concluída" aparece.
-3. Aba "Atualizado", abrir um processo, clicar "Marcar como atualizado" → painel permanece aberto no mesmo processo (sem auto-avanço).
-4. Clicar "Marcar como atualizado" na aba "Total" sem adicionar movimentos → mesmo auto-avanço.
-5. Confirmar que o auto-avanço respeita busca/filtros (OAB, UF, etc.).
+1. Abrir drawer, aba "Total", abrir um processo com andamentos visíveis.
+2. Clicar "Finalizar" (ou "Marcar como atualizado") → painel troca para o próximo: confirmar que aparece spinner brevemente e então os andamentos do NOVO processo, sem flash do anterior.
+3. Repetir várias vezes em sequência — sem regressão.
+4. Fechar/abrir manualmente — funciona como antes.
