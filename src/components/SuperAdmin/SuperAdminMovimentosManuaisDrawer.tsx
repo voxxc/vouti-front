@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -113,7 +113,26 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
       }
       if (acao === 'atualizado') {
         if (aba === 'total') {
+          // Calcula o próximo da fila ANTES de remover o atual.
+          let proximo: ProcessoLite | null = null;
+          const filaAtual = filtradosRef.current;
+          const selAtual = selecionadoRef.current;
+          if (selAtual?.id === processoId) {
+            const idx = filaAtual.findIndex((p) => p.id === processoId);
+            if (idx >= 0 && idx + 1 < filaAtual.length) {
+              proximo = filaAtual[idx + 1];
+            }
+          }
           setProcessos((prev) => prev.filter((p) => p.id !== processoId));
+          if (selAtual?.id === processoId) {
+            if (proximo) {
+              marcarVisitado(proximo.id);
+              setSelecionado(proximo);
+            } else {
+              setSelecionado(null);
+              toast.success('Fila concluída');
+            }
+          }
         } else {
           const agora = new Date().toISOString();
           setProcessos((prev) =>
@@ -124,7 +143,7 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
         }
       }
     },
-    [aba],
+    [aba, marcarVisitado],
   );
 
   useEffect(() => {
@@ -205,6 +224,11 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
         p.parte_passiva?.toLowerCase().includes(t),
     );
   }, [processos, busca, filtro, filtroOab]);
+
+  const filtradosRef = useRef<ProcessoLite[]>([]);
+  const selecionadoRef = useRef<ProcessoLite | null>(null);
+  useEffect(() => { filtradosRef.current = filtrados; }, [filtrados]);
+  useEffect(() => { selecionadoRef.current = selecionado; }, [selecionado]);
 
   const oabCounts = useMemo(() => {
     const map = new Map<string, number>();
