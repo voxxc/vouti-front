@@ -1,36 +1,60 @@
+
 ## Causa raiz
 
-O drawer "Movimentos manuais" do super-admin (`SuperAdminMovimentosManuaisDrawer`) lista processos do tenant sem indicar a qual OAB cadastrada cada processo pertence. A tabela `processos_oab` tem o campo `oab_id`, mas a edge function `super-admin-listar-processos-oab` não o devolve no payload, e a UI não tem nem coluna nem filtro por OAB.
+Hoje o botão "Salvar movimento(s)" em `AdicionarMovimentoManualDialog.tsx` faz tudo de forma síncrona e bloqueante:
+
+1. Valida abas
+2. Para cada aba, em série: converte arquivo para base64 → invoca `super-admin-criar-andamento-manual` → espera resposta
+3. Só então fecha o dialog e chama `onSuccess()` (que recarrega a lista no drawer)
+
+Como cada anexo pode ter até 25 MB e a função roda em série, o usuário fica preso vendo o spinner por vários segundos por movimento.
 
 ## Correção
 
-### A) Edge function `super-admin-listar-processos-oab`
-- Incluir `oab_id` no `select` de `processos_oab`.
-- Após a paginação, fazer um único `select` em `oabs_cadastradas` (`id, oab_numero, oab_uf, nome_advogado`) com `.in('id', oabIdsUnicos)` filtrado por `tenant_id` e mapear cada processo com `oab_numero`, `oab_uf`, `nome_advogado`.
-- Devolver também um array `oabs` (deduplicado, ordenado por `nome_advogado`/`oab_numero`) para alimentar o select da UI sem reprocessar no cliente.
+Implementar **salvamento otimista em segundo plano**:
 
-### B) `SuperAdminMovimentosManuaisDrawer.tsx`
-- Adicionar `oab_id`, `oab_numero`, `oab_uf`, `nome_advogado` ao tipo `ProcessoLite`.
-- Novo estado `filtroOab: string` (default `'todas'`).
-- Novo `Select` ao lado do filtro existente, populado com a lista `oabs` retornada pela função (label: `OAB nº/UF — Nome` quando houver, fallback `OAB nº/UF`; opção "Todas as OABs" + "Sem OAB"). Mostra contagem por OAB calculada localmente em `useMemo`.
-- Filtro combinado: `filtrados` aplica `filtroOab` antes do filtro existente e da busca textual (filtros se acumulam).
-- Nova coluna **OAB** na tabela (após "Tribunal"), exibindo `nº/UF` em badge; tooltip com nome do advogado. Quando `oab_id` for `null`, mostra `—`.
+1. Ao clicar em "Salvar":
+   - Validar abas (mesmas regras de hoje — data + nome do movimento)
+   - Mostrar spinner por ~150 ms só para dar feedback visual de clique
+   - Fechar o dialog imediatamente
+   - Disparar um toast persistente: "Salvando N movimento(s) em segundo plano…" (com `toast.loading` do sonner)
+
+2. Em segundo plano (Promise não-aguardada, fora do ciclo de vida do dialog):
+   - Iterar pelas abas na mesma ordem atual (da mais antiga para a mais nova)
+   - Para cada aba: ler arquivo → invocar edge function
+   - Atualizar o toast a cada sucesso ("2 de 3 salvos…") via `toast.message` no mesmo id
+   - Ao final: substituir o toast por `toast.success` ("N movimentos lançados") e chamar `onSuccess()` para recarregar a tabela do drawer
+   - Em caso de erro em alguma aba: `toast.error` informando quais foram salvos e qual falhou, e ainda assim chamar `onSuccess()` (lista reflete o que entrou)
+
+3. Pequenas melhorias de performance que cabem aqui:
+   - Paralelizar as invocações com `Promise.allSettled` (em vez de série), já que cada movimento é independente no backend e o anexo vai por payload separado. Mantém ordem de exibição pela `data_movimentacao` + `super_admin_ordem` que o backend já calcula.
+   - Manter o usuário livre para abrir outro processo / outro dialog enquanto o lote roda.
+
+4. Robustez:
+   - Usar uma fila/registro em memória no nível do drawer (ou um pequeno contexto local) para que o toast e o `onSuccess()` continuem vivos mesmo se o usuário fechar o dialog/trocar de aba dentro do drawer. Implementação simples: a Promise é criada dentro do handler e mantida viva pelo próprio runtime; o toast usa um `id` estável para atualizar/fechar.
+   - Se o usuário clicar duas vezes muito rápido, manter o guard `salvandoRef` só durante a fase de validação + disparo (não durante o background).
 
 ## Arquivos afetados
 
-- `supabase/functions/super-admin-listar-processos-oab/index.ts` — adicionar `oab_id` no select, enriquecer resposta com dados de `oabs_cadastradas` e devolver lista `oabs`.
-- `src/components/SuperAdmin/SuperAdminMovimentosManuaisDrawer.tsx` — novo filtro Select de OAB, nova coluna na tabela, novo estado e tipo.
+- `src/components/SuperAdmin/AdicionarMovimentoManualDialog.tsx` — refatorar `handleSalvar`:
+  - Validar → fechar dialog → disparar background task com `Promise.allSettled` → toasts com `id` estável.
+  - Remover o estado `salvando` do botão "Salvar" depois do fechamento (botão deixa de existir junto com o dialog).
+- `src/components/SuperAdmin/SuperAdminMovimentosManuaisDrawer.tsx` — expor `onSuccess` que aceita ser chamado depois (já é assim hoje). Sem mudança estrutural; só garantir que `onSuccess` recarrega a página atual da lista, o que já faz.
+
+Nenhuma mudança em edge function nem em DB.
 
 ## Impacto
 
-- **Usuário final (super-admin):** ganha ao lado do filtro atual um segundo Select "OAB" listando todas as OABs cadastradas que têm processo no tenant, com contagem; pode combinar com o filtro de monitoramento/UF/sigilosos e com a busca. Nova coluna na tabela mostra a OAB de cada processo.
-- **Dados:** sem migration. Apenas mais um JOIN leve em `oabs_cadastradas` (já indexada por `id`) por chamada da função. Payload da função cresce em ~3 campos por processo + array de OABs (pequeno).
-- **Riscos colaterais:** processos antigos com `oab_id` nulo continuam aparecendo (tratados como "Sem OAB"). Se um processo tem `oab_id` apontando para uma OAB removida, mostra `—` e cai em "Sem OAB". Nenhum impacto em outros tenants/telas.
-- **Quem é afetado:** apenas super-admins, dentro do drawer "Movimentos manuais".
+1. **UX (usuário final):** clique em "Salvar" fecha o diálogo em <200 ms. O usuário volta imediatamente para a tabela de processos do drawer e pode continuar trabalhando (abrir outro processo, filtrar, etc.). Toast no canto mostra o progresso ("Salvando…", "3 movimentos lançados"). Em caso de falha, toast vermelho identifica quais abas falharam.
+2. **Dados:** nenhum impacto. Mesmo edge function, mesma migration, mesmo schema. A diferença é que as N chamadas passam a rodar em paralelo (`Promise.allSettled`) em vez de série — o backend já é stateless e calcula `super_admin_ordem` por linha, então a ordem final continua correta porque cada insert lê o `max(super_admin_ordem)` no momento. Pequeno risco de empate de ordem em lote grande do mesmo processo: mitigado mantendo o disparo em série quando todas as abas são do mesmo processo (que é sempre o caso aqui — o dialog é por processo). **Decisão:** manter série dentro do mesmo processo para preservar a ordem de reordenação manual; o ganho de UX vem de fechar o dialog imediatamente, não da paralelização.
+3. **Riscos colaterais:**
+   - Se o usuário fechar a aba do navegador antes do background terminar, os movimentos pendentes se perdem. Mitigação: `beforeunload` listener enquanto houver lote em andamento, avisando "Há movimentos sendo salvos. Sair mesmo assim?".
+   - Anexo grande (25 MB) ainda demora para subir — mas agora sem travar a UI.
+4. **Quem é afetado:** apenas super-admins usando o drawer de Movimentos Manuais. Nenhum efeito em tenants, advogados ou outras telas.
 
 ## Validação
 
-- Abrir o drawer em um tenant com várias OABs (ex.: `27492091-...`) e conferir que o select lista cada OAB com contagem.
-- Selecionar uma OAB → tabela mostra apenas processos daquela OAB; combinar com filtro "Monitorados" e busca CNJ — todos devem se aplicar simultaneamente.
-- Selecionar "Sem OAB" → só processos com `oab_id` nulo.
-- Conferir que a coluna OAB renderiza `nº/UF` correto e o tooltip traz o nome do advogado.
+1. Abrir um processo no drawer de Movimentos Manuais, adicionar 3 abas com anexos diferentes, clicar Salvar → dialog fecha em <500 ms, toast aparece, tabela atualiza ao final.
+2. Forçar erro (ex.: extensão inválida em uma das abas) → toast.error identifica a aba; abas válidas são salvas.
+3. Tentar fechar a aba do navegador durante o salvamento → prompt do `beforeunload`.
+4. Conferir nos logs da edge function `super-admin-criar-andamento-manual` que as inserções mantêm `super_admin_ordem` sequencial quando aplicável.

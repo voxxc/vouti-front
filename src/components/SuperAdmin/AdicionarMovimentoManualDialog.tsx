@@ -185,66 +185,114 @@ export function AdicionarMovimentoManualDialog({
 
     // ordem: da última (mais antiga) para a primeira (mais nova)
     const ordem = [...abas].reverse();
-    const idsSalvos: string[] = [];
-    try {
-      for (const a of ordem) {
-        const descricaoDigitada = a.descricao.trim();
-        const descricaoComFallback = descricaoDigitada.length >= 10
-          ? descricaoDigitada
-          : `${a.tipo.trim()}${descricaoDigitada ? ` — ${descricaoDigitada}` : ''}`.trim();
-        const payload: any = {
-          processo_oab_id: processo.id,
-          data_movimentacao: a.data,
-          tipo_movimentacao: a.tipo.trim(),
-          descricao: descricaoComFallback.length >= 10
-            ? descricaoComFallback
-            : `Movimento manual: ${a.tipo.trim()}`,
-          marcar_nao_lido: a.marcarNaoLido,
-          marcar_como_atualizado: a.marcarComoAtualizado,
-          sigiloso: a.sigiloso,
-          tribunal_tag: a.tribunalTag || null,
-        };
-        if (a.arquivo) {
-          const base64 = await fileToBase64(a.arquivo);
-          payload.anexo = {
-            nome: a.arquivo.name,
-            content_type: a.arquivo.type || 'application/octet-stream',
-            base64,
-          };
-        }
-        const { data: resp, error } = await supabase.functions.invoke(
-          'super-admin-criar-andamento-manual',
-          { body: payload },
-        );
-        if (error) throw error;
-        if (resp?.error) throw new Error(resp.error);
-        idsSalvos.push(a.id);
-      }
-      toast.success(
-        ordem.length === 1
-          ? 'Movimento manual lançado com sucesso.'
-          : `${ordem.length} movimentos lançados com sucesso.`,
-      );
-      onSuccess();
-      onOpenChange(false);
-    } catch (e: any) {
-      console.error(e);
-      // remove apenas as abas já salvas com sucesso
-      if (idsSalvos.length) {
-        setAbas((prev) => {
-          const restante = prev.filter((a) => !idsSalvos.includes(a.id));
-          if (!restante.find((a) => a.id === ativaId)) {
-            setAtivaId(restante[0]?.id ?? '');
-          }
-          return restante.length ? restante : [novaAba(hoje)];
-        });
-        onSuccess();
-      }
-      toast.error(e?.message || 'Erro ao lançar movimento.');
-    } finally {
+
+    // Snapshot dos dados antes de fechar o dialog
+    const snapshot = ordem.map((a, idx) => ({
+      aba: a,
+      label: labelAba(a, ordem.length - 1 - idx),
+    }));
+    const total = snapshot.length;
+    const toastId = `mov-manual-${processo.id}-${Date.now()}`;
+
+    // Pequeno delay visual para feedback de clique, depois fecha
+    setTimeout(() => {
       setSalvando(false);
       salvandoRef.current = false;
-    }
+      onOpenChange(false);
+    }, 150);
+
+    toast.loading(
+      total === 1
+        ? 'Salvando movimento em segundo plano…'
+        : `Salvando 0 de ${total} movimentos em segundo plano…`,
+      { id: toastId },
+    );
+
+    // beforeunload guard enquanto o lote roda
+    const beforeUnload = (ev: BeforeUnloadEvent) => {
+      ev.preventDefault();
+      ev.returnValue = '';
+    };
+    window.addEventListener('beforeunload', beforeUnload);
+
+    // Background: mantém em série para preservar super_admin_ordem do mesmo processo
+    (async () => {
+      const sucessos: string[] = [];
+      const falhas: { label: string; erro: string }[] = [];
+      for (let i = 0; i < snapshot.length; i++) {
+        const { aba: a, label } = snapshot[i];
+        try {
+          const descricaoDigitada = a.descricao.trim();
+          const descricaoComFallback = descricaoDigitada.length >= 10
+            ? descricaoDigitada
+            : `${a.tipo.trim()}${descricaoDigitada ? ` — ${descricaoDigitada}` : ''}`.trim();
+          const payload: any = {
+            processo_oab_id: processo.id,
+            data_movimentacao: a.data,
+            tipo_movimentacao: a.tipo.trim(),
+            descricao: descricaoComFallback.length >= 10
+              ? descricaoComFallback
+              : `Movimento manual: ${a.tipo.trim()}`,
+            marcar_nao_lido: a.marcarNaoLido,
+            marcar_como_atualizado: a.marcarComoAtualizado,
+            sigiloso: a.sigiloso,
+            tribunal_tag: a.tribunalTag || null,
+          };
+          if (a.arquivo) {
+            const base64 = await fileToBase64(a.arquivo);
+            payload.anexo = {
+              nome: a.arquivo.name,
+              content_type: a.arquivo.type || 'application/octet-stream',
+              base64,
+            };
+          }
+          const { data: resp, error } = await supabase.functions.invoke(
+            'super-admin-criar-andamento-manual',
+            { body: payload },
+          );
+          if (error) throw error;
+          if (resp?.error) throw new Error(resp.error);
+          sucessos.push(label);
+        } catch (e: any) {
+          console.error('erro ao salvar movimento', label, e);
+          falhas.push({ label, erro: e?.message || 'erro' });
+        }
+        // atualiza progresso
+        if (i < snapshot.length - 1) {
+          toast.loading(
+            `Salvando ${i + 1} de ${total} movimentos em segundo plano…`,
+            { id: toastId },
+          );
+        }
+      }
+
+      window.removeEventListener('beforeunload', beforeUnload);
+
+      if (falhas.length === 0) {
+        toast.success(
+          total === 1
+            ? 'Movimento manual lançado com sucesso.'
+            : `${total} movimentos lançados com sucesso.`,
+          { id: toastId },
+        );
+      } else if (sucessos.length === 0) {
+        toast.error(
+          `Falha ao lançar ${falhas.length} movimento(s): ${falhas
+            .map((f) => `"${f.label}" (${f.erro})`)
+            .join(', ')}`,
+          { id: toastId },
+        );
+      } else {
+        toast.error(
+          `${sucessos.length} salvo(s); ${falhas.length} falhou(aram): ${falhas
+            .map((f) => `"${f.label}"`)
+            .join(', ')}`,
+          { id: toastId },
+        );
+      }
+
+      try { onSuccess(); } catch (e) { console.warn('onSuccess error', e); }
+    })();
   };
 
   if (!ativa) return null;
