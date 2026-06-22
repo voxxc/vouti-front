@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Search, FilePlus2, Bell, BellOff, ChevronRight, Filter, ShieldAlert, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Loader2, Search, FilePlus2, Bell, BellOff, ChevronRight, Filter, ShieldAlert, RefreshCw, AlertTriangle, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,6 +33,17 @@ interface ProcessoLite {
   super_admin_atualizado_em?: string | null;
   is_sigiloso?: boolean;
   uf?: string;
+  oab_id?: string | null;
+  oab_numero?: string | null;
+  oab_uf?: string | null;
+  nome_advogado?: string | null;
+}
+
+interface OabLite {
+  id: string;
+  oab_numero: string | null;
+  oab_uf: string | null;
+  nome_advogado: string | null;
 }
 
 type Aba = 'total' | 'atualizado';
@@ -63,9 +74,11 @@ function lerVisitados(): Record<string, number> {
 export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }: Props) {
   const [loading, setLoading] = useState(false);
   const [processos, setProcessos] = useState<ProcessoLite[]>([]);
+  const [oabs, setOabs] = useState<OabLite[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState<string>('todos');
+  const [filtroOab, setFiltroOab] = useState<string>('todas');
   const [selecionado, setSelecionado] = useState<ProcessoLite | null>(null);
   const [aba, setAba] = useState<Aba>('total');
   const [reloadKey, setReloadKey] = useState(0);
@@ -99,13 +112,17 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
       setLoading(true);
       setErro(null);
       setProcessos([]);
+      setOabs([]);
       try {
         const { data, error } = await supabase.functions.invoke(
           'super-admin-listar-processos-oab',
           { body: { tenant_id: tenant.id, aba } },
         );
         if (error) throw error;
-        if (!cancel) setProcessos((data as any)?.processos || []);
+        if (!cancel) {
+          setProcessos((data as any)?.processos || []);
+          setOabs((data as any)?.oabs || []);
+        }
       } catch (e) {
         console.error(e);
         const msg = (e as any)?.message || 'Erro ao carregar processos do tenant';
@@ -152,6 +169,11 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
       const uf = filtro.slice(3);
       base = base.filter((p) => (p.uf || 'N/I') === uf);
     }
+    if (filtroOab === 'sem_oab') {
+      base = base.filter((p) => !p.oab_id);
+    } else if (filtroOab !== 'todas') {
+      base = base.filter((p) => p.oab_id === filtroOab);
+    }
     const t = busca.trim().toLowerCase();
     if (!t) return base;
     return base.filter(
@@ -160,7 +182,26 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
         p.parte_ativa?.toLowerCase().includes(t) ||
         p.parte_passiva?.toLowerCase().includes(t),
     );
-  }, [processos, busca, filtro]);
+  }, [processos, busca, filtro, filtroOab]);
+
+  const oabCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    let semOab = 0;
+    for (const p of processos) {
+      if (!p.oab_id) {
+        semOab++;
+      } else {
+        map.set(p.oab_id, (map.get(p.oab_id) || 0) + 1);
+      }
+    }
+    return { byOab: map, semOab };
+  }, [processos]);
+
+  const formatOabLabel = (o: OabLite) => {
+    const num = [o.oab_numero, o.oab_uf].filter(Boolean).join('/');
+    const base = num ? `OAB ${num}` : 'OAB —';
+    return o.nome_advogado ? `${base} · ${o.nome_advogado}` : base;
+  };
 
   return (
     <>
@@ -251,6 +292,29 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex items-center gap-2">
+              <Scale className="w-4 h-4 text-muted-foreground" />
+              <Select value={filtroOab} onValueChange={setFiltroOab}>
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Filtrar por OAB" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas as OABs ({processos.length})</SelectItem>
+                  {oabCounts.semOab > 0 && (
+                    <SelectItem value="sem_oab">Sem OAB ({oabCounts.semOab})</SelectItem>
+                  )}
+                  {oabs.map((o) => {
+                    const count = oabCounts.byOab.get(o.id) || 0;
+                    if (count === 0) return null;
+                    return (
+                      <SelectItem key={o.id} value={o.id}>
+                        {formatOabLabel(o)} ({count})
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="text-xs text-muted-foreground">
               {loading ? 'Carregando…' : `${filtrados.length} processo(s)`}
             </div>
@@ -297,6 +361,7 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
                     <TableHead className="w-[210px]">CNJ</TableHead>
                     <TableHead>Partes</TableHead>
                     <TableHead className="w-[90px]">Tribunal</TableHead>
+                    <TableHead className="w-[150px]">OAB</TableHead>
                     <TableHead className="w-[110px] text-center">Andamentos</TableHead>
                     <TableHead className="w-[110px] text-center">Monitor.</TableHead>
                     {aba === 'atualizado' && (
@@ -342,6 +407,25 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
                         {p.tribunal_sigla ? (
                           <Badge variant="outline" className="text-xs">{p.tribunal_sigla}</Badge>
                         ) : <span className="text-xs text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {p.oab_id && (p.oab_numero || p.oab_uf) ? (
+                          <span
+                            className="inline-flex flex-col leading-tight"
+                            title={p.nome_advogado || ''}
+                          >
+                            <span className="font-medium">
+                              {[p.oab_numero, p.oab_uf].filter(Boolean).join('/')}
+                            </span>
+                            {p.nome_advogado && (
+                              <span className="text-muted-foreground truncate max-w-[140px]">
+                                {p.nome_advogado}
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-center text-xs">
                         {p.total_andamentos ?? 0}
