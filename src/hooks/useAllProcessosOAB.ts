@@ -298,8 +298,8 @@ export const useAllProcessosOAB = (
         toast({
           title: 'Monitoramento ativado',
           description: data?.processoEncontrado
-            ? `${data?.totalAndamentos ?? 0} andamento(s) sincronizado(s). Atualizações semanais via Escavador.`
-            : 'Processo registrado para monitoramento semanal via Escavador.',
+            ? `${data?.totalAndamentos ?? 0} andamento(s) sincronizado(s).`
+            : 'Processo registrado para monitoramento.',
         });
 
         await fetchProcessos();
