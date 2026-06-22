@@ -1,42 +1,44 @@
-## Monitoramento "visual" para processos sigilosos
+## Ampliar detecção de "sigiloso" para processos sem partes/andamentos
 
 ### Causa raiz
-Hoje, ao ativar o toggle de monitoramento em qualquer processo, o hook `useOABs.toggleMonitoramento` chama a edge function `escavador-ativar-monitoramento-oab`, que registra o processo no Escavador. Em processos sigilosos isso é indesejado: o usuário só precisa ver o monitoramento como ativo (visualmente), enquanto a alimentação será feita manualmente pelo administrador "em segredo". Para processos comuns, o comportamento atual (Escavador semanal) deve continuar.
+A detecção atual de processo sigiloso (`isProcessoSigiloso` em `src/utils/processoOABHelpers.ts`) considera apenas:
+- `secrecy_level >= 1` ou `justice_secret === true` na capa Judit;
+- partes mascaradas com termos como "Sigilo", "Segredo de justiça".
+
+O processo `0035150-55.2023.8.16.0021` (registro `045ff3ae-282d-4c39-b724-da3d355a82cf`) veio com `secrecy_level = NULL`, `justice_secret = NULL`, `parte_ativa = NULL`, `parte_passiva = NULL` e nenhum andamento — sinais práticos de sigilo, mas que escapam à regra atual. O usuário quer que processos nesse formato também recebam o aviso amarelo e o tratamento "monitoramento visual".
 
 ### Correção
-1. Criar helper compartilhado `isProcessoSigiloso(processo)` em `src/utils/processoOABHelpers.ts`, replicando a lógica já existente em `ProcessoOABDetalhes.tsx` (regex em `parte_ativa`/`parte_passiva` + `capa.secrecy_level >= 1` + `capa.justice_secret`). Refatorar `ProcessoOABDetalhes.tsx` para usar esse helper.
+Ampliar `isProcessoSigiloso` em `src/utils/processoOABHelpers.ts` para considerar **também sigiloso** quando, na ausência das flags explícitas, o processo apresentar TODAS as condições abaixo (heurística "capa cega"):
 
-2. Em `src/hooks/useOABs.ts`, dentro de `toggleMonitoramento`:
-   - Aceitar um parâmetro extra opcional `sigiloso?: boolean` (último argumento, sem quebrar callers).
-   - Se `sigiloso === true`:
-     - **Ativar:** NÃO chamar `escavador-ativar-monitoramento-oab`. Fazer um simples `UPDATE processos_oab SET monitoramento_ativo = true WHERE id = processoId AND tenant_id = tenantId`. Toast: "Monitoramento ativado — atualizações serão registradas manualmente".
-     - **Desativar:** NÃO chamar `escavador-desativar-monitoramento-oab` nem `judit-desativar-monitoramento`. Apenas `UPDATE ... SET monitoramento_ativo = false`. Toast: "Monitoramento desativado".
-   - Se `sigiloso !== true`: manter exatamente o fluxo atual (Escavador + cleanup Judit).
+1. `parte_ativa` vazio/nulo/whitespace **E** `parte_passiva` vazio/nulo/whitespace (após `trim`), considerando tanto o nível raiz quanto `judit_data.lawsuit.parte_ativa/parte_passiva` se existir;
+2. `partes_completas` vazio/nulo (ou array de tamanho 0);
+3. nenhum `step`/andamento na capa (`judit_data.lawsuit.steps` vazio ou ausente).
 
-3. Em `src/components/Controladoria/OABTab.tsx` e `GeralTab.tsx`, ao chamar `handleToggleMonitoramento`, passar `isProcessoSigiloso(processo)` como último argumento.
+A combinação das três é forte o suficiente para evitar falso positivo em processos recém-distribuídos (que normalmente têm pelo menos as partes) e em processos comuns com capa parcial (que costumam trazer ao menos `partes_completas`).
 
-4. Verificar que o aviso de "Processo em Segredo de Justiça" em `ProcessoOABDetalhes.tsx` continua condicionado a `!processo.monitoramento_ativo` (já implementado), de forma que o aviso some assim que o toggle é ativado, mesmo no caminho sigiloso.
+Como o helper hoje recebe apenas `processo`, vou usar `processo.partes_completas` e `processo.judit_data?.lawsuit?.steps`/`processo.capa_completa?.steps` (o que existir) para essa checagem. A lógica fica encapsulada em uma função interna `temCapaCega(processo)`.
+
+Nada muda no `ProcessoOABDetalhes.tsx`, `OABTab.tsx`, `GeralTab.tsx` ou `useOABs.ts` — todos consomem o helper, então o novo critério se propaga automaticamente para:
+- exibição do badge "Sigiloso";
+- exibição do card de aviso amarelo;
+- bypass do Escavador no toggle de monitoramento.
 
 ### Arquivos afetados
-- `src/utils/processoOABHelpers.ts` — novo helper `isProcessoSigiloso`.
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — usar helper compartilhado.
-- `src/hooks/useOABs.ts` — bifurcação no `toggleMonitoramento`.
-- `src/components/Controladoria/OABTab.tsx` — passar flag sigiloso.
-- `src/components/Controladoria/GeralTab.tsx` — passar flag sigiloso.
+- `src/utils/processoOABHelpers.ts` — único arquivo alterado.
 
 ### Impacto
 - **UX / telas / fluxos:**
-  - Processos sigilosos: ao clicar no toggle, o processo passa a aparecer como "Monitoramento ativo" sem chamar nenhuma API externa. O aviso amarelo de sigilo desaparece. O usuário não percebe diferença visual em relação ao fluxo normal.
-  - Processos comuns: comportamento inalterado — toggle continua acionando Escavador semanal.
-- **Dados / migrations / RLS / performance:** Sem migrações, sem mudança em RLS. Apenas um `UPDATE` direto em `processos_oab` (já permitido pelas policies existentes que permitem o usuário do tenant atualizar seus processos). Reduz custo: nenhuma chamada Escavador para sigilosos.
+  - Processos com capa cega (sem partes, sem andamentos) passarão a exibir o badge "Sigiloso" e o card amarelo de aviso.
+  - O toggle de monitoramento, quando ativado nesses casos, será apenas visual (já implementado), e o aviso some.
+  - Para o caso `0035150-55.2023.8.16.0021` (registro com 1 andamento e partes nulas), o segundo registro será classificado como sigiloso; o primeiro registro do mesmo CNJ (com 93 andamentos e partes preenchidas, mesmo que estranhas) **não** será afetado, pois falha na condição 3.
+- **Dados / migrations / RLS / performance:** Nenhuma mudança em DB, RLS, migrations ou edge functions. Apenas lógica frontend.
 - **Riscos colaterais:**
-  - Se a detecção de sigiloso falhar (falso negativo), o processo entrará no Escavador como antes — comportamento atual, sem regressão.
-  - Se houver falso positivo (processo comum classificado como sigiloso pela regex), o monitoramento Escavador NÃO será acionado e o usuário verá o toggle "ativo" sem efeito real. Mitigação: a regex já é restritiva (match completo da string) e replica o critério usado para mostrar o badge "Sigiloso", então o usuário sempre verá o badge nesse caso.
-  - Em processos sigilosos que já tinham um `tracking_id` (vindo de fluxo anterior), a desativação pelo caminho novo não chama a edge function de cleanup. Como o usuário deseja apenas controle visual a partir de agora, isso é aceitável; se necessário, o admin pode desativar manualmente pelo painel super-admin.
-- **Quem é afetado:** Todos os tenants que possuem processos sigilosos no módulo Controladoria/OAB. Admins que cadastram andamentos manualmente continuam com o fluxo deles inalterado.
+  - Falso positivo em processos novíssimos onde a Judit ainda não devolveu partes nem andamentos. Mitigação: a heurística exige as três condições simultâneas; quando a Judit completar a sincronização, a classificação volta ao normal.
+  - Caso o usuário ative o monitoramento em um falso positivo, ficará no modo "visual" sem Escavador. Para esse cenário, basta desativar e reativar quando os dados retornarem para reentrar no fluxo Escavador.
+- **Quem é afetado:** Todos os tenants no módulo Controladoria/OAB que tenham processos com capa cega.
 
 ### Validação
-1. Em um processo com `parte_ativa = "Sigilo"`: ativar o toggle → confirmar via DevTools/Network que **nenhuma** chamada para `escavador-ativar-monitoramento-oab` é disparada, o toggle fica ativo, o aviso some.
-2. No mesmo processo, desativar → confirmar que nenhuma chamada Escavador/Judit é feita, toggle volta a inativo, aviso reaparece.
-3. Em um processo comum (não sigiloso): ativar/desativar → confirmar que `escavador-ativar-monitoramento-oab` e `escavador-desativar-monitoramento-oab` continuam sendo chamadas como hoje.
-4. Recarregar a página e verificar que o estado `monitoramento_ativo` persiste corretamente em ambos os casos.
+1. Recarregar a tela de detalhes do registro `045ff3ae-282d-4c39-b724-da3d355a82cf` (CNJ `0035150-55.2023.8.16.0021`) e confirmar que o badge "Sigiloso" e o card de aviso aparecem.
+2. Ativar o monitoramento e verificar (DevTools → Network) que **nenhuma** chamada para `escavador-ativar-monitoramento-oab` é disparada; o aviso desaparece.
+3. Desativar e confirmar que o aviso volta, sem chamadas Escavador.
+4. Abrir um processo comum (com partes e andamentos) e confirmar que o badge não aparece e o toggle continua acionando o Escavador normalmente.
