@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Search, FilePlus2, Bell, BellOff, ChevronRight } from 'lucide-react';
+import { Loader2, Search, FilePlus2, Bell, BellOff, ChevronRight, Filter, ShieldAlert } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { Tenant } from '@/types/superadmin';
 import { SuperAdminProcessoOABDetalhesPanel } from './SuperAdminProcessoOABDetalhesPanel';
@@ -29,6 +30,8 @@ interface ProcessoLite {
   total_andamentos?: number;
   ultima_atualizacao_detalhes?: string | null;
   super_admin_atualizado_em?: string | null;
+  is_sigiloso?: boolean;
+  uf?: string;
 }
 
 type Aba = 'total' | 'atualizado';
@@ -60,6 +63,7 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
   const [loading, setLoading] = useState(false);
   const [processos, setProcessos] = useState<ProcessoLite[]>([]);
   const [busca, setBusca] = useState('');
+  const [filtro, setFiltro] = useState<string>('todos');
   const [selecionado, setSelecionado] = useState<ProcessoLite | null>(null);
   const [aba, setAba] = useState<Aba>('total');
   const [reloadKey, setReloadKey] = useState(0);
@@ -110,16 +114,47 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
     };
   }, [open, tenant.id, aba, reloadKey]);
 
+  const counts = useMemo(() => {
+    let monitorados = 0;
+    let naoMonitorados = 0;
+    let sigilosos = 0;
+    const ufs = new Map<string, number>();
+    for (const p of processos) {
+      if (p.monitoramento_ativo) monitorados++;
+      else naoMonitorados++;
+      if (p.is_sigiloso) sigilosos++;
+      const uf = p.uf || 'N/I';
+      ufs.set(uf, (ufs.get(uf) || 0) + 1);
+    }
+    return {
+      total: processos.length,
+      monitorados,
+      naoMonitorados,
+      sigilosos,
+      ufs: Array.from(ufs.entries())
+        .map(([uf, count]) => ({ uf, count }))
+        .sort((a, b) => b.count - a.count),
+    };
+  }, [processos]);
+
   const filtrados = useMemo(() => {
+    let base = processos;
+    if (filtro === 'monitorados') base = base.filter((p) => p.monitoramento_ativo);
+    else if (filtro === 'nao_monitorados') base = base.filter((p) => !p.monitoramento_ativo);
+    else if (filtro === 'sigilosos') base = base.filter((p) => p.is_sigiloso);
+    else if (filtro.startsWith('uf:')) {
+      const uf = filtro.slice(3);
+      base = base.filter((p) => (p.uf || 'N/I') === uf);
+    }
     const t = busca.trim().toLowerCase();
-    if (!t) return processos;
-    return processos.filter(
+    if (!t) return base;
+    return base.filter(
       (p) =>
         p.numero_cnj?.toLowerCase().includes(t) ||
         p.parte_ativa?.toLowerCase().includes(t) ||
         p.parte_passiva?.toLowerCase().includes(t),
     );
-  }, [processos, busca]);
+  }, [processos, busca, filtro]);
 
   return (
     <>
@@ -169,6 +204,46 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
                 onChange={(e) => setBusca(e.target.value)}
                 className="pl-8"
               />
+            </div>
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-muted-foreground" />
+              <Select value={filtro} onValueChange={setFiltro}>
+                <SelectTrigger className="w-56">
+                  <SelectValue placeholder="Filtrar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos ({counts.total})</SelectItem>
+                  {counts.monitorados > 0 && (
+                    <SelectItem value="monitorados">
+                      <span className="flex items-center gap-2">
+                        <Bell className="w-3 h-3 text-green-500" />
+                        Monitorados ({counts.monitorados})
+                      </span>
+                    </SelectItem>
+                  )}
+                  {counts.naoMonitorados > 0 && (
+                    <SelectItem value="nao_monitorados">
+                      <span className="flex items-center gap-2">
+                        <BellOff className="w-3 h-3 text-muted-foreground" />
+                        Não monitorados ({counts.naoMonitorados})
+                      </span>
+                    </SelectItem>
+                  )}
+                  {counts.sigilosos > 0 && (
+                    <SelectItem value="sigilosos">
+                      <span className="flex items-center gap-2">
+                        <ShieldAlert className="w-3 h-3 text-amber-500" />
+                        Sigilosos ({counts.sigilosos})
+                      </span>
+                    </SelectItem>
+                  )}
+                  {counts.ufs.map(({ uf, count }) => (
+                    <SelectItem key={uf} value={`uf:${uf}`}>
+                      {uf} - {count}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="text-xs text-muted-foreground">
               {loading ? 'Carregando…' : `${filtrados.length} processo(s)`}
