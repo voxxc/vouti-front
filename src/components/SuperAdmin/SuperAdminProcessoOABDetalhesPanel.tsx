@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import {
   Loader2, Plus, Bell, BellOff, Paperclip, Calendar, Building2, Scale,
-  ExternalLink, FileText, RefreshCw, Trash2, Lock, LockOpen, GripVertical, EyeOff, Pencil, CheckCircle2,
+  ExternalLink, FileText, RefreshCw, Trash2, Lock, LockOpen, GripVertical, Eye, EyeOff, Pencil, CheckCircle2,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -208,6 +208,20 @@ export function SuperAdminProcessoOABDetalhesPanel({
     }
   };
 
+  const toggleLida = async (id: string, novaLida: boolean) => {
+    // Otimista
+    setAndamentos((prev) => prev.map((a) => (a.id === id ? { ...a, lida: novaLida } : a)));
+    const { error } = await supabase
+      .from('processos_oab_andamentos')
+      .update({ lida: novaLida })
+      .eq('id', id);
+    if (error) {
+      // Rollback
+      setAndamentos((prev) => prev.map((a) => (a.id === id ? { ...a, lida: !novaLida } : a)));
+      toast.error('Erro ao alterar status de leitura');
+    }
+  };
+
   const proc = data?.processo;
   const monitoramentoAtivo = !!proc?.monitoramento_ativo;
 
@@ -395,6 +409,7 @@ export function SuperAdminProcessoOABDetalhesPanel({
                             tribunais={tribunais}
                             onExcluir={() => excluirAndamento(a.id)}
                             onAtualizar={(patch) => atualizarMeta(a.id, patch)}
+                            onToggleLida={() => toggleLida(a.id, !a.lida)}
                           />
                         ))}
                       </div>
