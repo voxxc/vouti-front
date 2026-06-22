@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { fetchAllPaginated } from '@/lib/supabasePagination';
+import { isProcessoSigiloso } from '@/utils/processoOABHelpers';
 import { 
   Eye, Bell, Loader2, FileText, ChevronLeft, ChevronRight,
   Link2, AlertCircle, Filter, Users, Trash2, Search, X, Scale
@@ -211,7 +212,14 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
   };
 
   const handleToggleMonitoramento = async (processo: ProcessoOAB) => {
-    return await toggleMonitoramento(processo.id, processo.numero_cnj, !processo.monitoramento_ativo, oabId, onProcessoCompartilhadoAtualizado);
+    return await toggleMonitoramento(
+      processo.id,
+      processo.numero_cnj,
+      !processo.monitoramento_ativo,
+      oabId,
+      onProcessoCompartilhadoAtualizado,
+      isProcessoSigiloso(processo),
+    );
   };
 
   const handleConfirmExcluir = async () => {

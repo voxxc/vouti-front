@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { isProcessoSigiloso } from '@/utils/processoOABHelpers';
 import {
   Eye, Bell, Loader2, FileText, Search, X, Filter, ChevronLeft, ChevronRight, Trash2, Scale, Link2, Users, FolderInput, ShieldAlert
 } from 'lucide-react';
@@ -129,7 +130,14 @@ export const GeralTab = () => {
 
   const handleToggleMonitoramento = async (processo: ProcessoOAB) => {
     const p = processo as ProcessoOABComOAB;
-    return await toggleMonitoramento(p.id, p.numero_cnj, !p.monitoramento_ativo, p.oab_id);
+    return await toggleMonitoramento(
+      p.id,
+      p.numero_cnj,
+      !p.monitoramento_ativo,
+      p.oab_id,
+      undefined,
+      isProcessoSigiloso(p),
+    );
   };
 
   const handleConfirmExcluir = async () => {
