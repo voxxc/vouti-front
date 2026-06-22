@@ -38,6 +38,7 @@ interface Props {
   processo: ProcessoLite;
   tenantNome: string;
   onAndamentoCriado?: () => void;
+  onProcessoMutado?: (processoId: string, acao: 'atualizado' | 'refresh') => void;
 }
 
 interface DetalhesResponse {
@@ -66,7 +67,7 @@ function formatDataCurta(value?: string | null) {
 }
 
 export function SuperAdminProcessoOABDetalhesPanel({
-  open, onOpenChange, processo, tenantNome, onAndamentoCriado,
+  open, onOpenChange, processo, tenantNome, onAndamentoCriado, onProcessoMutado,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<DetalhesResponse | null>(null);
@@ -165,6 +166,7 @@ export function SuperAdminProcessoOABDetalhesPanel({
       if (error) throw error;
       if ((resp as any)?.error) throw new Error((resp as any).error);
       toast.success('Marcado como atualizado');
+      onProcessoMutado?.(processo.id, 'atualizado');
       onAndamentoCriado?.();
     } catch (e: any) {
       toast.error(e?.message || 'Erro ao marcar como atualizado');
@@ -181,7 +183,7 @@ export function SuperAdminProcessoOABDetalhesPanel({
       if ((data as any)?.error) throw new Error((data as any).detail || (data as any).error);
       toast.success('Movimento excluído.');
       setAndamentos((prev) => prev.filter((a) => a.id !== id));
-      onAndamentoCriado?.();
+      // exclusão de um andamento não muda o status "atualizado/total"; sem refetch.
     } catch (e: any) {
       toast.error(e?.message || 'Erro ao excluir');
     }
@@ -435,6 +437,7 @@ export function SuperAdminProcessoOABDetalhesPanel({
         onSuccess={() => {
           setAdicionarOpen(false);
           carregar();
+          onProcessoMutado?.(processo.id, 'atualizado');
           onAndamentoCriado?.();
         }}
       />
