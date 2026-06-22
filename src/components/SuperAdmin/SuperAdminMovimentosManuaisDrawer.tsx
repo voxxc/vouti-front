@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Search, FilePlus2, Bell, BellOff, ChevronRight, Filter, ShieldAlert } from 'lucide-react';
+import { Loader2, Search, FilePlus2, Bell, BellOff, ChevronRight, Filter, ShieldAlert, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { Tenant } from '@/types/superadmin';
@@ -62,6 +63,7 @@ function lerVisitados(): Record<string, number> {
 export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }: Props) {
   const [loading, setLoading] = useState(false);
   const [processos, setProcessos] = useState<ProcessoLite[]>([]);
+  const [erro, setErro] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState<string>('todos');
   const [selecionado, setSelecionado] = useState<ProcessoLite | null>(null);
@@ -95,6 +97,8 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
     let cancel = false;
     (async () => {
       setLoading(true);
+      setErro(null);
+      setProcessos([]);
       try {
         const { data, error } = await supabase.functions.invoke(
           'super-admin-listar-processos-oab',
@@ -104,6 +108,8 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
         if (!cancel) setProcessos((data as any)?.processos || []);
       } catch (e) {
         console.error(e);
+        const msg = (e as any)?.message || 'Erro ao carregar processos do tenant';
+        if (!cancel) setErro(msg);
         toast.error('Erro ao carregar processos do tenant');
       } finally {
         if (!cancel) setLoading(false);
@@ -248,6 +254,15 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
             <div className="text-xs text-muted-foreground">
               {loading ? 'Carregando…' : `${filtrados.length} processo(s)`}
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={recarregar}
+              disabled={loading}
+              title="Recarregar"
+            >
+              <RefreshCw className={'h-4 w-4 ' + (loading ? 'animate-spin' : '')} />
+            </Button>
           </div>
 
           <ScrollArea className="flex-1">
@@ -255,9 +270,25 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
               <div className="flex items-center justify-center py-16">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
+            ) : erro ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3 text-sm">
+                <div className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="h-5 w-5" />
+                  Falha ao carregar processos
+                </div>
+                <div className="text-xs text-muted-foreground max-w-md text-center">
+                  {erro}
+                </div>
+                <Button size="sm" variant="outline" onClick={recarregar}>
+                  <RefreshCw className="h-4 w-4 mr-1" /> Tentar novamente
+                </Button>
+              </div>
             ) : filtrados.length === 0 ? (
-              <div className="text-center py-16 text-sm text-muted-foreground">
+              <div className="flex flex-col items-center justify-center py-16 gap-3 text-sm text-muted-foreground">
                 Nenhum processo encontrado.
+                <Button size="sm" variant="outline" onClick={recarregar}>
+                  <RefreshCw className="h-4 w-4 mr-1" /> Recarregar
+                </Button>
               </div>
             ) : (
               <Table>
