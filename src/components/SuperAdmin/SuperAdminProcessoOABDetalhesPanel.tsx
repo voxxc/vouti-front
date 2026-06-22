@@ -467,9 +467,10 @@ interface AndamentoCardProps {
   tribunais: TribunalTag[];
   onExcluir: () => void;
   onAtualizar: (patch: { sigiloso?: boolean; tribunal_tag?: string | null }) => void;
+  onToggleLida: () => void;
 }
 
-function AndamentoCard({ andamento: a, destravado, tribunaisMap, tribunais, onExcluir, onAtualizar }: AndamentoCardProps) {
+function AndamentoCard({ andamento: a, destravado, tribunaisMap, tribunais, onExcluir, onAtualizar, onToggleLida }: AndamentoCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: a.id, disabled: !destravado });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1 };
   const dc = (a.dados_completos || {}) as any;
@@ -527,6 +528,15 @@ function AndamentoCard({ andamento: a, destravado, tribunaisMap, tribunais, onEx
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={onToggleLida}
+            title={a.lida ? 'Marcar como não lido' : 'Marcar como lido'}
+          >
+            {a.lida ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          </Button>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar metadados">
