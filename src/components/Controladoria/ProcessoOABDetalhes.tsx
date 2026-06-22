@@ -265,6 +265,7 @@ export const ProcessoOABDetalhes = ({
   const [movimentacaoSelecionada, setMovimentacaoSelecionada] = useState<{
     mov: MovimentacaoSelecionada;
     stepId: string | null;
+    anexoManual?: { bucket?: string | null; storage_path: string; nome?: string | null } | null;
   } | null>(null);
 
   const fecharSubdrawer = () => setMovimentacaoSelecionada(null);
@@ -741,6 +742,7 @@ export const ProcessoOABDetalhes = ({
             <MovimentacaoDetalhe
               movimentacao={movimentacaoSelecionada.mov}
               anexos={anexosDaMovSelecionada}
+              anexoManual={movimentacaoSelecionada.anexoManual ?? null}
               processoOabId={processo.id}
               numeroCnj={processo.numero_cnj}
               instancia={1}
