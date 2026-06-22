@@ -195,6 +195,14 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  if (Deno.env.get('JUDIT_WEBHOOKS_ENABLED') !== 'true') {
+    console.info('[judit-webhook-oab] paused — payload descartado');
+    return new Response(JSON.stringify({ ok: true, paused: true }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     // Validação de webhook secret (se configurado)
     const webhookSecret = Deno.env.get('JUDIT_WEBHOOK_SECRET');
