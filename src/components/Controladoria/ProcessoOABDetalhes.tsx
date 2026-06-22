@@ -818,7 +818,6 @@ export const ProcessoOABDetalhes = ({
                     <strong>monitoramento</strong>, e novas movimentações serão acompanhadas normalmente
                     a partir da ativação.
                   </p>
-                  </ul>
                 </div>
               </div>
             </Card>
