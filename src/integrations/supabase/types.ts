@@ -1636,8 +1636,10 @@ export type Database = {
           cpf: string
           created_at: string | null
           created_by: string | null
+          customer_key: string | null
           documento_nome: string | null
           documento_url: string | null
+          encrypted: boolean
           enviado_judit_em: string | null
           enviado_por: string | null
           erro_mensagem: string | null
@@ -1654,8 +1656,10 @@ export type Database = {
           cpf: string
           created_at?: string | null
           created_by?: string | null
+          customer_key?: string | null
           documento_nome?: string | null
           documento_url?: string | null
+          encrypted?: boolean
           enviado_judit_em?: string | null
           enviado_por?: string | null
           erro_mensagem?: string | null
@@ -1672,8 +1676,10 @@ export type Database = {
           cpf?: string
           created_at?: string | null
           created_by?: string | null
+          customer_key?: string | null
           documento_nome?: string | null
           documento_url?: string | null
+          encrypted?: boolean
           enviado_judit_em?: string | null
           enviado_por?: string | null
           erro_mensagem?: string | null
@@ -1813,6 +1819,44 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credenciais_reveal_audit: {
+        Row: {
+          created_at: string
+          credencial_cliente_id: string | null
+          id: string
+          ip_address: string | null
+          motivo: string | null
+          super_admin_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          credencial_cliente_id?: string | null
+          id?: string
+          ip_address?: string | null
+          motivo?: string | null
+          super_admin_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          credencial_cliente_id?: string | null
+          id?: string
+          ip_address?: string | null
+          motivo?: string | null
+          super_admin_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credenciais_reveal_audit_credencial_cliente_id_fkey"
+            columns: ["credencial_cliente_id"]
+            isOneToOne: false
+            referencedRelation: "credenciais_cliente"
             referencedColumns: ["id"]
           },
         ]
