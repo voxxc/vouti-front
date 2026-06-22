@@ -265,6 +265,7 @@ export const ProcessoOABDetalhes = ({
   const [movimentacaoSelecionada, setMovimentacaoSelecionada] = useState<{
     mov: MovimentacaoSelecionada;
     stepId: string | null;
+    anexoManual?: { bucket?: string | null; storage_path: string; nome?: string | null } | null;
   } | null>(null);
 
   const fecharSubdrawer = () => setMovimentacaoSelecionada(null);
@@ -741,6 +742,7 @@ export const ProcessoOABDetalhes = ({
             <MovimentacaoDetalhe
               movimentacao={movimentacaoSelecionada.mov}
               anexos={anexosDaMovSelecionada}
+              anexoManual={movimentacaoSelecionada.anexoManual ?? null}
               processoOabId={processo.id}
               numeroCnj={processo.numero_cnj}
               instancia={1}
@@ -1517,6 +1519,13 @@ export const ProcessoOABDetalhes = ({
                            onClick={() => {
                              if (!andamento.lida) marcarComoLida(andamento.id);
                              const stepId = (andamento as any).dados_completos?.id || (andamento as any).dados_completos?.step_id || null;
+                             const anexoManualRaw = (andamento as any).dados_completos?.anexo as
+                               | { bucket?: string; storage_path?: string; nome?: string }
+                               | null
+                               | undefined;
+                             const anexoManual = anexoManualRaw?.storage_path
+                               ? { bucket: anexoManualRaw.bucket || null, storage_path: anexoManualRaw.storage_path, nome: anexoManualRaw.nome || null }
+                               : null;
                              setMovimentacaoSelecionada({
                                mov: {
                                  id: andamento.id,
@@ -1527,6 +1536,7 @@ export const ProcessoOABDetalhes = ({
                                  origem: 'andamento',
                                },
                                stepId,
+                               anexoManual,
                              });
                            }}
                         >
@@ -1685,6 +1695,13 @@ export const ProcessoOABDetalhes = ({
                             onDownload={downloadAnexo}
                             onMarcarLida={marcarComoLida}
                            onCardClick={() => {
+                             const anexoManualRaw = (andamento as any).dados_completos?.anexo as
+                               | { bucket?: string; storage_path?: string; nome?: string }
+                               | null
+                               | undefined;
+                             const anexoManual = anexoManualRaw?.storage_path
+                               ? { bucket: anexoManualRaw.bucket || null, storage_path: anexoManualRaw.storage_path, nome: anexoManualRaw.nome || null }
+                               : null;
                              setMovimentacaoSelecionada({
                                mov: {
                                  id: andamento.id,
@@ -1695,6 +1712,7 @@ export const ProcessoOABDetalhes = ({
                                  origem: 'intimacao',
                                },
                                stepId,
+                               anexoManual,
                              });
                            }}
                           />

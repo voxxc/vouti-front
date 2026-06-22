@@ -22,6 +22,11 @@ export interface MovimentacaoSelecionada {
 interface MovimentacaoDetalheProps {
   movimentacao: MovimentacaoSelecionada;
   anexos: ProcessoAnexo[];
+  anexoManual?: {
+    bucket?: string | null;
+    storage_path: string;
+    nome?: string | null;
+  } | null;
   processoOabId: string;
   numeroCnj: string;
   instancia: number;
@@ -60,6 +65,7 @@ interface PreviewState {
 export const MovimentacaoDetalhe = ({
   movimentacao,
   anexos,
+  anexoManual,
   processoOabId,
   numeroCnj,
   instancia,
@@ -207,6 +213,30 @@ export const MovimentacaoDetalhe = ({
     if (src) window.open(src, '_blank');
   };
 
+  const MANUAL_ID = '__manual__';
+
+  const visualizarAnexoManual = async () => {
+    if (!anexoManual?.storage_path) return;
+    if (preview?.anexoId === MANUAL_ID) {
+      fecharPreview();
+      return;
+    }
+    setLoadingId(MANUAL_ID);
+    try {
+      const { data, error } = await supabase.storage
+        .from(anexoManual.bucket || 'andamentos-manuais-docs')
+        .createSignedUrl(anexoManual.storage_path, 60 * 10);
+      if (error || !data?.signedUrl) throw error || new Error('Falha ao gerar URL');
+      const ext = (anexoManual.nome?.split('.').pop() || 'pdf').toLowerCase();
+      if (preview?.blobUrl) URL.revokeObjectURL(preview.blobUrl);
+      setPreview({ anexoId: MANUAL_ID, url: data.signedUrl, ext });
+    } catch (e: any) {
+      toast({ title: 'Erro ao abrir', description: e?.message || 'Falha ao carregar anexo', variant: 'destructive' });
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
   const previewSrc = preview?.url || preview?.blobUrl;
   const isPdf = preview?.ext === 'pdf';
   const isImage = preview?.ext && ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(preview.ext);
@@ -225,7 +255,12 @@ export const MovimentacaoDetalhe = ({
             )}
             {anexos.length > 0 && (
               <Badge variant="secondary" className="text-xs gap-1">
-                <Paperclip className="w-3 h-3" /> {anexos.length}
+                <Paperclip className="w-3 h-3" /> {anexos.length + (anexoManual ? 1 : 0)}
+              </Badge>
+            )}
+            {anexos.length === 0 && anexoManual && (
+              <Badge variant="secondary" className="text-xs gap-1">
+                <Paperclip className="w-3 h-3" /> 1
               </Badge>
             )}
           </div>
@@ -263,12 +298,43 @@ export const MovimentacaoDetalhe = ({
           </div>
 
           {/* Documentos */}
-          {anexos.length > 0 && (
+          {(anexos.length > 0 || anexoManual) && (
             <div className="border-t pt-4">
               <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
                 <Paperclip className="w-3 h-3" /> Documentos
               </h4>
               <div className="space-y-1.5">
+                {anexoManual && (() => {
+                  const ext = (anexoManual.nome?.split('.').pop() || '').toLowerCase();
+                  const FileIcon = getFileIcon(ext);
+                  const isLoading = loadingId === MANUAL_ID;
+                  const isActive = preview?.anexoId === MANUAL_ID;
+                  const displayName = anexoManual.nome || 'Documento anexado';
+                  return (
+                    <button
+                      type="button"
+                      key="manual"
+                      onClick={visualizarAnexoManual}
+                      disabled={isLoading}
+                      aria-expanded={isActive}
+                      className={`w-full flex items-center gap-2 p-2 rounded border transition-colors text-left ${
+                        isActive ? 'border-primary/50 bg-primary/5' : 'border-border bg-muted/30 hover:bg-muted/60'
+                      } ${isLoading ? 'opacity-70 cursor-wait' : 'cursor-pointer'}`}
+                    >
+                      <FileIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <span className="text-xs truncate flex-1" title={displayName}>
+                        {displayName}
+                      </span>
+                      {isLoading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground shrink-0" />
+                      ) : isActive ? (
+                        <ChevronDown className="w-3.5 h-3.5 text-primary shrink-0" />
+                      ) : (
+                        <Eye className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      )}
+                    </button>
+                  );
+                })()}
                 {anexos.map((anexo) => {
                   const FileIcon = getFileIcon(anexo.extension);
                   const isLoading = loadingId === anexo.id;
@@ -335,7 +401,7 @@ export const MovimentacaoDetalhe = ({
             </div>
           )}
 
-          {anexos.length === 0 && (
+          {anexos.length === 0 && !anexoManual && (
             <div className="border-t pt-4 text-xs text-muted-foreground">
               Esta movimentação não possui documentos anexados.
             </div>
