@@ -41,7 +41,7 @@ function extrairUF(tribunalSigla: string | null | undefined, numeroCnj?: string 
 const PARTES_SIGILOSAS_REGEX = /^\s*(sigilo|sigiloso|sigilosa|segredo de justi[cç]a|sob sigilo)\s*$/i;
 
 function isSigiloso(p: any): boolean {
-  const capa = p?.judit_data?.lawsuit || p?.capa_completa || {};
+  const capa = p?.capa_completa || {};
   const pa = (p?.parte_ativa ?? capa?.parte_ativa ?? '').toString().trim();
   const pp = (p?.parte_passiva ?? capa?.parte_passiva ?? '').toString().trim();
   const partesMascaradas =
@@ -56,7 +56,7 @@ function isSigiloso(p: any): boolean {
   if (!pa && !pp) {
     const partesCompletas = p?.partes_completas;
     const semPartes = !partesCompletas || (Array.isArray(partesCompletas) && partesCompletas.length === 0);
-    const steps = capa?.steps || p?.judit_data?.lawsuit?.steps || [];
+    const steps = capa?.steps || [];
     const semAndamentosNaCapa = !Array.isArray(steps) || steps.length === 0;
     if (semPartes && semAndamentosNaCapa) return true;
   }
@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
       let query = admin
         .from('processos_oab')
         .select(
-          'id, numero_cnj, parte_ativa, parte_passiva, tribunal_sigla, monitoramento_ativo, ultima_atualizacao_detalhes, super_admin_atualizado_em, judit_data, partes_completas, capa_completa',
+          'id, numero_cnj, parte_ativa, parte_passiva, tribunal_sigla, monitoramento_ativo, ultima_atualizacao_detalhes, super_admin_atualizado_em, partes_completas, capa_completa',
         )
         .eq('tenant_id', tenant_id);
 
@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
       const is_sigiloso = isSigiloso(p);
       const uf = extrairUF(p.tribunal_sigla, p.numero_cnj);
       // Não devolver judit_data/partes_completas/capa_completa para reduzir payload
-      const { judit_data, partes_completas, capa_completa, ...rest } = p;
+      const { partes_completas, capa_completa, ...rest } = p;
       return { ...rest, total_andamentos: counts[p.id] || 0, is_sigiloso, uf };
     });
 
