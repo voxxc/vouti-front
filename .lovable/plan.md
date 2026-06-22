@@ -1,57 +1,32 @@
-## Causa raiz
+## Revisão do aviso de processo sigiloso
 
-No print, o processo claramente é sigiloso (Parte Ativa = "Sigilo"), mas nenhum badge nem alerta aparecem. Em `src/components/Controladoria/ProcessoOABDetalhes.tsx` (linha 715), a detecção só olha:
+### Causa raiz
+O card de aviso de "Processo em Segredo de Justiça" está muito longo e confuso para o usuário final. O usuário quer uma mensagem mais curta e direta, focada em duas informações principais: (1) processos sigilosos não exibem andamentos/histórico completo automaticamente; (2) o monitoramento já pode ser ativado. Além disso, o aviso deve desaparecer naturalmente após a ativação do monitoramento.
 
-```ts
-const isProcessoSigiloso = capa.secrecy_level >= 1;
+### Correção
+1. No componente `ProcessoOABDetalhes.tsx`, alterar o texto do card de aviso sigiloso para a versão curta fornecida.
+2. Condicionar a renderização do card a `isProcessoSigiloso && !processo.monitoramento_ativo`, para que o aviso desapareça assim que o monitoramento for ativado.
+3. Simplificar o layout do card (título + dois parágrafos), removendo a lista com três bullets.
+
+Texto final do aviso:
+```text
+Processo em Segredo de Justiça
+
+Por se tratar de um processo sigiloso, os andamentos e documentos não podem ser consultados automaticamente. Por isso, o histórico completo do processo não será exibido nesta tela.
+
+O processo, porém, já está disponível para iniciar o monitoramento, e novas movimentações serão acompanhadas normalmente a partir da ativação.
 ```
 
-Quando a Judit retorna o processo sem `capa_completa.secrecy_level` populado (ou = 0) mas com partes mascaradas como "Sigilo"/"Segredo de Justiça", o sistema não marca como sigiloso, então:
+### Arquivos afetados
+- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — apenas o bloco do card de aviso sigiloso.
 
-- O badge âmbar "Sigiloso" no cabeçalho não aparece.
-- O Card de alerta (linhas 793–807) não é renderizado.
-- O texto atual também é genérico demais ("Algumas informações podem estar indisponíveis. Use o modo edição para preencher manualmente.") — não explica o impacto real (sem andamentos públicos, precisa entrar no filtro de sigilosos, monitoramento continua válido).
+### Impacto
+- **UX / telas / fluxos:** O usuário vê um aviso mais curto e objetivo na tela de detalhes do processo. O aviso some automaticamente quando o toggle de monitoramento é ativado, reduzindo poluição visual após a ação corretiva.
+- **Dados / migrations / RLS / performance:** Nenhuma mudança em banco de dados, migrations, RLS, edge functions ou performance.
+- **Riscos colaterais:** Muito baixo. A condição `!processo.monitoramento_ativo` pode fazer o aviso sumir mesmo que o processo permaneça sigiloso; esse é o comportamento desejado conforme solicitação.
+- **Quem é afetado:** Usuários que visualizam detalhes de processos sigilosos em qualquer tenant.
 
-## Correção
-
-1. **Ampliar a detecção de sigilo** em `ProcessoOABDetalhes.tsx`:
-   ```ts
-   const partesSigilosasRegex = /^\s*(sigilo|segredo de justi[cç]a|sob sigilo)\s*$/i;
-   const partesMascaradas =
-     partesSigilosasRegex.test(processo.parte_ativa || '') ||
-     partesSigilosasRegex.test(processo.parte_passiva || '') ||
-     partesSigilosasRegex.test(capa.parte_ativa || '') ||
-     partesSigilosasRegex.test(capa.parte_passiva || '');
-   const isProcessoSigiloso =
-     (capa.secrecy_level ?? 0) >= 1 ||
-     capa.justice_secret === true ||
-     partesMascaradas;
-   ```
-
-2. **Reescrever o Card de alerta** (linhas 793–807) com texto explicativo melhor, mantendo a paleta âmbar e o ícone `Shield`:
-
-   > **Processo em Segredo de Justiça**
-   > Os dados públicos (partes, andamentos e documentos) ficam mascarados pelo tribunal e **não retornam pela consulta automática**. Por isso este caso não exibirá andamentos aqui — eles precisam ser registrados manualmente por quem tem credencial habilitada no processo.
-   >
-   > • O **monitoramento diário continua disponível** e pode ser ativado normalmente — ele acompanha mudanças de status e movimentações públicas (quando o tribunal liberar).
-   > • Para visualizá-lo nas listagens, use o **filtro "Sigilosos"** na tela de processos; ele não aparece nas buscas padrão.
-   > • Para destravar a capa completa, vincule abaixo uma **credencial Judit** com acesso ao CNJ.
-
-3. **Manter o badge "Sigiloso"** no cabeçalho usando a mesma flag ampliada (linhas 775–780), sem mudanças adicionais.
-
-## Arquivos afetados
-
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — única alteração: ampliar `isProcessoSigiloso` e reescrever o Card de alerta. Sem mudanças em hooks, edge functions ou banco.
-
-## Impacto
-
-- **Usuário final (UX):** processos sigilosos passam a exibir o badge âmbar e o card de aviso mesmo quando a Judit não preenche `secrecy_level`. O texto deixa claro por que não há andamentos, que monitoramento continua válido e que precisa do filtro "Sigilosos" para encontrar o caso.
-- **Dados:** nenhuma migration, nenhuma RLS, nenhum custo extra de query.
-- **Riscos colaterais:** o regex de partes pode dar falso positivo se algum cliente literalmente se chamar "Sigilo" — risco baixo e o efeito (mostrar aviso + badge) é benigno.
-- **Quem é afetado:** todos os tenants/usuários que abrem o drawer de processos OAB na Controladoria; nenhum impacto em super-admin, agenda, financeiro ou outros módulos.
-
-## Validação
-
-1. Abrir o processo do print (`0032703-55.2026.8.16.0000`) → badge "Sigiloso" e o novo card âmbar com texto reescrito devem aparecer; aba Andamentos pode continuar vazia, conforme esperado.
-2. Abrir um processo público qualquer → nenhum badge nem card de sigilo.
-3. Abrir um processo com `secrecy_level >= 1` (caminho antigo) → comportamento idêntico ao anterior, agora com o texto novo.
+### Validação
+1. Abrir a tela de detalhes de um processo sigiloso (`isProcessoSigiloso === true`) com `monitoramento_ativo === false` e confirmar que o card aparece com o novo texto curto.
+2. Ativar o monitoramento e confirmar que o card some.
+3. Verificar que o badge "Sigiloso" no cabeçalho continua visível (não será removido).
