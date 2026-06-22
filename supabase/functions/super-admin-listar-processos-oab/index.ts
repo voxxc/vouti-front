@@ -38,28 +38,16 @@ function extrairUF(tribunalSigla: string | null | undefined, numeroCnj?: string 
   return 'N/I';
 }
 
-const PARTES_SIGILOSAS_REGEX = /^\s*(sigilo|sigiloso|sigilosa|segredo de justi[cç]a|sob sigilo)\s*$/i;
-
+// Mesmo critério usado por useAllProcessosOAB.fetchGlobalCounts (Controladoria):
+// capa_completa is null OR secrecy_level is null OR secrecy_level > 0
 function isSigiloso(p: any): boolean {
-  const capa = p?.capa_completa || {};
-  const pa = (p?.parte_ativa ?? capa?.parte_ativa ?? '').toString().trim();
-  const pp = (p?.parte_passiva ?? capa?.parte_passiva ?? '').toString().trim();
-  const partesMascaradas =
-    PARTES_SIGILOSAS_REGEX.test(p?.parte_ativa || '') ||
-    PARTES_SIGILOSAS_REGEX.test(p?.parte_passiva || '') ||
-    PARTES_SIGILOSAS_REGEX.test(capa?.parte_ativa || '') ||
-    PARTES_SIGILOSAS_REGEX.test(capa?.parte_passiva || '');
-  if ((capa?.secrecy_level ?? 0) >= 1 || capa?.justice_secret === true || partesMascaradas) {
-    return true;
-  }
-  // capa cega
-  if (!pa && !pp) {
-    const partesCompletas = p?.partes_completas;
-    const semPartes = !partesCompletas || (Array.isArray(partesCompletas) && partesCompletas.length === 0);
-    const steps = capa?.steps || [];
-    const semAndamentosNaCapa = !Array.isArray(steps) || steps.length === 0;
-    if (semPartes && semAndamentosNaCapa) return true;
-  }
+  const capa = p?.capa_completa;
+  if (capa == null) return true;
+  const sl = (capa as any).secrecy_level;
+  if (sl == null) return true;
+  const n = typeof sl === 'number' ? sl : Number(sl);
+  if (!Number.isNaN(n) && n > 0) return true;
+  if ((capa as any).justice_secret === true) return true;
   return false;
 }
 
