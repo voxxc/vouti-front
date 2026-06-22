@@ -711,17 +711,8 @@ export const ProcessoOABDetalhes = ({
   // Extrair dados da capa_completa
   const capa = processo.capa_completa || {};
 
-  // Verificar se processo é sigiloso (detecção ampliada)
-  const partesSigilosasRegex = /^\s*(sigilo|sigiloso|sigilosa|segredo de justi[cç]a|sob sigilo)\s*$/i;
-  const partesMascaradas =
-    partesSigilosasRegex.test(processo.parte_ativa || '') ||
-    partesSigilosasRegex.test(processo.parte_passiva || '') ||
-    partesSigilosasRegex.test((capa as any).parte_ativa || '') ||
-    partesSigilosasRegex.test((capa as any).parte_passiva || '');
-  const isProcessoSigiloso =
-    (capa.secrecy_level ?? 0) >= 1 ||
-    (capa as any).justice_secret === true ||
-    partesMascaradas;
+  // Verificar se processo é sigiloso (detecção ampliada — helper compartilhado)
+  const isProcessoSigiloso = isProcessoSigilosoHelper(processo);
   const partesVazias = !processo.partes_completas || 
     !Array.isArray(processo.partes_completas) || 
     processo.partes_completas.length === 0;
