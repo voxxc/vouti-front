@@ -113,7 +113,24 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
       }
       if (acao === 'atualizado') {
         if (aba === 'total') {
+          // Calcula o próximo da fila ANTES de remover o atual.
+          let proximo: ProcessoLite | null = null;
+          if (selecionado?.id === processoId) {
+            const idx = filtrados.findIndex((p) => p.id === processoId);
+            if (idx >= 0 && idx + 1 < filtrados.length) {
+              proximo = filtrados[idx + 1];
+            }
+          }
           setProcessos((prev) => prev.filter((p) => p.id !== processoId));
+          if (selecionado?.id === processoId) {
+            if (proximo) {
+              marcarVisitado(proximo.id);
+              setSelecionado(proximo);
+            } else {
+              setSelecionado(null);
+              toast.success('Fila concluída');
+            }
+          }
         } else {
           const agora = new Date().toISOString();
           setProcessos((prev) =>
@@ -124,7 +141,7 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
         }
       }
     },
-    [aba],
+    [aba, filtrados, selecionado, marcarVisitado],
   );
 
   useEffect(() => {
