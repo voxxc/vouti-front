@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import {
   Loader2, Plus, Bell, BellOff, Paperclip, Calendar, Building2, Scale,
-  ExternalLink, FileText, RefreshCw, Trash2, Lock, LockOpen, GripVertical, EyeOff, Pencil, CheckCircle2,
+  ExternalLink, FileText, RefreshCw, Trash2, Lock, LockOpen, GripVertical, Eye, EyeOff, Pencil, CheckCircle2,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -208,6 +208,20 @@ export function SuperAdminProcessoOABDetalhesPanel({
     }
   };
 
+  const toggleLida = async (id: string, novaLida: boolean) => {
+    // Otimista
+    setAndamentos((prev) => prev.map((a) => (a.id === id ? { ...a, lida: novaLida } : a)));
+    const { error } = await supabase
+      .from('processos_oab_andamentos')
+      .update({ lida: novaLida })
+      .eq('id', id);
+    if (error) {
+      // Rollback
+      setAndamentos((prev) => prev.map((a) => (a.id === id ? { ...a, lida: !novaLida } : a)));
+      toast.error('Erro ao alterar status de leitura');
+    }
+  };
+
   const proc = data?.processo;
   const monitoramentoAtivo = !!proc?.monitoramento_ativo;
 
@@ -395,6 +409,7 @@ export function SuperAdminProcessoOABDetalhesPanel({
                             tribunais={tribunais}
                             onExcluir={() => excluirAndamento(a.id)}
                             onAtualizar={(patch) => atualizarMeta(a.id, patch)}
+                            onToggleLida={() => toggleLida(a.id, !a.lida)}
                           />
                         ))}
                       </div>
@@ -452,9 +467,10 @@ interface AndamentoCardProps {
   tribunais: TribunalTag[];
   onExcluir: () => void;
   onAtualizar: (patch: { sigiloso?: boolean; tribunal_tag?: string | null }) => void;
+  onToggleLida: () => void;
 }
 
-function AndamentoCard({ andamento: a, destravado, tribunaisMap, tribunais, onExcluir, onAtualizar }: AndamentoCardProps) {
+function AndamentoCard({ andamento: a, destravado, tribunaisMap, tribunais, onExcluir, onAtualizar, onToggleLida }: AndamentoCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: a.id, disabled: !destravado });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1 };
   const dc = (a.dados_completos || {}) as any;
@@ -512,6 +528,15 @@ function AndamentoCard({ andamento: a, destravado, tribunaisMap, tribunais, onEx
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={onToggleLida}
+            title={a.lida ? 'Marcar como não lido' : 'Marcar como lido'}
+          >
+            {a.lida ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          </Button>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar metadados">
