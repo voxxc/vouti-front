@@ -157,22 +157,22 @@ export function SuperAdminProcessoOABDetalhesPanel({
   };
 
   const marcarComoAtualizado = async () => {
-    setMarcandoAtualizado(true);
-    try {
-      const { data: resp, error } = await supabase.functions.invoke(
-        'super-admin-marcar-atualizado',
-        { body: { processo_id: processo.id } },
-      );
-      if (error) throw error;
-      if ((resp as any)?.error) throw new Error((resp as any).error);
-      toast.success('Marcado como atualizado');
-      onProcessoMutado?.(processo.id, 'atualizado');
-      onAndamentoCriado?.();
-    } catch (e: any) {
-      toast.error(e?.message || 'Erro ao marcar como atualizado');
-    } finally {
-      setMarcandoAtualizado(false);
-    }
+    // Avança a fila IMEDIATAMENTE (otimista) — a edge function roda em segundo plano.
+    const processoId = processo.id;
+    onProcessoMutado?.(processoId, 'atualizado');
+    onAndamentoCriado?.();
+    toast.success('Marcado como atualizado');
+    supabase.functions
+      .invoke('super-admin-marcar-atualizado', { body: { processo_id: processoId } })
+      .then(({ data: resp, error }) => {
+        if (error) throw error;
+        if ((resp as any)?.error) throw new Error((resp as any).error);
+      })
+      .catch((e: any) => {
+        toast.error(
+          `Falha ao marcar como atualizado: ${e?.message || 'erro desconhecido'}. Reabra o processo e tente novamente.`,
+        );
+      });
   };
 
   const excluirAndamento = async (id: string) => {
