@@ -22,6 +22,11 @@ export interface MovimentacaoSelecionada {
 interface MovimentacaoDetalheProps {
   movimentacao: MovimentacaoSelecionada;
   anexos: ProcessoAnexo[];
+  anexoManual?: {
+    bucket?: string | null;
+    storage_path: string;
+    nome?: string | null;
+  } | null;
   processoOabId: string;
   numeroCnj: string;
   instancia: number;
@@ -60,6 +65,7 @@ interface PreviewState {
 export const MovimentacaoDetalhe = ({
   movimentacao,
   anexos,
+  anexoManual,
   processoOabId,
   numeroCnj,
   instancia,
