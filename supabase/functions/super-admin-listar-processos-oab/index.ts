@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
       let query = admin
         .from('processos_oab')
         .select(
-          'id, numero_cnj, parte_ativa, parte_passiva, tribunal_sigla, monitoramento_ativo, ultima_atualizacao_detalhes, super_admin_atualizado_em, capa_completa',
+          'id, numero_cnj, parte_ativa, parte_passiva, tribunal_sigla, monitoramento_ativo, ultima_atualizacao_detalhes, super_admin_atualizado_em, capa_completa, oab_id',
         )
         .eq('tenant_id', tenant_id);
 
@@ -168,7 +168,46 @@ Deno.serve(async (req) => {
       return { ...rest, total_andamentos: counts[p.id] || 0, is_sigiloso, uf };
     });
 
-    return new Response(JSON.stringify({ processos }), {
+    // Enriquecer com dados de OAB
+    const oabIds = Array.from(
+      new Set(processos.map((p) => (p as any).oab_id).filter((x): x is string => !!x)),
+    );
+    const oabMap: Record<string, { oab_numero: string | null; oab_uf: string | null; nome_advogado: string | null }> = {};
+    if (oabIds.length > 0) {
+      const { data: oabRows, error: oabErr } = await admin
+        .from('oabs_cadastradas')
+        .select('id, oab_numero, oab_uf, nome_advogado')
+        .eq('tenant_id', tenant_id)
+        .in('id', oabIds);
+      if (oabErr) throw oabErr;
+      for (const r of oabRows || []) {
+        oabMap[(r as any).id] = {
+          oab_numero: (r as any).oab_numero ?? null,
+          oab_uf: (r as any).oab_uf ?? null,
+          nome_advogado: (r as any).nome_advogado ?? null,
+        };
+      }
+    }
+    const processosEnriquecidos = processos.map((p: any) => {
+      const info = p.oab_id ? oabMap[p.oab_id] : null;
+      return {
+        ...p,
+        oab_numero: info?.oab_numero ?? null,
+        oab_uf: info?.oab_uf ?? null,
+        nome_advogado: info?.nome_advogado ?? null,
+      };
+    });
+
+    const oabs = Object.entries(oabMap)
+      .map(([id, info]) => ({ id, ...info }))
+      .sort((a, b) => {
+        const an = (a.nome_advogado || '').toLowerCase();
+        const bn = (b.nome_advogado || '').toLowerCase();
+        if (an && bn && an !== bn) return an.localeCompare(bn);
+        return (a.oab_numero || '').localeCompare(b.oab_numero || '');
+      });
+
+    return new Response(JSON.stringify({ processos: processosEnriquecidos, oabs }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
