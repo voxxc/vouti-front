@@ -14,6 +14,27 @@ export interface PartesExtraidas {
 const PARTES_SIGILOSAS_REGEX =
   /^\s*(sigilo|sigiloso|sigilosa|segredo de justi[cç]a|sob sigilo)\s*$/i;
 
+function temCapaCega(processo: any): boolean {
+  const capa = processo?.judit_data?.lawsuit || processo?.capa_completa || {};
+  const pa = (processo?.parte_ativa ?? (capa as any).parte_ativa ?? '').toString().trim();
+  const pp = (processo?.parte_passiva ?? (capa as any).parte_passiva ?? '').toString().trim();
+  if (pa || pp) return false;
+
+  const partesCompletas = processo?.partes_completas;
+  const semPartes =
+    !partesCompletas ||
+    (Array.isArray(partesCompletas) && partesCompletas.length === 0);
+  if (!semPartes) return false;
+
+  const steps =
+    (capa as any)?.steps ||
+    processo?.judit_data?.lawsuit?.steps ||
+    processo?.capa_completa?.steps ||
+    [];
+  const semAndamentosNaCapa = !Array.isArray(steps) || steps.length === 0;
+  return semAndamentosNaCapa;
+}
+
 export function isProcessoSigiloso(processo: any): boolean {
   if (!processo) return false;
   const capa = processo?.judit_data?.lawsuit || {};
@@ -25,7 +46,8 @@ export function isProcessoSigiloso(processo: any): boolean {
   return (
     ((capa as any).secrecy_level ?? 0) >= 1 ||
     (capa as any).justice_secret === true ||
-    partesMascaradas
+    partesMascaradas ||
+    temCapaCega(processo)
   );
 }
 
