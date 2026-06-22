@@ -105,6 +105,28 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
 
   const recarregar = () => setReloadKey((k) => k + 1);
 
+  const handleProcessoMutado = useCallback(
+    (processoId: string, acao: 'atualizado' | 'refresh') => {
+      if (acao === 'refresh') {
+        recarregar();
+        return;
+      }
+      if (acao === 'atualizado') {
+        if (aba === 'total') {
+          setProcessos((prev) => prev.filter((p) => p.id !== processoId));
+        } else {
+          const agora = new Date().toISOString();
+          setProcessos((prev) =>
+            prev.map((p) =>
+              p.id === processoId ? { ...p, super_admin_atualizado_em: agora } : p,
+            ),
+          );
+        }
+      }
+    },
+    [aba],
+  );
+
   useEffect(() => {
     if (!open) return;
     let cancel = false;
@@ -472,7 +494,7 @@ export function SuperAdminMovimentosManuaisDrawer({ open, onOpenChange, tenant }
           onOpenChange={(o) => !o && setSelecionado(null)}
           processo={selecionado}
           tenantNome={tenant.name}
-          onAndamentoCriado={recarregar}
+          onProcessoMutado={handleProcessoMutado}
         />
       )}
     </>
