@@ -800,7 +800,7 @@ export const ProcessoOABDetalhes = ({
           </div>
 
           {/* Alerta de Processo Sigiloso */}
-          {isProcessoSigiloso && (
+          {isProcessoSigiloso && !processo.monitoramento_ativo && (
             <Card className="p-3 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
               <div className="flex items-start gap-3">
                 <Shield className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
@@ -809,25 +809,15 @@ export const ProcessoOABDetalhes = ({
                     Processo em Segredo de Justiça
                   </p>
                   <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
-                    Os dados públicos (partes, andamentos e documentos) ficam mascarados pelo tribunal e
-                    <strong> não retornam pela consulta automática</strong>. Por isso este caso não exibirá
-                    andamentos aqui — eles precisam ser registrados manualmente por quem tem credencial
-                    habilitada no processo.
+                    Por se tratar de um processo sigiloso, os andamentos e documentos não podem ser
+                    consultados automaticamente. Por isso, o histórico completo do processo não será
+                    exibido nesta tela.
                   </p>
-                  <ul className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed list-disc pl-4 space-y-1">
-                    <li>
-                      O <strong>monitoramento diário continua disponível</strong> e pode ser ativado
-                      normalmente — ele acompanha mudanças de status e movimentações públicas, quando o
-                      tribunal liberar.
-                    </li>
-                    <li>
-                      Para visualizá-lo nas listagens, use o <strong>filtro "Sigilosos"</strong> na tela de
-                      processos; ele não aparece nas buscas padrão.
-                    </li>
-                    <li>
-                      Para destravar a capa completa, vincule abaixo uma <strong>credencial Judit</strong>{' '}
-                      com acesso ao CNJ.
-                    </li>
+                  <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+                    O processo, porém, já está disponível para iniciar o{' '}
+                    <strong>monitoramento</strong>, e novas movimentações serão acompanhadas normalmente
+                    a partir da ativação.
+                  </p>
                   </ul>
                 </div>
               </div>
