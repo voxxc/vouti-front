@@ -983,8 +983,8 @@ export const ProcessoOABDetalhes = ({
                 </AlertDialogTitle>
                 <AlertDialogDescription>
                   {processo.monitoramento_ativo 
-                    ? 'O monitoramento semanal (Escavador) sera desativado. O historico de andamentos sera mantido.'
-                    : 'O monitoramento semanal (Escavador) sera ativado. Voce recebera notificacoes automaticas de novos andamentos.'}
+                    ? 'O monitoramento será desativado. O histórico de andamentos será mantido.'
+                    : 'O monitoramento será ativado. Você receberá notificações automáticas de novos andamentos.'}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
