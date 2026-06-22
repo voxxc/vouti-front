@@ -115,10 +115,10 @@ serve(async (req) => {
             'Accept': 'application/json',
           },
           body: JSON.stringify({
-            tipo_monitoramento: 'UNICO',
+            tipo: 'unico',
             valor: cnj,
             tribunal,
-            frequencia: 'SEMANAL',
+            frequencia: 'semanal',
           }),
         });
         const txt = await rMon.text();
