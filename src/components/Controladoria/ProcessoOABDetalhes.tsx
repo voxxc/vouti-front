@@ -225,6 +225,7 @@ export const ProcessoOABDetalhes = ({
   const [credencialDraft, setCredencialDraft] = useState<string>('__publico__');
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [togglingMonitoramento, setTogglingMonitoramento] = useState(false);
+  const { enabled: monitoramentoFeatureEnabled } = useFeatureFlag('escavador_monitoramento_enabled');
   const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
   const [confirmMonitoramentoOpen, setConfirmMonitoramentoOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
