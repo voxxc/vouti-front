@@ -589,35 +589,6 @@ export const ProcessoOABDetalhes = ({
     }
   };
 
-  const handleCarregarAndamentos = async () => {
-    if (!onCarregarDetalhes) return;
-    
-    setConfirmacaoFinalOpen(false);
-    setCarregandoAndamentos(true);
-    const { toast } = await import('sonner');
-    const loadingId = toast.loading('Buscando andamentos no tribunal...', {
-      description: 'Isso pode levar alguns segundos.',
-    });
-    try {
-      const result: any = await onCarregarDetalhes(processo.id, processo.numero_cnj);
-      await fetchAndamentos();
-      toast.dismiss(loadingId);
-      if (result?.success === false) {
-        toast.error('Não foi possível carregar os andamentos', {
-          description: result?.error || 'Tente novamente em instantes.',
-        });
-      } else {
-        const novos = result?.andamentosNovos ?? 0;
-        toast.success(novos > 0 ? `${novos} andamento(s) carregado(s)` : 'Andamentos atualizados');
-      }
-    } catch (err: any) {
-      toast.dismiss(loadingId);
-      toast.error('Erro ao carregar andamentos', { description: err?.message });
-    } finally {
-      setCarregandoAndamentos(false);
-    }
-  };
-
   // Salvar Resumo
   const handleSalvarResumo = async () => {
     if (!onAtualizarProcesso) return;
@@ -1419,37 +1390,14 @@ export const ProcessoOABDetalhes = ({
 
             {/* Andamentos */}
             <TabsContent value="andamentos" className="mt-4">
-              {/* Se nao tem request_id, mostrar botao para carregar/atualizar */}
-              {!processo.detalhes_request_id && andamentos.length === 0 && onCarregarDetalhes && (
-                <div className="p-6 text-center space-y-4 border rounded-lg bg-muted/30 mb-4">
+              {andamentos.length === 0 ? (
+                <div className="p-6 text-center space-y-2 border rounded-lg bg-muted/30 mb-4">
                   <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                     <ClipboardList className="w-6 h-6 text-primary" />
                   </div>
-                  <div>
-                    <p className="font-medium mb-1">Andamentos não carregados</p>
-                    <p className="text-sm text-muted-foreground">Os andamentos deste processo ainda não foram buscados.</p>
-                  </div>
-                  <Button 
-                    onClick={handleCarregarAndamentos}
-                    disabled={carregandoAndamentos}
-                  >
-                    {carregandoAndamentos ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Carregando...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Carregar Andamentos
-                      </>
-                    )}
-                  </Button>
+                  <p className="text-sm text-muted-foreground">Nenhum andamento disponível.</p>
                 </div>
-              )}
-
-              {/* Se tem request_id OU ja tem andamentos, mostrar lista */}
-              {(processo.detalhes_request_id || andamentos.length > 0) && (
+              ) : (
                 <>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -1615,28 +1563,7 @@ export const ProcessoOABDetalhes = ({
                   )}
                 </ScrollArea>
               </>
-            )}
-
-            {/* Dialogs de confirmacao para carregar andamentos */}
-            <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="flex items-center gap-2">
-                    Carregar Andamentos?
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta ação irá buscar os andamentos completos do processo.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleCarregarAndamentos}>
-                    Confirmar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-
+              )}
           </TabsContent>
 
             {/* Intimacoes - Cards estruturados com deteccao inteligente */}
