@@ -9,13 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Revisional,
   useRevisionais,
   useCreateRevisional,
@@ -47,7 +40,14 @@ export function PlanejadorRevisionaisView({ profiles, onOpenDeadline, searchQuer
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Revisional | null>(null);
   const [assigning, setAssigning] = useState<Revisional | null>(null);
+  const [viewing, setViewing] = useState<Revisional | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  // Mantém o viewer sincronizado quando a revisional for atualizada na lista
+  const viewingSynced = useMemo(
+    () => (viewing ? revisionais.find((r) => r.id === viewing.id) || null : null),
+    [viewing, revisionais]
+  );
+
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -141,8 +141,7 @@ export function PlanejadorRevisionaisView({ profiles, onOpenDeadline, searchQuer
                     borderColor={borderColor}
                     text={text}
                     textMuted={textMuted}
-                    onEdit={() => setEditing(rev)}
-                    onAssign={() => setAssigning(rev)}
+                    onOpen={() => setViewing(rev)}
                     onOpenDeadline={onOpenDeadline}
                   />
                 ))}
@@ -169,6 +168,17 @@ export function PlanejadorRevisionaisView({ profiles, onOpenDeadline, searchQuer
         revisional={assigning}
         profiles={profiles}
       />
+      <RevisionalViewerDialog
+        open={!!viewingSynced}
+        onOpenChange={(o) => !o && setViewing(null)}
+        revisional={viewingSynced}
+        profiles={profiles}
+        onOpenDeadline={onOpenDeadline}
+        onAssign={(rev) => {
+          setViewing(null);
+          setAssigning(rev);
+        }}
+      />
     </div>
   );
 }
@@ -180,8 +190,7 @@ function RevisionalCard({
   borderColor,
   text,
   textMuted,
-  onEdit,
-  onAssign,
+  onOpen,
   onOpenDeadline,
 }: {
   rev: Revisional;
@@ -190,103 +199,292 @@ function RevisionalCard({
   borderColor: string;
   text: string;
   textMuted: string;
-  onEdit: () => void;
-  onAssign: () => void;
+  onOpen: () => void;
   onOpenDeadline?: (id: string) => void;
 }) {
-  const arquivar = useArquivarRevisional();
-  const reabrir = useReabrirRevisional();
-  const remover = useDeleteRevisional();
-
   const assignedName = rev.assigned_to
     ? profiles.find((p) => p.user_id === rev.assigned_to)?.full_name || "Usuário"
     : null;
   const createdName = profiles.find((p) => p.user_id === rev.created_by)?.full_name || "—";
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <div
-          role="button"
-          tabIndex={0}
-          className={`group w-full text-left p-2.5 rounded-lg ${cardBg} border ${borderColor} transition-all duration-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50`}
-        >
-          <div className="flex items-start gap-1.5">
-            <div className="flex-1 min-w-0">
-              <p className={`text-sm font-medium ${text} line-clamp-2 break-words`}>{rev.titulo}</p>
-              {rev.cliente_nome && (
-                <p className={`text-xs mt-0.5 ${textMuted} truncate`}>{rev.cliente_nome}</p>
-              )}
-              {rev.descricao && (
-                <p className={`text-xs mt-1 ${textMuted} line-clamp-2`}>{rev.descricao}</p>
-              )}
-              <div className="flex flex-wrap gap-2 mt-2">
-                <span className={`text-[10px] ${textMuted}`}>
-                  {format(new Date(rev.created_at), "dd MMM", { locale: ptBR })} · {createdName}
-                </span>
-                {assignedName && (
-                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-500">
-                    <User className="h-3 w-3" /> {assignedName}
-                  </span>
-                )}
-              </div>
-              {rev.status === "atribuido" && rev.deadline_id && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    onOpenDeadline?.(rev.deadline_id!);
-                  }}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  className="mt-2 inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
-                >
-                  <ExternalLink className="h-3 w-3" /> Ver prazo
-                </button>
-              )}
-            </div>
-            <div
-              className={`p-1 rounded ${textMuted} opacity-60 group-hover:opacity-100 transition`}
-              aria-hidden="true"
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className={`group w-full text-left p-2.5 rounded-lg ${cardBg} border ${borderColor} transition-all duration-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50`}
+    >
+      <div className="flex items-start gap-1.5">
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm font-medium ${text} line-clamp-2 break-words`}>{rev.titulo}</p>
+          {rev.cliente_nome && (
+            <p className={`text-xs mt-0.5 ${textMuted} truncate`}>{rev.cliente_nome}</p>
+          )}
+          {rev.descricao && (
+            <p className={`text-xs mt-1 ${textMuted} line-clamp-2`}>{rev.descricao}</p>
+          )}
+          <div className="flex flex-wrap gap-2 mt-2">
+            <span className={`text-[10px] ${textMuted}`}>
+              {format(new Date(rev.created_at), "dd MMM", { locale: ptBR })} · {createdName}
+            </span>
+            {assignedName && (
+              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-500">
+                <User className="h-3 w-3" /> {assignedName}
+              </span>
+            )}
+          </div>
+          {rev.status === "atribuido" && rev.deadline_id && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onOpenDeadline?.(rev.deadline_id!);
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="mt-2 inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
             >
-              <MoreVertical className="h-4 w-4" />
+              <ExternalLink className="h-3 w-3" /> Ver prazo
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RevisionalViewerDialog({
+  open,
+  onOpenChange,
+  revisional,
+  profiles,
+  onOpenDeadline,
+  onAssign,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  revisional: Revisional | null;
+  profiles: TenantProfile[];
+  onOpenDeadline?: (id: string) => void;
+  onAssign: (rev: Revisional) => void;
+}) {
+  const update = useUpdateRevisional();
+  const arquivar = useArquivarRevisional();
+  const reabrir = useReabrirRevisional();
+  const remover = useDeleteRevisional();
+
+  const [editMode, setEditMode] = useState(false);
+  const [titulo, setTitulo] = useState("");
+  const [cliente, setCliente] = useState("");
+  const [descricao, setDescricao] = useState("");
+
+  useEffect(() => {
+    if (open && revisional) {
+      setEditMode(false);
+      setTitulo(revisional.titulo);
+      setCliente(revisional.cliente_nome || "");
+      setDescricao(revisional.descricao || "");
+    }
+  }, [open, revisional?.id]);
+
+  if (!revisional) return null;
+
+  const assignedName = revisional.assigned_to
+    ? profiles.find((p) => p.user_id === revisional.assigned_to)?.full_name || "Usuário"
+    : null;
+  const createdName = profiles.find((p) => p.user_id === revisional.created_by)?.full_name || "—";
+
+  const statusMeta: Record<string, { label: string; color: string }> = {
+    pendente: { label: "Pendente", color: "#f59e0b" },
+    atribuido: { label: "Atribuído", color: "#22c55e" },
+    arquivado: { label: "Arquivado", color: "#64748b" },
+  };
+  const st = statusMeta[revisional.status] || statusMeta.pendente;
+
+  const handleSave = async () => {
+    if (!titulo.trim()) return;
+    const dirty =
+      titulo.trim() !== revisional.titulo ||
+      (cliente.trim() || null) !== (revisional.cliente_nome || null) ||
+      (descricao.trim() || null) !== (revisional.descricao || null);
+    if (!dirty) {
+      setEditMode(false);
+      return;
+    }
+    await update.mutateAsync({
+      id: revisional.id,
+      titulo: titulo.trim(),
+      cliente_nome: cliente.trim() || null,
+      descricao: descricao.trim() || null,
+    });
+    setEditMode(false);
+  };
+
+  const handleCancel = () => {
+    setTitulo(revisional.titulo);
+    setCliente(revisional.cliente_nome || "");
+    setDescricao(revisional.descricao || "");
+    setEditMode(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <div className="flex items-center gap-2">
+            <DialogTitle className="flex-1">
+              {editMode ? "Editar Revisional" : "Detalhes do Revisional"}
+            </DialogTitle>
+            <span
+              className="text-[11px] px-2 py-0.5 rounded-full font-medium"
+              style={{ backgroundColor: st.color + "25", color: st.color }}
+            >
+              {st.label}
+            </span>
+          </div>
+        </DialogHeader>
+
+        {editMode ? (
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">Título</label>
+              <Input autoFocus value={titulo} onChange={(e) => setTitulo(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Cliente (opcional)</label>
+              <Input value={cliente} onChange={(e) => setCliente(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Descrição (opcional)</label>
+              <Textarea
+                value={descricao}
+                onChange={(e) => setDescricao(e.target.value)}
+                className="min-h-[100px]"
+              />
             </div>
           </div>
-        </div>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onClick={onEdit} className="gap-2 cursor-pointer">
-              <Pencil className="h-4 w-4" /> Editar
-            </DropdownMenuItem>
-            {rev.status === "pendente" && (
-              <DropdownMenuItem onClick={onAssign} className="gap-2 cursor-pointer">
-                <UserPlus className="h-4 w-4" /> Atribuir
-              </DropdownMenuItem>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <div className="text-xs text-muted-foreground">Título</div>
+              <div className="text-base font-semibold break-words">{revisional.titulo}</div>
+            </div>
+            {revisional.cliente_nome && (
+              <div>
+                <div className="text-xs text-muted-foreground">Cliente</div>
+                <div className="text-sm">{revisional.cliente_nome}</div>
+              </div>
             )}
-            {rev.status === "atribuido" && rev.deadline_id && (
-              <DropdownMenuItem onClick={() => onOpenDeadline?.(rev.deadline_id!)} className="gap-2 cursor-pointer">
-                <ExternalLink className="h-4 w-4" /> Abrir prazo
-              </DropdownMenuItem>
+            {revisional.descricao && (
+              <div>
+                <div className="text-xs text-muted-foreground">Descrição</div>
+                <div className="text-sm whitespace-pre-wrap">{revisional.descricao}</div>
+              </div>
             )}
-            <DropdownMenuSeparator />
-            {rev.status !== "arquivado" ? (
-              <DropdownMenuItem onClick={() => arquivar.mutate(rev.id)} className="gap-2 cursor-pointer">
-                <Archive className="h-4 w-4" /> Arquivar
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem onClick={() => reabrir.mutate(rev.id)} className="gap-2 cursor-pointer">
-                <RotateCcw className="h-4 w-4" /> Reabrir
-              </DropdownMenuItem>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <div className="text-muted-foreground">Criado por</div>
+                <div>{createdName}</div>
+                <div className="text-muted-foreground">
+                  {format(new Date(revisional.created_at), "dd MMM yyyy 'às' HH:mm", { locale: ptBR })}
+                </div>
+              </div>
+              {assignedName && (
+                <div>
+                  <div className="text-muted-foreground">Atribuído a</div>
+                  <div className="inline-flex items-center gap-1">
+                    <User className="h-3 w-3" /> {assignedName}
+                  </div>
+                  {revisional.atribuido_em && (
+                    <div className="text-muted-foreground">
+                      {format(new Date(revisional.atribuido_em), "dd MMM yyyy 'às' HH:mm", { locale: ptBR })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            {revisional.status === "atribuido" && revisional.deadline_id && (
+              <button
+                onClick={() => onOpenDeadline?.(revisional.deadline_id!)}
+                className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+              >
+                <ExternalLink className="h-4 w-4" /> Abrir prazo vinculado
+              </button>
             )}
-            <DropdownMenuItem
-              onClick={() => {
-                if (confirm("Excluir este revisional?")) remover.mutate(rev.id);
-              }}
-              className="gap-2 cursor-pointer text-destructive focus:text-destructive"
-            >
-              <Trash2 className="h-4 w-4" /> Excluir
-            </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          </div>
+        )}
+
+        <DialogFooter className="flex-wrap gap-2 sm:justify-between">
+          {editMode ? (
+            <div className="flex gap-2 ml-auto">
+              <Button variant="ghost" onClick={handleCancel} disabled={update.isPending}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSave} disabled={!titulo.trim() || update.isPending}>
+                {update.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Salvar
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-1.5 flex-wrap">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    if (confirm("Excluir este revisional?")) {
+                      remover.mutate(revisional.id);
+                      onOpenChange(false);
+                    }
+                  }}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" /> Excluir
+                </Button>
+                {revisional.status !== "arquivado" ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      arquivar.mutate(revisional.id);
+                      onOpenChange(false);
+                    }}
+                  >
+                    <Archive className="h-4 w-4 mr-1" /> Arquivar
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      reabrir.mutate(revisional.id);
+                      onOpenChange(false);
+                    }}
+                  >
+                    <RotateCcw className="h-4 w-4 mr-1" /> Reabrir
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {revisional.status === "pendente" && (
+                  <Button variant="secondary" size="sm" onClick={() => onAssign(revisional)}>
+                    <UserPlus className="h-4 w-4 mr-1" /> Atribuir
+                  </Button>
+                )}
+                <Button size="sm" onClick={() => setEditMode(true)}>
+                  <Pencil className="h-4 w-4 mr-1" /> Editar
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
