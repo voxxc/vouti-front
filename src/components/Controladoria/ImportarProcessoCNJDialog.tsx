@@ -397,43 +397,44 @@ export const ImportarProcessoCNJDialog = ({
               <Label htmlFor="numero-cnj">Número do Processo (CNJ)</Label>
               <Input
                 id="numero-cnj"
-                placeholder="0000000-00.0000.0.00.0000"
+                placeholder="0000000-00.0000.0.00.0000 ou .../sufixo-do-apartado"
                 value={numeroCnj}
                 onChange={handleInputChange}
                 className="font-mono"
-                maxLength={25}
+                maxLength={60}
               />
               <p className="text-xs text-muted-foreground">
-                Formato: NNNNNNN-DD.AAAA.J.TR.OOOO (20 dígitos)
+                Cole o CNJ. Se houver sufixo após "/", ele será detectado como apartado automaticamente.
               </p>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="processo-apartado"
-                checked={isApartado}
-                onCheckedChange={(checked) => setIsApartado(checked === true)}
-              />
-              <Label htmlFor="processo-apartado" className="text-sm font-normal cursor-pointer">
-                Processo apartado
-              </Label>
-            </div>
-
-            {isApartado && (
-              <div className="space-y-2">
-                <Label htmlFor="sufixo-apartado">Sufixo do apartado</Label>
-                <Input
-                  id="sufixo-apartado"
-                  placeholder="Ex: /50000, /393939202"
-                  value={sufixoApartado}
-                  onChange={(e) => setSufixoApartado(e.target.value)}
-                  className="font-mono"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Informe o sufixo completo (ex: /50000). Será concatenado ao CNJ na busca.
-                </p>
-              </div>
-            )}
+            {(() => {
+              const parsed = parseCnjComApartado(numeroCnj);
+              if (!parsed.valido || !parsed.cnjPrincipal) return null;
+              return (
+                <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                      CNJ principal
+                    </span>
+                    <span className="font-mono text-sm">{parsed.cnjPrincipal}</span>
+                  </div>
+                  {parsed.sufixoApartado && (
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                          Apartado
+                        </span>
+                        <Badge variant="outline" className="border-orange-500/40 bg-orange-500/10 text-orange-600 dark:text-orange-400 text-[10px]">
+                          detectado
+                        </Badge>
+                      </div>
+                      <span className="font-mono text-sm">{parsed.sufixoApartado}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </TabsContent>
 
           {/* Modo Em Massa */}
