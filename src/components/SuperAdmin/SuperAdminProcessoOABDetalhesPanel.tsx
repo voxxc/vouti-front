@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AdicionarMovimentoManualDialog } from './AdicionarMovimentoManualDialog';
 import { TribunalTag } from './GerenciarTribunaisDialog';
+import { SistemaProcessoBadge } from './SistemaProcessoBadge';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   DragEndEvent,
@@ -233,8 +234,13 @@ export function SuperAdminProcessoOABDetalhesPanel({
             <SheetTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
               <span className="font-mono text-sm">{processo.numero_cnj}</span>
-              {proc?.tribunal_sigla && (
-                <Badge variant="outline" className="text-xs">{proc.tribunal_sigla}</Badge>
+              {proc && (
+                <SistemaProcessoBadge
+                  processoOabId={processo.id}
+                  sistemaTag={proc.sistema_tag ?? null}
+                  fallbackSigla={proc.tribunal_sigla ?? null}
+                  onChanged={(slug) => setData((prev) => prev ? { ...prev, processo: { ...prev.processo, sistema_tag: slug } } : prev)}
+                />
               )}
             </SheetTitle>
             <div className="text-xs text-muted-foreground">{tenantNome}</div>
