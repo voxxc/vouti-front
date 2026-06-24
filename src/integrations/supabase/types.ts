@@ -5711,6 +5711,7 @@ export type Database = {
           prazo_advogado_responsavel_id: string | null
           prazo_automatico_ativo: boolean | null
           prazo_usuarios_marcados: string[] | null
+          sistema_tag: string | null
           status_processual: string | null
           super_admin_atualizado_em: string | null
           super_admin_atualizado_por: string | null
@@ -5760,6 +5761,7 @@ export type Database = {
           prazo_advogado_responsavel_id?: string | null
           prazo_automatico_ativo?: boolean | null
           prazo_usuarios_marcados?: string[] | null
+          sistema_tag?: string | null
           status_processual?: string | null
           super_admin_atualizado_em?: string | null
           super_admin_atualizado_por?: string | null
@@ -5809,6 +5811,7 @@ export type Database = {
           prazo_advogado_responsavel_id?: string | null
           prazo_automatico_ativo?: boolean | null
           prazo_usuarios_marcados?: string[] | null
+          sistema_tag?: string | null
           status_processual?: string | null
           super_admin_atualizado_em?: string | null
           super_admin_atualizado_por?: string | null
@@ -9108,6 +9111,33 @@ export type Database = {
           severity?: string
           status?: string
           title?: string
+        }
+        Relationships: []
+      }
+      super_admin_sistemas_processo: {
+        Row: {
+          cor: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          nome: string
+          slug: string
+        }
+        Insert: {
+          cor?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome: string
+          slug: string
+        }
+        Update: {
+          cor?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome?: string
+          slug?: string
         }
         Relationships: []
       }
