@@ -456,6 +456,11 @@ function RevisionalViewerDialog({
                 className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
               >
                 <ExternalLink className="h-4 w-4" /> Abrir prazo vinculado
+                {revisional.deadline?.date && (
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    ({format(parseLocalDate(revisional.deadline.date), "dd MMM yyyy", { locale: ptBR })})
+                  </span>
+                )}
               </button>
             )}
           </div>
