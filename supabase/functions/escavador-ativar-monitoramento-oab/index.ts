@@ -55,6 +55,20 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
+
+    // Feature flag global
+    const { data: flag } = await supabase
+      .from('super_admin_feature_flags')
+      .select('enabled')
+      .eq('flag_key', 'escavador_monitoramento_enabled')
+      .maybeSingle();
+    if (!flag?.enabled) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Funcionalidade desativada pelo administrador' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     const token = Deno.env.get('ESCAVADOR_API_TOKEN');
     if (!token) throw new Error('ESCAVADOR_API_TOKEN nao configurado');
 
