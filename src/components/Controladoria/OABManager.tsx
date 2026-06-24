@@ -125,46 +125,6 @@ export const OABManager = () => {
     }
   };
 
-  // Carregar detalhes de todos os processos de uma OAB
-  const handleCarregarDetalhesLote = async (oab: OABCadastrada) => {
-    // Buscar processos para mostrar confirmacao
-    const { data } = await fetchAllPaginated<any>(
-      () => supabase
-        .from('processos_oab')
-        .select('id, numero_cnj, detalhes_request_id, detalhes_carregados')
-        .eq('oab_id', oab.id)
-        .order('id', { ascending: true })
-    );
-    
-    const processos = data || [];
-    const comRequestId = processos.filter(p => p.detalhes_request_id).length;
-    const semRequestId = processos.filter(p => !p.detalhes_request_id).length;
-    
-    setBatchProcessos(processos as ProcessoOAB[]);
-    setSelectedOabForBatch(oab);
-    setLawsuitBatchDialogOpen(true);
-  };
-
-  const handleConfirmarCarregarLote = async () => {
-    if (!selectedOabForBatch) return;
-    
-    setLawsuitBatchDialogOpen(false);
-    setBatchProgress({ current: 1, total: 1, isRunning: true });
-    
-    const result = await carregarDetalhesLote(selectedOabForBatch.id);
-    
-    setBatchProgress({ current: 0, total: 0, isRunning: false });
-    setSelectedOabForBatch(null);
-    
-    if (result) {
-      // Forcar reload para atualizar dados
-      window.location.reload();
-    }
-  };
-
-  const processosComRequestId = batchProcessos.filter(p => p.detalhes_request_id).length;
-  const processosSemRequestId = batchProcessos.filter(p => !p.detalhes_request_id).length;
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -420,58 +380,6 @@ export const OABManager = () => {
             <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground">
               Remover
             </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Batch Lawsuit Dialog */}
-      <AlertDialog open={lawsuitBatchDialogOpen} onOpenChange={(open) => {
-        if (!batchProgress.isRunning) setLawsuitBatchDialogOpen(open);
-      }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Search className="w-5 h-5 text-primary" />
-              Carregar Detalhes de Todos os Processos
-            </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-4">
-                {batchProgress.isRunning ? (
-                  <div className="space-y-3">
-                    <p className="text-sm">Consultando processos...</p>
-                    <Progress value={(batchProgress.current / batchProgress.total) * 100} />
-                    <p className="text-xs text-muted-foreground text-center">
-                      {batchProgress.current} de {batchProgress.total} processos
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <p>
-                      Esta acao ira buscar andamentos para todos os processos listados.
-                    </p>
-                    <div className="p-3 bg-muted rounded-lg space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span>Total de processos:</span>
-                        <span className="font-medium">{batchProcessos.length}</span>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            {!batchProgress.isRunning && (
-              <>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={handleConfirmarCarregarLote}
-                  disabled={batchProcessos.length === 0}
-                >
-                  Carregar Andamentos
-                </AlertDialogAction>
-              </>
-            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
