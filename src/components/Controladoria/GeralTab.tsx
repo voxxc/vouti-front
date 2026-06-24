@@ -137,6 +137,7 @@ export const GeralTab = () => {
       p.oab_id,
       undefined,
       isProcessoSigiloso(p),
+      (p as any).apartado === true,
     );
   };
 

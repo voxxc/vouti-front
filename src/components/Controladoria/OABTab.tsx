@@ -219,6 +219,7 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
       oabId,
       onProcessoCompartilhadoAtualizado,
       isProcessoSigiloso(processo),
+      (processo as any).apartado === true,
     );
   };
 

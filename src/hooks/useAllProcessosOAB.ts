@@ -262,10 +262,11 @@ export const useAllProcessosOAB = (
     ativar: boolean,
     oabId?: string,
     _onProcessoCompartilhadoAtualizado?: (cnj: string, oabsAfetadas: string[]) => void,
-    sigiloso?: boolean
+    sigiloso?: boolean,
+    apartado?: boolean
   ) => {
     try {
-      if (ativar) {
+      if (ativar && !apartado) {
         const { data: flag } = await supabase
           .from('super_admin_feature_flags')
           .select('enabled')
@@ -280,7 +281,22 @@ export const useAllProcessosOAB = (
           return { success: false };
         }
       }
-      if (sigiloso) {
+      if (apartado) {
+        const { error: updErr } = await supabase
+          .from('processos_oab')
+          .update({ monitoramento_ativo: ativar })
+          .eq('id', processoId)
+          .eq('tenant_id', tenantId);
+        if (updErr) throw updErr;
+        toast({
+          title: ativar ? 'Monitoramento ativado' : 'Monitoramento desativado',
+          description: ativar
+            ? 'Processo apartado — andamentos serão registrados manualmente.'
+            : 'Histórico de andamentos mantido.',
+        });
+        await fetchProcessos();
+        return { success: true };
+      } else if (sigiloso) {
         const { error: updErr } = await supabase
           .from('processos_oab')
           .update({ monitoramento_ativo: ativar })

@@ -786,6 +786,29 @@ export const ProcessoOABDetalhes = ({
             </Card>
           )}
 
+          {/* Alerta de Processo Apartado */}
+          {(processo as any).apartado && (
+            <Card className="p-3 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+              <div className="flex items-start gap-3">
+                <BookOpen className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+                <div className="space-y-2">
+                  <p className="font-medium text-blue-800 dark:text-blue-200 text-sm">
+                    Processo apartado
+                  </p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                    Por ser um apartado, não consultamos andamentos automaticamente via Escavador,
+                    portanto este processo não terá histórico de andamentos sincronizado.
+                  </p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                    O <strong>monitoramento</strong> abaixo está disponível para iniciar, mas é
+                    apenas visual: serve para acompanhar este processo no painel e registrar
+                    movimentações manualmente.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+
           {/* Alerta de Processo Em Processamento */}
           {isProcessoNaoEncontrado && (
             <Card className="p-3 bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
@@ -804,7 +827,7 @@ export const ProcessoOABDetalhes = ({
           )}
 
           {/* Toggle de Monitoramento */}
-          {(monitoramentoFeatureEnabled || processo.monitoramento_ativo) && (
+          {(monitoramentoFeatureEnabled || processo.monitoramento_ativo || (processo as any).apartado) && (
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -818,7 +841,9 @@ export const ProcessoOABDetalhes = ({
                     Monitoramento Diario
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Receba atualizacoes automaticas
+                    {(processo as any).apartado
+                      ? 'Acompanhamento manual (apartado)'
+                      : 'Receba atualizacoes automaticas'}
                   </p>
                 </div>
               </div>
@@ -955,9 +980,13 @@ export const ProcessoOABDetalhes = ({
                   {processo.monitoramento_ativo ? 'Desativar Monitoramento?' : 'Ativar Monitoramento?'}
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  {processo.monitoramento_ativo 
-                    ? 'O monitoramento será desativado. O histórico de andamentos será mantido.'
-                    : 'O monitoramento será ativado. Você receberá notificações automáticas de novos andamentos.'}
+                  {(processo as any).apartado
+                    ? (processo.monitoramento_ativo
+                        ? 'O monitoramento visual será desativado. Nenhuma consulta é feita ao Escavador em apartados.'
+                        : 'Processo apartado — o monitoramento é apenas visual. Nenhuma consulta será feita ao Escavador.')
+                    : (processo.monitoramento_ativo
+                        ? 'O monitoramento será desativado. O histórico de andamentos será mantido.'
+                        : 'O monitoramento será ativado. Você receberá notificações automáticas de novos andamentos.')}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

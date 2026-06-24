@@ -658,6 +658,22 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
 
   const handleToggleMonitoramento = async (processo: ProcessoOAB) => {
     try {
+      // Apartado: monitoramento visual-only, sem chamar Edge Function externa.
+      if ((processo as any).apartado === true) {
+        const novo = !processo.monitoramento_ativo;
+        const { error: updErr } = await supabase
+          .from('processos_oab')
+          .update({ monitoramento_ativo: novo })
+          .eq('id', processo.id);
+        if (updErr) throw updErr;
+        toast({
+          title: novo ? 'Monitoramento ativado' : 'Monitoramento desativado',
+          description: novo
+            ? 'Processo apartado — andamentos serão registrados manualmente.'
+            : 'Histórico de andamentos mantido.',
+        });
+        return { success: true };
+      }
       const { data: { user } } = await supabase.auth.getUser();
       
       const { data, error } = await supabase.functions.invoke('judit-ativar-monitoramento-oab', {
