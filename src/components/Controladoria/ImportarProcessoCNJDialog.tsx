@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,6 +21,7 @@ import { OABCadastrada } from '@/hooks/useOABs';
 import { usePlanoLimites } from '@/hooks/usePlanoLimites';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { extrairTribunalDoNumeroProcesso } from '@/utils/processoHelpers';
+import { parseCnjComApartado } from '@/utils/processoOABHelpers';
 
 interface ImportarProcessoCNJDialogProps {
   open: boolean;
@@ -29,22 +30,24 @@ interface ImportarProcessoCNJDialogProps {
   onSuccess?: () => void;
 }
 
-// Formatar numero CNJ: 0000000-00.0000.0.00.0000
+// Formata CNJ preservando sufixo de apartado (tudo após os 20 primeiros dígitos)
 const formatCNJ = (value: string) => {
+  const parsed = parseCnjComApartado(value);
+  if (parsed.cnjPrincipal) {
+    return parsed.cnjPrincipal + (parsed.sufixoApartado || '');
+  }
   const digits = value.replace(/\D/g, '').slice(0, 20);
   let formatted = '';
-  
   if (digits.length > 0) formatted += digits.slice(0, 7);
   if (digits.length > 7) formatted += '-' + digits.slice(7, 9);
   if (digits.length > 9) formatted += '.' + digits.slice(9, 13);
   if (digits.length > 13) formatted += '.' + digits.slice(13, 14);
   if (digits.length > 14) formatted += '.' + digits.slice(14, 16);
   if (digits.length > 16) formatted += '.' + digits.slice(16, 20);
-  
   return formatted;
 };
 
-const isValidCNJ = (cnj: string) => cnj.replace(/\D/g, '').length === 20;
+const isValidCNJ = (cnj: string) => parseCnjComApartado(cnj).valido;
 
 export const ImportarProcessoCNJDialog = ({
   open,
@@ -58,18 +61,20 @@ export const ImportarProcessoCNJDialog = ({
   
   // Modo único
   const [numeroCnj, setNumeroCnj] = useState('');
-  const [isApartado, setIsApartado] = useState(false);
-  const [sufixoApartado, setSufixoApartado] = useState('');
 
   // Modo em massa
   const [cnjList, setCnjList] = useState<string[]>([]);
   const [novoCnj, setNovoCnj] = useState('');
 
   const importarUmCnj = async (
-    cnj: string,
-    opts: { apartado?: boolean; sufixo?: string } = {}
+    cnjInput: string
   ): Promise<{ success: boolean; duplicado?: boolean; reaproveitado?: boolean; andamentosInseridos?: number; error?: string }> => {
-    const numeroFinal = opts.apartado && opts.sufixo ? `${cnj}${opts.sufixo}` : cnj;
+    const parsed = parseCnjComApartado(cnjInput);
+    if (!parsed.valido || !parsed.cnjPrincipal) {
+      return { success: false, error: 'CNJ inválido' };
+    }
+    const apartado = !!parsed.sufixoApartado;
+    const numeroFinal = parsed.cnjPrincipal + (parsed.sufixoApartado || '');
 
     if (!user?.id) {
       return { success: false, error: 'Usuário não autenticado' };
@@ -150,9 +155,9 @@ export const ImportarProcessoCNJDialog = ({
           importado_por: user.id,
           importado_por_email: user.email ?? null,
           api_provider: 'escavador',
-          apartado: !!opts.apartado,
-          apartado_em: opts.apartado ? new Date().toISOString() : null,
-          apartado_por: opts.apartado ? user.id : null,
+          apartado,
+          apartado_em: apartado ? new Date().toISOString() : null,
+          apartado_por: apartado ? user.id : null,
         });
       if (errOab) {
         return { success: false, error: errOab.message };
@@ -195,15 +200,8 @@ export const ImportarProcessoCNJDialog = ({
       return;
     }
 
-    // Salvar dados antes de fechar
     const cnjParaImportar = numeroCnj;
-    const apartadoFlag = isApartado;
-    const sufixo = sufixoApartado;
-
-    // Fechar dialog imediatamente
     setNumeroCnj('');
-    setIsApartado(false);
-    setSufixoApartado('');
     onOpenChange(false);
 
     // Notificar início
@@ -212,7 +210,7 @@ export const ImportarProcessoCNJDialog = ({
       description: 'Buscando processo em segundo plano...'
     });
 
-    importarUmCnj(cnjParaImportar, { apartado: apartadoFlag, sufixo })
+    importarUmCnj(cnjParaImportar)
       .then((res) => {
         if (res.duplicado) {
           toast({
@@ -362,8 +360,6 @@ export const ImportarProcessoCNJDialog = ({
 
   const handleClose = () => {
     setNumeroCnj('');
-    setIsApartado(false);
-    setSufixoApartado('');
     setCnjList([]);
     setNovoCnj('');
     setMode('single');
