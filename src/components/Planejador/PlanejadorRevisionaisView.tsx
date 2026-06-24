@@ -3,10 +3,11 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, MoreVertical, User, ClipboardList, CheckCircle2, Archive, Loader2, Pencil, UserPlus, Search, ExternalLink, Trash2, RotateCcw } from "lucide-react";
+import { Plus, MoreVertical, User, ClipboardList, CheckCircle2, Archive, Loader2, Pencil, UserPlus, Search, ExternalLink, Trash2, RotateCcw, CalendarClock, AlarmClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Revisional,
@@ -19,6 +20,23 @@ import {
   useDeleteRevisional,
 } from "@/hooks/usePlanejadorRevisionais";
 import { CreateDeadlineDialog } from "@/components/Agenda/CreateDeadlineDialog";
+import { parseLocalDate } from "@/lib/dateUtils";
+
+// Ordena revisionais: prazo não concluído por data asc; sem prazo por created_at desc; concluídos no fim
+function sortByUrgency(list: Revisional[]): Revisional[] {
+  const withOpen: Revisional[] = [];
+  const withoutDeadline: Revisional[] = [];
+  const completed: Revisional[] = [];
+  for (const r of list) {
+    if (r.deadline && !r.deadline.completed) withOpen.push(r);
+    else if (r.deadline && r.deadline.completed) completed.push(r);
+    else withoutDeadline.push(r);
+  }
+  withOpen.sort((a, b) => (a.deadline!.date < b.deadline!.date ? -1 : 1));
+  withoutDeadline.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  completed.sort((a, b) => (a.deadline!.date < b.deadline!.date ? 1 : -1));
+  return [...withOpen, ...withoutDeadline, ...completed];
+}
 
 interface TenantProfile {
   user_id: string;
@@ -61,9 +79,9 @@ export function PlanejadorRevisionaisView({ profiles, onOpenDeadline, searchQuer
     });
   }, [revisionais, searchQuery]);
 
-  const pendentes = filtered.filter((r) => r.status === "pendente");
-  const atribuidos = filtered.filter((r) => r.status === "atribuido");
-  const arquivados = filtered.filter((r) => r.status === "arquivado");
+  const pendentes = sortByUrgency(filtered.filter((r) => r.status === "pendente"));
+  const atribuidos = sortByUrgency(filtered.filter((r) => r.status === "atribuido"));
+  const arquivados = sortByUrgency(filtered.filter((r) => r.status === "arquivado"));
 
   const text = isDark ? "text-white" : "text-foreground";
   const textMuted = isDark ? "text-white/60" : "text-foreground/60";
