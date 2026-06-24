@@ -204,45 +204,56 @@ function RevisionalCard({
   const createdName = profiles.find((p) => p.user_id === rev.created_by)?.full_name || "—";
 
   return (
-    <div className={`group w-full text-left p-2.5 rounded-lg ${cardBg} border ${borderColor} transition-all duration-300`}>
-      <div className="flex items-start gap-1.5">
-        <div className="flex-1 min-w-0">
-          <p className={`text-sm font-medium ${text} line-clamp-2 break-words`}>{rev.titulo}</p>
-          {rev.cliente_nome && (
-            <p className={`text-xs mt-0.5 ${textMuted} truncate`}>{rev.cliente_nome}</p>
-          )}
-          {rev.descricao && (
-            <p className={`text-xs mt-1 ${textMuted} line-clamp-2`}>{rev.descricao}</p>
-          )}
-          <div className="flex flex-wrap gap-2 mt-2">
-            <span className={`text-[10px] ${textMuted}`}>
-              {format(new Date(rev.created_at), "dd MMM", { locale: ptBR })} · {createdName}
-            </span>
-            {assignedName && (
-              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-500">
-                <User className="h-3 w-3" /> {assignedName}
-              </span>
-            )}
-          </div>
-          {rev.status === "atribuido" && rev.deadline_id && (
-            <button
-              onClick={() => onOpenDeadline?.(rev.deadline_id!)}
-              className="mt-2 inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
-            >
-              <ExternalLink className="h-3 w-3" /> Ver prazo
-            </button>
-          )}
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className={`p-1 rounded ${textMuted} hover:bg-foreground/10 opacity-60 group-hover:opacity-100 transition`}
-              aria-label="Ações"
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <div
+          role="button"
+          tabIndex={0}
+          className={`group w-full text-left p-2.5 rounded-lg ${cardBg} border ${borderColor} transition-all duration-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50`}
+        >
+          <div className="flex items-start gap-1.5">
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-medium ${text} line-clamp-2 break-words`}>{rev.titulo}</p>
+              {rev.cliente_nome && (
+                <p className={`text-xs mt-0.5 ${textMuted} truncate`}>{rev.cliente_nome}</p>
+              )}
+              {rev.descricao && (
+                <p className={`text-xs mt-1 ${textMuted} line-clamp-2`}>{rev.descricao}</p>
+              )}
+              <div className="flex flex-wrap gap-2 mt-2">
+                <span className={`text-[10px] ${textMuted}`}>
+                  {format(new Date(rev.created_at), "dd MMM", { locale: ptBR })} · {createdName}
+                </span>
+                {assignedName && (
+                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-500">
+                    <User className="h-3 w-3" /> {assignedName}
+                  </span>
+                )}
+              </div>
+              {rev.status === "atribuido" && rev.deadline_id && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onOpenDeadline?.(rev.deadline_id!);
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="mt-2 inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" /> Ver prazo
+                </button>
+              )}
+            </div>
+            <div
+              className={`p-1 rounded ${textMuted} opacity-60 group-hover:opacity-100 transition`}
+              aria-hidden="true"
             >
               <MoreVertical className="h-4 w-4" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
+            </div>
+          </div>
+        </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem onClick={onEdit} className="gap-2 cursor-pointer">
               <Pencil className="h-4 w-4" /> Editar
             </DropdownMenuItem>
@@ -274,10 +285,8 @@ function RevisionalCard({
             >
               <Trash2 className="h-4 w-4" /> Excluir
             </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
