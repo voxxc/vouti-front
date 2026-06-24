@@ -31,6 +31,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { SuperAdminFeatureFlags } from './SuperAdminFeatureFlags';
 
 interface ProcessoDetalhe {
   numero_cnj: string;
@@ -330,6 +331,8 @@ export function SuperAdminMonitoramento() {
 
   return (
     <div className="space-y-6">
+      <SuperAdminFeatureFlags />
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Monitoramento de Processos</h2>
