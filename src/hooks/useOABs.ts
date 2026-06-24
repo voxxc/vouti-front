@@ -464,6 +464,21 @@ export const useProcessosOAB = (oabId: string | null) => {
     sigiloso?: boolean
   ) => {
     try {
+      if (ativar && !sigiloso) {
+        const { data: flag } = await supabase
+          .from('super_admin_feature_flags')
+          .select('enabled')
+          .eq('flag_key', 'escavador_monitoramento_enabled')
+          .maybeSingle();
+        if (!flag?.enabled) {
+          toast({
+            title: 'Funcionalidade desativada',
+            description: 'O monitoramento via Escavador está desligado pelo administrador.',
+            variant: 'destructive',
+          });
+          return { success: false };
+        }
+      }
       let data: any;
       if (sigiloso) {
         // Processos sigilosos: monitoramento "visual" — apenas atualiza o flag,
