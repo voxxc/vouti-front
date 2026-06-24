@@ -1,49 +1,65 @@
 ## Causa raiz
 
-A aba "Andamentos" do detalhe do processo OAB mostra uma tela vazia com botão **"Carregar Andamentos"** sempre que `!processo.detalhes_request_id && andamentos.length === 0`. Esse botão dispara `onCarregarDetalhes` → `carregarDetalhes` (em `useOABs`/`useAllProcessosOAB`) que chama a Escavador para popular a primeira leva de andamentos. Existe ainda uma versão em lote no `OABManager` (`carregarDetalhesLote` em `useOABs`) com um `AlertDialog` de confirmação. Você quer remover essa funcionalidade do sistema inteiro.
+Hoje o monitoramento via Escavador (ativar/desativar nos processos OAB e processos normais) está sempre disponível para todos os tenants. Você quer **desligar globalmente** essa funcionalidade por enquanto e ter um lugar no **Super Admin** para ligar/desligar quando quiser.
 
 ## Correção
 
-1. **`ProcessoOABDetalhes.tsx`** (Controladoria, usado também por Agenda, ProjectProcessos, CentralAndamentosNaoLidos):
-   - Remover o bloco da empty-state "Andamentos não carregados" (linhas ~1427-1453) e o `AlertDialog` de confirmação (linhas ~1625-1642). No lugar, manter apenas uma mensagem neutra de "Nenhum andamento" quando a lista estiver vazia.
-   - Remover o handler `handleCarregarAndamentos`, o state `carregandoAndamentos`, o state `confirmDialogOpen` e a prop `onCarregarDetalhes` da interface.
+### 1. Feature flag global no banco
 
-2. **Removendo a prop nos chamadores:**
-   - `src/components/Controladoria/GeralTab.tsx` (linha 529) — apagar `onCarregarDetalhes={carregarDetalhes}` e o desestruturar do hook se não usado em outro lugar.
-   - `src/components/Controladoria/OABTab.tsx` (linha 478) — idem.
-   - `src/components/Project/ProjectProcessos.tsx` (linha 1111) — idem; remover `handleCarregarDetalhes` se ficar órfão.
-   - `src/components/Agenda/AgendaContent.tsx` e `CentralAndamentosNaoLidos.tsx` — verificar e tirar a prop se passada.
+Criar tabela `super_admin_feature_flags` (key/value boolean) com a flag inicial:
 
-3. **`OABManager.tsx`**:
-   - Remover o `AlertDialog` de "Carregar Andamentos" em lote (linhas ~434-483), os states `lawsuitBatchDialogOpen`, `batchProcessos`, `batchProgress`, `selectedOabForBatch` e os handlers `handleCarregarDetalhesLote`, `handleConfirmarCarregarLote`. Remover o import/uso de `carregarDetalhesLote` do `useOABs`.
+- `escavador_monitoramento_enabled` = `false` (default desligado)
 
-4. **Hooks** (`src/hooks/useOABs.ts` e `src/hooks/useAllProcessosOAB.ts`):
-   - Deletar as funções `carregarDetalhes` e `carregarDetalhesLote` e seus retornos no objeto exportado. Limpar imports/states que ficarem órfãos.
+RLS:
+- `SELECT` para `authenticated` (todos os usuários precisam ler para saber se o botão aparece).
+- `INSERT/UPDATE/DELETE` apenas para super_admins (via `is_super_admin(auth.uid())`).
 
-5. **Edge function** `escavador-importar-processo`: **manter**. Ela continua sendo usada no fluxo automático de importação (`ImportarProcessoDialog`), que não é a funcionalidade que você pediu para remover. Só o gatilho manual do botão sai.
+### 2. UI no Super Admin
+
+Nova seção **"Funcionalidades globais"** em `src/pages/SuperAdmin*` (ou dentro de `SuperAdminMonitoramento.tsx`, que já é o lugar natural):
+
+- Card com Switch "Monitoramento via Escavador" + descrição curta ("Permite que os tenants ativem monitoramento de processos pelo Escavador").
+- Hook novo `useFeatureFlags` que lê e atualiza a tabela.
+
+### 3. Hook de leitura para o resto do app
+
+`useFeatureFlag('escavador_monitoramento_enabled')` — retorna boolean. Usado em:
+
+- `ProcessoOABDetalhes.tsx`, `OABTab.tsx`, `GeralTab.tsx`, `AgendaContent.tsx` — esconder o Switch/botão de "Ativar monitoramento" quando a flag está `false`.
+- `useToggleMonitoramento.ts` e equivalente OAB — guardar com `if (!flag) { toast("Funcionalidade desativada pelo administrador"); return }` como defesa em profundidade.
+
+### 4. Defesa no backend
+
+Nas edge functions `escavador-ativar-monitoramento-oab` e `escavador-ativar-e-buscar`:
+
+- No início, ler `super_admin_feature_flags` via service role; se `escavador_monitoramento_enabled = false`, retornar 403 com mensagem clara.
+
+Isso impede contorno via chamada direta.
 
 ## Arquivos afetados
 
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx`
-- `src/components/Controladoria/GeralTab.tsx`
-- `src/components/Controladoria/OABTab.tsx`
-- `src/components/Controladoria/OABManager.tsx`
-- `src/components/Project/ProjectProcessos.tsx`
-- `src/components/Agenda/AgendaContent.tsx` (se passar a prop)
-- `src/components/Controladoria/CentralAndamentosNaoLidos.tsx` (se passar a prop)
-- `src/hooks/useOABs.ts`
-- `src/hooks/useAllProcessosOAB.ts`
+**Novo:**
+- Migration: tabela `super_admin_feature_flags` + grants + RLS + seed inicial `false`.
+- `src/hooks/useFeatureFlags.ts` (leitura + update).
+- `src/components/SuperAdmin/SuperAdminFeatureFlags.tsx` (card com Switch).
+
+**Editados:**
+- `src/components/SuperAdmin/SuperAdminMonitoramento.tsx` — incluir a nova seção no topo (ou no painel principal do super-admin onde fizer sentido).
+- `src/components/Controladoria/ProcessoOABDetalhes.tsx`, `OABTab.tsx`, `GeralTab.tsx`, `Agenda/AgendaContent.tsx` — esconder o Switch quando flag off.
+- `src/hooks/useToggleMonitoramento.ts` — guard.
+- `supabase/functions/escavador-ativar-monitoramento-oab/index.ts` — guard.
+- `supabase/functions/escavador-ativar-e-buscar/index.ts` — guard.
 
 ## Impacto
 
-- **Usuário final:** a aba "Andamentos" deixa de exibir o card azul com botão "Carregar Andamentos". Processos sem andamentos passam a mostrar apenas "Nenhum andamento" (mensagem neutra). O botão de **Atualizar** (refresh) ao lado da contagem continua existindo — ele só aparece quando já existe `detalhes_request_id` e serve para reconsultar o tribunal, então não é a mesma funcionalidade. No `OABManager`, somem os states/dialog em lote (não há botão acionando hoje, então sem impacto visível extra).
-- **Dados:** nenhuma migration, nada removido do banco. Andamentos já existentes permanecem.
-- **Riscos colaterais:** processos antigos que nunca tiveram andamentos buscados vão ficar permanentemente vazios na aba até que entrem pelo fluxo automático de importação ou monitoramento — não haverá mais um botão manual para forçar a primeira busca. Importações novas (via `ImportarProcessoDialog`) continuam carregando em background, então o fluxo padrão de criação não muda.
-- **Quem é afetado:** todos os usuários que abrem o detalhe de um processo OAB (Controladoria, Agenda, Projetos, Central de andamentos). Super-admin não é afetado — esse painel é independente.
+- **Usuário final (tenants):** o Switch "Monitoramento" some dos detalhes dos processos enquanto a flag está desligada. Processos que **já estão monitorados** continuam recebendo andamentos via webhook normalmente — só o gatilho de ativar/desativar manual é escondido. Se quiser parar também os já ativos, dizer e eu incluo no plano.
+- **Dados:** uma migration nova com uma tabela 1-linha. Nenhuma alteração nos dados de processos/monitoramentos existentes.
+- **Riscos colaterais:** se eu errar a leitura da flag, o botão pode sumir mesmo após ligar. Mitigação: hook com cache curto + invalidação no toggle do super admin.
+- **Quem é afetado:** todos os tenants do CRM/Controladoria (Veridicto). Super-admin ganha o novo controle. Outros módulos (CRM WhatsApp, Votech, etc.) não são tocados.
 
 ## Validação
 
-1. Abrir um processo OAB sem andamentos: aba "Andamentos" mostra mensagem neutra, **sem botão** "Carregar Andamentos".
-2. Abrir um processo OAB com andamentos: lista normal aparece; botão de Atualizar (ícone refresh ao lado da contagem) continua funcionando.
-3. Conferir no `OABManager` que não há referências a `lawsuitBatchDialogOpen` / `carregarDetalhesLote` (build limpo, sem warnings de variáveis não usadas).
-4. `rg "Carregar Andamentos"` deve retornar zero resultados em `src/`.
+1. Após migration, abrir um processo no detalhe → Switch de monitoramento **não aparece**.
+2. Tentar chamar a edge `escavador-ativar-monitoramento-oab` direto → resposta 403 "Funcionalidade desativada".
+3. Entrar no Super Admin → seção "Funcionalidades globais" → ligar o Switch → recarregar processo → Switch volta a aparecer e ativa monitoramento normalmente.
+4. Desligar de novo no Super Admin → Switch some, processos já monitorados continuam recebendo webhook.
