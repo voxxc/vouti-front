@@ -945,6 +945,7 @@ export const ProcessoOABDetalhes = ({
             </div>
 
           </Card>
+          )}
 
           {/* Modal de Confirmacao de Monitoramento */}
           <AlertDialog open={confirmMonitoramentoOpen} onOpenChange={setConfirmMonitoramentoOpen}>
