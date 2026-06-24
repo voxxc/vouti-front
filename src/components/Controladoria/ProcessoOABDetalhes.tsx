@@ -73,6 +73,7 @@ import { AndamentoAnexos } from './AndamentoAnexos';
 import { IntimacaoCard } from './IntimacaoCard';
 import { MovimentacaoDetalhe, MovimentacaoSelecionada } from './MovimentacaoDetalhe';
 import { useProcessoAnexos } from '@/hooks/useProcessoAnexos';
+import { useFeatureFlag } from '@/hooks/useFeatureFlag';
 import { parseIntimacao, countIntimacoesUrgentes } from '@/utils/intimacaoParser';
 import AutomacaoPrazosCard from './AutomacaoPrazosCard';
 import ApartadoCard from './ApartadoCard';
