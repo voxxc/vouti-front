@@ -65,7 +65,7 @@ const extrairUF = (tribunalSigla: string | null | undefined, numeroCnj?: string 
 export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTabProps) => {
   const { 
     processos, loading, carregandoDetalhes, fetchProcessos,
-    carregarDetalhes, toggleMonitoramento, consultarDetalhesRequest,
+    toggleMonitoramento, consultarDetalhesRequest,
     excluirProcesso, atualizarProcesso
   } = useProcessosOAB(oabId);
   
@@ -475,7 +475,6 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
         onRefreshProcessos={fetchProcessos}
         onConsultarDetalhesRequest={consultarDetalhesRequest}
         onResetarProcesso={resetarProcesso}
-        onCarregarDetalhes={carregarDetalhes}
         onAtualizarProcesso={atualizarProcesso}
         oab={oab}
       />

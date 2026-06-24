@@ -1108,7 +1108,6 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
         onToggleMonitoramento={handleToggleMonitoramento}
         onRefreshProcessos={loadProcessosVinculados}
         onConsultarDetalhesRequest={handleConsultarDetalhesRequest}
-        onCarregarDetalhes={handleCarregarDetalhes}
       />
 
       {/* Dialog para adicionar processo */}
