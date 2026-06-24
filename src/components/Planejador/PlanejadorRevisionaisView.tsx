@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -299,7 +299,7 @@ function RevisionalFormDialog({
   const [descricao, setDescricao] = useState("");
 
   // hidrata ao abrir
-  useMemo(() => {
+  useEffect(() => {
     if (open) {
       setTitulo(revisional?.titulo || "");
       setCliente(revisional?.cliente_nome || "");
@@ -385,7 +385,7 @@ function AtribuirFlowDialog({
   const [confirmed, setConfirmed] = useState(false);
   const atribuir = useAtribuirRevisional();
 
-  useMemo(() => {
+  useEffect(() => {
     if (open) {
       setSelectedUser(null);
       setSearch("");
