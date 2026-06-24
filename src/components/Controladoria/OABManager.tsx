@@ -44,7 +44,6 @@ import { useOABs, useProcessosOAB, OABCadastrada, ProcessoOAB } from '@/hooks/us
 import { OABTab } from './OABTab';
 import { GeralTab } from './GeralTab';
 import { ESTADOS_BRASIL } from '@/types/busca-oab';
-import { Progress } from '@/components/ui/progress';
 import { usePlanoLimites } from '@/hooks/usePlanoLimites';
 import { LimiteAlert } from '@/components/Common/LimiteAlert';
 
@@ -62,22 +61,17 @@ export const OABManager = () => {
     sincronizando, 
     fetchOABs,
     cadastrarOAB, 
-    removerOAB,
-    carregarDetalhesLote
+    removerOAB
   } = useOABs();
   
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [lawsuitBatchDialogOpen, setLawsuitBatchDialogOpen] = useState(false);
   const [importCNJDialogOpen, setImportCNJDialogOpen] = useState(false);
   const [importPlanilhaOpen, setImportPlanilhaOpen] = useState(false);
   const [importacoesDialogOpen, setImportacoesDialogOpen] = useState(false);
   const [selectedOabForPlanilha, setSelectedOabForPlanilha] = useState<OABCadastrada | null>(null);
   const [oabToDelete, setOabToDelete] = useState<OABCadastrada | null>(null);
-  const [selectedOabForBatch, setSelectedOabForBatch] = useState<OABCadastrada | null>(null);
   const [selectedOabForImport, setSelectedOabForImport] = useState<OABCadastrada | null>(null);
-  const [batchProcessos, setBatchProcessos] = useState<ProcessoOAB[]>([]);
-  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, isRunning: false });
   const [activeTab, setActiveTab] = useState<string>('geral');
   
   // Form state
