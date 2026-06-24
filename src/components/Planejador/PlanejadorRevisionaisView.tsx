@@ -3,10 +3,11 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, MoreVertical, User, ClipboardList, CheckCircle2, Archive, Loader2, Pencil, UserPlus, Search, ExternalLink, Trash2, RotateCcw } from "lucide-react";
+import { Plus, MoreVertical, User, ClipboardList, CheckCircle2, Archive, Loader2, Pencil, UserPlus, Search, ExternalLink, Trash2, RotateCcw, CalendarClock, AlarmClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Revisional,
@@ -19,6 +20,23 @@ import {
   useDeleteRevisional,
 } from "@/hooks/usePlanejadorRevisionais";
 import { CreateDeadlineDialog } from "@/components/Agenda/CreateDeadlineDialog";
+import { parseLocalDate } from "@/lib/dateUtils";
+
+// Ordena revisionais: prazo não concluído por data asc; sem prazo por created_at desc; concluídos no fim
+function sortByUrgency(list: Revisional[]): Revisional[] {
+  const withOpen: Revisional[] = [];
+  const withoutDeadline: Revisional[] = [];
+  const completed: Revisional[] = [];
+  for (const r of list) {
+    if (r.deadline && !r.deadline.completed) withOpen.push(r);
+    else if (r.deadline && r.deadline.completed) completed.push(r);
+    else withoutDeadline.push(r);
+  }
+  withOpen.sort((a, b) => (a.deadline!.date < b.deadline!.date ? -1 : 1));
+  withoutDeadline.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  completed.sort((a, b) => (a.deadline!.date < b.deadline!.date ? 1 : -1));
+  return [...withOpen, ...withoutDeadline, ...completed];
+}
 
 interface TenantProfile {
   user_id: string;
@@ -61,9 +79,9 @@ export function PlanejadorRevisionaisView({ profiles, onOpenDeadline, searchQuer
     });
   }, [revisionais, searchQuery]);
 
-  const pendentes = filtered.filter((r) => r.status === "pendente");
-  const atribuidos = filtered.filter((r) => r.status === "atribuido");
-  const arquivados = filtered.filter((r) => r.status === "arquivado");
+  const pendentes = sortByUrgency(filtered.filter((r) => r.status === "pendente"));
+  const atribuidos = sortByUrgency(filtered.filter((r) => r.status === "atribuido"));
+  const arquivados = sortByUrgency(filtered.filter((r) => r.status === "arquivado"));
 
   const text = isDark ? "text-white" : "text-foreground";
   const textMuted = isDark ? "text-white/60" : "text-foreground/60";
@@ -155,12 +173,14 @@ export function PlanejadorRevisionaisView({ profiles, onOpenDeadline, searchQuer
         open={createOpen}
         onOpenChange={setCreateOpen}
         mode="create"
+        profiles={profiles}
       />
       <RevisionalFormDialog
         open={!!editing}
         onOpenChange={(o) => !o && setEditing(null)}
         mode="edit"
         revisional={editing}
+        profiles={profiles}
       />
       <AtribuirFlowDialog
         open={!!assigning}
@@ -236,6 +256,30 @@ function RevisionalCard({
             {assignedName && (
               <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-500">
                 <User className="h-3 w-3" /> {assignedName}
+              </span>
+            )}
+            {rev.deadline && !rev.deadline.completed && (() => {
+              const d = parseLocalDate(rev.deadline.date);
+              const today = new Date(); today.setHours(0,0,0,0);
+              const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
+              const danger = diff <= 0;
+              const warn = diff > 0 && diff <= 3;
+              const cls = danger
+                ? "bg-destructive/15 text-destructive"
+                : warn
+                ? "bg-amber-500/15 text-amber-500"
+                : "bg-blue-500/15 text-blue-500";
+              return (
+                <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${cls}`}>
+                  <AlarmClock className="h-3 w-3" />
+                  {format(d, "dd MMM", { locale: ptBR })}
+                  {danger ? (diff === 0 ? " · hoje" : ` · ${Math.abs(diff)}d atrasado`) : ""}
+                </span>
+              );
+            })()}
+            {rev.deadline && rev.deadline.completed && (
+              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-500">
+                <CheckCircle2 className="h-3 w-3" /> concluído
               </span>
             )}
           </div>
@@ -414,6 +458,11 @@ function RevisionalViewerDialog({
                 className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
               >
                 <ExternalLink className="h-4 w-4" /> Abrir prazo vinculado
+                {revisional.deadline?.date && (
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    ({format(parseLocalDate(revisional.deadline.date), "dd MMM yyyy", { locale: ptBR })})
+                  </span>
+                )}
               </button>
             )}
           </div>
@@ -493,17 +542,25 @@ function RevisionalFormDialog({
   onOpenChange,
   mode,
   revisional,
+  profiles,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   mode: "create" | "edit";
   revisional?: Revisional | null;
+  profiles?: TenantProfile[];
 }) {
   const create = useCreateRevisional();
   const update = useUpdateRevisional();
+  const atribuir = useAtribuirRevisional();
   const [titulo, setTitulo] = useState("");
   const [cliente, setCliente] = useState("");
   const [descricao, setDescricao] = useState("");
+  const [withDeadline, setWithDeadline] = useState(false);
+  const [responsavel, setResponsavel] = useState<string | null>(null);
+  const [userSearch, setUserSearch] = useState("");
+  // Estado para encadear: revisional recém-criada → CreateDeadlineDialog
+  const [pendingRev, setPendingRev] = useState<{ id: string; titulo: string; descricao: string | null; project_id: string | null; responsavel: string } | null>(null);
 
   // hidrata ao abrir
   useEffect(() => {
@@ -511,6 +568,10 @@ function RevisionalFormDialog({
       setTitulo(revisional?.titulo || "");
       setCliente(revisional?.cliente_nome || "");
       setDescricao(revisional?.descricao || "");
+      setWithDeadline(false);
+      setResponsavel(null);
+      setUserSearch("");
+      setPendingRev(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, revisional?.id]);
@@ -520,7 +581,22 @@ function RevisionalFormDialog({
   const handleSubmit = async () => {
     if (!titulo.trim()) return;
     if (mode === "create") {
-      await create.mutateAsync({ titulo: titulo.trim(), cliente_nome: cliente.trim() || undefined, descricao: descricao.trim() || undefined });
+      if (withDeadline && !responsavel) return;
+      const newRev = await create.mutateAsync({
+        titulo: titulo.trim(),
+        cliente_nome: cliente.trim() || undefined,
+        descricao: descricao.trim() || undefined,
+      });
+      if (withDeadline && responsavel && newRev) {
+        setPendingRev({
+          id: newRev.id,
+          titulo: newRev.titulo,
+          descricao: newRev.descricao,
+          project_id: newRev.project_id,
+          responsavel,
+        });
+        return; // não fecha; abre o dialog do prazo
+      }
     } else if (revisional) {
       await update.mutateAsync({
         id: revisional.id,
@@ -532,13 +608,43 @@ function RevisionalFormDialog({
     onOpenChange(false);
   };
 
+  // Encadeamento: depois de criada a revisional, abre o CreateDeadlineDialog
+  if (pendingRev) {
+    return (
+      <CreateDeadlineDialog
+        open={open}
+        onOpenChange={(o) => {
+          if (!o) {
+            setPendingRev(null);
+            onOpenChange(false);
+          }
+        }}
+        defaultValues={{
+          title: pendingRev.titulo,
+          description: pendingRev.descricao || "",
+          projectId: pendingRev.project_id || "",
+          advogadoResponsavelId: pendingRev.responsavel,
+        }}
+        onCreated={async (deadlineId) => {
+          await atribuir.mutateAsync({ id: pendingRev.id, userId: pendingRev.responsavel, deadlineId });
+          setPendingRev(null);
+          onOpenChange(false);
+        }}
+      />
+    );
+  }
+
+  const filteredProfiles = (profiles || []).filter((p) =>
+    (p.full_name || "").toLowerCase().includes(userSearch.toLowerCase())
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? "Novo Revisional" : "Editar Revisional"}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
           <div>
             <label className="text-sm font-medium">Título</label>
             <Input
@@ -561,14 +667,68 @@ function RevisionalFormDialog({
               className="min-h-[80px]"
             />
           </div>
+          {mode === "create" && (
+            <div className="rounded-md border p-3 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium flex items-center gap-1.5">
+                    <CalendarClock className="h-4 w-4" /> Definir prazo de conclusão agora
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    A revisional já será criada como atribuída, com prazo vinculado.
+                  </p>
+                </div>
+                <Switch checked={withDeadline} onCheckedChange={setWithDeadline} />
+              </div>
+              {withDeadline && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Responsável</label>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar usuário..."
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      className="pl-8"
+                    />
+                  </div>
+                  <div className="max-h-44 overflow-y-auto rounded-md border">
+                    {filteredProfiles.length === 0 && (
+                      <div className="px-3 py-3 text-sm text-muted-foreground text-center">Nenhum usuário</div>
+                    )}
+                    {filteredProfiles.map((p) => (
+                      <button
+                        key={p.user_id}
+                        type="button"
+                        onClick={() => setResponsavel(p.user_id)}
+                        className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-accent ${
+                          responsavel === p.user_id ? "bg-accent" : ""
+                        }`}
+                      >
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="flex-1 truncate">{p.full_name || "Usuário"}</span>
+                        {responsavel === p.user_id && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Após salvar, abrirá a tela de prazo para definir data, projeto/protocolo, marcações e categoria.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={!titulo.trim() || submitting}>
+          <Button
+            onClick={handleSubmit}
+            disabled={!titulo.trim() || submitting || (mode === "create" && withDeadline && !responsavel)}
+          >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            {mode === "create" ? "Criar" : "Salvar"}
+            {mode === "create" ? (withDeadline ? "Continuar para o prazo" : "Criar") : "Salvar"}
           </Button>
         </DialogFooter>
       </DialogContent>
