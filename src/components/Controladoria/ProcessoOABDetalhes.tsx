@@ -100,7 +100,6 @@ interface ProcessoOABDetalhesProps {
     numeroCnj: string,
     opts?: { juditCustomerKey?: string | null; juditSystemName?: string | null }
   ) => Promise<any>;
-  onCarregarDetalhes?: (processoId: string, numeroCnj: string) => Promise<any>;
   onAtualizarProcesso?: (processoId: string, dados: Partial<ProcessoOAB>) => Promise<boolean>;
   oab?: OABCadastrada | null;
 }
@@ -210,7 +209,6 @@ export const ProcessoOABDetalhes = ({
   onRefreshProcessos,
   onConsultarDetalhesRequest,
   onResetarProcesso,
-  onCarregarDetalhes,
   onAtualizarProcesso,
   oab
 }: ProcessoOABDetalhesProps) => {
@@ -237,7 +235,6 @@ export const ProcessoOABDetalhes = ({
   // Credencial escolhida para o reset (CNJ sigiloso): valor "__publico__"
   // significa sem credencial; senão é o id da credencial Judit do tenant.
   const [resetCredencialValue, setResetCredencialValue] = useState<string>('__publico__');
-  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmacaoFinalOpen, setConfirmacaoFinalOpen] = useState(false);
   const [tribunaisTagsMap, setTribunaisTagsMap] = useState<Map<string, { nome: string; cor: string | null }>>(new Map());
 
@@ -259,7 +256,6 @@ export const ProcessoOABDetalhes = ({
     })();
     return () => { cancelado = true; };
   }, [open]);
-  const [carregandoAndamentos, setCarregandoAndamentos] = useState(false);
   const [activeTab, setActiveTab] = useState("resumo");
   const [prazosRefreshKey, setPrazosRefreshKey] = useState(0);
   const [movimentacaoSelecionada, setMovimentacaoSelecionada] = useState<{
