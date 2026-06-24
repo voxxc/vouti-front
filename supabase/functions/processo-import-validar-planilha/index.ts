@@ -8,11 +8,30 @@ const corsHeaders = {
 
 const CNJ_REGEX = /^\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}$/;
 
+/**
+ * Aceita CNJ puro (20 dígitos) ou CNJ + sufixo de apartado (após "/").
+ * Retorna o número final formatado: CNJ formatado + sufixo (se houver).
+ */
 function formatCNJ(input: string): string | null {
   if (!input) return null;
-  const digits = String(input).replace(/\D/g, '');
-  if (digits.length !== 20) return null;
-  return `${digits.slice(0, 7)}-${digits.slice(7, 9)}.${digits.slice(9, 13)}.${digits.slice(13, 14)}.${digits.slice(14, 16)}.${digits.slice(16, 20)}`;
+  const raw = String(input);
+  let digits = '';
+  let cutIdx = -1;
+  for (let i = 0; i < raw.length; i++) {
+    if (/\d/.test(raw[i])) {
+      digits += raw[i];
+      if (digits.length === 20) {
+        cutIdx = i + 1;
+        break;
+      }
+    }
+  }
+  if (digits.length < 20) return null;
+  const principal = `${digits.slice(0, 7)}-${digits.slice(7, 9)}.${digits.slice(9, 13)}.${digits.slice(13, 14)}.${digits.slice(14, 16)}.${digits.slice(16, 20)}`;
+  let sufixo = raw.slice(cutIdx).trim();
+  if (!sufixo) return principal;
+  if (!sufixo.startsWith('/')) sufixo = '/' + sufixo;
+  return principal + sufixo;
 }
 
 interface LinhaInput {
