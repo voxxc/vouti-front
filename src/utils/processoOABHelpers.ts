@@ -7,6 +7,50 @@ export interface PartesExtraidas {
 }
 
 /**
+ * Parseia um CNJ que pode opcionalmente conter sufixo de apartado.
+ * Aceita formatos como:
+ *   "4092349-43.2025.8.13.0000"                              → sem apartado
+ *   "4092349-43.2025.8.13.0000/1.0000.24.414460-6/006"       → com apartado
+ *   "40923434320258130000/1.0000.24.414460-6/006"            → com apartado
+ *
+ * Os primeiros 20 dígitos sempre formam o CNJ principal; tudo o que vier
+ * depois é tratado como sufixo de apartado (prefixado com "/" se necessário).
+ */
+export function parseCnjComApartado(input: string): {
+  cnjPrincipal: string | null;
+  sufixoApartado: string | null;
+  valido: boolean;
+} {
+  if (!input) return { cnjPrincipal: null, sufixoApartado: null, valido: false };
+
+  let digits = '';
+  let cutIdx = -1;
+  for (let i = 0; i < input.length; i++) {
+    if (/\d/.test(input[i])) {
+      digits += input[i];
+      if (digits.length === 20) {
+        cutIdx = i + 1;
+        break;
+      }
+    }
+  }
+
+  if (digits.length < 20) {
+    return { cnjPrincipal: null, sufixoApartado: null, valido: false };
+  }
+
+  const cnjPrincipal = `${digits.slice(0, 7)}-${digits.slice(7, 9)}.${digits.slice(9, 13)}.${digits.slice(13, 14)}.${digits.slice(14, 16)}.${digits.slice(16, 20)}`;
+
+  let sufixoRaw = input.slice(cutIdx).trim();
+  if (!sufixoRaw) {
+    return { cnjPrincipal, sufixoApartado: null, valido: true };
+  }
+  if (!sufixoRaw.startsWith('/')) sufixoRaw = '/' + sufixoRaw;
+
+  return { cnjPrincipal, sufixoApartado: sufixoRaw, valido: true };
+}
+
+/**
  * Detecta se um processo é sigiloso, considerando:
  *  - secrecy_level >= 1 ou justice_secret === true na capa (judit_data.lawsuit)
  *  - partes mascaradas com termos como "Sigilo", "Segredo de justiça", etc.
