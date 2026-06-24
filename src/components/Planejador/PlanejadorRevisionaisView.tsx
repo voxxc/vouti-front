@@ -256,6 +256,30 @@ function RevisionalCard({
                 <User className="h-3 w-3" /> {assignedName}
               </span>
             )}
+            {rev.deadline && !rev.deadline.completed && (() => {
+              const d = parseLocalDate(rev.deadline.date);
+              const today = new Date(); today.setHours(0,0,0,0);
+              const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
+              const danger = diff <= 0;
+              const warn = diff > 0 && diff <= 3;
+              const cls = danger
+                ? "bg-destructive/15 text-destructive"
+                : warn
+                ? "bg-amber-500/15 text-amber-500"
+                : "bg-blue-500/15 text-blue-500";
+              return (
+                <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${cls}`}>
+                  <AlarmClock className="h-3 w-3" />
+                  {format(d, "dd MMM", { locale: ptBR })}
+                  {danger ? (diff === 0 ? " · hoje" : ` · ${Math.abs(diff)}d atrasado`) : ""}
+                </span>
+              );
+            })()}
+            {rev.deadline && rev.deadline.completed && (
+              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-500">
+                <CheckCircle2 className="h-3 w-3" /> concluído
+              </span>
+            )}
           </div>
           {rev.status === "atribuido" && rev.deadline_id && (
             <button
