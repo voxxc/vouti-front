@@ -35,9 +35,10 @@ interface PlanejadorTopBarProps {
   selectedLabelIds: string[];
   onLabelFilterChange: (labelIds: string[]) => void;
   currentUserId: string | null;
+  showRevisionais?: boolean;
 }
 
-const TABS = [
+const BASE_TABS = [
   { id: 'hello', label: 'Hello' },
   { id: 'prazos', label: 'Prazos' },
   { id: 'prazo', label: 'Tarefas' },
@@ -50,8 +51,11 @@ export function PlanejadorTopBar({
   onClose, locked, onToggleLock, onOpenSettings,
   profiles = [], selectedUserId, onUserFilterChange,
   labels = [], selectedLabelIds, onLabelFilterChange,
-  currentUserId,
+  currentUserId, showRevisionais = false,
 }: PlanejadorTopBarProps) {
+  const TABS = showRevisionais
+    ? [...BASE_TABS, { id: 'revisionais', label: 'Revisionais' }]
+    : BASE_TABS;
   const { theme } = useTheme();
   const isMobile = useIsMobile();
   const isDark = theme === 'dark';

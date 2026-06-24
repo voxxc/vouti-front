@@ -8,12 +8,14 @@ import { PlanejadorTaskDetail } from "./PlanejadorTaskDetail";
 import { PlanejadorSettings, ColumnConfig } from "./PlanejadorSettings";
 import { PlanejadorPrazosView } from "./PlanejadorPrazosView";
 import { PlanejadorHelloView } from "./PlanejadorHelloView";
+import { PlanejadorRevisionaisView } from "./PlanejadorRevisionaisView";
 import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 import { CreateDeadlineDialog } from "@/components/Agenda/CreateDeadlineDialog";
 import { usePlanejadorTasks, PlanejadorTask, KANBAN_COLUMNS, KanbanColumn } from "@/hooks/usePlanejadorTasks";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlanejadorLabels, useAllLabelAssignments } from "@/hooks/usePlanejadorLabels";
 import { useTenantId } from "@/hooks/useTenantId";
+import { useTenantNavigation } from "@/hooks/useTenantNavigation";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { usePlanejadorTaskViews } from "@/hooks/usePlanejadorTaskViews";
@@ -77,6 +79,8 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
   const { user } = useAuth();
   const currentUserId = user?.id || null;
   const { tenantId } = useTenantId();
+  const { tenantSlug } = useTenantNavigation();
+  const isSolvenza = tenantSlug === 'solvenza';
   const { theme } = useTheme();
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
@@ -330,6 +334,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                   selectedLabelIds={selectedLabelIds}
                   onLabelFilterChange={setSelectedLabelIds}
                   currentUserId={currentUserId}
+                  showRevisionais={isSolvenza}
                 />
               </div>
 
@@ -360,6 +365,15 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                     searchQuery={searchQuery}
                     selectedUserId={selectedUserId}
                     currentUserId={currentUserId}
+                  />
+                ) : activeTab === 'revisionais' && isSolvenza ? (
+                  <PlanejadorRevisionaisView
+                    profiles={profiles}
+                    searchQuery={searchQuery}
+                    onOpenDeadline={(id) => {
+                      setDeadlineDetailId(id);
+                      setDeadlineDetailOpen(true);
+                    }}
                   />
                 ) : activeTab === 'hello' ? (
                   <PlanejadorHelloView
