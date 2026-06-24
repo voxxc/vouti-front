@@ -19,6 +19,7 @@ export interface Revisional {
   atribuido_em: string | null;
   created_at: string;
   updated_at: string;
+  deadline?: { id: string; date: string; completed: boolean } | null;
 }
 
 const QK = (tenantId: string | null | undefined) => ["planejador-revisionais", tenantId] as const;
@@ -38,7 +39,16 @@ export function useRevisionais() {
           .order("created_at", { ascending: false })
       );
       if (error) throw error;
-      return data || [];
+      const list = (data || []) as Revisional[];
+      const ids = Array.from(new Set(list.map((r) => r.deadline_id).filter(Boolean))) as string[];
+      if (ids.length === 0) return list;
+      const { data: deadlines } = await (supabase as any)
+        .from("deadlines")
+        .select("id,date,completed")
+        .in("id", ids);
+      const map = new Map<string, { id: string; date: string; completed: boolean }>();
+      (deadlines || []).forEach((d: any) => map.set(d.id, d));
+      return list.map((r) => ({ ...r, deadline: r.deadline_id ? map.get(r.deadline_id) || null : null }));
     },
   });
 }
