@@ -173,12 +173,14 @@ export function PlanejadorRevisionaisView({ profiles, onOpenDeadline, searchQuer
         open={createOpen}
         onOpenChange={setCreateOpen}
         mode="create"
+        profiles={profiles}
       />
       <RevisionalFormDialog
         open={!!editing}
         onOpenChange={(o) => !o && setEditing(null)}
         mode="edit"
         revisional={editing}
+        profiles={profiles}
       />
       <AtribuirFlowDialog
         open={!!assigning}
