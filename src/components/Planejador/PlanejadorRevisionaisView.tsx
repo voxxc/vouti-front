@@ -400,9 +400,9 @@ function RevisionalViewerDialog({
                   <div className="inline-flex items-center gap-1">
                     <User className="h-3 w-3" /> {assignedName}
                   </div>
-                  {revisional.assigned_at && (
+                  {revisional.atribuido_em && (
                     <div className="text-muted-foreground">
-                      {format(new Date(revisional.assigned_at), "dd MMM yyyy 'às' HH:mm", { locale: ptBR })}
+                      {format(new Date(revisional.atribuido_em), "dd MMM yyyy 'às' HH:mm", { locale: ptBR })}
                     </div>
                   )}
                 </div>
