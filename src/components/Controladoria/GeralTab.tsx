@@ -68,7 +68,7 @@ export const GeralTab = () => {
 
   const {
     processos, loading, carregandoDetalhes, page, setPage, totalCount, pageSize,
-    searchTerm, setSearchTerm, fetchProcessos, carregarDetalhes, toggleMonitoramento,
+    searchTerm, setSearchTerm, fetchProcessos, toggleMonitoramento,
     consultarDetalhesRequest, resetarProcesso, excluirProcesso, atualizarProcesso,
     globalCounts,
   } = useAllProcessosOAB(filtroPrincipal, canUseApartados ? filtroApartado : 'todos');
@@ -526,7 +526,6 @@ export const GeralTab = () => {
         onRefreshProcessos={fetchProcessos}
         onConsultarDetalhesRequest={consultarDetalhesRequest}
         onResetarProcesso={resetarProcesso}
-        onCarregarDetalhes={carregarDetalhes}
         onAtualizarProcesso={atualizarProcesso}
         oab={selectedOAB}
       />

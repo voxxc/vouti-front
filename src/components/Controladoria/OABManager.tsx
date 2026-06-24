@@ -44,7 +44,6 @@ import { useOABs, useProcessosOAB, OABCadastrada, ProcessoOAB } from '@/hooks/us
 import { OABTab } from './OABTab';
 import { GeralTab } from './GeralTab';
 import { ESTADOS_BRASIL } from '@/types/busca-oab';
-import { Progress } from '@/components/ui/progress';
 import { usePlanoLimites } from '@/hooks/usePlanoLimites';
 import { LimiteAlert } from '@/components/Common/LimiteAlert';
 
@@ -62,22 +61,17 @@ export const OABManager = () => {
     sincronizando, 
     fetchOABs,
     cadastrarOAB, 
-    removerOAB,
-    carregarDetalhesLote
+    removerOAB
   } = useOABs();
   
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [lawsuitBatchDialogOpen, setLawsuitBatchDialogOpen] = useState(false);
   const [importCNJDialogOpen, setImportCNJDialogOpen] = useState(false);
   const [importPlanilhaOpen, setImportPlanilhaOpen] = useState(false);
   const [importacoesDialogOpen, setImportacoesDialogOpen] = useState(false);
   const [selectedOabForPlanilha, setSelectedOabForPlanilha] = useState<OABCadastrada | null>(null);
   const [oabToDelete, setOabToDelete] = useState<OABCadastrada | null>(null);
-  const [selectedOabForBatch, setSelectedOabForBatch] = useState<OABCadastrada | null>(null);
   const [selectedOabForImport, setSelectedOabForImport] = useState<OABCadastrada | null>(null);
-  const [batchProcessos, setBatchProcessos] = useState<ProcessoOAB[]>([]);
-  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, isRunning: false });
   const [activeTab, setActiveTab] = useState<string>('geral');
   
   // Form state
@@ -130,46 +124,6 @@ export const OABManager = () => {
       }
     }
   };
-
-  // Carregar detalhes de todos os processos de uma OAB
-  const handleCarregarDetalhesLote = async (oab: OABCadastrada) => {
-    // Buscar processos para mostrar confirmacao
-    const { data } = await fetchAllPaginated<any>(
-      () => supabase
-        .from('processos_oab')
-        .select('id, numero_cnj, detalhes_request_id, detalhes_carregados')
-        .eq('oab_id', oab.id)
-        .order('id', { ascending: true })
-    );
-    
-    const processos = data || [];
-    const comRequestId = processos.filter(p => p.detalhes_request_id).length;
-    const semRequestId = processos.filter(p => !p.detalhes_request_id).length;
-    
-    setBatchProcessos(processos as ProcessoOAB[]);
-    setSelectedOabForBatch(oab);
-    setLawsuitBatchDialogOpen(true);
-  };
-
-  const handleConfirmarCarregarLote = async () => {
-    if (!selectedOabForBatch) return;
-    
-    setLawsuitBatchDialogOpen(false);
-    setBatchProgress({ current: 1, total: 1, isRunning: true });
-    
-    const result = await carregarDetalhesLote(selectedOabForBatch.id);
-    
-    setBatchProgress({ current: 0, total: 0, isRunning: false });
-    setSelectedOabForBatch(null);
-    
-    if (result) {
-      // Forcar reload para atualizar dados
-      window.location.reload();
-    }
-  };
-
-  const processosComRequestId = batchProcessos.filter(p => p.detalhes_request_id).length;
-  const processosSemRequestId = batchProcessos.filter(p => !p.detalhes_request_id).length;
 
   if (loading) {
     return (
@@ -426,58 +380,6 @@ export const OABManager = () => {
             <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground">
               Remover
             </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Batch Lawsuit Dialog */}
-      <AlertDialog open={lawsuitBatchDialogOpen} onOpenChange={(open) => {
-        if (!batchProgress.isRunning) setLawsuitBatchDialogOpen(open);
-      }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Search className="w-5 h-5 text-primary" />
-              Carregar Detalhes de Todos os Processos
-            </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-4">
-                {batchProgress.isRunning ? (
-                  <div className="space-y-3">
-                    <p className="text-sm">Consultando processos...</p>
-                    <Progress value={(batchProgress.current / batchProgress.total) * 100} />
-                    <p className="text-xs text-muted-foreground text-center">
-                      {batchProgress.current} de {batchProgress.total} processos
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <p>
-                      Esta acao ira buscar andamentos para todos os processos listados.
-                    </p>
-                    <div className="p-3 bg-muted rounded-lg space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span>Total de processos:</span>
-                        <span className="font-medium">{batchProcessos.length}</span>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            {!batchProgress.isRunning && (
-              <>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={handleConfirmarCarregarLote}
-                  disabled={batchProcessos.length === 0}
-                >
-                  Carregar Andamentos
-                </AlertDialogAction>
-              </>
-            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

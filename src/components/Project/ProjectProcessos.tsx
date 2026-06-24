@@ -697,41 +697,6 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
     }
   };
 
-  const handleCarregarDetalhes = async (processoId: string, numeroCnj: string) => {
-    setCarregandoDetalhes(processoId);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      const { data, error } = await supabase.functions.invoke('judit-buscar-detalhes-processo', {
-        body: { processoOabId: processoId, numeroCnj, tenantId, userId: user?.id }
-      });
-
-      if (error) throw error;
-      
-      if (!data?.success) {
-        throw new Error(data?.error || 'Erro ao carregar detalhes');
-      }
-
-      toast({
-        title: 'Detalhes carregados',
-        description: `${data.andamentosInseridos} novos andamentos`
-      });
-
-      await loadProcessosVinculados();
-      return data;
-    } catch (error: any) {
-      console.error('Erro ao carregar detalhes:', error);
-      toast({
-        title: 'Erro ao carregar detalhes',
-        description: error.message,
-        variant: 'destructive'
-      });
-      return null;
-    } finally {
-      setCarregandoDetalhes(null);
-    }
-  };
-
   const handleConsultarDetalhesRequest = async (processoId: string, requestId: string) => {
     setCarregandoDetalhes(processoId);
     try {
@@ -1108,7 +1073,6 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
         onToggleMonitoramento={handleToggleMonitoramento}
         onRefreshProcessos={loadProcessosVinculados}
         onConsultarDetalhesRequest={handleConsultarDetalhesRequest}
-        onCarregarDetalhes={handleCarregarDetalhes}
       />
 
       {/* Dialog para adicionar processo */}

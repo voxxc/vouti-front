@@ -256,13 +256,6 @@ export const useAllProcessosOAB = (
     fetchProcessos();
   }, [fetchProcessos]);
 
-  const carregarDetalhes = async (processoId: string, _numeroCnj: string, _oabId?: string) => {
-    setProcessos(prev =>
-      prev.map(p => p.id === processoId ? { ...p, detalhes_carregados: true } : p)
-    );
-    return { success: true };
-  };
-
   const toggleMonitoramento = async (
     processoId: string,
     numeroCnj: string,
@@ -442,7 +435,6 @@ export const useAllProcessosOAB = (
     searchTerm,
     setSearchTerm,
     fetchProcessos,
-    carregarDetalhes,
     toggleMonitoramento,
     consultarDetalhesRequest,
     resetarProcesso,
