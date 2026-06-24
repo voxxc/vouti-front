@@ -1,39 +1,46 @@
 ## Causa raiz
-Hoje os 4 endpoints da Judit (`judit-webhook`, `judit-webhook-oab`, `judit-webhook-cnpj`, `judit-webhook-push-docs`) aceitam toda requisição que chega e processam (insert de andamentos, atualização de processos etc.). Não existe kill-switch — para parar de receber, a única opção atual seria desfazer o cadastro do webhook na Judit ou deletar as functions.
+
+O badge "TJPR" ao lado do número do processo vem de `proc.tribunal_sigla` (derivado do CNJ) e é só leitura. Não existe forma de marcar manualmente "EPROC", "PROJUDI", "PJe", etc.
 
 ## Correção
-Adicionar um kill-switch via secret de runtime, sem deploy futuro para ligar/desligar:
 
-- Criar o secret `JUDIT_WEBHOOKS_ENABLED` (default tratado como `"false"` quando ausente). Valores aceitos: `"true"` libera o processamento; qualquer outra coisa (`"false"`, vazio) faz as functions responderem `200 OK` mas descartarem o payload.
-- No início de cada uma das 4 functions, logo após o handler de CORS/OPTIONS, ler `Deno.env.get('JUDIT_WEBHOOKS_ENABLED')`. Se diferente de `"true"`:
-  - Logar `console.info('[judit-webhook*] paused — payload descartado')` (sem PII).
-  - Retornar `new Response(JSON.stringify({ ok: true, paused: true }), { status: 200, ... })`.
-  - Por que 200 e não 4xx/5xx? Para a Judit não acumular retries nem marcar o endpoint como morto. Quando você reativar, ela volta a entregar normalmente os próximos eventos.
+1. **Catálogo de sistemas (criado/editado pelo próprio super-admin, inline)**
+   - Nova tabela `super_admin_sistemas_processo` (`id`, `slug`, `nome`, `cor`, `created_by`, `created_at`) com RLS restrita a super_admins.
+   - Sem dialog separado de "gerenciar". Toda a CRUD acontece no mesmo Popover do badge.
 
-Inicialização: vou criar o secret já com valor `"false"` (pausado), conforme você pediu. Para reativar depois, basta me avisar e eu rodo `update_secret` para `"true"`.
+2. **Override por processo**
+   - Adicionar coluna `sistema_tag text` em `processos_oab` (slug do catálogo, nullable).
+   - Estender a edge function de meta já usada por `atualizarMeta` no painel para aceitar `sistema_tag`. Incluir `sistema_tag` no SELECT de `super-admin-processo-oab-detalhes`.
+
+3. **UI: badge clicável com CRUD embutido**
+   - Substituir o `<Badge>{proc.tribunal_sigla}</Badge>` por um botão-badge clicável que abre um Popover:
+     - Mostra `sistema_tag` (nome + cor do catálogo) se houver; senão `tribunal_sigla`; senão "Definir sistema".
+     - **Lista** dos sistemas cadastrados — clique aplica ao processo (`atualizarMeta({ sistema_tag: slug })`).
+     - **Cada item** tem hover com ícones lápis/lixeira para editar nome+cor ou excluir (inline, sem sair do popover).
+     - **Linha "+ Novo sistema"** no rodapé: abre um mini-form inline (input de nome + color picker + botão "Criar") que adiciona ao catálogo e já aplica ao processo.
+     - Opção "Remover do processo" quando há override.
+   - Edge functions de catálogo: `super-admin-listar-sistemas-processo` e `super-admin-gerenciar-sistema-processo` (ações `criar` / `editar` / `excluir`), espelhando as existentes de `tribunais_andamento`.
 
 ## Arquivos afetados
-- `supabase/functions/judit-webhook/index.ts`
-- `supabase/functions/judit-webhook-oab/index.ts`
-- `supabase/functions/judit-webhook-cnpj/index.ts`
-- `supabase/functions/judit-webhook-push-docs/index.ts`
 
-Em cada um: ~6 linhas no topo do handler. Sem migration, sem mudança de RLS, sem mudança no frontend.
-
-Secret novo:
-- `JUDIT_WEBHOOKS_ENABLED` = `"false"` (criado já pausado)
+- Migration: tabela `super_admin_sistemas_processo` (+ GRANTs + RLS) + coluna `processos_oab.sistema_tag`.
+- `supabase/functions/super-admin-listar-sistemas-processo/index.ts` (novo).
+- `supabase/functions/super-admin-gerenciar-sistema-processo/index.ts` (novo).
+- `supabase/functions/super-admin-atualizar-processo-oab-meta` (ou função equivalente já chamada por `atualizarMeta`): aceitar `sistema_tag`.
+- `supabase/functions/super-admin-processo-oab-detalhes/index.ts`: incluir `sistema_tag`.
+- `src/components/SuperAdmin/SuperAdminProcessoOABDetalhesPanel.tsx`: trocar badge fixo por Popover com lista + edit/delete inline + form "novo sistema".
 
 ## Impacto
-1. **Usuário final (UX):** Nenhuma mudança visível. Os processos simplesmente param de receber andamentos/atualizações automáticas vindas da Judit enquanto o switch estiver pausado. Sincronizações manuais (botões "Sincronizar", buscas sob demanda) continuam funcionando normalmente — elas não passam por webhook.
-2. **Dados:** Nada é gravado enquanto pausado. Sem mudanças de schema, RLS ou performance. Eventos que a Judit tentar entregar durante a pausa **serão perdidos** — ela recebe 200 e não reenvia. Para recuperar o histórico do período, será preciso uma sincronização manual (ex.: `judit-sync-monitorados`) depois de reativar.
-3. **Riscos colaterais:**
-   - Push-docs (publicações) também ficam pausados — confirme se isso é aceitável; se não for, removo do escopo.
-   - Andamentos novos não vão notificar usuários nem disparar prazos automáticos durante a pausa.
-   - Logs vão mostrar "paused" em todas as entregas — útil para auditar tentativas.
-4. **Quem é afetado:** Todos os tenants que dependem do monitoramento Judit (processos, OAB, CNPJ, push-docs). É um switch global.
+
+- **Usuário final (super-admin):** o badge passa a ser clicável. Em um único Popover dá pra escolher um sistema existente, criar um novo, editar nome/cor ou excluir — tudo sem sair do painel do processo. Quando nada está definido, segue mostrando a sigla automática (mudança invisível para processos não-editados).
+- **Dados:** nova tabela pequena + nova coluna nullable em `processos_oab` (sem backfill, sem migrar dados antigos). RLS exige `super_admins`. Sem impacto perceptível de performance.
+- **Riscos colaterais:** baixos. Excluir um sistema do catálogo deixa processos que o usavam com `sistema_tag` "órfão" — o painel passa a exibir o fallback (`tribunal_sigla`) automaticamente, sem erro. Mudanças nas edge functions são aditivas (campo opcional).
+- **Quem é afetado:** apenas super-admins. Tenants e advogados não veem mudança nenhuma — o badge e o catálogo vivem só no painel super-admin.
 
 ## Validação
-- Após o deploy, chamar `judit-webhook` com `supabase--curl_edge_functions` enviando um payload qualquer → deve retornar `{ ok: true, paused: true }` em 200.
-- Conferir `edge_function_logs` mostrando "paused — payload descartado".
-- Verificar que nenhum `INSERT` novo aparece em `processos_oab_andamentos` / `processo_movimentacoes` originado de webhook.
-- Quando você pedir para religar, eu atualizo o secret para `"true"` e refaço o teste para confirmar que o processamento normal voltou.
+
+1. Migration aplica; `select * from super_admin_sistemas_processo` retorna vazio (sem seed — usuário cria).
+2. Abrir um processo OAB no `/super-admin`: badge clicável; popover abre vazio com "+ Novo sistema".
+3. Criar "EPROC" com cor → aparece na lista e é aplicado ao processo; badge muda imediatamente.
+4. Reabrir o painel: badge persistido. Editar cor → reflete na hora. Excluir o sistema → badge volta à sigla automática.
+5. Conferir nos logs da edge function de meta que `sistema_tag` é gravado em `processos_oab.sistema_tag`.
