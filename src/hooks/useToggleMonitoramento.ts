@@ -13,6 +13,20 @@ export const useToggleMonitoramento = () => {
     
     try {
       if (!processo.monitoramento_ativo) {
+        // Verificar feature flag global
+        const { data: flag } = await supabase
+          .from('super_admin_feature_flags')
+          .select('enabled')
+          .eq('flag_key', 'escavador_monitoramento_enabled')
+          .maybeSingle();
+        if (!flag?.enabled) {
+          toast({
+            title: 'Funcionalidade desativada',
+            description: 'O monitoramento via Escavador está desligado pelo administrador.',
+            variant: 'destructive',
+          });
+          return false;
+        }
         // Verificar limite do plano
         if (!podeMonitorarProcesso()) {
           toast({

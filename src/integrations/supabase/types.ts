@@ -9069,6 +9069,30 @@ export type Database = {
           },
         ]
       }
+      super_admin_feature_flags: {
+        Row: {
+          description: string | null
+          enabled: boolean
+          flag_key: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          description?: string | null
+          enabled?: boolean
+          flag_key: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          description?: string | null
+          enabled?: boolean
+          flag_key?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       super_admin_security_hotfixes: {
         Row: {
           affected_resource: string | null

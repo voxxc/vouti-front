@@ -73,6 +73,7 @@ import { AndamentoAnexos } from './AndamentoAnexos';
 import { IntimacaoCard } from './IntimacaoCard';
 import { MovimentacaoDetalhe, MovimentacaoSelecionada } from './MovimentacaoDetalhe';
 import { useProcessoAnexos } from '@/hooks/useProcessoAnexos';
+import { useFeatureFlag } from '@/hooks/useFeatureFlag';
 import { parseIntimacao, countIntimacoesUrgentes } from '@/utils/intimacaoParser';
 import AutomacaoPrazosCard from './AutomacaoPrazosCard';
 import ApartadoCard from './ApartadoCard';
@@ -224,6 +225,7 @@ export const ProcessoOABDetalhes = ({
   const [credencialDraft, setCredencialDraft] = useState<string>('__publico__');
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [togglingMonitoramento, setTogglingMonitoramento] = useState(false);
+  const { enabled: monitoramentoFeatureEnabled } = useFeatureFlag('escavador_monitoramento_enabled');
   const [refreshingAndamentos, setRefreshingAndamentos] = useState(false);
   const [confirmMonitoramentoOpen, setConfirmMonitoramentoOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
@@ -802,6 +804,7 @@ export const ProcessoOABDetalhes = ({
           )}
 
           {/* Toggle de Monitoramento */}
+          {(monitoramentoFeatureEnabled || processo.monitoramento_ativo) && (
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -942,6 +945,7 @@ export const ProcessoOABDetalhes = ({
             </div>
 
           </Card>
+          )}
 
           {/* Modal de Confirmacao de Monitoramento */}
           <AlertDialog open={confirmMonitoramentoOpen} onOpenChange={setConfirmMonitoramentoOpen}>
