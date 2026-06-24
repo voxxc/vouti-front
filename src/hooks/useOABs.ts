@@ -461,10 +461,11 @@ export const useProcessosOAB = (oabId: string | null) => {
     ativar: boolean, 
     oabId?: string,
     onProcessoCompartilhadoAtualizado?: (cnj: string, oabsAfetadas: string[]) => void,
-    sigiloso?: boolean
+    sigiloso?: boolean,
+    apartado?: boolean
   ) => {
     try {
-      if (ativar && !sigiloso) {
+      if (ativar && !sigiloso && !apartado) {
         const { data: flag } = await supabase
           .from('super_admin_feature_flags')
           .select('enabled')
@@ -480,7 +481,23 @@ export const useProcessosOAB = (oabId: string | null) => {
         }
       }
       let data: any;
-      if (sigiloso) {
+      if (apartado) {
+        // Processos apartados: monitoramento "visual" — apenas atualiza o flag,
+        // sem chamar Escavador. Apartados não têm CNJ rastreável próprio.
+        const { error: updErr } = await supabase
+          .from('processos_oab')
+          .update({ monitoramento_ativo: ativar })
+          .eq('id', processoId)
+          .eq('tenant_id', tenantId);
+        if (updErr) throw updErr;
+        data = { success: true };
+        toast({
+          title: ativar ? 'Monitoramento ativado' : 'Monitoramento desativado',
+          description: ativar
+            ? 'Processo apartado — andamentos serão registrados manualmente.'
+            : 'Histórico de andamentos mantido.',
+        });
+      } else if (sigiloso) {
         // Processos sigilosos: monitoramento "visual" — apenas atualiza o flag,
         // sem chamar Escavador. Atualizações são alimentadas manualmente.
         const { error: updErr } = await supabase
