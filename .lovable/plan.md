@@ -1,53 +1,121 @@
-## Causa raiz
+## Visão geral
 
-Hoje o toggle de monitoramento de processos OAB sempre chama a edge function `escavador-ativar-monitoramento-oab` (exceto para sigilosos, que já têm um ramo "visual"). Processos **apartados** não têm CNJ próprio rastreável no Escavador — chamá-lo é desperdício e gera erro. Além disso, o Resumo não comunica ao usuário que apartados não terão histórico automático.
+Adicionar uma nova aba **Revisionais** dentro do Planejador, ao lado de "Calendário", visível apenas para o tenant **Solvenza**. Funciona como uma fila de "pré-prazos" criados pela Controladoria (ex.: `Revisional Cliente Xdasilva`) que ficam aguardando atribuição. Ao clicar num card, abre um dropdown com **Editar** e **Atribuir**. Em "Atribuir", escolhe-se o usuário e, em seguida, abre-se o formulário completo de criação de prazo (projeto / processo / protocolo / etapa / data / advogado / tags) — quando confirmado, cria-se um `deadline` real atribuído ao usuário escolhido e o revisional é marcado como atribuído (passando para uma coluna "Atribuídos").
 
-## Correção
+## Modelo de dados
 
-Replicar para `apartado` o mesmo padrão que já existe para `sigiloso`: monitoramento **visual-only**, sem Edge Function, sem feature flag global, apenas alternando `processos_oab.monitoramento_ativo`. E adicionar um aviso explicativo no Resumo.
+Nova tabela `public.planejador_revisionais` (Lovable Cloud / Supabase):
 
-### 1. Hooks de toggle — ramo "apartado" visual
-**`src/hooks/useOABs.ts`** e **`src/hooks/useAllProcessosOAB.ts`**:
-- Adicionar parâmetro opcional `apartado?: boolean` em `toggleMonitoramento(...)`.
-- Se `apartado === true`: ignorar feature flag, **não** invocar `escavador-ativar-monitoramento-oab` nem `escavador-desativar-monitoramento-oab`. Apenas:
-  ```ts
-  await supabase.from('processos_oab')
-    .update({ monitoramento_ativo: ativar })
-    .eq('id', processoId).eq('tenant_id', tenantId);
-  ```
-- Toast: "Monitoramento ativado — processo apartado: andamentos serão registrados manualmente." / "Monitoramento desativado — histórico mantido."
-- Precedência: `apartado` antes de `sigiloso` (apartado vence se ambos forem true).
+- `id uuid pk`
+- `tenant_id uuid not null` (com FK lógica para tenants)
+- `titulo text not null` (ex.: "Revisional Cliente Xdasilva")
+- `descricao text`
+- `status text not null default 'pendente'` — `pendente | atribuido | arquivado`
+- `cliente_nome text` (opcional, para busca rápida)
+- `project_id uuid` (opcional — pré-vinculado a um caso)
+- `created_by uuid not null` (auth.uid())
+- `assigned_to uuid` (preenchido quando atribuído)
+- `deadline_id uuid` (FK para `deadlines.id`, preenchido após criar o prazo)
+- `atribuido_em timestamptz`
+- `created_at`, `updated_at`
 
-### 2. Wiring nos consumidores
-**`src/components/Controladoria/OABTab.tsx`**, **`GeralTab.tsx`** e **`src/components/Project/ProjectProcessos.tsx`**: nos respectivos `handleToggleMonitoramento`, passar `(processo as any).apartado === true` como novo argumento.
+RLS: somente membros do tenant podem `SELECT/INSERT/UPDATE/DELETE` (mesmo padrão das demais tabelas do planejador). GRANTs para `authenticated` e `service_role`.
 
-### 3. UI no Resumo — `src/components/Controladoria/ProcessoOABDetalhes.tsx`
-- **Toggle de monitoramento (linha 807):** ampliar a condição para também aparecer quando `processo.apartado`, independente da feature flag:
-  `(monitoramentoFeatureEnabled || processo.monitoramento_ativo || processo.apartado)`.
-- **Card de aviso no topo do Resumo** (apenas quando `processo.apartado === true`), no estilo dos demais avisos já existentes (`Card` com ícone `BookOpen`/`AlertCircle`):
-  > **Processo apartado** — por ser um apartado, não consultamos andamentos automaticamente via Escavador. O monitoramento abaixo é apenas visual: ative-o se quiser acompanhar este processo no painel e registrar movimentações manualmente.
-- **Diálogo de confirmação (linha 951):** quando apartado, trocar descrição para "Processo apartado — o monitoramento é apenas visual. Nenhuma consulta será feita ao Escavador."
-- Subtítulo do switch ("Receba atualizações automáticas") trocado para "Acompanhamento manual (apartado)" quando `processo.apartado`.
+## Visibilidade (gate Solvenza)
+
+Usar o mesmo padrão de `CentralControladoria.tsx`:
+
+```ts
+const { tenantSlug } = useTenantNavigation();
+const isSolvenza = tenantSlug === 'solvenza';
+```
+
+A aba só é renderizada em `PlanejadorTopBar` quando `isSolvenza === true`. A query/inserção respeita RLS, mas a UI fica oculta para outros tenants.
+
+## UI — Aba Revisionais
+
+Arquivo novo: `src/components/Planejador/PlanejadorRevisionaisView.tsx`.
+
+Layout em kanban estilo `PlanejadorPrazosView`, com 2 colunas:
+- **Pendentes** (`status = 'pendente'`)
+- **Atribuídos** (`status = 'atribuido'`) — mostra usuário responsável e link para o `deadline`
+
+Cada card mostra: título, cliente (se houver), data de criação, criador. Botão `+ Novo Revisional` no topo abre dialog simples (`titulo`, `descricao`, `cliente_nome`, `project_id` opcional).
+
+Clique no card abre `DropdownMenu`:
+- **Editar** — abre dialog de edição (mesmos campos do "Novo Revisional").
+- **Atribuir** — abre fluxo de atribuição em 2 passos:
+  1. Seleção de usuário (lista de profiles do tenant, com busca).
+  2. Após confirmar usuário, abre `CreateDeadlineDialog` em modo "atribuir revisional", pré-preenchendo: `title = revisional.titulo`, `advogadoResponsavel = usuário escolhido`, `project_id` (se houver). O usuário define data, processo/protocolo/etapa, tags, etc. — exatamente como um prazo normal.
+- **Arquivar** (extra útil) — `status = 'arquivado'` (não aparece nas colunas padrão).
+
+## Reuso do `CreateDeadlineDialog`
+
+Adicionar 2 props opcionais (mantendo retrocompatibilidade):
+- `defaultValues?: Partial<DeadlineFormData & { advogadoResponsavel?: string; title?: string }>`
+- `onCreated?: (deadlineId: string) => void` (já existe na assinatura).
+
+Em `PlanejadorRevisionaisView`, ao receber `onCreated(deadlineId)` durante a atribuição, executar:
+```ts
+update planejador_revisionais
+set status='atribuido', assigned_to=<userId>, deadline_id=<deadlineId>, atribuido_em=now()
+```
+e invalidar a query da view.
+
+## Integração no Planejador
+
+1. `PlanejadorTopBar.tsx` — receber prop `showRevisionais: boolean`. Quando true, adiciona `{ id: 'revisionais', label: 'Revisionais' }` à lista `TABS` logo após `calendario`.
+2. `PlanejadorDrawer.tsx` — calcular `isSolvenza` via `useTenantNavigation`, passar para o top bar e adicionar branch `activeTab === 'revisionais'` que renderiza `<PlanejadorRevisionaisView />`.
+
+Nenhuma alteração em outros tenants — o branch e a tab não aparecem.
+
+## Hook de dados
+
+Novo `src/hooks/usePlanejadorRevisionais.ts` com React Query:
+- `useRevisionais()` — `select * from planejador_revisionais where tenant_id = ? order by created_at desc` (paginação via `fetchAllPaginated`).
+- `useCreateRevisional`, `useUpdateRevisional`, `useAtribuirRevisional({ id, userId, deadlineId })`, `useArquivarRevisional`.
 
 ## Arquivos afetados
-- `src/hooks/useOABs.ts`
-- `src/hooks/useAllProcessosOAB.ts`
-- `src/components/Controladoria/OABTab.tsx`
-- `src/components/Controladoria/GeralTab.tsx`
-- `src/components/Project/ProjectProcessos.tsx`
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx`
 
-Sem migration. Sem alteração nas edge functions (continuam protegidas pela feature flag para o fluxo normal).
+Novos:
+- `supabase/migrations/<timestamp>_planejador_revisionais.sql` (tabela + GRANTs + RLS + trigger `updated_at`).
+- `src/hooks/usePlanejadorRevisionais.ts`
+- `src/components/Planejador/PlanejadorRevisionaisView.tsx`
+- `src/components/Planejador/RevisionalDialog.tsx` (criar/editar)
+- `src/components/Planejador/RevisionalAtribuirDialog.tsx` (passo 1 — seleção de usuário)
+
+Editados:
+- `src/components/Planejador/PlanejadorTopBar.tsx` — nova tab condicional.
+- `src/components/Planejador/PlanejadorDrawer.tsx` — gate Solvenza + render da nova view.
+- `src/components/Agenda/CreateDeadlineDialog.tsx` — aceitar `defaultValues` para pré-preenchimento (título / advogado / projeto).
 
 ## Impacto
-1. **Usuário final (UX):** ao abrir um processo apartado, vê no Resumo um aviso claro de que não haverá histórico automático. O switch de monitoramento aparece mesmo com a flag global desligada — mas é puramente visual: ativá-lo apenas marca o processo como "monitorado" no painel, sem chamadas externas. Toasts deixam explícito que é manual.
-2. **Dados:** apenas `processos_oab.monitoramento_ativo` é alternado. Nenhum registro em `processo_oab_monitoramento_escavador`, nenhum andamento sincronizado, nenhum tracking criado no Escavador. Sem migration, sem novas RLS.
-3. **Riscos colaterais:** baixos. O ramo `sigiloso` segue idêntico. Processos normais (não apartado, não sigiloso) continuam exatamente como hoje — incluindo o respeito à feature flag global. Risco residual: um processo que seja marcado como apartado **depois** de já ter monitoramento real ativo no Escavador não será desativado lá (toggle visual não chama a edge de desativar). Mitigação possível: manter chamada de desativação remota mesmo no caso apartado quando `ativar=false` — confirmar comportamento desejado se isso for cenário real.
-4. **Quem é afetado:** todos os tenants que usam a feature de apartados (controlada por `useCanUseApartados`). Admins continuam com o controle global na tela de Super Admin para processos não-apartados.
+
+1. **UX (usuário final):**
+   - Apenas usuários do **tenant Solvenza** verão a nova aba "Revisionais" no Planejador. Nenhum outro tenant será afetado visualmente.
+   - Fluxo da Controladoria: cria-se rapidamente um revisional → fica visível para todos do tenant como "Pendente" → qualquer admin/controller pode clicar, escolher usuário e gerar o prazo completo, com toda a riqueza de um prazo normal (projeto, processo/protocolo/etapa, tags, data).
+   - Cards atribuídos passam para a coluna "Atribuídos" mostrando responsável + link para o prazo criado (abre `DeadlineDetailDialog` existente).
+
+2. **Dados:**
+   - Nova tabela isolada por tenant. Não altera schemas existentes. Pequena (algumas dezenas/centenas de linhas por mês). Sem impacto em performance de queries existentes.
+   - `deadlines` continua sendo a fonte única de verdade dos prazos; revisional apenas referencia via `deadline_id`.
+
+3. **Riscos colaterais:**
+   - Baixos: alterações em `PlanejadorTopBar` e `PlanejadorDrawer` adicionam um branch condicional, mas mantêm comportamento atual para todos os tenants quando `isSolvenza === false`.
+   - Mudança em `CreateDeadlineDialog` é aditiva (props opcionais).
+
+4. **Quem é afetado:**
+   - **Solvenza:** todos os usuários enxergam a aba; permissão de criar/atribuir/editar/arquivar é aberta a qualquer membro do tenant (mesmo padrão do Planejador). Se desejar restringir a `controller`/`admin`, basta acrescentar `has_role_in_tenant` nas policies — confirmar antes de implementar.
+   - **Outros tenants:** nenhum impacto.
 
 ## Validação
-- Processo apartado, flag global **desligada**: abrir Resumo → ver aviso + switch visível. Ativar → toast "monitoramento ativado (apartado)", `processos_oab.monitoramento_ativo=true`, **nenhuma** chamada à edge `escavador-ativar-monitoramento-oab` (verificar via Network).
-- Processo apartado, flag global **ligada**: mesmo comportamento (apartado vence, sem chamar Escavador).
-- Processo **não-apartado**, flag desligada: switch escondido (comportamento atual preservado).
-- Processo **não-apartado**, flag ligada: ativação continua chamando a edge function normalmente.
-- Processo **sigiloso** (não apartado): ramo sigiloso atual inalterado.
+
+- Migration roda e cria tabela com RLS + GRANTs.
+- Em outro tenant (qualquer ≠ solvenza): aba "Revisionais" não aparece no top bar.
+- Em Solvenza: criar revisional → aparece em "Pendentes" → atribuir → escolher usuário → preencher prazo → confirmar → revisional vira "Atribuído", `deadlines` recebe nova linha com `advogado_responsavel_id` correto, notificação `notifyDeadlineAssigned` disparada (já existe no `CreateDeadlineDialog`).
+- Editar revisional pendente atualiza título/cliente/descrição.
+- Clicar em revisional atribuído abre o `DeadlineDetailDialog` do prazo gerado.
+
+## Pergunta antes de implementar
+
+Quer que **a criação/atribuição** seja restrita a `controller` + `admin` (mais alinhado ao "usuário da controladoria" que você mencionou), ou aberta a qualquer usuário do tenant Solvenza?

@@ -27,6 +27,13 @@ interface CreateDeadlineDialogProps {
   module?: string;
   defaultDate?: Date;
   onCreated?: (deadlineId: string) => void;
+  /** Pré-preenche campos do formulário (título, descrição, advogado, projeto). */
+  defaultValues?: {
+    title?: string;
+    description?: string;
+    projectId?: string;
+    advogadoResponsavelId?: string | null;
+  };
 }
 
 export function CreateDeadlineDialog({
@@ -35,6 +42,7 @@ export function CreateDeadlineDialog({
   module = 'legal',
   defaultDate,
   onCreated,
+  defaultValues,
 }: CreateDeadlineDialogProps) {
   const { user } = useAuth();
   const { tenantId } = useTenantId();
@@ -61,13 +69,13 @@ export function CreateDeadlineDialog({
   useEffect(() => {
     if (!open) return;
     setFormData({
-      title: "",
-      description: "",
+      title: defaultValues?.title ?? "",
+      description: defaultValues?.description ?? "",
       date: defaultDate ?? new Date(),
-      projectId: "",
+      projectId: defaultValues?.projectId ?? "",
       workspaceId: "",
     });
-    setSelectedAdvogado(null);
+    setSelectedAdvogado(defaultValues?.advogadoResponsavelId ?? null);
     setTaggedUsers([]);
     setAvailableWorkspaces([]);
     setSelectedProtocoloId("");
