@@ -1,46 +1,49 @@
 ## Causa raiz
 
-O badge "TJPR" ao lado do número do processo vem de `proc.tribunal_sigla` (derivado do CNJ) e é só leitura. Não existe forma de marcar manualmente "EPROC", "PROJUDI", "PJe", etc.
+A aba "Andamentos" do detalhe do processo OAB mostra uma tela vazia com botão **"Carregar Andamentos"** sempre que `!processo.detalhes_request_id && andamentos.length === 0`. Esse botão dispara `onCarregarDetalhes` → `carregarDetalhes` (em `useOABs`/`useAllProcessosOAB`) que chama a Escavador para popular a primeira leva de andamentos. Existe ainda uma versão em lote no `OABManager` (`carregarDetalhesLote` em `useOABs`) com um `AlertDialog` de confirmação. Você quer remover essa funcionalidade do sistema inteiro.
 
 ## Correção
 
-1. **Catálogo de sistemas (criado/editado pelo próprio super-admin, inline)**
-   - Nova tabela `super_admin_sistemas_processo` (`id`, `slug`, `nome`, `cor`, `created_by`, `created_at`) com RLS restrita a super_admins.
-   - Sem dialog separado de "gerenciar". Toda a CRUD acontece no mesmo Popover do badge.
+1. **`ProcessoOABDetalhes.tsx`** (Controladoria, usado também por Agenda, ProjectProcessos, CentralAndamentosNaoLidos):
+   - Remover o bloco da empty-state "Andamentos não carregados" (linhas ~1427-1453) e o `AlertDialog` de confirmação (linhas ~1625-1642). No lugar, manter apenas uma mensagem neutra de "Nenhum andamento" quando a lista estiver vazia.
+   - Remover o handler `handleCarregarAndamentos`, o state `carregandoAndamentos`, o state `confirmDialogOpen` e a prop `onCarregarDetalhes` da interface.
 
-2. **Override por processo**
-   - Adicionar coluna `sistema_tag text` em `processos_oab` (slug do catálogo, nullable).
-   - Estender a edge function de meta já usada por `atualizarMeta` no painel para aceitar `sistema_tag`. Incluir `sistema_tag` no SELECT de `super-admin-processo-oab-detalhes`.
+2. **Removendo a prop nos chamadores:**
+   - `src/components/Controladoria/GeralTab.tsx` (linha 529) — apagar `onCarregarDetalhes={carregarDetalhes}` e o desestruturar do hook se não usado em outro lugar.
+   - `src/components/Controladoria/OABTab.tsx` (linha 478) — idem.
+   - `src/components/Project/ProjectProcessos.tsx` (linha 1111) — idem; remover `handleCarregarDetalhes` se ficar órfão.
+   - `src/components/Agenda/AgendaContent.tsx` e `CentralAndamentosNaoLidos.tsx` — verificar e tirar a prop se passada.
 
-3. **UI: badge clicável com CRUD embutido**
-   - Substituir o `<Badge>{proc.tribunal_sigla}</Badge>` por um botão-badge clicável que abre um Popover:
-     - Mostra `sistema_tag` (nome + cor do catálogo) se houver; senão `tribunal_sigla`; senão "Definir sistema".
-     - **Lista** dos sistemas cadastrados — clique aplica ao processo (`atualizarMeta({ sistema_tag: slug })`).
-     - **Cada item** tem hover com ícones lápis/lixeira para editar nome+cor ou excluir (inline, sem sair do popover).
-     - **Linha "+ Novo sistema"** no rodapé: abre um mini-form inline (input de nome + color picker + botão "Criar") que adiciona ao catálogo e já aplica ao processo.
-     - Opção "Remover do processo" quando há override.
-   - Edge functions de catálogo: `super-admin-listar-sistemas-processo` e `super-admin-gerenciar-sistema-processo` (ações `criar` / `editar` / `excluir`), espelhando as existentes de `tribunais_andamento`.
+3. **`OABManager.tsx`**:
+   - Remover o `AlertDialog` de "Carregar Andamentos" em lote (linhas ~434-483), os states `lawsuitBatchDialogOpen`, `batchProcessos`, `batchProgress`, `selectedOabForBatch` e os handlers `handleCarregarDetalhesLote`, `handleConfirmarCarregarLote`. Remover o import/uso de `carregarDetalhesLote` do `useOABs`.
+
+4. **Hooks** (`src/hooks/useOABs.ts` e `src/hooks/useAllProcessosOAB.ts`):
+   - Deletar as funções `carregarDetalhes` e `carregarDetalhesLote` e seus retornos no objeto exportado. Limpar imports/states que ficarem órfãos.
+
+5. **Edge function** `escavador-importar-processo`: **manter**. Ela continua sendo usada no fluxo automático de importação (`ImportarProcessoDialog`), que não é a funcionalidade que você pediu para remover. Só o gatilho manual do botão sai.
 
 ## Arquivos afetados
 
-- Migration: tabela `super_admin_sistemas_processo` (+ GRANTs + RLS) + coluna `processos_oab.sistema_tag`.
-- `supabase/functions/super-admin-listar-sistemas-processo/index.ts` (novo).
-- `supabase/functions/super-admin-gerenciar-sistema-processo/index.ts` (novo).
-- `supabase/functions/super-admin-atualizar-processo-oab-meta` (ou função equivalente já chamada por `atualizarMeta`): aceitar `sistema_tag`.
-- `supabase/functions/super-admin-processo-oab-detalhes/index.ts`: incluir `sistema_tag`.
-- `src/components/SuperAdmin/SuperAdminProcessoOABDetalhesPanel.tsx`: trocar badge fixo por Popover com lista + edit/delete inline + form "novo sistema".
+- `src/components/Controladoria/ProcessoOABDetalhes.tsx`
+- `src/components/Controladoria/GeralTab.tsx`
+- `src/components/Controladoria/OABTab.tsx`
+- `src/components/Controladoria/OABManager.tsx`
+- `src/components/Project/ProjectProcessos.tsx`
+- `src/components/Agenda/AgendaContent.tsx` (se passar a prop)
+- `src/components/Controladoria/CentralAndamentosNaoLidos.tsx` (se passar a prop)
+- `src/hooks/useOABs.ts`
+- `src/hooks/useAllProcessosOAB.ts`
 
 ## Impacto
 
-- **Usuário final (super-admin):** o badge passa a ser clicável. Em um único Popover dá pra escolher um sistema existente, criar um novo, editar nome/cor ou excluir — tudo sem sair do painel do processo. Quando nada está definido, segue mostrando a sigla automática (mudança invisível para processos não-editados).
-- **Dados:** nova tabela pequena + nova coluna nullable em `processos_oab` (sem backfill, sem migrar dados antigos). RLS exige `super_admins`. Sem impacto perceptível de performance.
-- **Riscos colaterais:** baixos. Excluir um sistema do catálogo deixa processos que o usavam com `sistema_tag` "órfão" — o painel passa a exibir o fallback (`tribunal_sigla`) automaticamente, sem erro. Mudanças nas edge functions são aditivas (campo opcional).
-- **Quem é afetado:** apenas super-admins. Tenants e advogados não veem mudança nenhuma — o badge e o catálogo vivem só no painel super-admin.
+- **Usuário final:** a aba "Andamentos" deixa de exibir o card azul com botão "Carregar Andamentos". Processos sem andamentos passam a mostrar apenas "Nenhum andamento" (mensagem neutra). O botão de **Atualizar** (refresh) ao lado da contagem continua existindo — ele só aparece quando já existe `detalhes_request_id` e serve para reconsultar o tribunal, então não é a mesma funcionalidade. No `OABManager`, somem os states/dialog em lote (não há botão acionando hoje, então sem impacto visível extra).
+- **Dados:** nenhuma migration, nada removido do banco. Andamentos já existentes permanecem.
+- **Riscos colaterais:** processos antigos que nunca tiveram andamentos buscados vão ficar permanentemente vazios na aba até que entrem pelo fluxo automático de importação ou monitoramento — não haverá mais um botão manual para forçar a primeira busca. Importações novas (via `ImportarProcessoDialog`) continuam carregando em background, então o fluxo padrão de criação não muda.
+- **Quem é afetado:** todos os usuários que abrem o detalhe de um processo OAB (Controladoria, Agenda, Projetos, Central de andamentos). Super-admin não é afetado — esse painel é independente.
 
 ## Validação
 
-1. Migration aplica; `select * from super_admin_sistemas_processo` retorna vazio (sem seed — usuário cria).
-2. Abrir um processo OAB no `/super-admin`: badge clicável; popover abre vazio com "+ Novo sistema".
-3. Criar "EPROC" com cor → aparece na lista e é aplicado ao processo; badge muda imediatamente.
-4. Reabrir o painel: badge persistido. Editar cor → reflete na hora. Excluir o sistema → badge volta à sigla automática.
-5. Conferir nos logs da edge function de meta que `sistema_tag` é gravado em `processos_oab.sistema_tag`.
+1. Abrir um processo OAB sem andamentos: aba "Andamentos" mostra mensagem neutra, **sem botão** "Carregar Andamentos".
+2. Abrir um processo OAB com andamentos: lista normal aparece; botão de Atualizar (ícone refresh ao lado da contagem) continua funcionando.
+3. Conferir no `OABManager` que não há referências a `lawsuitBatchDialogOpen` / `carregarDetalhesLote` (build limpo, sem warnings de variáveis não usadas).
+4. `rg "Carregar Andamentos"` deve retornar zero resultados em `src/`.
