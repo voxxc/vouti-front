@@ -1434,7 +1434,7 @@ export const ProcessoOABDetalhes = ({
             </TabsContent>
 
             {/* Andamentos */}
-            <TabsContent value="andamentos" className="mt-4">
+            <TabsContent value="andamentos" className="mt-4 flex-1 min-h-0 flex flex-col">
               {andamentos.length === 0 ? (
                 <div className="p-6 text-center space-y-2 border rounded-lg bg-muted/30 mb-4">
                   <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -1475,7 +1475,7 @@ export const ProcessoOABDetalhes = ({
                     )}
                   </div>
 
-                  <ScrollArea className="h-[calc(100vh-400px)]">
+                  <ScrollArea className="h-full flex-1 min-h-0">
                     {loadingAndamentos ? (
                       <div className="flex items-center justify-center py-8">
                         <Loader2 className="w-5 h-5 animate-spin" />
