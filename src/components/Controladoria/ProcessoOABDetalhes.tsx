@@ -1606,14 +1606,14 @@ export const ProcessoOABDetalhes = ({
                     })}
                     </div>
                   )}
-                </ScrollArea>
+                </div>
               </>
               )}
           </TabsContent>
 
             {/* Intimacoes - Cards estruturados com deteccao inteligente */}
-            <TabsContent value="intimacoes" className="mt-4 flex-1 min-h-0">
-              <ScrollArea className="h-full">
+            <TabsContent value="intimacoes" className="mt-4">
+              <div>
                 {intimacoes.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <MessageSquareWarning className="w-8 h-8 mx-auto mb-2" />
