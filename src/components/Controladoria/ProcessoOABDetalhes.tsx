@@ -77,6 +77,7 @@ import { useFeatureFlag } from '@/hooks/useFeatureFlag';
 import { parseIntimacao, countIntimacoesUrgentes } from '@/utils/intimacaoParser';
 import AutomacaoPrazosCard from './AutomacaoPrazosCard';
 import ApartadoCard from './ApartadoCard';
+import { ProcessoApartadoBranch } from './ProcessoApartadoBranch';
 import { useCanUseApartados } from '@/hooks/useCanUseApartados';
 import { PrazosCasoTab } from './PrazosCasoTab';
 import { supabase } from '@/integrations/supabase/client';
