@@ -1578,6 +1578,59 @@ export const ProcessoOABDetalhes = ({
                   )}
 
                   {/* SECAO: LINK TRIBUNAL */}
+                  {editandoResumo && (
+                    <>
+                      <Separator />
+                      <SectionHeader icon={FileText} title="Cadastro Interno" />
+                      <div className="grid grid-cols-2 gap-3 pl-1">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">
+                            Data de cadastro no sistema
+                          </Label>
+                          <Input
+                            type="date"
+                            value={formResumo.data_cadastro_sistema}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, data_cadastro_sistema: e.target.value }))}
+                          />
+                          <p className="text-[10px] text-muted-foreground">
+                            Use para corrigir cadastros retroativos. Não altera created_at.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-1 pl-1">
+                        <Label className="text-xs text-muted-foreground">Observações internas</Label>
+                        <Textarea
+                          value={formResumo.observacoes}
+                          onChange={(e) => setFormResumo(prev => ({ ...prev, observacoes: e.target.value }))}
+                          placeholder="Anotações da controladoria sobre este processo..."
+                          rows={4}
+                          maxLength={5000}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {!editandoResumo && ((processo as any).observacoes || (processo as any).data_cadastro_sistema) && (
+                    <>
+                      <Separator />
+                      <SectionHeader icon={FileText} title="Cadastro Interno" />
+                      <div className="space-y-3 pl-1">
+                        {(processo as any).data_cadastro_sistema && (
+                          <InfoItem
+                            label="Data de cadastro no sistema"
+                            value={formatData((processo as any).data_cadastro_sistema)}
+                          />
+                        )}
+                        {(processo as any).observacoes && (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Observações</p>
+                            <p className="text-sm whitespace-pre-wrap">{(processo as any).observacoes}</p>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+
                   {editandoResumo ? (
                     <>
                       <Separator />
