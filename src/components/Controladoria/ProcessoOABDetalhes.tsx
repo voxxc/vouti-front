@@ -733,7 +733,7 @@ export const ProcessoOABDetalhes = ({
           </SheetTitle>
         </SheetHeader>
 
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 space-y-4 flex flex-col h-[calc(100vh-5rem)]">
           {/* Cabecalho com Numero + Valor + Badges */}
           <div className="p-4 bg-muted/30 rounded-lg space-y-2">
             <p className="font-mono text-base font-semibold">{processo.numero_cnj}</p>
@@ -1085,7 +1085,7 @@ export const ProcessoOABDetalhes = ({
           <Tabs value={activeTab} onValueChange={(val) => {
               setActiveTab(val);
               if (val === 'prazos') setPrazosRefreshKey(k => k + 1);
-            }} className="flex-1">
+            }} className="flex-1 min-h-0 flex flex-col">
             <TabsList className="grid grid-cols-4 sm:grid-cols-7 w-full h-auto gap-0.5 p-1 overflow-visible">
               <TabsTrigger value="resumo" title="Resumo" className="text-[10px] sm:text-[11px] md:text-xs px-1 sm:px-1.5 py-1.5 min-w-0 whitespace-nowrap">Resumo</TabsTrigger>
               <TabsTrigger value="andamentos" title="Andamentos" className="relative overflow-visible text-[10px] sm:text-[11px] md:text-xs px-1 sm:px-1.5 pt-3 pb-1.5 min-w-0 whitespace-nowrap">
@@ -1120,8 +1120,8 @@ export const ProcessoOABDetalhes = ({
             </TabsList>
 
             {/* Resumo - COM MODO EDIÇÃO */}
-            <TabsContent value="resumo" className="mt-4">
-              <ScrollArea className="h-[calc(100vh-420px)]">
+            <TabsContent value="resumo" className="mt-4 flex-1 min-h-0">
+              <ScrollArea className="h-full">
                 <div className="space-y-6 pr-4">
                   
                   {/* Barra de edição */}
@@ -1434,7 +1434,7 @@ export const ProcessoOABDetalhes = ({
             </TabsContent>
 
             {/* Andamentos */}
-            <TabsContent value="andamentos" className="mt-4">
+            <TabsContent value="andamentos" className="mt-4 flex-1 min-h-0 flex flex-col">
               {andamentos.length === 0 ? (
                 <div className="p-6 text-center space-y-2 border rounded-lg bg-muted/30 mb-4">
                   <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -1475,7 +1475,7 @@ export const ProcessoOABDetalhes = ({
                     )}
                   </div>
 
-                  <ScrollArea className="h-[calc(100vh-400px)]">
+                  <ScrollArea className="h-full flex-1 min-h-0">
                     {loadingAndamentos ? (
                       <div className="flex items-center justify-center py-8">
                         <Loader2 className="w-5 h-5 animate-spin" />
@@ -1612,8 +1612,8 @@ export const ProcessoOABDetalhes = ({
           </TabsContent>
 
             {/* Intimacoes - Cards estruturados com deteccao inteligente */}
-            <TabsContent value="intimacoes" className="mt-4">
-              <ScrollArea className="h-[calc(100vh-350px)]">
+            <TabsContent value="intimacoes" className="mt-4 flex-1 min-h-0">
+              <ScrollArea className="h-full">
                 {intimacoes.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <MessageSquareWarning className="w-8 h-8 mx-auto mb-2" />
@@ -1693,8 +1693,8 @@ export const ProcessoOABDetalhes = ({
             </TabsContent>
 
             {/* Partes - COM MODO EDIÇÃO */}
-            <TabsContent value="partes" className="mt-4">
-              <ScrollArea className="h-[calc(100vh-350px)]">
+            <TabsContent value="partes" className="mt-4 flex-1 min-h-0">
+              <ScrollArea className="h-full">
                 <div className="space-y-6 pr-4">
                   
                   {/* Barra de edição de partes */}
@@ -1941,17 +1941,17 @@ export const ProcessoOABDetalhes = ({
             </TabsContent>
 
             {/* Vouti IA */}
-            <TabsContent value="vouti-ia" className="mt-4 h-[calc(100vh-350px)]">
+            <TabsContent value="vouti-ia" className="mt-4 flex-1 min-h-0">
               <VoutiIATab processoOabId={processo.id} />
             </TabsContent>
 
             {/* Prazos */}
-            <TabsContent value="prazos" className="mt-4">
+            <TabsContent value="prazos" className="mt-4 flex-1 min-h-0 overflow-y-auto">
               <PrazosCasoTab key={prazosRefreshKey} processoOabId={processo.id} />
             </TabsContent>
 
             {/* Tarefas */}
-            <TabsContent value="tarefas" className="mt-4">
+            <TabsContent value="tarefas" className="mt-4 flex-1 min-h-0 overflow-y-auto">
               <TarefasTab processo={processo} oab={oab || null} />
             </TabsContent>
           </Tabs>
