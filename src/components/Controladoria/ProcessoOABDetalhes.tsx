@@ -1957,6 +1957,7 @@ export const ProcessoOABDetalhes = ({
               <TarefasTab processo={processo} oab={oab || null} />
             </TabsContent>
           </Tabs>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
