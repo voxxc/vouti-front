@@ -1612,8 +1612,8 @@ export const ProcessoOABDetalhes = ({
           </TabsContent>
 
             {/* Intimacoes - Cards estruturados com deteccao inteligente */}
-            <TabsContent value="intimacoes" className="mt-4">
-              <ScrollArea className="h-[calc(100vh-350px)]">
+            <TabsContent value="intimacoes" className="mt-4 flex-1 min-h-0">
+              <ScrollArea className="h-full">
                 {intimacoes.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <MessageSquareWarning className="w-8 h-8 mx-auto mb-2" />
@@ -1693,8 +1693,8 @@ export const ProcessoOABDetalhes = ({
             </TabsContent>
 
             {/* Partes - COM MODO EDIÇÃO */}
-            <TabsContent value="partes" className="mt-4">
-              <ScrollArea className="h-[calc(100vh-350px)]">
+            <TabsContent value="partes" className="mt-4 flex-1 min-h-0">
+              <ScrollArea className="h-full">
                 <div className="space-y-6 pr-4">
                   
                   {/* Barra de edição de partes */}
@@ -1941,7 +1941,7 @@ export const ProcessoOABDetalhes = ({
             </TabsContent>
 
             {/* Vouti IA */}
-            <TabsContent value="vouti-ia" className="mt-4 h-[calc(100vh-350px)]">
+            <TabsContent value="vouti-ia" className="mt-4 flex-1 min-h-0">
               <VoutiIATab processoOabId={processo.id} />
             </TabsContent>
 
