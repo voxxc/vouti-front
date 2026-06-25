@@ -212,7 +212,8 @@ export const ProcessoOABDetalhes = ({
   onConsultarDetalhesRequest,
   onResetarProcesso,
   onAtualizarProcesso,
-  oab
+  oab,
+  onSelecionarProcesso,
 }: ProcessoOABDetalhesProps) => {
   const { andamentos, loading: loadingAndamentos, fetchAndamentos, marcarComoLida, marcarTodasComoLidas } = useAndamentosOAB(processo?.id || null);
   const { anexosPorStep, downloading, downloadAnexo } = useProcessoAnexos(processo?.id || null);
