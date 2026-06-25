@@ -336,6 +336,7 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                   onLabelFilterChange={setSelectedLabelIds}
                   currentUserId={currentUserId}
                   showRevisionais={isSolvenza}
+                  showMandamentais={isSolvenza}
                 />
               </div>
 
@@ -369,6 +370,15 @@ export function PlanejadorDrawer({ open, onOpenChange, initialTaskId, onInitialT
                   />
                 ) : activeTab === 'revisionais' && isSolvenza ? (
                   <PlanejadorRevisionaisView
+                    profiles={profiles}
+                    searchQuery={searchQuery}
+                    onOpenDeadline={(id) => {
+                      setDeadlineDetailId(id);
+                      setDeadlineDetailOpen(true);
+                    }}
+                  />
+                ) : activeTab === 'mandamentais' && isSolvenza ? (
+                  <PlanejadorMandamentaisView
                     profiles={profiles}
                     searchQuery={searchQuery}
                     onOpenDeadline={(id) => {
