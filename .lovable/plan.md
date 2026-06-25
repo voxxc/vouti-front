@@ -1,27 +1,29 @@
 ## Causa raiz
-O `ScrollArea` da aba **Resumo** em `src/components/Controladoria/ProcessoOABDetalhes.tsx` (linha 1124) usa altura fixa `h-[calc(100vh-420px)]`. O cabeçalho do drawer agora cresceu (alerta de Sigiloso + alerta de Apartado + card "Estrutura do processo" + card de Monitoramento), empurrando o ScrollArea para baixo da viewport. Como o `SheetContent` está com `overflow-visible` e o calc não acompanha a altura real do cabeçalho, o conteúdo do Resumo é cortado/some no fim da tela sem scroll.
+Hoje só o conteúdo da aba Resumo (dentro do `ScrollArea`) rola. O cabeçalho com CNJ + badges, os alertas (sigiloso/apartado), o branch e o card de monitoramento ficam fixos acima das tabs, então quando o usuário entra na aba Resumo só sobra uma faixa pequena rolando — visualmente quebrado.
 
 ## Correção
-Tornar o layout do `SheetContent` baseado em flex para que a área de tabs ocupe o espaço restante dinamicamente:
+Tornar todo o conteúdo abaixo do cabeçalho rolável de uma vez, deixando fixo apenas o bloco do nome do processo no topo.
 
-1. Converter o wrapper `<div className="mt-4 space-y-4">` (linha 736) em `flex flex-col` com altura limitada (`h-[calc(100vh-7rem)]` ou similar baseado no `SheetHeader`).
-2. Separar o cabeçalho dinâmico (CNJ box, alertas, branch, monitoramento) num bloco `shrink-0` que rola junto se necessário (`overflow-y-auto`) — ou mantê-lo fixo e deixar só a tab rolar.
-3. O container `<Tabs>` recebe `flex-1 min-h-0 flex flex-col`, e cada `TabsContent` (Resumo, Andamentos, etc.) recebe `flex-1 min-h-0`.
-4. Substituir as alturas calc dos `ScrollArea` por `h-full` para que se ajustem ao container flex.
+Em `src/components/Controladoria/ProcessoOABDetalhes.tsx`:
 
-Abordagem mais conservadora alternativa (caso prefira menor blast radius): apenas trocar o `ScrollArea h-[calc(100vh-420px)]` do Resumo por `h-[calc(100vh-560px)]` para acomodar o cabeçalho atual. Porém isso quebra de novo se o cabeçalho mudar — recomendado o flex.
+1. Manter fixo apenas o card `Cabeçalho com Número + Valor + Badges` (linhas 738–766).
+2. Envolver tudo abaixo (alertas Sigiloso/Apartado, `ProcessoApartadoBranch`, alerta "Em processamento", Card de Monitoramento + credencial Judit, e o bloco `<Tabs>`) em um único container scrollável: `<div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">`.
+3. Remover os `ScrollArea` internos das `TabsContent` (resumo, andamentos, intimações, partes, prazos, tarefas) e os `flex-1 min-h-0` das tabs — agora o scroll é externo, então o conteúdo de cada aba flui naturalmente dentro do scroll global.
+4. Os `AlertDialog` ficam fora do container scroll (são portais, sem impacto visual).
+5. Remover `sticky top-0` dos cabeçalhos internos das abas (Resumo/Partes), pois deixariam de funcionar dentro do scroll global e ficariam estranhos.
+
+Resultado: ao abrir o drawer, o usuário vê o CNJ sempre fixo no topo; a partir do alerta de segredo de justiça tudo rola junto — alertas, branch, toggle de monitoramento e as tabs com seu conteúdo.
 
 ## Arquivos afetados
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — ajuste de layout no `SheetContent`, wrapper principal, container `<Tabs>` e classes dos `ScrollArea` das abas Resumo, Andamentos, Partes, Intimações.
+- `src/components/Controladoria/ProcessoOABDetalhes.tsx` (única mudança — apenas layout/wrapper, sem tocar em lógica).
 
 ## Impacto
-1. **Usuário final:** o conteúdo do Resumo (Localização, Situação Atual, Automação de Prazos etc.) volta a ser rolável independentemente do tamanho do cabeçalho. Comportamento idêntico em qualquer combinação de alertas (sigiloso/apartado/normal). Demais abas continuam com seus scrolls.
-2. **Dados:** nenhuma alteração. Sem migrations, RLS ou queries.
-3. **Riscos colaterais:** mudança de classes Tailwind no drawer pode alterar levemente a altura visível das outras abas; mitigado mantendo a estrutura interna delas (apenas troco o calc fixo por `h-full`).
-4. **Quem é afetado:** apenas usuários da Controladoria que abrem o drawer de detalhes de processos OAB.
+1. **UX**: rolagem única e contínua no drawer; fim da "janelinha" pequena dentro da aba Resumo. Header com CNJ permanece sempre visível.
+2. **Dados**: nenhum — mudança puramente de apresentação.
+3. **Riscos colaterais**: as outras abas (Andamentos, Intimações, Partes, Prazos, Tarefas) passam a rolar junto com o header dos cards de monitoramento — ou seja, o toggle de monitoramento "sobe" junto. Isso é coerente com o pedido (top fixo é só o nome do processo). Pequenos cabeçalhos `sticky` internos das abas deixam de "grudar".
+4. **Quem é afetado**: todos os usuários que abrem o drawer de detalhes do processo na Controladoria e no Super Admin (se reutilizar o mesmo componente).
 
 ## Validação
-- Abrir um processo apartado + sigiloso (cabeçalho grande): confirmar que a aba Resumo rola até o fim ("Automação de Prazos").
-- Abrir um processo normal (cabeçalho pequeno): confirmar que o Resumo ocupa mais espaço e ainda rola se necessário.
-- Verificar abas Andamentos, Partes e Intimações: scroll continua funcionando, sem cortes.
-- Testar em viewport mobile (largura ~480px) e desktop (1500px+).
+- Abrir um processo sigiloso e um apartado: confirmar que só o card do CNJ fica fixo e o restante rola.
+- Trocar entre as tabs e rolar: conteúdo flui sem barras duplas.
+- Verificar em viewport pequeno (mobile) que o scroll continua único.

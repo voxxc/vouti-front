@@ -765,6 +765,8 @@ export const ProcessoOABDetalhes = ({
             )}
           </div>
 
+          {/* Área scrollável única — tudo abaixo do cabeçalho rola junto */}
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
           {/* Alerta de Processo Sigiloso */}
           {isProcessoSigiloso && !processo.monitoramento_ativo && (
             <Card className="p-3 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
@@ -1085,7 +1087,7 @@ export const ProcessoOABDetalhes = ({
           <Tabs value={activeTab} onValueChange={(val) => {
               setActiveTab(val);
               if (val === 'prazos') setPrazosRefreshKey(k => k + 1);
-            }} className="flex-1 min-h-0 flex flex-col">
+            }} className="flex flex-col">
             <TabsList className="grid grid-cols-4 sm:grid-cols-7 w-full h-auto gap-0.5 p-1 overflow-visible">
               <TabsTrigger value="resumo" title="Resumo" className="text-[10px] sm:text-[11px] md:text-xs px-1 sm:px-1.5 py-1.5 min-w-0 whitespace-nowrap">Resumo</TabsTrigger>
               <TabsTrigger value="andamentos" title="Andamentos" className="relative overflow-visible text-[10px] sm:text-[11px] md:text-xs px-1 sm:px-1.5 pt-3 pb-1.5 min-w-0 whitespace-nowrap">
@@ -1120,13 +1122,12 @@ export const ProcessoOABDetalhes = ({
             </TabsList>
 
             {/* Resumo - COM MODO EDIÇÃO */}
-            <TabsContent value="resumo" className="mt-4 flex-1 min-h-0">
-              <ScrollArea className="h-full">
-                <div className="space-y-6 pr-4">
+            <TabsContent value="resumo" className="mt-4">
+              <div className="space-y-6">
                   
                   {/* Barra de edição */}
                   {editandoResumo ? (
-                    <Card className="p-3 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 sticky top-0 z-10">
+                    <Card className="p-3 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Pencil className="w-4 h-4 text-blue-600" />
@@ -1429,12 +1430,11 @@ export const ProcessoOABDetalhes = ({
                       </div>
                     </>
                   )}
-                </div>
-              </ScrollArea>
+              </div>
             </TabsContent>
 
             {/* Andamentos */}
-            <TabsContent value="andamentos" className="mt-4 flex-1 min-h-0 flex flex-col">
+            <TabsContent value="andamentos" className="mt-4">
               {andamentos.length === 0 ? (
                 <div className="p-6 text-center space-y-2 border rounded-lg bg-muted/30 mb-4">
                   <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -1475,7 +1475,7 @@ export const ProcessoOABDetalhes = ({
                     )}
                   </div>
 
-                  <ScrollArea className="h-full flex-1 min-h-0">
+                  <div>
                     {loadingAndamentos ? (
                       <div className="flex items-center justify-center py-8">
                         <Loader2 className="w-5 h-5 animate-spin" />
@@ -1486,7 +1486,7 @@ export const ProcessoOABDetalhes = ({
                         <p>Nenhum andamento encontrado</p>
                       </div>
                     ) : (
-                  <div className="space-y-3 pr-4">
+                  <div className="space-y-3">
                     {andamentos.map((andamento) => {
                       const stepId = andamento.dados_completos?.id || andamento.dados_completos?.step_id;
                       const anexosDoAndamento = stepId ? (anexosPorStep.get(stepId) || []) : [];
@@ -1606,14 +1606,14 @@ export const ProcessoOABDetalhes = ({
                     })}
                     </div>
                   )}
-                </ScrollArea>
+                </div>
               </>
               )}
           </TabsContent>
 
             {/* Intimacoes - Cards estruturados com deteccao inteligente */}
-            <TabsContent value="intimacoes" className="mt-4 flex-1 min-h-0">
-              <ScrollArea className="h-full">
+            <TabsContent value="intimacoes" className="mt-4">
+              <div>
                 {intimacoes.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <MessageSquareWarning className="w-8 h-8 mx-auto mb-2" />
@@ -1646,7 +1646,7 @@ export const ProcessoOABDetalhes = ({
                         </Button>
                       )}
                     </div>
-                    <div className="space-y-3 pr-4">
+                    <div className="space-y-3">
                       {intimacoes.map((andamento) => {
                         const stepId = andamento.dados_completos?.id || andamento.dados_completos?.step_id;
                         const anexosDoAndamento = stepId ? (anexosPorStep.get(stepId) || []) : [];
@@ -1689,17 +1689,16 @@ export const ProcessoOABDetalhes = ({
                     </div>
                   </>
                 )}
-              </ScrollArea>
+              </div>
             </TabsContent>
 
             {/* Partes - COM MODO EDIÇÃO */}
-            <TabsContent value="partes" className="mt-4 flex-1 min-h-0">
-              <ScrollArea className="h-full">
-                <div className="space-y-6 pr-4">
+            <TabsContent value="partes" className="mt-4">
+              <div className="space-y-6">
                   
                   {/* Barra de edição de partes */}
                   {editandoPartes ? (
-                    <Card className="p-3 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 sticky top-0 z-10">
+                    <Card className="p-3 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Pencil className="w-4 h-4 text-blue-600" />
@@ -1937,24 +1936,24 @@ export const ProcessoOABDetalhes = ({
                     )
                   )}
                 </div>
-              </ScrollArea>
             </TabsContent>
 
             {/* Vouti IA */}
-            <TabsContent value="vouti-ia" className="mt-4 flex-1 min-h-0">
+            <TabsContent value="vouti-ia" className="mt-4">
               <VoutiIATab processoOabId={processo.id} />
             </TabsContent>
 
             {/* Prazos */}
-            <TabsContent value="prazos" className="mt-4 flex-1 min-h-0 overflow-y-auto">
+            <TabsContent value="prazos" className="mt-4">
               <PrazosCasoTab key={prazosRefreshKey} processoOabId={processo.id} />
             </TabsContent>
 
             {/* Tarefas */}
-            <TabsContent value="tarefas" className="mt-4 flex-1 min-h-0 overflow-y-auto">
+            <TabsContent value="tarefas" className="mt-4">
               <TarefasTab processo={processo} oab={oab || null} />
             </TabsContent>
           </Tabs>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
