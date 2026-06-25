@@ -9,6 +9,7 @@ import { PlanejadorSettings, ColumnConfig } from "./PlanejadorSettings";
 import { PlanejadorPrazosView } from "./PlanejadorPrazosView";
 import { PlanejadorHelloView } from "./PlanejadorHelloView";
 import { PlanejadorRevisionaisView } from "./PlanejadorRevisionaisView";
+import { PlanejadorMandamentaisView } from "./PlanejadorMandamentaisView";
 import { DeadlineDetailDialog } from "@/components/Agenda/DeadlineDetailDialog";
 import { CreateDeadlineDialog } from "@/components/Agenda/CreateDeadlineDialog";
 import { usePlanejadorTasks, PlanejadorTask, KANBAN_COLUMNS, KanbanColumn } from "@/hooks/usePlanejadorTasks";

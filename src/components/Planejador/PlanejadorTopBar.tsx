@@ -36,6 +36,7 @@ interface PlanejadorTopBarProps {
   onLabelFilterChange: (labelIds: string[]) => void;
   currentUserId: string | null;
   showRevisionais?: boolean;
+  showMandamentais?: boolean;
 }
 
 const BASE_TABS = [
@@ -51,11 +52,13 @@ export function PlanejadorTopBar({
   onClose, locked, onToggleLock, onOpenSettings,
   profiles = [], selectedUserId, onUserFilterChange,
   labels = [], selectedLabelIds, onLabelFilterChange,
-  currentUserId, showRevisionais = false,
+  currentUserId, showRevisionais = false, showMandamentais = false,
 }: PlanejadorTopBarProps) {
-  const TABS = showRevisionais
-    ? [...BASE_TABS, { id: 'revisionais', label: 'Revisionais' }]
-    : BASE_TABS;
+  const TABS = [
+    ...BASE_TABS,
+    ...(showRevisionais ? [{ id: 'revisionais', label: 'Revisionais' }] : []),
+    ...(showMandamentais ? [{ id: 'mandamentais', label: 'Mandamentais' }] : []),
+  ];
   const { theme } = useTheme();
   const isMobile = useIsMobile();
   const isDark = theme === 'dark';
