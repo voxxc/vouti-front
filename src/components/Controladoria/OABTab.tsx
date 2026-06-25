@@ -71,6 +71,17 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
   
   const { tenantId } = useTenantId();
 
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { oabId?: string } | undefined;
+      if (!detail?.oabId || detail.oabId === oabId) {
+        fetchProcessos();
+      }
+    };
+    window.addEventListener('oab:processos-changed', handler);
+    return () => window.removeEventListener('oab:processos-changed', handler);
+  }, [oabId, fetchProcessos]);
+
   const resetarProcesso = async (
     processoId: string,
     numeroCnj: string,
