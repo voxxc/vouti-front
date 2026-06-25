@@ -392,7 +392,11 @@ export const OABManager = () => {
           oab={selectedOabForImport}
           onSuccess={() => {
             fetchOABs();
-            window.location.reload();
+            window.dispatchEvent(
+              new CustomEvent('oab:processos-changed', {
+                detail: { oabId: selectedOabForImport.id },
+              })
+            );
           }}
         />
       )}
