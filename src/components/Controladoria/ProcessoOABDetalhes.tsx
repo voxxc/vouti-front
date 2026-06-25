@@ -840,8 +840,7 @@ export const ProcessoOABDetalhes = ({
             </Card>
           )}
 
-          {/* Toggle de Monitoramento */}
-          {(monitoramentoFeatureEnabled || processo.monitoramento_ativo || (processo as any).apartado) && (
+          {/* Toggle de Monitoramento (sempre visível) */}
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
