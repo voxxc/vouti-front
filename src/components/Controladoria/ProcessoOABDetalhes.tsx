@@ -1475,7 +1475,7 @@ export const ProcessoOABDetalhes = ({
                     )}
                   </div>
 
-                  <ScrollArea className="h-full flex-1 min-h-0">
+                  <div>
                     {loadingAndamentos ? (
                       <div className="flex items-center justify-center py-8">
                         <Loader2 className="w-5 h-5 animate-spin" />
@@ -1486,7 +1486,7 @@ export const ProcessoOABDetalhes = ({
                         <p>Nenhum andamento encontrado</p>
                       </div>
                     ) : (
-                  <div className="space-y-3 pr-4">
+                  <div className="space-y-3">
                     {andamentos.map((andamento) => {
                       const stepId = andamento.dados_completos?.id || andamento.dados_completos?.step_id;
                       const anexosDoAndamento = stepId ? (anexosPorStep.get(stepId) || []) : [];
