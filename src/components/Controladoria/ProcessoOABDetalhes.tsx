@@ -1122,13 +1122,12 @@ export const ProcessoOABDetalhes = ({
             </TabsList>
 
             {/* Resumo - COM MODO EDIÇÃO */}
-            <TabsContent value="resumo" className="mt-4 flex-1 min-h-0">
-              <ScrollArea className="h-full">
-                <div className="space-y-6 pr-4">
+            <TabsContent value="resumo" className="mt-4">
+              <div className="space-y-6">
                   
                   {/* Barra de edição */}
                   {editandoResumo ? (
-                    <Card className="p-3 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 sticky top-0 z-10">
+                    <Card className="p-3 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Pencil className="w-4 h-4 text-blue-600" />
