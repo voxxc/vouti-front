@@ -103,6 +103,7 @@ interface ProcessoOABDetalhesProps {
   ) => Promise<any>;
   onAtualizarProcesso?: (processoId: string, dados: Partial<ProcessoOAB>) => Promise<boolean>;
   oab?: OABCadastrada | null;
+  onSelecionarProcesso?: (processoId: string) => void;
 }
 
 // Interface para parte editável
