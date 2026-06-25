@@ -1,29 +1,25 @@
 ## Causa raiz
-Hoje só o conteúdo da aba Resumo (dentro do `ScrollArea`) rola. O cabeçalho com CNJ + badges, os alertas (sigiloso/apartado), o branch e o card de monitoramento ficam fixos acima das tabs, então quando o usuário entra na aba Resumo só sobra uma faixa pequena rolando — visualmente quebrado.
+Após importar um CNJ, `OABManager.onSuccess` chama `window.location.reload()`, forçando refresh completo da página (perda de scroll, estado das abas, recarregamento de todos os caches). Isso era um workaround porque a lista de processos (`OABTab` → `useProcessosOAB`) não era notificada da mudança.
 
 ## Correção
-Tornar todo o conteúdo abaixo do cabeçalho rolável de uma vez, deixando fixo apenas o bloco do nome do processo no topo.
+Remover o reload e fazer refresh silencioso via evento de janela.
 
-Em `src/components/Controladoria/ProcessoOABDetalhes.tsx`:
+1. Em `src/components/Controladoria/OABManager.tsx`:
+   - No `onSuccess` do `ImportarProcessoCNJDialog`, manter `fetchOABs()` (atualiza contadores nas abas), remover `window.location.reload()` e disparar `window.dispatchEvent(new CustomEvent('oab:processos-changed', { detail: { oabId: selectedOabForImport.id } }))`.
 
-1. Manter fixo apenas o card `Cabeçalho com Número + Valor + Badges` (linhas 738–766).
-2. Envolver tudo abaixo (alertas Sigiloso/Apartado, `ProcessoApartadoBranch`, alerta "Em processamento", Card de Monitoramento + credencial Judit, e o bloco `<Tabs>`) em um único container scrollável: `<div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">`.
-3. Remover os `ScrollArea` internos das `TabsContent` (resumo, andamentos, intimações, partes, prazos, tarefas) e os `flex-1 min-h-0` das tabs — agora o scroll é externo, então o conteúdo de cada aba flui naturalmente dentro do scroll global.
-4. Os `AlertDialog` ficam fora do container scroll (são portais, sem impacto visual).
-5. Remover `sticky top-0` dos cabeçalhos internos das abas (Resumo/Partes), pois deixariam de funcionar dentro do scroll global e ficariam estranhos.
-
-Resultado: ao abrir o drawer, o usuário vê o CNJ sempre fixo no topo; a partir do alerta de segredo de justiça tudo rola junto — alertas, branch, toggle de monitoramento e as tabs com seu conteúdo.
+2. Em `src/components/Controladoria/OABTab.tsx`:
+   - Adicionar `useEffect` que escuta `oab:processos-changed`; quando `detail.oabId === oabId` (ou ausente), chama `fetchProcessos()` silenciosamente (sem alterar loading visual — `useProcessosOAB` já mantém os dados anteriores até o refetch completar).
 
 ## Arquivos afetados
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx` (única mudança — apenas layout/wrapper, sem tocar em lógica).
+- `src/components/Controladoria/OABManager.tsx`
+- `src/components/Controladoria/OABTab.tsx`
 
 ## Impacto
-1. **UX**: rolagem única e contínua no drawer; fim da "janelinha" pequena dentro da aba Resumo. Header com CNJ permanece sempre visível.
-2. **Dados**: nenhum — mudança puramente de apresentação.
-3. **Riscos colaterais**: as outras abas (Andamentos, Intimações, Partes, Prazos, Tarefas) passam a rolar junto com o header dos cards de monitoramento — ou seja, o toggle de monitoramento "sobe" junto. Isso é coerente com o pedido (top fixo é só o nome do processo). Pequenos cabeçalhos `sticky` internos das abas deixam de "grudar".
-4. **Quem é afetado**: todos os usuários que abrem o drawer de detalhes do processo na Controladoria e no Super Admin (se reutilizar o mesmo componente).
+- UX: ao importar um CNJ o modal fecha, a aba atual permanece, contadores e lista atualizam suavemente — sem flash branco nem perda de contexto.
+- Dados: nenhum. Apenas reaproveita `fetchOABs`/`fetchProcessos` existentes.
+- Riscos: baixos. Se a aba aberta não for a da OAB importada, ainda assim os contadores atualizam via `fetchOABs`; ao trocar para a aba, `OABTab` já refaz fetch no mount.
+- Quem é afetado: usuários da Controladoria que importam processos via CNJ.
 
 ## Validação
-- Abrir um processo sigiloso e um apartado: confirmar que só o card do CNJ fica fixo e o restante rola.
-- Trocar entre as tabs e rolar: conteúdo flui sem barras duplas.
-- Verificar em viewport pequeno (mobile) que o scroll continua único.
+- Importar um CNJ válido com a aba da OAB aberta → modal fecha, processo aparece na lista sem reload, badge de contagem incrementa.
+- Importar um CNJ estando na aba "Geral" → contagem da OAB destino atualiza no header das abas.
