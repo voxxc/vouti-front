@@ -1646,7 +1646,7 @@ export const ProcessoOABDetalhes = ({
                         </Button>
                       )}
                     </div>
-                    <div className="space-y-3 pr-4">
+                    <div className="space-y-3">
                       {intimacoes.map((andamento) => {
                         const stepId = andamento.dados_completos?.id || andamento.dados_completos?.step_id;
                         const anexosDoAndamento = stepId ? (anexosPorStep.get(stepId) || []) : [];
@@ -1689,17 +1689,16 @@ export const ProcessoOABDetalhes = ({
                     </div>
                   </>
                 )}
-              </ScrollArea>
+              </div>
             </TabsContent>
 
             {/* Partes - COM MODO EDIÇÃO */}
-            <TabsContent value="partes" className="mt-4 flex-1 min-h-0">
-              <ScrollArea className="h-full">
-                <div className="space-y-6 pr-4">
+            <TabsContent value="partes" className="mt-4">
+              <div className="space-y-6">
                   
                   {/* Barra de edição de partes */}
                   {editandoPartes ? (
-                    <Card className="p-3 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 sticky top-0 z-10">
+                    <Card className="p-3 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Pencil className="w-4 h-4 text-blue-600" />
