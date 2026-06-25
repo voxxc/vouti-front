@@ -27,7 +27,7 @@ const getBaseCnj = (numero: string): string => {
 const getSufixo = (numero: string): string => {
   if (!numero) return '';
   const idx = numero.indexOf('/');
-  return idx >= 0 ? numero.slice(idx) : '';
+  return idx >= 0 ? numero.slice(idx + 1) : '';
 };
 
 export const ProcessoApartadoBranch = ({
@@ -83,7 +83,13 @@ export const ProcessoApartadoBranch = ({
     ? `${base.slice(0, 7)}-${base.slice(7, 9)}.${base.slice(9, 13)}.${base.slice(13, 14)}.${base.slice(14, 16)}.${base.slice(16, 20)}`
     : base;
 
-  const renderRow = (label: string, sub: string | null, id: string | null, atual: boolean, indent: number) => {
+  const renderRow = (
+    label: string,
+    id: string | null,
+    atual: boolean,
+    indent: number,
+    isApartadoRow: boolean,
+  ) => {
     const clicavel = !!id && !atual && !!onSelecionarProcesso;
     return (
       <button
@@ -103,8 +109,8 @@ export const ProcessoApartadoBranch = ({
         <span className={cn('font-mono', atual ? 'font-semibold' : 'text-muted-foreground')}>
           {label}
         </span>
-        {sub && (
-          <span className="font-mono text-xs text-muted-foreground truncate">{sub}</span>
+        {isApartadoRow && (
+          <Badge variant="outline" className="text-[10px] h-5">apartado</Badge>
         )}
         {atual && (
           <Badge variant="secondary" className="ml-auto text-[10px] h-5">atual</Badge>
@@ -122,7 +128,7 @@ export const ProcessoApartadoBranch = ({
       <div className="space-y-0.5">
         {/* Raiz: o original (se existir) ou apenas o CNJ base como rótulo */}
         {original
-          ? renderRow(baseFormatada, null, original.id, original.id === processoId, 0)
+          ? renderRow(baseFormatada, original.id, original.id === processoId, 0, false)
           : (
             <div
               className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-md"
@@ -136,9 +142,10 @@ export const ProcessoApartadoBranch = ({
           )}
         {apartados.map((ap) => {
           const sufixo = getSufixo(ap.numero_cnj);
+          const label = sufixo || ap.numero_cnj;
           return (
             <div key={ap.id}>
-              {renderRow('Apartado', sufixo || `(${ap.numero_cnj})`, ap.id, ap.id === processoId, 1)}
+              {renderRow(label, ap.id, ap.id === processoId, 1, true)}
             </div>
           );
         })}
