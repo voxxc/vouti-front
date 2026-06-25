@@ -5782,6 +5782,7 @@ export type Database = {
           api_provider: string
           capa_completa: Json | null
           created_at: string | null
+          data_cadastro_sistema: string | null
           data_distribuicao: string | null
           detalhes_carregados: boolean | null
           detalhes_completos: Json | null
@@ -5800,6 +5801,7 @@ export type Database = {
           notificado_em: string | null
           numero_cnj: string
           oab_id: string
+          observacoes: string | null
           ordem_lista: number | null
           parte_ativa: string | null
           parte_passiva: string | null
@@ -5832,6 +5834,7 @@ export type Database = {
           api_provider?: string
           capa_completa?: Json | null
           created_at?: string | null
+          data_cadastro_sistema?: string | null
           data_distribuicao?: string | null
           detalhes_carregados?: boolean | null
           detalhes_completos?: Json | null
@@ -5850,6 +5853,7 @@ export type Database = {
           notificado_em?: string | null
           numero_cnj: string
           oab_id: string
+          observacoes?: string | null
           ordem_lista?: number | null
           parte_ativa?: string | null
           parte_passiva?: string | null
@@ -5882,6 +5886,7 @@ export type Database = {
           api_provider?: string
           capa_completa?: Json | null
           created_at?: string | null
+          data_cadastro_sistema?: string | null
           data_distribuicao?: string | null
           detalhes_carregados?: boolean | null
           detalhes_completos?: Json | null
@@ -5900,6 +5905,7 @@ export type Database = {
           notificado_em?: string | null
           numero_cnj?: string
           oab_id?: string
+          observacoes?: string | null
           ordem_lista?: number | null
           parte_ativa?: string | null
           parte_passiva?: string | null
