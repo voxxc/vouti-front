@@ -1326,12 +1326,71 @@ export const ProcessoOABDetalhes = ({
                         <InfoItem label="Data Distribuicao" value={formatData(processo.data_distribuicao || capa.distribution_date)} />
                       </>
                     )}
-                    <InfoItem label="Area do Direito" value={capa.area} />
-                    <InfoItem label="Sistema" value={capa.system} />
+                    {editandoResumo ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Área do Direito</Label>
+                          <Input
+                            value={formResumo.area}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, area: e.target.value }))}
+                            placeholder="Ex: Cível, Trabalhista..."
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Valor da Condenação (R$)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formResumo.valor_condenacao}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, valor_condenacao: e.target.value }))}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Valor das Custas (R$)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formResumo.valor_custas}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, valor_custas: e.target.value }))}
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <InfoItem label="Area do Direito" value={capa.area} />
+                        <InfoItem label="Sistema" value={capa.system} />
+                      </>
+                    )}
                   </div>
                   <div className="space-y-3 pl-1">
-                    <InfoItem label="Classe/Tipo" value={getClassificacao(capa)} />
-                    <InfoItem label="Assunto(s)" value={getAssuntos(capa)} />
+                    {editandoResumo ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Classe / Tipo da Ação</Label>
+                          <Input
+                            value={formResumo.classe_tipo}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, classe_tipo: e.target.value }))}
+                            placeholder="Ex: Procedimento Comum Cível"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Assunto(s) <span className="text-[10px]">(separe por vírgula)</span></Label>
+                          <Textarea
+                            value={formResumo.assuntos}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, assuntos: e.target.value }))}
+                            placeholder="Ex: Indenização, Dano Moral"
+                            className="min-h-[60px]"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <InfoItem label="Classe/Tipo" value={getClassificacao(capa)} />
+                        <InfoItem label="Assunto(s)" value={getAssuntos(capa)} />
+                      </>
+                    )}
                   </div>
 
                   <Separator />
@@ -1364,9 +1423,56 @@ export const ProcessoOABDetalhes = ({
                         <InfoItem label="Sigla" value={processo.tribunal_sigla || capa.court?.acronym} />
                       </>
                     )}
-                    <InfoItem label="Estado" value={capa.state} />
-                    <InfoItem label="Cidade" value={capa.city} />
-                    <InfoItem label="Instancia" value={getInstancia(capa.instance)} />
+                    {editandoResumo ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Estado (UF)</Label>
+                          <Select
+                            value={formResumo.state || undefined}
+                            onValueChange={(v) => setFormResumo(prev => ({ ...prev, state: v }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ESTADOS_BRASIL.map((uf) => (
+                                <SelectItem key={uf.value} value={uf.value}>{uf.value} — {uf.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Cidade</Label>
+                          <Input
+                            value={formResumo.city}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, city: e.target.value }))}
+                            placeholder="Ex: São Paulo"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Instância</Label>
+                          <Select
+                            value={formResumo.instance || undefined}
+                            onValueChange={(v) => setFormResumo(prev => ({ ...prev, instance: v }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1ª Instância</SelectItem>
+                              <SelectItem value="2">2ª Instância</SelectItem>
+                              <SelectItem value="3">Tribunal Superior</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <InfoItem label="Estado" value={capa.state} />
+                        <InfoItem label="Cidade" value={capa.city} />
+                        <InfoItem label="Instancia" value={getInstancia(capa.instance)} />
+                      </>
+                    )}
                   </div>
                   <div className="space-y-3 pl-1">
                     {editandoResumo ? (
@@ -1413,8 +1519,39 @@ export const ProcessoOABDetalhes = ({
                         <InfoItem label="Fase" value={processo.fase_processual} />
                       </>
                     )}
-                    <InfoItem label="Juiz Responsavel" value={capa.judge} />
-                    <InfoItem label="Sigilo" value={getSigilo(capa.secrecy_level)} />
+                    {editandoResumo ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Juiz Responsável</Label>
+                          <Input
+                            value={formResumo.juiz}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, juiz: e.target.value }))}
+                            placeholder="Nome do juiz"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Justiça Gratuita</Label>
+                          <Select
+                            value={formResumo.free_justice || '__none'}
+                            onValueChange={(v) => setFormResumo(prev => ({ ...prev, free_justice: v === '__none' ? '' : v }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Não informado" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none">Não informado</SelectItem>
+                              <SelectItem value="sim">Sim</SelectItem>
+                              <SelectItem value="nao">Não</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <InfoItem label="Juiz Responsavel" value={capa.judge} />
+                        <InfoItem label="Sigilo" value={getSigilo(capa.secrecy_level)} />
+                      </>
+                    )}
                   </div>
                   <div className="pl-1">
                     <InfoItem 
