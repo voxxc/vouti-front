@@ -13,20 +13,6 @@ export const useToggleMonitoramento = () => {
     
     try {
       if (!processo.monitoramento_ativo) {
-        // Verificar feature flag global
-        const { data: flag } = await supabase
-          .from('super_admin_feature_flags')
-          .select('enabled')
-          .eq('flag_key', 'escavador_monitoramento_enabled')
-          .maybeSingle();
-        if (!flag?.enabled) {
-          toast({
-            title: 'Funcionalidade desativada',
-            description: 'O monitoramento via Escavador está desligado pelo administrador.',
-            variant: 'destructive',
-          });
-          return false;
-        }
         // Verificar limite do plano
         if (!podeMonitorarProcesso()) {
           toast({
@@ -36,28 +22,47 @@ export const useToggleMonitoramento = () => {
           });
           return false;
         }
-        
-        // ATIVAR: consultar + salvar + mostrar
-        const { data, error } = await supabase.functions.invoke(
-          'escavador-ativar-e-buscar',
-          { 
-            body: { 
-              processoId: processo.id, 
-              numeroProcesso: processo.numero_processo 
-            } 
-          }
-        );
 
-        if (error) throw error;
-        
-        if (!data?.success) {
-          throw new Error(data?.message || 'Processo não encontrado no Escavador');
+        // Verificar feature flag global
+        const { data: flag } = await supabase
+          .from('super_admin_feature_flags')
+          .select('enabled')
+          .eq('flag_key', 'escavador_monitoramento_enabled')
+          .maybeSingle();
+
+        const featureAtiva = !!flag?.enabled;
+        const visualOnly = !featureAtiva || processo.sigiloso || processo.apartado;
+
+        if (visualOnly) {
+          // Ativação puramente visual: apenas marca o flag local, sem chamar API externa.
+          const { error: upsertError } = await supabase
+            .from('processo_monitoramento_escavador')
+            .upsert(
+              { processo_id: processo.id, monitoramento_ativo: true },
+              { onConflict: 'processo_id' }
+            );
+          if (upsertError) throw upsertError;
+        } else {
+          // ATIVAR real: consultar + salvar + mostrar
+          const { data, error } = await supabase.functions.invoke(
+            'escavador-ativar-e-buscar',
+            {
+              body: {
+                processoId: processo.id,
+                numeroProcesso: processo.numero_processo,
+              },
+            }
+          );
+
+          if (error) throw error;
+          if (!data?.success) {
+            throw new Error(data?.message || 'Não foi possível ativar o monitoramento');
+          }
         }
 
         toast({
-          title: "✅ Monitoramento ativado!",
-          description: `${data.totalMovimentacoes} movimentações encontradas e salvas.`,
-          duration: 5000,
+          title: "Monitoramento ativado",
+          description: "Você receberá notificações de novos andamentos.",
         });
       } else {
         // DESATIVAR: apenas flag, mantém histórico
