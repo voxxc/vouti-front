@@ -85,6 +85,7 @@ import { useEscavadorBeta } from '@/hooks/useEscavadorBeta';
 import { useAuth } from '@/contexts/AuthContext';
 import { useJuditSystemNames } from '@/hooks/useJuditSystemNames';
 import { toast } from '@/hooks/use-toast';
+import { ESTADOS_BRASIL } from '@/types/busca-oab';
 
 // Gate temporário: apenas este usuário pode editar a credencial Judit
 // vinculada ao processo (regeneração manual de trackings na SOLVENZA).
@@ -473,7 +474,21 @@ export const ProcessoOABDetalhes = ({
     juizo: '',
     link_tribunal: '',
     tribunal: '',
-    tribunal_sigla: ''
+    tribunal_sigla: '',
+    // Novos campos (mesclados em capa_completa ao salvar)
+    classe_tipo: '',
+    assuntos: '',
+    area: '',
+    juiz: '',
+    instance: '',
+    state: '',
+    city: '',
+    free_justice: '',
+    valor_condenacao: '',
+    valor_custas: '',
+    // Colunas próprias
+    data_cadastro_sistema: '',
+    observacoes: ''
   });
 
   // Estados de edição - Partes
@@ -493,6 +508,14 @@ export const ProcessoOABDetalhes = ({
   // Popular formulário de resumo quando processo muda
   useEffect(() => {
     if (processo) {
+      const capaSrc: any = processo.capa_completa || {};
+      const classeNome =
+        capaSrc.classifications?.[0]?.name ||
+        capaSrc.classifications?.[0] ||
+        '';
+      const assuntosStr = Array.isArray(capaSrc.subjects)
+        ? capaSrc.subjects.map((s: any) => (typeof s === 'string' ? s : s?.name)).filter(Boolean).join(', ')
+        : '';
       setFormResumo({
         parte_ativa: processo.parte_ativa || '',
         parte_passiva: processo.parte_passiva || '',
@@ -503,7 +526,24 @@ export const ProcessoOABDetalhes = ({
         juizo: processo.juizo || '',
         link_tribunal: processo.link_tribunal || '',
         tribunal: processo.tribunal || '',
-        tribunal_sigla: processo.tribunal_sigla || ''
+        tribunal_sigla: processo.tribunal_sigla || '',
+        classe_tipo: classeNome || '',
+        assuntos: assuntosStr,
+        area: capaSrc.area || '',
+        juiz: capaSrc.judge || '',
+        instance: capaSrc.instance != null ? String(capaSrc.instance) : '',
+        state: capaSrc.state || '',
+        city: capaSrc.city || '',
+        free_justice:
+          capaSrc.free_justice === true ? 'sim'
+          : capaSrc.free_justice === false ? 'nao'
+          : '',
+        valor_condenacao:
+          (processo as any).valor_condenacao?.toString?.() ||
+          capaSrc.condemnation_value?.toString?.() || '',
+        valor_custas: capaSrc.court_costs?.toString?.() || '',
+        data_cadastro_sistema: (processo as any).data_cadastro_sistema || '',
+        observacoes: (processo as any).observacoes || ''
       });
       
       // Popular partes editáveis
@@ -600,7 +640,35 @@ export const ProcessoOABDetalhes = ({
     
     setSalvandoResumo(true);
     try {
-      const dados: Partial<ProcessoOAB> = {
+      // Merge dos campos da capa
+      const capaAtual: any = processo.capa_completa || {};
+      const capaMerged: any = { ...capaAtual };
+      if (formResumo.classe_tipo.trim()) {
+        capaMerged.classifications = [{ name: formResumo.classe_tipo.trim() }];
+      }
+      if (formResumo.assuntos.trim()) {
+        capaMerged.subjects = formResumo.assuntos
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((name) => ({ name }));
+      }
+      if (formResumo.area.trim()) capaMerged.area = formResumo.area.trim();
+      else delete capaMerged.area;
+      if (formResumo.juiz.trim()) capaMerged.judge = formResumo.juiz.trim();
+      else delete capaMerged.judge;
+      if (formResumo.instance) capaMerged.instance = Number(formResumo.instance);
+      if (formResumo.state.trim()) capaMerged.state = formResumo.state.trim().toUpperCase();
+      if (formResumo.city.trim()) capaMerged.city = formResumo.city.trim();
+      if (formResumo.free_justice === 'sim') capaMerged.free_justice = true;
+      else if (formResumo.free_justice === 'nao') capaMerged.free_justice = false;
+      else delete capaMerged.free_justice;
+      if (formResumo.valor_condenacao)
+        capaMerged.condemnation_value = parseFloat(formResumo.valor_condenacao);
+      if (formResumo.valor_custas)
+        capaMerged.court_costs = parseFloat(formResumo.valor_custas);
+
+      const dados: Partial<ProcessoOAB> & Record<string, any> = {
         parte_ativa: formResumo.parte_ativa || null,
         parte_passiva: formResumo.parte_passiva || null,
         valor_causa: formResumo.valor_causa ? parseFloat(formResumo.valor_causa) : null,
@@ -610,7 +678,10 @@ export const ProcessoOABDetalhes = ({
         juizo: formResumo.juizo || null,
         link_tribunal: formResumo.link_tribunal || null,
         tribunal: formResumo.tribunal || null,
-        tribunal_sigla: formResumo.tribunal_sigla || null
+        tribunal_sigla: formResumo.tribunal_sigla || null,
+        capa_completa: capaMerged,
+        data_cadastro_sistema: formResumo.data_cadastro_sistema || null,
+        observacoes: formResumo.observacoes || null,
       };
 
       const sucesso = await onAtualizarProcesso(processo.id, dados);
@@ -1255,12 +1326,71 @@ export const ProcessoOABDetalhes = ({
                         <InfoItem label="Data Distribuicao" value={formatData(processo.data_distribuicao || capa.distribution_date)} />
                       </>
                     )}
-                    <InfoItem label="Area do Direito" value={capa.area} />
-                    <InfoItem label="Sistema" value={capa.system} />
+                    {editandoResumo ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Área do Direito</Label>
+                          <Input
+                            value={formResumo.area}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, area: e.target.value }))}
+                            placeholder="Ex: Cível, Trabalhista..."
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Valor da Condenação (R$)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formResumo.valor_condenacao}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, valor_condenacao: e.target.value }))}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Valor das Custas (R$)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formResumo.valor_custas}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, valor_custas: e.target.value }))}
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <InfoItem label="Area do Direito" value={capa.area} />
+                        <InfoItem label="Sistema" value={capa.system} />
+                      </>
+                    )}
                   </div>
                   <div className="space-y-3 pl-1">
-                    <InfoItem label="Classe/Tipo" value={getClassificacao(capa)} />
-                    <InfoItem label="Assunto(s)" value={getAssuntos(capa)} />
+                    {editandoResumo ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Classe / Tipo da Ação</Label>
+                          <Input
+                            value={formResumo.classe_tipo}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, classe_tipo: e.target.value }))}
+                            placeholder="Ex: Procedimento Comum Cível"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Assunto(s) <span className="text-[10px]">(separe por vírgula)</span></Label>
+                          <Textarea
+                            value={formResumo.assuntos}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, assuntos: e.target.value }))}
+                            placeholder="Ex: Indenização, Dano Moral"
+                            className="min-h-[60px]"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <InfoItem label="Classe/Tipo" value={getClassificacao(capa)} />
+                        <InfoItem label="Assunto(s)" value={getAssuntos(capa)} />
+                      </>
+                    )}
                   </div>
 
                   <Separator />
@@ -1293,9 +1423,56 @@ export const ProcessoOABDetalhes = ({
                         <InfoItem label="Sigla" value={processo.tribunal_sigla || capa.court?.acronym} />
                       </>
                     )}
-                    <InfoItem label="Estado" value={capa.state} />
-                    <InfoItem label="Cidade" value={capa.city} />
-                    <InfoItem label="Instancia" value={getInstancia(capa.instance)} />
+                    {editandoResumo ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Estado (UF)</Label>
+                          <Select
+                            value={formResumo.state || undefined}
+                            onValueChange={(v) => setFormResumo(prev => ({ ...prev, state: v }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ESTADOS_BRASIL.map((uf) => (
+                                <SelectItem key={uf.value} value={uf.value}>{uf.value} — {uf.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Cidade</Label>
+                          <Input
+                            value={formResumo.city}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, city: e.target.value }))}
+                            placeholder="Ex: São Paulo"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Instância</Label>
+                          <Select
+                            value={formResumo.instance || undefined}
+                            onValueChange={(v) => setFormResumo(prev => ({ ...prev, instance: v }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1ª Instância</SelectItem>
+                              <SelectItem value="2">2ª Instância</SelectItem>
+                              <SelectItem value="3">Tribunal Superior</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <InfoItem label="Estado" value={capa.state} />
+                        <InfoItem label="Cidade" value={capa.city} />
+                        <InfoItem label="Instancia" value={getInstancia(capa.instance)} />
+                      </>
+                    )}
                   </div>
                   <div className="space-y-3 pl-1">
                     {editandoResumo ? (
@@ -1342,8 +1519,39 @@ export const ProcessoOABDetalhes = ({
                         <InfoItem label="Fase" value={processo.fase_processual} />
                       </>
                     )}
-                    <InfoItem label="Juiz Responsavel" value={capa.judge} />
-                    <InfoItem label="Sigilo" value={getSigilo(capa.secrecy_level)} />
+                    {editandoResumo ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Juiz Responsável</Label>
+                          <Input
+                            value={formResumo.juiz}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, juiz: e.target.value }))}
+                            placeholder="Nome do juiz"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Justiça Gratuita</Label>
+                          <Select
+                            value={formResumo.free_justice || '__none'}
+                            onValueChange={(v) => setFormResumo(prev => ({ ...prev, free_justice: v === '__none' ? '' : v }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Não informado" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none">Não informado</SelectItem>
+                              <SelectItem value="sim">Sim</SelectItem>
+                              <SelectItem value="nao">Não</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <InfoItem label="Juiz Responsavel" value={capa.judge} />
+                        <InfoItem label="Sigilo" value={getSigilo(capa.secrecy_level)} />
+                      </>
+                    )}
                   </div>
                   <div className="pl-1">
                     <InfoItem 
@@ -1370,6 +1578,59 @@ export const ProcessoOABDetalhes = ({
                   )}
 
                   {/* SECAO: LINK TRIBUNAL */}
+                  {editandoResumo && (
+                    <>
+                      <Separator />
+                      <SectionHeader icon={FileText} title="Cadastro Interno" />
+                      <div className="grid grid-cols-2 gap-3 pl-1">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">
+                            Data de cadastro no sistema
+                          </Label>
+                          <Input
+                            type="date"
+                            value={formResumo.data_cadastro_sistema}
+                            onChange={(e) => setFormResumo(prev => ({ ...prev, data_cadastro_sistema: e.target.value }))}
+                          />
+                          <p className="text-[10px] text-muted-foreground">
+                            Use para corrigir cadastros retroativos. Não altera created_at.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-1 pl-1">
+                        <Label className="text-xs text-muted-foreground">Observações internas</Label>
+                        <Textarea
+                          value={formResumo.observacoes}
+                          onChange={(e) => setFormResumo(prev => ({ ...prev, observacoes: e.target.value }))}
+                          placeholder="Anotações da controladoria sobre este processo..."
+                          rows={4}
+                          maxLength={5000}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {!editandoResumo && ((processo as any).observacoes || (processo as any).data_cadastro_sistema) && (
+                    <>
+                      <Separator />
+                      <SectionHeader icon={FileText} title="Cadastro Interno" />
+                      <div className="space-y-3 pl-1">
+                        {(processo as any).data_cadastro_sistema && (
+                          <InfoItem
+                            label="Data de cadastro no sistema"
+                            value={formatData((processo as any).data_cadastro_sistema)}
+                          />
+                        )}
+                        {(processo as any).observacoes && (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Observações</p>
+                            <p className="text-sm whitespace-pre-wrap">{(processo as any).observacoes}</p>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+
                   {editandoResumo ? (
                     <>
                       <Separator />
