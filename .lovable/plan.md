@@ -1,25 +1,24 @@
-## Causa raiz
-Após importar um CNJ, `OABManager.onSuccess` chama `window.location.reload()`, forçando refresh completo da página (perda de scroll, estado das abas, recarregamento de todos os caches). Isso era um workaround porque a lista de processos (`OABTab` → `useProcessosOAB`) não era notificada da mudança.
+## Contexto
+No modal de confirmação de ativação/desativação de monitoramento (`ProcessoOABDetalhes.tsx`), o texto atual menciona:
+- "monitoramento visual" para apartados
+- "Escavador" em ambos os casos (apartado e normal)
 
-## Correção
-Remover o reload e fazer refresh silencioso via evento de janela.
+O usuário quer uma confirmação simples, sem citar o provedor nem qualificar o monitoramento como "visual".
 
-1. Em `src/components/Controladoria/OABManager.tsx`:
-   - No `onSuccess` do `ImportarProcessoCNJDialog`, manter `fetchOABs()` (atualiza contadores nas abas), remover `window.location.reload()` e disparar `window.dispatchEvent(new CustomEvent('oab:processos-changed', { detail: { oabId: selectedOabForImport.id } }))`.
+## Alteração
+Atualizar as strings no `AlertDialogDescription` (linhas ~996-1003 de `ProcessoOABDetalhes.tsx`):
 
-2. Em `src/components/Controladoria/OABTab.tsx`:
-   - Adicionar `useEffect` que escuta `oab:processos-changed`; quando `detail.oabId === oabId` (ou ausente), chama `fetchProcessos()` silenciosamente (sem alterar loading visual — `useProcessosOAB` já mantém os dados anteriores até o refetch completar).
-
-## Arquivos afetados
-- `src/components/Controladoria/OABManager.tsx`
-- `src/components/Controladoria/OABTab.tsx`
+- **Ativar (apartado)**: remover "apenas visual" e "Escavador". Ex: "Deseja ativar o monitoramento deste processo apartado?"
+- **Desativar (apartado)**: remover "visual" e "Escavador". Ex: "Deseja desativar o monitoramento deste processo?"
+- **Ativar (normal)**: manter confirmação, sem citar "Escavador". Ex: "Deseja ativar o monitoramento? Você receberá notificações automáticas de novos andamentos."
+- **Desativar (normal)**: manter confirmação atual (já não cita Escavador).
 
 ## Impacto
-- UX: ao importar um CNJ o modal fecha, a aba atual permanece, contadores e lista atualizam suavemente — sem flash branco nem perda de contexto.
-- Dados: nenhum. Apenas reaproveita `fetchOABs`/`fetchProcessos` existentes.
-- Riscos: baixos. Se a aba aberta não for a da OAB importada, ainda assim os contadores atualizam via `fetchOABs`; ao trocar para a aba, `OABTab` já refaz fetch no mount.
-- Quem é afetado: usuários da Controladoria que importam processos via CNJ.
+- **UX**: mensagem de confirmação mais limpa e direta.
+- **Dados**: nenhuma migration ou mudança de schema.
+- **Riscos**: nenhum — apenas alteração de strings de UI.
+- **Afetados**: todos os usuários que ativam/desativam monitoramento de processos OAB.
 
 ## Validação
-- Importar um CNJ válido com a aba da OAB aberta → modal fecha, processo aparece na lista sem reload, badge de contagem incrementa.
-- Importar um CNJ estando na aba "Geral" → contagem da OAB destino atualiza no header das abas.
+- Abrir o drawer de um processo apartado, clicar no toggle de monitoramento e verificar que o modal não menciona "visual" nem "Escavador".
+- Repetir para um processo normal (não apartado, não sigiloso).

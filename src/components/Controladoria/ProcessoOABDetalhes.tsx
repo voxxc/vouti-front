@@ -994,13 +994,9 @@ export const ProcessoOABDetalhes = ({
                   {processo.monitoramento_ativo ? 'Desativar Monitoramento?' : 'Ativar Monitoramento?'}
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  {(processo as any).apartado
-                    ? (processo.monitoramento_ativo
-                        ? 'O monitoramento visual será desativado. Nenhuma consulta é feita ao Escavador em apartados.'
-                        : 'Processo apartado — o monitoramento é apenas visual. Nenhuma consulta será feita ao Escavador.')
-                    : (processo.monitoramento_ativo
-                        ? 'O monitoramento será desativado. O histórico de andamentos será mantido.'
-                        : 'O monitoramento será ativado. Você receberá notificações automáticas de novos andamentos.')}
+                  {processo.monitoramento_ativo
+                    ? 'Deseja desativar o monitoramento deste processo? O histórico de andamentos será mantido.'
+                    : 'Deseja ativar o monitoramento deste processo? Você receberá notificações automáticas de novos andamentos.'}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
