@@ -1430,12 +1430,11 @@ export const ProcessoOABDetalhes = ({
                       </div>
                     </>
                   )}
-                </div>
-              </ScrollArea>
+              </div>
             </TabsContent>
 
             {/* Andamentos */}
-            <TabsContent value="andamentos" className="mt-4 flex-1 min-h-0 flex flex-col">
+            <TabsContent value="andamentos" className="mt-4">
               {andamentos.length === 0 ? (
                 <div className="p-6 text-center space-y-2 border rounded-lg bg-muted/30 mb-4">
                   <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
