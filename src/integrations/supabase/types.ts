@@ -3699,6 +3699,54 @@ export type Database = {
           },
         ]
       }
+      planejador_mandamentais: {
+        Row: {
+          assigned_to: string | null
+          atribuido_em: string | null
+          cliente_nome: string | null
+          created_at: string
+          created_by: string
+          deadline_id: string | null
+          descricao: string | null
+          id: string
+          project_id: string | null
+          status: string
+          tenant_id: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          atribuido_em?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          created_by: string
+          deadline_id?: string | null
+          descricao?: string | null
+          id?: string
+          project_id?: string | null
+          status?: string
+          tenant_id: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          atribuido_em?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          created_by?: string
+          deadline_id?: string | null
+          descricao?: string | null
+          id?: string
+          project_id?: string | null
+          status?: string
+          tenant_id?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       planejador_revisionais: {
         Row: {
           assigned_to: string | null
