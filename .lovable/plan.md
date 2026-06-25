@@ -1,26 +1,27 @@
 ## Causa raiz
-Em `src/components/Controladoria/ProcessoOABDetalhes.tsx`, o card `ProcessoApartadoBranch` ("Estrutura do processo") está renderizado entre o alerta de **Processo Sigiloso** (linhas ~768) e o alerta de **Processo Apartado** (linhas ~804), o que quebra a leitura visual.
+O `ScrollArea` da aba **Resumo** em `src/components/Controladoria/ProcessoOABDetalhes.tsx` (linha 1124) usa altura fixa `h-[calc(100vh-420px)]`. O cabeçalho do drawer agora cresceu (alerta de Sigiloso + alerta de Apartado + card "Estrutura do processo" + card de Monitoramento), empurrando o ScrollArea para baixo da viewport. Como o `SheetContent` está com `overflow-visible` e o calc não acompanha a altura real do cabeçalho, o conteúdo do Resumo é cortado/some no fim da tela sem scroll.
 
 ## Correção
-Mover o bloco `ProcessoApartadoBranch` (linhas ~792–802) para logo **abaixo** do alerta de Processo Apartado (depois da linha ~824), mantendo a ordem:
+Tornar o layout do `SheetContent` baseado em flex para que a área de tabs ocupe o espaço restante dinamicamente:
 
-1. Alerta de Processo Sigiloso
-2. Alerta de Processo Apartado
-3. Card "Estrutura do processo" (branch)
-4. Alerta de Em Processamento, monitoramento, etc.
+1. Converter o wrapper `<div className="mt-4 space-y-4">` (linha 736) em `flex flex-col` com altura limitada (`h-[calc(100vh-7rem)]` ou similar baseado no `SheetHeader`).
+2. Separar o cabeçalho dinâmico (CNJ box, alertas, branch, monitoramento) num bloco `shrink-0` que rola junto se necessário (`overflow-y-auto`) — ou mantê-lo fixo e deixar só a tab rolar.
+3. O container `<Tabs>` recebe `flex-1 min-h-0 flex flex-col`, e cada `TabsContent` (Resumo, Andamentos, etc.) recebe `flex-1 min-h-0`.
+4. Substituir as alturas calc dos `ScrollArea` por `h-full` para que se ajustem ao container flex.
 
-Nenhuma alteração de lógica, props ou estilo do componente — apenas reordenação JSX.
+Abordagem mais conservadora alternativa (caso prefira menor blast radius): apenas trocar o `ScrollArea h-[calc(100vh-420px)]` do Resumo por `h-[calc(100vh-560px)]` para acomodar o cabeçalho atual. Porém isso quebra de novo se o cabeçalho mudar — recomendado o flex.
 
 ## Arquivos afetados
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — reordenar dois blocos JSX dentro da aba Resumo.
+- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — ajuste de layout no `SheetContent`, wrapper principal, container `<Tabs>` e classes dos `ScrollArea` das abas Resumo, Andamentos, Partes, Intimações.
 
 ## Impacto
-1. **Usuário final:** em processos apartados, o aviso explicativo aparece imediatamente após o alerta de sigilo (quando houver), e o quadro de estrutura aparece logo depois, formando um agrupamento coerente. Em processos não-apartados sem irmãos, o branch continua oculto (já é o comportamento atual).
-2. **Dados:** nenhum. Sem migrations, sem RLS, sem queries novas.
-3. **Riscos colaterais:** mínimos — é uma movimentação de JSX dentro do mesmo container; sem mudança em hooks, estado ou props.
-4. **Quem é afetado:** apenas usuários da Controladoria que abrem o detalhe de um processo OAB. Sem efeito em outros tenants/roles.
+1. **Usuário final:** o conteúdo do Resumo (Localização, Situação Atual, Automação de Prazos etc.) volta a ser rolável independentemente do tamanho do cabeçalho. Comportamento idêntico em qualquer combinação de alertas (sigiloso/apartado/normal). Demais abas continuam com seus scrolls.
+2. **Dados:** nenhuma alteração. Sem migrations, RLS ou queries.
+3. **Riscos colaterais:** mudança de classes Tailwind no drawer pode alterar levemente a altura visível das outras abas; mitigado mantendo a estrutura interna delas (apenas troco o calc fixo por `h-full`).
+4. **Quem é afetado:** apenas usuários da Controladoria que abrem o drawer de detalhes de processos OAB.
 
 ## Validação
-- Abrir um processo apartado: confirmar que "Estrutura do processo" aparece abaixo do alerta amarelo de apartado.
-- Abrir um processo sigiloso não apartado: confirmar que o branch não aparece (sem irmãos) e o layout segue normal.
-- Abrir um processo normal com apartados cadastrados: confirmar que a estrutura aparece na nova posição.
+- Abrir um processo apartado + sigiloso (cabeçalho grande): confirmar que a aba Resumo rola até o fim ("Automação de Prazos").
+- Abrir um processo normal (cabeçalho pequeno): confirmar que o Resumo ocupa mais espaço e ainda rola se necessário.
+- Verificar abas Andamentos, Partes e Intimações: scroll continua funcionando, sem cortes.
+- Testar em viewport mobile (largura ~480px) e desktop (1500px+).
