@@ -1,53 +1,40 @@
 ## Causa raiz
-Hoje só existe a aba **Revisionais** no Planejador (gated para o tenant Solvenza), apoiada na tabela `planejador_revisionais`, no hook `usePlanejadorRevisionais` e na view `PlanejadorRevisionaisView`. O usuário quer uma aba paralela e independente chamada **Mandamentais**, com o mesmo comportamento (criar, atribuir, prazo opcional, viewer/editor, fila ordenada por urgência, arquivar etc.), mas com dados separados.
+1. Ao importar um CNJ com sufixo (ex.: `...0000/1.0000.24.414460-6/006`), o `ImportarProcessoCNJDialog` cria a linha em `processos_oab` com `apartado=true` **mas ainda chama** `escavador-importar-processo` (linha 168). Para apartado, essa chamada não deveria ocorrer.
+2. No Resumo (`ProcessoOABDetalhes.tsx`), o apartado aparece como processo "solto": o card azul informa que é apartado, porém não há vínculo visual com o original (mesmo CNJ base, sem sufixo).
+3. O card do **toggle de monitoramento** só renderiza quando `monitoramentoFeatureEnabled || processo.monitoramento_ativo || apartado` (linha 830). Em processos comuns/sigilosos, com a feature flag global do Escavador desligada, o toggle **some por completo** — o usuário não tem o controle visual para acompanhar manualmente.
 
 ## Correção
+1. **Skip do Escavador no import de apartado** (`ImportarProcessoCNJDialog.tsx`, modos `single` e `bulk`): se `parsed.sufixoApartado` existir, pular a chamada `supabase.functions.invoke('escavador-importar-processo', ...)` e retornar sucesso direto após criar a linha em `processos_oab`.
+2. **Branch CNJ no Resumo** (novo `ProcessoApartadoBranch.tsx`, montado no topo de `ProcessoOABDetalhes`): exibido sempre que houver outras linhas em `processos_oab` da mesma OAB compartilhando os 20 primeiros dígitos do CNJ. Layout:
 
-### 1. Nova tabela `planejador_mandamentais`
-Réplica exata do schema de `planejador_revisionais` (mesmas colunas: `id`, `tenant_id`, `title`, `description`, `client_id`, `project_id`, `status`, `assigned_to`, `atribuido_em`, `deadline_id`, `created_by`, `created_at`, `updated_at`). Mesmas policies RLS por tenant + roles. Mesmo GRANT. Migration nova, sem mudar a tabela antiga.
+```text
+Processo principal
+└─ 4092349-43.2025.8.13.0000              [atual]
+   ├─ Apartado · /1.0000.24.414460-6/006   → clicável
+   └─ Apartado · /2.0000.24.555555-5/007   → clicável
+```
 
-### 2. Novo hook `usePlanejadorMandamentais`
-Cópia 1:1 de `usePlanejadorRevisionais.ts`, trocando:
-- nome da tabela (`planejador_mandamentais`)
-- nomes/keys de cache do React Query (`['planejador-mandamentais', ...]`)
-- nomes exportados: `useMandamentais`, `useCreateMandamental`, `useAtribuirMandamental`, `useUpdateMandamental`, `useArquivarMandamental`, `useReabrirMandamental`, `useDeleteMandamental`, interface `Mandamental`
-- Mantém o mesmo enriquecimento com `deadline { id, date, completed }` e a mesma ordenação por urgência.
-
-### 3. Nova view `PlanejadorMandamentaisView`
-Cópia de `PlanejadorRevisionaisView.tsx`, ajustando:
-- imports para o novo hook
-- textos visíveis: "Nova Mandamental", "Mandamentais", "Pendentes/Atribuídos/Arquivados" (iguais), toasts, títulos de dialogs (`CreateMandamentalDialog`, `MandamentalViewerDialog`, `MandamentalCard`)
-- chaves de query e identificadores internos
-- Mantém: criação com prazo opcional, atribuir, viewer/editor inline, chip de urgência, card clicável.
-
-### 4. Aba no topo do Planejador
-Em `PlanejadorTopBar.tsx`:
-- Adicionar prop `showMandamentais?: boolean`.
-- Após o item Revisionais, inserir `{ id: 'mandamentais', label: 'Mandamentais' }` quando `showMandamentais` for true.
-
-Em `PlanejadorDrawer.tsx`:
-- Passar `showMandamentais={isSolvenza}` para o TopBar (mesma gate do Revisionais — Solvenza only).
-- Importar `PlanejadorMandamentaisView` e renderizar quando `activeTab === 'mandamentais' && isSolvenza`, com as mesmas props passadas para Revisionais.
+   - Query: `select id, numero_cnj, apartado from processos_oab where oab_id = ? and numero_cnj like '<base>%'`.
+   - Linha do processo atual destacada (badge "atual"); demais clicáveis (trocam o processo no painel já aberto).
+   - Se o processo atual é apartado e o original não existe como row, mostra o CNJ base como rótulo cinza não clicável.
+3. **Card azul informativo de apartado**: mantido (texto já cobre "sem histórico antigo" + "monitoramento disponível e funcional").
+4. **Toggle de monitoramento sempre visível** (`ProcessoOABDetalhes.tsx`, linha 830): remover o gate baseado em `monitoramentoFeatureEnabled`. O card do toggle passa a renderizar para **todos** os processos (normal, sigiloso, apartado). O comportamento do toggle continua respeitando a flag: para processos normais com flag desligada, ao tentar ativar mostra toast "Funcionalidade desativada pelo administrador" (já implementado nos hooks/edge functions); para sigiloso e apartado, segue ativando/desativando localmente (visual).
 
 ## Arquivos afetados
-- **Novo:** migration criando `public.planejador_mandamentais` (espelho de `planejador_revisionais`, com GRANTs, RLS, policies, trigger de `updated_at`).
-- **Novo:** `src/hooks/usePlanejadorMandamentais.ts` (cópia adaptada do hook de revisionais).
-- **Novo:** `src/components/Planejador/PlanejadorMandamentaisView.tsx` (cópia adaptada da view de revisionais).
-- **Editado:** `src/components/Planejador/PlanejadorTopBar.tsx` — nova prop + novo tab.
-- **Editado:** `src/components/Planejador/PlanejadorDrawer.tsx` — gate + renderização da nova view.
-
-Não mexer em `planejador_revisionais`, no hook nem na view existentes.
+- `src/components/Controladoria/ImportarProcessoCNJDialog.tsx` — pular Escavador quando `apartado`.
+- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — renderizar `ProcessoApartadoBranch` no topo do Resumo; remover gate do card de toggle de monitoramento.
+- `src/components/Controladoria/ProcessoApartadoBranch.tsx` — novo componente de árvore (busca irmãos + render).
+- `src/components/Controladoria/OABTab.tsx` / `GeralTab.tsx` / `src/components/Project/ProjectProcessos.tsx` — propagar callback de troca de processo (`onSelecionarProcesso`) para o branch.
 
 ## Impacto
-- **Usuário final (Solvenza):** ao lado da aba "Revisionais" aparece "Mandamentais" com a mesma UX (criar, atribuir, prazo opcional, viewer/editor, ordenação por urgência, arquivar). Dados são independentes — uma mandamental não aparece em revisionais e vice-versa. Demais tenants não veem nada.
-- **Dados:** uma nova tabela `planejador_mandamentais` com mesmo formato e mesmas regras de acesso. Sem alteração em tabelas existentes. Custo de query negligenciável.
-- **Riscos colaterais:** baixo — código é réplica isolada, sem cruzar com revisionais. Atenção apenas em manter as queries do React Query com chaves distintas para não compartilhar cache.
-- **Quem é afetado:** apenas tenant Solvenza, mesma gate `isSolvenza` já existente.
+1. **Usuário final**: vê claramente a relação pai/filho entre original e apartados no Resumo e navega entre eles com um clique; importa apartado de forma instantânea (sem espera de 5–10s do Escavador); passa a enxergar o toggle de monitoramento em **todos** os processos, mesmo quando a integração Escavador está desligada globalmente — útil para acompanhamento puramente visual.
+2. **Dados**: zero migrations. Apenas leitura adicional em `processos_oab` filtrando pelos 20 primeiros dígitos do CNJ (filtro escopado por `oab_id`, índice existente, custo desprezível). Nenhuma mudança em RLS, escrita ou no fluxo de monitoramento Escavador.
+3. **Riscos colaterais**: baixos. Skip do Escavador para apartado é seguro pois os hooks já tratam apartado como visual-only. Sempre mostrar o toggle pode confundir usuários em tenants com flag desligada que tentarem ativar processos normais — mitigação: o toast atual já informa "Funcionalidade desativada pelo administrador".
+4. **Quem é afetado**: todos os tenants da Controladoria/Projetos. Sem efeito em CRM, Agenda, Financeiro ou Super Admin.
 
 ## Validação
-1. Migration aplica → `planejador_mandamentais` aparece com RLS habilitado e policies idênticas às de revisionais.
-2. No Planejador (Solvenza), aba "Mandamentais" aparece ao lado de "Revisionais".
-3. Criar uma Mandamental com switch de prazo ligado → aparece em "Atribuídos" com chip de urgência; verifica `deadline` correspondente.
-4. Criar uma Revisional → confirma que **não** aparece em Mandamentais (isolamento de dados).
-5. Tenant não-Solvenza → aba "Mandamentais" não aparece.
-6. `tsgo` sem erros.
+- Importar `4092349-43.2025.8.13.0000/1.0000.24.414460-6/006` → criação instantânea, sem request `escavador-importar-processo` no Network, branch aparece no Resumo do apartado.
+- Importar depois `4092349-43.2025.8.13.0000` (puxa Escavador normalmente) → branch no Resumo do original mostra o apartado como filho clicável, e vice-versa.
+- Com `escavador_monitoramento_enabled = false`, abrir um processo normal e confirmar que o card de toggle aparece; clicar para ativar mostra o toast de funcionalidade desativada e mantém o estado.
+- Em apartado e sigiloso, o toggle ativa/desativa normalmente (visual) com a flag desligada.
+- Processos sem irmãos não exibem o componente de branch (sem regressão visual).

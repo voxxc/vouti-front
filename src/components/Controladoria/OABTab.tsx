@@ -478,6 +478,10 @@ export const OABTab = ({ oabId, oab, onProcessoCompartilhadoAtualizado }: OABTab
         onResetarProcesso={resetarProcesso}
         onAtualizarProcesso={atualizarProcesso}
         oab={oab}
+        onSelecionarProcesso={(id) => {
+          const alvo = processos.find((p) => p.id === id);
+          if (alvo) setSelectedProcesso(alvo);
+        }}
       />
 
       {/* Delete dialog */}

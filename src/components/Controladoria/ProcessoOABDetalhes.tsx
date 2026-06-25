@@ -77,6 +77,7 @@ import { useFeatureFlag } from '@/hooks/useFeatureFlag';
 import { parseIntimacao, countIntimacoesUrgentes } from '@/utils/intimacaoParser';
 import AutomacaoPrazosCard from './AutomacaoPrazosCard';
 import ApartadoCard from './ApartadoCard';
+import { ProcessoApartadoBranch } from './ProcessoApartadoBranch';
 import { useCanUseApartados } from '@/hooks/useCanUseApartados';
 import { PrazosCasoTab } from './PrazosCasoTab';
 import { supabase } from '@/integrations/supabase/client';
@@ -103,6 +104,7 @@ interface ProcessoOABDetalhesProps {
   ) => Promise<any>;
   onAtualizarProcesso?: (processoId: string, dados: Partial<ProcessoOAB>) => Promise<boolean>;
   oab?: OABCadastrada | null;
+  onSelecionarProcesso?: (processoId: string) => void;
 }
 
 // Interface para parte editável
@@ -211,7 +213,8 @@ export const ProcessoOABDetalhes = ({
   onConsultarDetalhesRequest,
   onResetarProcesso,
   onAtualizarProcesso,
-  oab
+  oab,
+  onSelecionarProcesso,
 }: ProcessoOABDetalhesProps) => {
   const { andamentos, loading: loadingAndamentos, fetchAndamentos, marcarComoLida, marcarTodasComoLidas } = useAndamentosOAB(processo?.id || null);
   const { anexosPorStep, downloading, downloadAnexo } = useProcessoAnexos(processo?.id || null);
@@ -786,6 +789,17 @@ export const ProcessoOABDetalhes = ({
             </Card>
           )}
 
+          {/* Branch original ↔ apartado */}
+          {processo.id && (processo as any).oab_id && (
+            <ProcessoApartadoBranch
+              processoId={processo.id}
+              oabId={(processo as any).oab_id}
+              numeroCnj={processo.numero_cnj}
+              isApartado={!!(processo as any).apartado}
+              onSelecionarProcesso={onSelecionarProcesso}
+            />
+          )}
+
           {/* Alerta de Processo Apartado */}
           {(processo as any).apartado && (
             <Card className="p-3 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
@@ -826,8 +840,7 @@ export const ProcessoOABDetalhes = ({
             </Card>
           )}
 
-          {/* Toggle de Monitoramento */}
-          {(monitoramentoFeatureEnabled || processo.monitoramento_ativo || (processo as any).apartado) && (
+          {/* Toggle de Monitoramento (sempre visível) */}
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -970,7 +983,6 @@ export const ProcessoOABDetalhes = ({
             </div>
 
           </Card>
-          )}
 
           {/* Modal de Confirmacao de Monitoramento */}
           <AlertDialog open={confirmMonitoramentoOpen} onOpenChange={setConfirmMonitoramentoOpen}>

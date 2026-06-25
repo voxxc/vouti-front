@@ -164,7 +164,16 @@ export const ImportarProcessoCNJDialog = ({
       }
     }
 
-    // 5. Disparar Escavador (capa + andamentos)
+    // 5. Apartado: não consulta Escavador (apenas visual)
+    if (apartado) {
+      return {
+        success: true,
+        reaproveitado: !!existenteOab,
+        andamentosInseridos: 0,
+      };
+    }
+
+    // 6. Disparar Escavador (capa + andamentos)
     const { data, error } = await supabase.functions.invoke('escavador-importar-processo', {
       body: {
         processoId,
