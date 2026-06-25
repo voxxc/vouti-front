@@ -1,24 +1,26 @@
 ## Causa raiz
-No `ProcessoApartadoBranch.tsx`, as linhas filhas exibem o rótulo fixo `"Apartado"` seguido do sufixo (`/1.0000.24.414460-6/006`). O usuário não quer o rótulo textual — quer apenas o trecho do apartado, com uma marcação visual (badge) indicando que é apartado.
+Em `src/components/Controladoria/ProcessoOABDetalhes.tsx`, o card `ProcessoApartadoBranch` ("Estrutura do processo") está renderizado entre o alerta de **Processo Sigiloso** (linhas ~768) e o alerta de **Processo Apartado** (linhas ~804), o que quebra a leitura visual.
 
 ## Correção
-Em `src/components/Controladoria/ProcessoApartadoBranch.tsx`:
-- Remover o texto `"Apartado"` como label principal das linhas filhas.
-- Exibir apenas o sufixo do apartado (ex.: `1.0000.24.414460-6/006`, sem a `/` inicial) como conteúdo da linha, em fonte mono.
-- Adicionar um `<Badge variant="outline">apartado</Badge>` ao lado para marcar visualmente.
-- Fallback: se não houver sufixo extraível, mostrar o `numero_cnj` cru.
+Mover o bloco `ProcessoApartadoBranch` (linhas ~792–802) para logo **abaixo** do alerta de Processo Apartado (depois da linha ~824), mantendo a ordem:
 
-Nenhuma outra lógica (busca, navegação, raiz/original) é alterada.
+1. Alerta de Processo Sigiloso
+2. Alerta de Processo Apartado
+3. Card "Estrutura do processo" (branch)
+4. Alerta de Em Processamento, monitoramento, etc.
+
+Nenhuma alteração de lógica, props ou estilo do componente — apenas reordenação JSX.
 
 ## Arquivos afetados
-- `src/components/Controladoria/ProcessoApartadoBranch.tsx`
+- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — reordenar dois blocos JSX dentro da aba Resumo.
 
 ## Impacto
-1. **UX**: o branch passa a mostrar `└─ 1.0000.24.414460-6/006  [apartado]` em vez de `└─ Apartado /1.0000.24.414460-6/006`. Mais limpo e direto.
-2. **Dados**: sem mudanças (sem migration, sem RLS).
-3. **Riscos colaterais**: nenhum — apenas renderização do componente. Clique/navegação entre processos seguem iguais.
-4. **Afetados**: todos os tenants que abrem o resumo de processos OAB com apartados (Controladoria).
+1. **Usuário final:** em processos apartados, o aviso explicativo aparece imediatamente após o alerta de sigilo (quando houver), e o quadro de estrutura aparece logo depois, formando um agrupamento coerente. Em processos não-apartados sem irmãos, o branch continua oculto (já é o comportamento atual).
+2. **Dados:** nenhum. Sem migrations, sem RLS, sem queries novas.
+3. **Riscos colaterais:** mínimos — é uma movimentação de JSX dentro do mesmo container; sem mudança em hooks, estado ou props.
+4. **Quem é afetado:** apenas usuários da Controladoria que abrem o detalhe de um processo OAB. Sem efeito em outros tenants/roles.
 
 ## Validação
-- Abrir um processo com apartado (ex.: `0017243-05.2025.8.16.0019` ou o `4092349-43.2025.8.13.0000/1.0000.24.414460-6/006`) e confirmar que o branch mostra somente o trecho do apartado + badge `apartado`.
-- Confirmar que o clique no apartado ainda navega entre os processos.
+- Abrir um processo apartado: confirmar que "Estrutura do processo" aparece abaixo do alerta amarelo de apartado.
+- Abrir um processo sigiloso não apartado: confirmar que o branch não aparece (sem irmãos) e o layout segue normal.
+- Abrir um processo normal com apartados cadastrados: confirmar que a estrutura aparece na nova posição.
