@@ -1946,12 +1946,12 @@ export const ProcessoOABDetalhes = ({
             </TabsContent>
 
             {/* Prazos */}
-            <TabsContent value="prazos" className="mt-4">
+            <TabsContent value="prazos" className="mt-4 flex-1 min-h-0 overflow-y-auto">
               <PrazosCasoTab key={prazosRefreshKey} processoOabId={processo.id} />
             </TabsContent>
 
             {/* Tarefas */}
-            <TabsContent value="tarefas" className="mt-4">
+            <TabsContent value="tarefas" className="mt-4 flex-1 min-h-0 overflow-y-auto">
               <TarefasTab processo={processo} oab={oab || null} />
             </TabsContent>
           </Tabs>
