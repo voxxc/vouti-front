@@ -85,6 +85,7 @@ import { useEscavadorBeta } from '@/hooks/useEscavadorBeta';
 import { useAuth } from '@/contexts/AuthContext';
 import { useJuditSystemNames } from '@/hooks/useJuditSystemNames';
 import { toast } from '@/hooks/use-toast';
+import { ESTADOS_BRASIL } from '@/types/busca-oab';
 
 // Gate temporário: apenas este usuário pode editar a credencial Judit
 // vinculada ao processo (regeneração manual de trackings na SOLVENZA).
@@ -473,7 +474,21 @@ export const ProcessoOABDetalhes = ({
     juizo: '',
     link_tribunal: '',
     tribunal: '',
-    tribunal_sigla: ''
+    tribunal_sigla: '',
+    // Novos campos (mesclados em capa_completa ao salvar)
+    classe_tipo: '',
+    assuntos: '',
+    area: '',
+    juiz: '',
+    instance: '',
+    state: '',
+    city: '',
+    free_justice: '',
+    valor_condenacao: '',
+    valor_custas: '',
+    // Colunas próprias
+    data_cadastro_sistema: '',
+    observacoes: ''
   });
 
   // Estados de edição - Partes
@@ -493,6 +508,14 @@ export const ProcessoOABDetalhes = ({
   // Popular formulário de resumo quando processo muda
   useEffect(() => {
     if (processo) {
+      const capaSrc: any = processo.capa_completa || {};
+      const classeNome =
+        capaSrc.classifications?.[0]?.name ||
+        capaSrc.classifications?.[0] ||
+        '';
+      const assuntosStr = Array.isArray(capaSrc.subjects)
+        ? capaSrc.subjects.map((s: any) => (typeof s === 'string' ? s : s?.name)).filter(Boolean).join(', ')
+        : '';
       setFormResumo({
         parte_ativa: processo.parte_ativa || '',
         parte_passiva: processo.parte_passiva || '',
@@ -503,7 +526,24 @@ export const ProcessoOABDetalhes = ({
         juizo: processo.juizo || '',
         link_tribunal: processo.link_tribunal || '',
         tribunal: processo.tribunal || '',
-        tribunal_sigla: processo.tribunal_sigla || ''
+        tribunal_sigla: processo.tribunal_sigla || '',
+        classe_tipo: classeNome || '',
+        assuntos: assuntosStr,
+        area: capaSrc.area || '',
+        juiz: capaSrc.judge || '',
+        instance: capaSrc.instance != null ? String(capaSrc.instance) : '',
+        state: capaSrc.state || '',
+        city: capaSrc.city || '',
+        free_justice:
+          capaSrc.free_justice === true ? 'sim'
+          : capaSrc.free_justice === false ? 'nao'
+          : '',
+        valor_condenacao:
+          (processo as any).valor_condenacao?.toString?.() ||
+          capaSrc.condemnation_value?.toString?.() || '',
+        valor_custas: capaSrc.court_costs?.toString?.() || '',
+        data_cadastro_sistema: (processo as any).data_cadastro_sistema || '',
+        observacoes: (processo as any).observacoes || ''
       });
       
       // Popular partes editáveis
@@ -600,7 +640,35 @@ export const ProcessoOABDetalhes = ({
     
     setSalvandoResumo(true);
     try {
-      const dados: Partial<ProcessoOAB> = {
+      // Merge dos campos da capa
+      const capaAtual: any = processo.capa_completa || {};
+      const capaMerged: any = { ...capaAtual };
+      if (formResumo.classe_tipo.trim()) {
+        capaMerged.classifications = [{ name: formResumo.classe_tipo.trim() }];
+      }
+      if (formResumo.assuntos.trim()) {
+        capaMerged.subjects = formResumo.assuntos
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((name) => ({ name }));
+      }
+      if (formResumo.area.trim()) capaMerged.area = formResumo.area.trim();
+      else delete capaMerged.area;
+      if (formResumo.juiz.trim()) capaMerged.judge = formResumo.juiz.trim();
+      else delete capaMerged.judge;
+      if (formResumo.instance) capaMerged.instance = Number(formResumo.instance);
+      if (formResumo.state.trim()) capaMerged.state = formResumo.state.trim().toUpperCase();
+      if (formResumo.city.trim()) capaMerged.city = formResumo.city.trim();
+      if (formResumo.free_justice === 'sim') capaMerged.free_justice = true;
+      else if (formResumo.free_justice === 'nao') capaMerged.free_justice = false;
+      else delete capaMerged.free_justice;
+      if (formResumo.valor_condenacao)
+        capaMerged.condemnation_value = parseFloat(formResumo.valor_condenacao);
+      if (formResumo.valor_custas)
+        capaMerged.court_costs = parseFloat(formResumo.valor_custas);
+
+      const dados: Partial<ProcessoOAB> & Record<string, any> = {
         parte_ativa: formResumo.parte_ativa || null,
         parte_passiva: formResumo.parte_passiva || null,
         valor_causa: formResumo.valor_causa ? parseFloat(formResumo.valor_causa) : null,
@@ -610,7 +678,10 @@ export const ProcessoOABDetalhes = ({
         juizo: formResumo.juizo || null,
         link_tribunal: formResumo.link_tribunal || null,
         tribunal: formResumo.tribunal || null,
-        tribunal_sigla: formResumo.tribunal_sigla || null
+        tribunal_sigla: formResumo.tribunal_sigla || null,
+        capa_completa: capaMerged,
+        data_cadastro_sistema: formResumo.data_cadastro_sistema || null,
+        observacoes: formResumo.observacoes || null,
       };
 
       const sucesso = await onAtualizarProcesso(processo.id, dados);
