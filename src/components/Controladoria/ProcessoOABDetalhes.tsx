@@ -765,6 +765,8 @@ export const ProcessoOABDetalhes = ({
             )}
           </div>
 
+          {/* Área scrollável única — tudo abaixo do cabeçalho rola junto */}
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
           {/* Alerta de Processo Sigiloso */}
           {isProcessoSigiloso && !processo.monitoramento_ativo && (
             <Card className="p-3 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
