@@ -1087,7 +1087,7 @@ export const ProcessoOABDetalhes = ({
           <Tabs value={activeTab} onValueChange={(val) => {
               setActiveTab(val);
               if (val === 'prazos') setPrazosRefreshKey(k => k + 1);
-            }} className="flex-1 min-h-0 flex flex-col">
+            }} className="flex flex-col">
             <TabsList className="grid grid-cols-4 sm:grid-cols-7 w-full h-auto gap-0.5 p-1 overflow-visible">
               <TabsTrigger value="resumo" title="Resumo" className="text-[10px] sm:text-[11px] md:text-xs px-1 sm:px-1.5 py-1.5 min-w-0 whitespace-nowrap">Resumo</TabsTrigger>
               <TabsTrigger value="andamentos" title="Andamentos" className="relative overflow-visible text-[10px] sm:text-[11px] md:text-xs px-1 sm:px-1.5 pt-3 pb-1.5 min-w-0 whitespace-nowrap">
