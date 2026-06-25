@@ -1936,21 +1936,20 @@ export const ProcessoOABDetalhes = ({
                     )
                   )}
                 </div>
-              </ScrollArea>
             </TabsContent>
 
             {/* Vouti IA */}
-            <TabsContent value="vouti-ia" className="mt-4 flex-1 min-h-0">
+            <TabsContent value="vouti-ia" className="mt-4">
               <VoutiIATab processoOabId={processo.id} />
             </TabsContent>
 
             {/* Prazos */}
-            <TabsContent value="prazos" className="mt-4 flex-1 min-h-0 overflow-y-auto">
+            <TabsContent value="prazos" className="mt-4">
               <PrazosCasoTab key={prazosRefreshKey} processoOabId={processo.id} />
             </TabsContent>
 
             {/* Tarefas */}
-            <TabsContent value="tarefas" className="mt-4 flex-1 min-h-0 overflow-y-auto">
+            <TabsContent value="tarefas" className="mt-4">
               <TarefasTab processo={processo} oab={oab || null} />
             </TabsContent>
           </Tabs>
