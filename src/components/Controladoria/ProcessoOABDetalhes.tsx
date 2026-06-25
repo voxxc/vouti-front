@@ -1120,8 +1120,8 @@ export const ProcessoOABDetalhes = ({
             </TabsList>
 
             {/* Resumo - COM MODO EDIÇÃO */}
-            <TabsContent value="resumo" className="mt-4">
-              <ScrollArea className="h-[calc(100vh-420px)]">
+            <TabsContent value="resumo" className="mt-4 flex-1 min-h-0">
+              <ScrollArea className="h-full">
                 <div className="space-y-6 pr-4">
                   
                   {/* Barra de edição */}
