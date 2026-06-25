@@ -789,17 +789,6 @@ export const ProcessoOABDetalhes = ({
             </Card>
           )}
 
-          {/* Branch original ↔ apartado */}
-          {processo.id && (processo as any).oab_id && (
-            <ProcessoApartadoBranch
-              processoId={processo.id}
-              oabId={(processo as any).oab_id}
-              numeroCnj={processo.numero_cnj}
-              isApartado={!!(processo as any).apartado}
-              onSelecionarProcesso={onSelecionarProcesso}
-            />
-          )}
-
           {/* Alerta de Processo Apartado */}
           {(processo as any).apartado && (
             <Card className="p-3 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
@@ -821,6 +810,17 @@ export const ProcessoOABDetalhes = ({
                 </div>
               </div>
             </Card>
+          )}
+
+          {/* Branch original ↔ apartado */}
+          {processo.id && (processo as any).oab_id && (
+            <ProcessoApartadoBranch
+              processoId={processo.id}
+              oabId={(processo as any).oab_id}
+              numeroCnj={processo.numero_cnj}
+              isApartado={!!(processo as any).apartado}
+              onSelecionarProcesso={onSelecionarProcesso}
+            />
           )}
 
           {/* Alerta de Processo Em Processamento */}
