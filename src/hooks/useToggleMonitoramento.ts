@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { usePlanoLimites } from '@/hooks/usePlanoLimites';
+import { isProcessoSigiloso } from '@/utils/processoOABHelpers';
 
 export const useToggleMonitoramento = () => {
   const [ativando, setAtivando] = useState<string | null>(null);
@@ -31,7 +32,8 @@ export const useToggleMonitoramento = () => {
           .maybeSingle();
 
         const featureAtiva = !!flag?.enabled;
-        const visualOnly = !featureAtiva || processo.sigiloso || processo.apartado;
+        const sigiloso = processo.sigiloso || isProcessoSigiloso(processo);
+        const visualOnly = !featureAtiva || sigiloso || processo.apartado;
 
         if (visualOnly) {
           // Ativação puramente visual: apenas marca o flag local, sem chamar API externa.

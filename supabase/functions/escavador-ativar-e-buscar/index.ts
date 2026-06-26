@@ -62,6 +62,37 @@ serve(async (req) => {
       );
     }
 
+    // Defesa em profundidade: se o processo for sigiloso, ativar apenas o flag local
+    // (sem chamar API externa), retornando sucesso silencioso.
+    try {
+      const { data: proc } = await supabaseClient
+        .from('processos')
+        .select('id, capa_completa, parte_ativa, parte_passiva')
+        .eq('id', processoId)
+        .maybeSingle();
+      const capa: any = (proc as any)?.capa_completa?.lawsuit || (proc as any)?.capa_completa || {};
+      const partesMasc = /SIGILO|SEGREDO/i;
+      const sigiloso =
+        (capa?.secrecy_level ?? 0) >= 1 ||
+        capa?.justice_secret === true ||
+        partesMasc.test((proc as any)?.parte_ativa || '') ||
+        partesMasc.test((proc as any)?.parte_passiva || '');
+      if (sigiloso) {
+        await supabaseClient
+          .from('processo_monitoramento_escavador')
+          .upsert(
+            { processo_id: processoId, monitoramento_ativo: true },
+            { onConflict: 'processo_id' },
+          );
+        return Response.json(
+          { success: true, visual_only: true, totalMovimentacoes: 0 },
+          { headers: corsHeaders },
+        );
+      }
+    } catch (_e) {
+      // segue fluxo normal
+    }
+
     const escavadorToken = Deno.env.get('ESCAVADOR_API_TOKEN');
     if (!escavadorToken) {
       console.error('[Ativar+Buscar] ESCAVADOR_API_TOKEN ausente');
