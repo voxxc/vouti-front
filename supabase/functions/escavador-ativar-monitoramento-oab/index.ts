@@ -194,7 +194,7 @@ serve(async (req) => {
       }
     }
 
-    // 2) Criar monitoramento V1
+    // 2) Criar monitoramento
     const tribunal =
       (processoV2?.tribunal?.sigla || processo.tribunal_sigla || tribunalSiglaFromCnj(cnj) || '').toUpperCase();
 

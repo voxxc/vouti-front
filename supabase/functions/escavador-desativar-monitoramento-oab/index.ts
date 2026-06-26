@@ -29,15 +29,27 @@ serve(async (req) => {
 
     if (row?.monitoramento_id && token) {
       try {
-        const r = await fetch(
-          `${ESCAVADOR_BASE}/api/v1/monitoramentos-tribunal/${row.monitoramento_id}`,
+        const rV2 = await fetch(
+          `${ESCAVADOR_BASE}/api/v2/monitoramentos/processos/${row.monitoramento_id}`,
           {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
           },
         );
-        if (!r.ok && r.status !== 404) {
-          console.error('[escavador-desat-oab] erro DELETE monitoramento:', r.status, await r.text());
+        if (!rV2.ok && rV2.status !== 404) {
+          const v2Text = await rV2.text();
+          console.error('[escavador-desat-oab] erro DELETE monitoramento v2:', rV2.status, v2Text);
+
+          const rV1 = await fetch(
+            `${ESCAVADOR_BASE}/api/v1/monitoramentos-tribunal/${row.monitoramento_id}`,
+            {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+            },
+          );
+          if (!rV1.ok && rV1.status !== 404) {
+            console.error('[escavador-desat-oab] erro DELETE monitoramento v1:', rV1.status, await rV1.text());
+          }
         }
       } catch (e) {
         console.error('[escavador-desat-oab] exception DELETE:', e);
