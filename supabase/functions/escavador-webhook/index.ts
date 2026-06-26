@@ -123,7 +123,7 @@ serve(async (req) => {
       console.log(`[Escavador Webhook] OAB: ${inseridos} andamentos inseridos`);
       return new Response(
         JSON.stringify({ success: true, fluxo: 'oab', inseridos }),
-        { headers: { 'Content-Type': 'application/json' } },
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
