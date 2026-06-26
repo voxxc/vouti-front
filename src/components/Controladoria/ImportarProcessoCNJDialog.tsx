@@ -194,6 +194,8 @@ export const ImportarProcessoCNJDialog = ({
       success: true,
       reaproveitado: !!existenteOab,
       andamentosInseridos: data?.andamentosInseridos ?? 0,
+      pending: !!data?.pending,
+      pendingMessage: data?.pending ? (data?.message as string | undefined) : undefined,
     };
   };
 
