@@ -46,7 +46,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const { processoOabId, numeroCnj, tenantId } = await req.json();
+    let { processoOabId, numeroCnj, tenantId } = await req.json();
     if (!processoOabId || !numeroCnj) {
       throw new Error('processoOabId e numeroCnj sao obrigatorios');
     }
@@ -72,13 +72,24 @@ serve(async (req) => {
     const token = Deno.env.get('ESCAVADOR_API_TOKEN');
     if (!token) throw new Error('ESCAVADOR_API_TOKEN nao configurado');
 
-    // Buscar processo OAB para garantir tenant
-    const { data: processo, error: procErr } = await supabase
+    // Buscar processo OAB para garantir tenant — fallback por (numero_cnj, tenant_id)
+    let { data: processo } = await supabase
       .from('processos_oab')
       .select('id, tenant_id, numero_cnj, tribunal_sigla, capa_completa, parte_ativa, parte_passiva, secrecy_level')
       .eq('id', processoOabId)
-      .single();
-    if (procErr || !processo) throw new Error('Processo OAB nao encontrado');
+      .maybeSingle();
+    if (!processo && numeroCnj && tenantId) {
+      const { data: byCnj } = await supabase
+        .from('processos_oab')
+        .select('id, tenant_id, numero_cnj, tribunal_sigla, capa_completa, parte_ativa, parte_passiva, secrecy_level')
+        .eq('numero_cnj', numeroCnj)
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      processo = byCnj || null;
+    }
+    if (!processo) throw new Error('Processo OAB nao encontrado');
+    // Usar o id real encontrado (evita upserts em id inexistente)
+    processoOabId = processo.id;
 
     const finalTenantId = processo.tenant_id || tenantId;
     const cnj = processo.numero_cnj || numeroCnj;
