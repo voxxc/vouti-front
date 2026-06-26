@@ -46,7 +46,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const { processoOabId, numeroCnj, tenantId } = await req.json();
+    let { processoOabId, numeroCnj, tenantId } = await req.json();
     if (!processoOabId || !numeroCnj) {
       throw new Error('processoOabId e numeroCnj sao obrigatorios');
     }
