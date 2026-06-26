@@ -79,6 +79,36 @@ serve(async (req) => {
   }
 
   try {
+    // Validar JWT em código (verify_jwt=false no gateway para evitar erro
+    // "Session from session_id claim in JWT does not exist" causado pelo
+    // sistema de signing-keys quando a sessão é rotacionada server-side).
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Não autenticado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    try {
+      const authClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      );
+      const token = authHeader.replace('Bearer ', '').trim();
+      const { data: claimsData, error: claimsErr } = await authClient.auth.getClaims(token);
+      if (claimsErr || !claimsData?.claims) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Sessão inválida' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    } catch (_e) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Sessão inválida' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     const {
       processoId,
       numeroProcesso,
@@ -101,7 +131,11 @@ serve(async (req) => {
 
     const escavadorToken = Deno.env.get('ESCAVADOR_API_TOKEN');
     if (!escavadorToken && !reparseSomente) {
-      throw new Error('Token Escavador não configurado');
+      console.error('[Importar V2] ESCAVADOR_API_TOKEN ausente');
+      return Response.json(
+        { success: false, message: 'Serviço de consulta indisponível' },
+        { status: 503, headers: corsHeaders },
+      );
     }
 
     const cnjFormatado = numeroProcesso;
@@ -146,7 +180,7 @@ serve(async (req) => {
       }
       if (!proc) {
         return Response.json(
-          { success: false, message: 'Sem escavador_data em cache para reparse' },
+          { success: false, message: 'Sem dados em cache para reprocessar' },
           { headers: corsHeaders }
         );
       }
@@ -165,7 +199,7 @@ serve(async (req) => {
         const txt = await capaResp.text();
         console.error('[Escavador Importar V2] capa falhou:', capaResp.status, txt);
         return Response.json(
-          { success: false, message: `Erro ao buscar processo (${capaResp.status})`, error: txt },
+          { success: false, message: `Não foi possível consultar o processo (HTTP ${capaResp.status})` },
           { headers: corsHeaders }
         );
       }
@@ -177,7 +211,7 @@ serve(async (req) => {
     if (!proc || (!proc.numero_cnj && !proc.fontes && !proc.classe)) {
       console.error('[Escavador Importar V2] payload vazio');
       return Response.json(
-        { success: false, message: 'Processo não encontrado no Escavador' },
+        { success: false, message: 'Processo não localizado nos tribunais' },
         { headers: corsHeaders }
       );
     }

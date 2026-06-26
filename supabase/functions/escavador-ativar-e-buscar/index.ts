@@ -12,6 +12,34 @@ serve(async (req) => {
   }
 
   try {
+    // Validar JWT em código (verify_jwt=false no gateway).
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Não autenticado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    try {
+      const authClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      );
+      const token = authHeader.replace('Bearer ', '').trim();
+      const { data: claimsData, error: claimsErr } = await authClient.auth.getClaims(token);
+      if (claimsErr || !claimsData?.claims) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Sessão inválida' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    } catch (_e) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Sessão inválida' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     const { processoId, numeroProcesso } = await req.json();
     
     console.log('[Ativar+Buscar] 🔧 Usando SERVICE_ROLE_KEY para bypass RLS');
@@ -36,7 +64,11 @@ serve(async (req) => {
 
     const escavadorToken = Deno.env.get('ESCAVADOR_API_TOKEN');
     if (!escavadorToken) {
-      throw new Error('Token Escavador não configurado');
+      console.error('[Ativar+Buscar] ESCAVADOR_API_TOKEN ausente');
+      return Response.json(
+        { success: false, message: 'Serviço de consulta indisponível' },
+        { status: 503, headers: corsHeaders },
+      );
     }
 
     console.log(`[Ativar+Buscar] Processo: ${numeroProcesso}`);
@@ -85,8 +117,7 @@ serve(async (req) => {
     if (!processoEncontrado) {
       return Response.json({ 
         success: false, 
-        message: 'Processo não encontrado no Escavador',
-        details: 'Tente processos de STF, STJ, TJSP ou mais antigos'
+        message: 'Processo não localizado nos tribunais'
       }, { headers: corsHeaders });
     }
 

@@ -13,7 +13,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.escavador-ativar-e-buscar]
-verify_jwt = true
+verify_jwt = false
 
 [functions.escavador-ativar-monitoramento-oab]
 verify_jwt = true
@@ -172,4 +172,4 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.escavador-importar-processo]
-verify_jwt = true
+verify_jwt = false
