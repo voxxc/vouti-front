@@ -1,42 +1,55 @@
 ## Causa raiz
 
-Hoje quando o V2 do Escavador devolve 404 e o V1 (`/informacoes-no-tribunal`) também recusa (ex.: "processo não disponível para consulta"), a função `escavador-importar-processo` aborta e nada é gravado em `processos_oab`. Resultado: o usuário não consegue nem cadastrar o CNJ, mesmo sabendo que ele existe.
-
-A regra correta é: sempre criar o registro local do processo. A indisponibilidade de andamentos é só uma condição transitória do provedor — não deve impedir o cadastro nem o monitoramento.
+Hoje a feature flag global `escavador_monitoramento_enabled` está desligada, então todos os processos (sigilosos ou não) ativam apenas o "modo visual" do monitoramento. Você quer ligar a integração real para o caso geral, mantendo sigilosos no modo visual silencioso, e garantir que os webhooks do provedor sejam recebidos e aplicados ao histórico.
 
 ## Correção
 
-1. Em `supabase/functions/escavador-importar-processo/index.ts`:
-   - Quando V2 retornar 404 e V1 falhar (ou responder que o processo não está disponível), **não lançar erro**. Em vez disso:
-     - Fazer upsert mínimo em `processos_oab` (numero_cnj, oab_id/tenant_id, `detalhes_carregados=false`, `capa_completa=null`).
-     - Gravar `processo_monitoramento_escavador` com `escavador_data = { status: 'aguardando_disponibilidade', solicitado_em: now, ultimo_erro: <mensagem> }` e `monitoramento_ativo=false`.
-     - Retornar `success: true` com `message: "Processo cadastrado. Os andamentos ainda estão sendo processados pelos tribunais e ficarão disponíveis em breve. O monitoramento já pode ser ativado."` e uma flag `aguardando_disponibilidade: true`.
-   - Remover qualquer menção a "Escavador" das mensagens de retorno.
+1. **Ligar a feature flag global**
+   - `UPDATE super_admin_feature_flags SET enabled = true WHERE flag_key = 'escavador_monitoramento_enabled'` (via insert tool).
+   - Manter o painel do Super Admin como kill-switch.
 
-2. Em `src/components/Controladoria/ProcessoOABDetalhes.tsx` (aba Resumo):
-   - Detectar quando `processo_monitoramento_escavador.escavador_data.status` é `coleta_solicitada` ou `aguardando_disponibilidade` (ou quando `detalhes_carregados=false` e não há andamentos).
-   - Renderizar um `Alert` informativo logo abaixo do alerta de sigilo/apartado: "Este processo ainda está em processamento para disponibilizar o histórico de andamentos. Você já pode ativar o monitoramento — novos andamentos serão exibidos automaticamente assim que ficarem disponíveis."
-   - Manter o toggle de monitoramento habilitado normalmente (já é tratado pelo `useToggleMonitoramento` com fallback visual quando preciso).
+2. **Roteamento visual-only para sigilosos (silencioso)**
+   - `src/hooks/useToggleMonitoramento.ts`: já trata `processo.sigiloso || processo.apartado` como visual. Vou:
+     - Reforçar a detecção de sigiloso a partir de `secrecy_level > 0` ou `capa_completa` ausente, para o caso de o campo `sigiloso` não vir populado.
+     - Garantir que o toast de sucesso é idêntico ao do fluxo real (sem nenhuma menção a "visual", "Escavador" ou "administrador").
+   - `supabase/functions/escavador-ativar-e-buscar/index.ts` e `escavador-ativar-monitoramento-oab/index.ts`: quando o processo for sigiloso, retornar `success: true` com flag interna `visual_only: true` sem chamar a API externa — defesa em profundidade caso o cliente esqueça o gate.
 
-3. Em `src/components/Controladoria/ImportarProcessoCNJDialog.tsx` (ou equivalente):
-   - Quando a resposta vier com `aguardando_disponibilidade: true`, exibir toast informativo (não erro) e abrir o processo recém-criado normalmente.
+3. **Receptor de webhooks do Escavador**
+   - Nova edge function pública `escavador-webhook` (sem verify_jwt, validação por header secreto `X-Escavador-Secret` comparado ao secret `ESCAVADOR_WEBHOOK_SECRET`).
+   - Respeita o kill-switch existente `JUDIT_WEBHOOKS_ENABLED` via um novo secret análogo `ESCAVADOR_WEBHOOKS_ENABLED` (default ligado).
+   - Fluxo:
+     1. Valida secret e payload.
+     2. Identifica o processo pelo `numero_cnj` (ou `escavador_id`) em `processos_oab` e em `processos` (controladoria).
+     3. Faz upsert das novas movimentações em `processos_oab_andamentos` (com `dedup_hash`) e/ou `processo_atualizacoes_escavador`, marcando `lida=false`.
+     4. Atualiza `processo_monitoramento_escavador.ultima_atualizacao` e incrementa `total_atualizacoes`.
+     5. Dispara notificação interna (`notifications`) para o tenant, tipo já existente para novos andamentos.
+     6. Loga tudo em `judit_api_logs` (já é usado para auditar provedores externos) com `provider='escavador'`.
+   - Idempotente: sempre via `dedup_hash` para evitar duplicatas em reenvios.
+
+4. **Configurar URL do webhook no provedor**
+   - URL pública: `https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/escavador-webhook`.
+   - Documentar no Super Admin (apenas exibir a URL + status) — sem mudança operacional automatizada.
 
 ## Arquivos afetados
 
-- `supabase/functions/escavador-importar-processo/index.ts`
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx`
-- `src/components/Controladoria/ImportarProcessoCNJDialog.tsx`
+- `src/hooks/useToggleMonitoramento.ts` — detecção robusta de sigiloso, mensagens unificadas.
+- `supabase/functions/escavador-ativar-e-buscar/index.ts` — bypass silencioso para sigilosos.
+- `supabase/functions/escavador-ativar-monitoramento-oab/index.ts` — idem.
+- `supabase/functions/escavador-webhook/index.ts` — novo receptor.
+- `supabase/config.toml` — registrar `escavador-webhook` com `verify_jwt = false`.
+- Secrets: `ESCAVADOR_WEBHOOK_SECRET`, `ESCAVADOR_WEBHOOKS_ENABLED`.
+- Update no `super_admin_feature_flags` (via insert tool).
 
 ## Impacto
 
-- **Usuário final**: nunca mais leva erro "processo indisponível" ao importar. O processo entra no sistema, aparece o aviso de "em processamento" no Resumo e o monitoramento pode ser ativado imediatamente.
-- **Dados**: novos registros `processos_oab` podem ficar sem `capa_completa` até o webhook do tribunal chegar. `processo_monitoramento_escavador` ganha um novo valor de status (`aguardando_disponibilidade`) — sem migration; é só JSON.
-- **Riscos colaterais**: possibilidade de cadastrar CNJs digitados errados (já que não há mais bloqueio por 404). Mitigado pela validação de máscara CNJ já existente no diálogo de importação.
-- **Afetados**: todos os usuários que importam processos novos ou ainda não indexados (em especial Solvenza/Izabelita).
+- **Usuário final (UX)**: para processos normais o monitoramento passa a funcionar de verdade — andamentos chegam sozinhos via webhook e aparecem como não-lidos. Para sigilosos, o toggle continua funcionando exatamente igual, sem nenhum aviso diferente; ele não percebe que é só visual.
+- **Dados**: novos inserts em `processos_oab_andamentos` / `processo_atualizacoes_escavador` vindos do webhook, e atualizações em `processo_monitoramento_escavador`. Sem mudança de schema.
+- **Riscos colaterais**: chamadas reais ao provedor podem consumir cota; reenvios duplicados do provedor são tratados por `dedup_hash`; se o secret do webhook vazar, qualquer pessoa poderia injetar andamentos — por isso a validação por header secreto é obrigatória.
+- **Afetados**: todos os tenants com processos não-sigilosos passam a ter monitoramento real ativo no próximo toggle; tenants com sigilosos seguem com comportamento idêntico ao atual.
 
 ## Validação
 
-1. Reimportar `5001038-07.2026.8.21.0093` e confirmar que o processo é criado e abre com o alerta "em processamento" no Resumo.
-2. Ativar o monitoramento desse processo e verificar que o toggle persiste (mesmo em modo visual).
-3. Importar um CNJ inválido digitado errado e confirmar que ainda assim entra (comportamento aceito) — e remover manualmente se for o caso.
-4. Importar um CNJ já existente no V2 para garantir que o fluxo normal segue funcionando sem o alerta.
+1. Após ligar a flag, ativar monitoramento em um processo não-sigiloso e confirmar nos logs da edge function `escavador-ativar-e-buscar` que houve chamada externa e gravação de movimentações.
+2. Ativar monitoramento em um processo sigiloso e confirmar nos logs que **não** houve chamada externa — toast e estado finais idênticos.
+3. Disparar um POST manual em `escavador-webhook` com payload simulado e secret correto; confirmar inserção do andamento com `lida=false` e notificação criada. Repetir o mesmo POST e confirmar que o `dedup_hash` impede duplicata.
+4. Disparar POST sem o header secreto e confirmar resposta 401.
