@@ -42,6 +42,12 @@ function dedupHash(processoOabId: string, descricao: string, data: string): stri
   return `esc_${Math.abs(h)}`;
 }
 
+function normalizeCnj(value: string): string {
+  const digits = (value || '').replace(/\D/g, '');
+  if (digits.length !== 20) return (value || '').trim();
+  return `${digits.slice(0, 7)}-${digits.slice(7, 9)}.${digits.slice(9, 13)}.${digits.slice(13, 14)}.${digits.slice(14, 16)}.${digits.slice(16, 20)}`;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -50,6 +56,7 @@ serve(async (req) => {
     if (!processoOabId || !numeroCnj) {
       throw new Error('processoOabId e numeroCnj sao obrigatorios');
     }
+    numeroCnj = normalizeCnj(numeroCnj);
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -64,7 +71,7 @@ serve(async (req) => {
       .maybeSingle();
     if (!flag?.enabled) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Funcionalidade desativada pelo administrador' }),
+        JSON.stringify({ success: false, error: 'Monitoramento temporariamente indisponivel' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
@@ -72,22 +79,55 @@ serve(async (req) => {
     const token = Deno.env.get('ESCAVADOR_API_TOKEN');
     if (!token) throw new Error('ESCAVADOR_API_TOKEN nao configurado');
 
-    // Buscar processo OAB para garantir tenant — fallback por (numero_cnj, tenant_id)
-    let { data: processo } = await supabase
+    console.log('[escavador-ativar-oab] payload', { processoOabId, numeroCnj, tenantId });
+
+    // Buscar processo OAB para garantir tenant — com fallbacks contra dados dessincronizados
+    const processoSelect = 'id, tenant_id, numero_cnj, tribunal_sigla, capa_completa, parte_ativa, parte_passiva, apartado';
+    let { data: processo, error: processoByIdError } = await supabase
       .from('processos_oab')
-      .select('id, tenant_id, numero_cnj, tribunal_sigla, capa_completa, parte_ativa, parte_passiva, secrecy_level')
+      .select(processoSelect)
       .eq('id', processoOabId)
       .maybeSingle();
+    if (processoByIdError) {
+      console.warn('[escavador-ativar-oab] falha busca por id:', processoByIdError.message);
+    }
+
     if (!processo && numeroCnj && tenantId) {
-      const { data: byCnj } = await supabase
+      const { data: byCnjTenant, error: byCnjTenantError } = await supabase
         .from('processos_oab')
-        .select('id, tenant_id, numero_cnj, tribunal_sigla, capa_completa, parte_ativa, parte_passiva, secrecy_level')
+        .select(processoSelect)
         .eq('numero_cnj', numeroCnj)
         .eq('tenant_id', tenantId)
-        .maybeSingle();
-      processo = byCnj || null;
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (byCnjTenantError) {
+        console.warn('[escavador-ativar-oab] falha busca por cnj+tenant:', byCnjTenantError.message);
+      }
+      processo = byCnjTenant?.[0] || null;
     }
-    if (!processo) throw new Error('Processo OAB nao encontrado');
+
+    if (!processo && numeroCnj) {
+      const { data: byCnjAnyTenant, error: byCnjAnyTenantError } = await supabase
+        .from('processos_oab')
+        .select(processoSelect)
+        .eq('numero_cnj', numeroCnj)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (byCnjAnyTenantError) {
+        console.warn('[escavador-ativar-oab] falha busca por cnj:', byCnjAnyTenantError.message);
+      }
+      const candidate = byCnjAnyTenant?.[0] || null;
+      if (candidate && (!tenantId || candidate.tenant_id === tenantId)) {
+        processo = candidate;
+      } else if (candidate) {
+        console.warn('[escavador-ativar-oab] cnj encontrado em outro tenant; ignorando fallback');
+      }
+    }
+
+    if (!processo) {
+      console.error('[escavador-ativar-oab] processo nao encontrado', { processoOabId, numeroCnj, tenantId });
+      throw new Error('Processo OAB nao encontrado');
+    }
     // Usar o id real encontrado (evita upserts em id inexistente)
     processoOabId = processo.id;
 
@@ -98,11 +138,11 @@ serve(async (req) => {
     const capa: any = (processo as any)?.capa_completa?.lawsuit || (processo as any)?.capa_completa || {};
     const partesMasc = /SIGILO|SEGREDO/i;
     const sigiloso =
-      ((processo as any)?.secrecy_level ?? 0) >= 1 ||
       (capa?.secrecy_level ?? 0) >= 1 ||
       capa?.justice_secret === true ||
       partesMasc.test((processo as any)?.parte_ativa || '') ||
-      partesMasc.test((processo as any)?.parte_passiva || '');
+      partesMasc.test((processo as any)?.parte_passiva || '') ||
+      (processo as any)?.apartado === true;
     if (sigiloso) {
       await supabase
         .from('processo_oab_monitoramento_escavador')
@@ -154,14 +194,14 @@ serve(async (req) => {
       }
     }
 
-    // 2) Criar monitoramento V1 com frequencia SEMANAL
+    // 2) Criar monitoramento
     const tribunal =
       (processoV2?.tribunal?.sigla || processo.tribunal_sigla || tribunalSiglaFromCnj(cnj) || '').toUpperCase();
 
     let monitoramentoId: string | null = null;
     if (tribunal) {
       try {
-        const rMon = await fetch(`${ESCAVADOR_BASE}/api/v1/monitoramento-tribunal`, {
+        const rMon = await fetch(`${ESCAVADOR_BASE}/api/v2/monitoramentos/processos`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -169,10 +209,9 @@ serve(async (req) => {
             'Accept': 'application/json',
           },
           body: JSON.stringify({
-            tipo: 'unico',
-            valor: cnj,
+            numero: cnj,
             tribunal,
-            frequencia: 'semanal',
+            frequencia: 'SEMANAL',
           }),
         });
         const txt = await rMon.text();
@@ -202,7 +241,7 @@ serve(async (req) => {
         numero_cnj: cnj,
         escavador_id: escavadorId,
         monitoramento_id: monitoramentoId,
-        frequencia: 'semanal',
+        frequencia: 'SEMANAL',
         monitoramento_ativo: true,
         escavador_data: processoV2 || null,
         ultima_consulta: new Date().toISOString(),

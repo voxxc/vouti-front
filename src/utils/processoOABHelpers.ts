@@ -59,7 +59,7 @@ const PARTES_SIGILOSAS_REGEX =
   /^\s*(sigilo|sigiloso|sigilosa|segredo de justi[cç]a|sob sigilo)\s*$/i;
 
 function temCapaCega(processo: any): boolean {
-  const capa = processo?.judit_data?.lawsuit || processo?.capa_completa || {};
+  const capa = processo?.judit_data?.lawsuit || processo?.capa_completa?.lawsuit || processo?.capa_completa || {};
   const pa = (processo?.parte_ativa ?? (capa as any).parte_ativa ?? '').toString().trim();
   const pp = (processo?.parte_passiva ?? (capa as any).parte_passiva ?? '').toString().trim();
   if (pa || pp) return false;
@@ -81,13 +81,14 @@ function temCapaCega(processo: any): boolean {
 
 export function isProcessoSigiloso(processo: any): boolean {
   if (!processo) return false;
-  const capa = processo?.judit_data?.lawsuit || {};
+  const capa = processo?.judit_data?.lawsuit || processo?.capa_completa?.lawsuit || processo?.capa_completa || {};
   const partesMascaradas =
     PARTES_SIGILOSAS_REGEX.test(processo.parte_ativa || '') ||
     PARTES_SIGILOSAS_REGEX.test(processo.parte_passiva || '') ||
     PARTES_SIGILOSAS_REGEX.test((capa as any).parte_ativa || '') ||
     PARTES_SIGILOSAS_REGEX.test((capa as any).parte_passiva || '');
   return (
+    ((processo as any).secrecy_level ?? 0) >= 1 ||
     ((capa as any).secrecy_level ?? 0) >= 1 ||
     (capa as any).justice_secret === true ||
     partesMascaradas ||
