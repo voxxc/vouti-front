@@ -1,55 +1,37 @@
 ## Causa raiz
+A função `escavador-ativar-monitoramento-oab` recebeu `processoOabId` e `numeroCnj`, mas não encontrou o registro em `processos_oab`. Pelo payload capturado, o CNJ enviado foi `0005570-72.2026.8.16.0021`, enquanto o toast mostra erro genérico porque a função devolve 400 quando o vínculo do processo no client está dessincronizado ou quando o processo existe com outro identificador/OAB.
 
-Hoje a feature flag global `escavador_monitoramento_enabled` está desligada, então todos os processos (sigilosos ou não) ativam apenas o "modo visual" do monitoramento. Você quer ligar a integração real para o caso geral, mantendo sigilosos no modo visual silencioso, e garantir que os webhooks do provedor sejam recebidos e aplicados ao histórico.
+Também há um ponto importante: a tela ainda pode chamar ativação real para processos que visualmente parecem sigilosos, porque a detecção de sigilo no frontend não considera todos os campos usados no backend.
 
 ## Correção
+1. Tornar a ativação tolerante a dados dessincronizados:
+   - Buscar primeiro por `id`.
+   - Se não achar, buscar por `numero_cnj + tenant_id`.
+   - Se ainda não achar, buscar por `numero_cnj` sem tenant e validar tenant quando existir.
+   - Se mesmo assim não achar, criar/atualizar apenas o estado local de monitoramento quando houver dados suficientes, em vez de quebrar a UI com erro genérico.
 
-1. **Ligar a feature flag global**
-   - `UPDATE super_admin_feature_flags SET enabled = true WHERE flag_key = 'escavador_monitoramento_enabled'` (via insert tool).
-   - Manter o painel do Super Admin como kill-switch.
+2. Padronizar sigilosos/apartados como ativação apenas visual:
+   - Ajustar a detecção de sigilo no frontend para considerar `secrecy_level` direto, `capa_completa`, partes mascaradas e capa incompleta.
+   - Remover qualquer toast/texto com nome do provedor ou frequência.
 
-2. **Roteamento visual-only para sigilosos (silencioso)**
-   - `src/hooks/useToggleMonitoramento.ts`: já trata `processo.sigiloso || processo.apartado` como visual. Vou:
-     - Reforçar a detecção de sigiloso a partir de `secrecy_level > 0` ou `capa_completa` ausente, para o caso de o campo `sigiloso` não vir populado.
-     - Garantir que o toast de sucesso é idêntico ao do fluxo real (sem nenhuma menção a "visual", "Escavador" ou "administrador").
-   - `supabase/functions/escavador-ativar-e-buscar/index.ts` e `escavador-ativar-monitoramento-oab/index.ts`: quando o processo for sigiloso, retornar `success: true` com flag interna `visual_only: true` sem chamar a API externa — defesa em profundidade caso o cliente esqueça o gate.
-
-3. **Receptor de webhooks do Escavador**
-   - Nova edge function pública `escavador-webhook` (sem verify_jwt, validação por header secreto `X-Escavador-Secret` comparado ao secret `ESCAVADOR_WEBHOOK_SECRET`).
-   - Respeita o kill-switch existente `JUDIT_WEBHOOKS_ENABLED` via um novo secret análogo `ESCAVADOR_WEBHOOKS_ENABLED` (default ligado).
-   - Fluxo:
-     1. Valida secret e payload.
-     2. Identifica o processo pelo `numero_cnj` (ou `escavador_id`) em `processos_oab` e em `processos` (controladoria).
-     3. Faz upsert das novas movimentações em `processos_oab_andamentos` (com `dedup_hash`) e/ou `processo_atualizacoes_escavador`, marcando `lida=false`.
-     4. Atualiza `processo_monitoramento_escavador.ultima_atualizacao` e incrementa `total_atualizacoes`.
-     5. Dispara notificação interna (`notifications`) para o tenant, tipo já existente para novos andamentos.
-     6. Loga tudo em `judit_api_logs` (já é usado para auditar provedores externos) com `provider='escavador'`.
-   - Idempotente: sempre via `dedup_hash` para evitar duplicatas em reenvios.
-
-4. **Configurar URL do webhook no provedor**
-   - URL pública: `https://ietjmyrelhijxyozcequ.supabase.co/functions/v1/escavador-webhook`.
-   - Documentar no Super Admin (apenas exibir a URL + status) — sem mudança operacional automatizada.
+3. Melhorar retorno de erro:
+   - A função deve retornar mensagens operacionais úteis para log, mas o usuário só verá “Não foi possível alterar o monitoramento. Tente novamente.” quando for erro real.
+   - Incluir logs com `processoOabId`, `numeroCnj` e `tenantId` para rastrear novos casos.
 
 ## Arquivos afetados
-
-- `src/hooks/useToggleMonitoramento.ts` — detecção robusta de sigiloso, mensagens unificadas.
-- `supabase/functions/escavador-ativar-e-buscar/index.ts` — bypass silencioso para sigilosos.
-- `supabase/functions/escavador-ativar-monitoramento-oab/index.ts` — idem.
-- `supabase/functions/escavador-webhook/index.ts` — novo receptor.
-- `supabase/config.toml` — registrar `escavador-webhook` com `verify_jwt = false`.
-- Secrets: `ESCAVADOR_WEBHOOK_SECRET`, `ESCAVADOR_WEBHOOKS_ENABLED`.
-- Update no `super_admin_feature_flags` (via insert tool).
+- `supabase/functions/escavador-ativar-monitoramento-oab/index.ts`
+- `src/utils/processoOABHelpers.ts`
+- `src/hooks/useOABs.ts`
+- `src/hooks/useAllProcessosOAB.ts`
 
 ## Impacto
-
-- **Usuário final (UX)**: para processos normais o monitoramento passa a funcionar de verdade — andamentos chegam sozinhos via webhook e aparecem como não-lidos. Para sigilosos, o toggle continua funcionando exatamente igual, sem nenhum aviso diferente; ele não percebe que é só visual.
-- **Dados**: novos inserts em `processos_oab_andamentos` / `processo_atualizacoes_escavador` vindos do webhook, e atualizações em `processo_monitoramento_escavador`. Sem mudança de schema.
-- **Riscos colaterais**: chamadas reais ao provedor podem consumir cota; reenvios duplicados do provedor são tratados por `dedup_hash`; se o secret do webhook vazar, qualquer pessoa poderia injetar andamentos — por isso a validação por header secreto é obrigatória.
-- **Afetados**: todos os tenants com processos não-sigilosos passam a ter monitoramento real ativo no próximo toggle; tenants com sigilosos seguem com comportamento idêntico ao atual.
+1. Usuário final: ao clicar para ativar monitoramento, o toggle não deve mais falhar por ID dessincronizado; sigilosos/apartados continuam parecendo ativados normalmente, sem citar provedor.
+2. Dados: processos normais continuam registrando monitoramento real; sigilosos/apartados só atualizam `monitoramento_ativo` localmente. Não exige migration.
+3. Riscos colaterais: se houver CNJ duplicado em várias OABs do mesmo tenant, a função precisa escolher o registro correto ou atualizar o registro pelo `id` resolvido; vou manter a busca mais restrita possível para evitar ativar tenant errado.
+4. Afetados: usuários da Controladoria/OAB no tenant atual e demais tenants que usam monitoramento OAB.
 
 ## Validação
-
-1. Após ligar a flag, ativar monitoramento em um processo não-sigiloso e confirmar nos logs da edge function `escavador-ativar-e-buscar` que houve chamada externa e gravação de movimentações.
-2. Ativar monitoramento em um processo sigiloso e confirmar nos logs que **não** houve chamada externa — toast e estado finais idênticos.
-3. Disparar um POST manual em `escavador-webhook` com payload simulado e secret correto; confirmar inserção do andamento com `lida=false` e notificação criada. Repetir o mesmo POST e confirmar que o `dedup_hash` impede duplicata.
-4. Disparar POST sem o header secreto e confirmar resposta 401.
+- Reproduzir mentalmente com o payload capturado: `processoOabId=6333...`, `numeroCnj=0005570-72.2026.8.16.0021`, `tenantId=2749...`.
+- Conferir que o fluxo não retorna 400 quando houver fallback possível.
+- Garantir que os toasts não exibam nome do provedor nem frequência.
+- Conferir que sigilosos/apartados não chamam a API externa.
