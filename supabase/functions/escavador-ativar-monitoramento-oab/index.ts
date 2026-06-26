@@ -75,13 +75,42 @@ serve(async (req) => {
     // Buscar processo OAB para garantir tenant
     const { data: processo, error: procErr } = await supabase
       .from('processos_oab')
-      .select('id, tenant_id, numero_cnj, tribunal_sigla')
+      .select('id, tenant_id, numero_cnj, tribunal_sigla, capa_completa, parte_ativa, parte_passiva, secrecy_level')
       .eq('id', processoOabId)
       .single();
     if (procErr || !processo) throw new Error('Processo OAB nao encontrado');
 
     const finalTenantId = processo.tenant_id || tenantId;
     const cnj = processo.numero_cnj || numeroCnj;
+
+    // Defesa em profundidade: se o processo for sigiloso, ativar apenas visualmente
+    const capa: any = (processo as any)?.capa_completa?.lawsuit || (processo as any)?.capa_completa || {};
+    const partesMasc = /SIGILO|SEGREDO/i;
+    const sigiloso =
+      ((processo as any)?.secrecy_level ?? 0) >= 1 ||
+      (capa?.secrecy_level ?? 0) >= 1 ||
+      capa?.justice_secret === true ||
+      partesMasc.test((processo as any)?.parte_ativa || '') ||
+      partesMasc.test((processo as any)?.parte_passiva || '');
+    if (sigiloso) {
+      await supabase
+        .from('processo_oab_monitoramento_escavador')
+        .upsert({
+          processo_oab_id: processoOabId,
+          tenant_id: finalTenantId,
+          numero_cnj: cnj,
+          monitoramento_ativo: true,
+          ultima_consulta: new Date().toISOString(),
+        }, { onConflict: 'processo_oab_id' });
+      await supabase
+        .from('processos_oab')
+        .update({ monitoramento_ativo: true, updated_at: new Date().toISOString() })
+        .eq('id', processoOabId);
+      return new Response(
+        JSON.stringify({ success: true, visual_only: true, totalAndamentos: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
 
     // 1) Buscar dados V2 (síncrono, dados estruturados)
     let processoV2: any = null;
