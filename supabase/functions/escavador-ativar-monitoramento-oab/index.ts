@@ -201,7 +201,7 @@ serve(async (req) => {
     let monitoramentoId: string | null = null;
     if (tribunal) {
       try {
-        const rMon = await fetch(`${ESCAVADOR_BASE}/api/v1/monitoramento-tribunal`, {
+        const rMon = await fetch(`${ESCAVADOR_BASE}/api/v2/monitoramentos/processos`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -209,10 +209,9 @@ serve(async (req) => {
             'Accept': 'application/json',
           },
           body: JSON.stringify({
-            tipo: 'unico',
-            valor: cnj,
+            numero: cnj,
             tribunal,
-            frequencia: 'semanal',
+            frequencia: 'SEMANAL',
           }),
         });
         const txt = await rMon.text();
@@ -242,7 +241,7 @@ serve(async (req) => {
         numero_cnj: cnj,
         escavador_id: escavadorId,
         monitoramento_id: monitoramentoId,
-        frequencia: 'semanal',
+        frequencia: 'SEMANAL',
         monitoramento_ativo: true,
         escavador_data: processoV2 || null,
         ultima_consulta: new Date().toISOString(),
