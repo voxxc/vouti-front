@@ -1,45 +1,35 @@
-# Corrigir erro na importação de processos da Izabelita
-
 ## Causa raiz
 
-A usuária Izabelita (tenant Solvenza) tentou importar o processo `5001038-07.2026.8.21.0093` ontem (25/06 às 20:15). O registro foi criado em `processos_oab` e `processos`, mas a chamada à função `escavador-importar-processo` falhou — não existe nada em `processo_monitoramento_escavador`, `capa_completa` ficou vazio e `detalhes_carregados=false`.
+A função `escavador-importar-processo` consulta o V2 `GET /processos/numero_cnj/{cnj}` e aborta com erro quando recebe 404. Para o CNJ `5001038-07.2026.8.21.0093` (TJRS, distribuído em 2026), o processo simplesmente ainda não existe na base do Escavador — o V2 só responde quando o processo já foi coletado antes. Por isso o 404, mesmo sendo um CNJ válido.
 
-A função está configurada em `supabase/config.toml` com `verify_jwt = true`. Com o novo sistema de signing-keys do Supabase, esse modo faz o gateway validar não só a assinatura do JWT, mas também a existência do `session_id` claim em `auth.sessions`. Quando a sessão do usuário é rotacionada/invalidada no servidor (refresh, login em outro dispositivo, expiração), o token cacheado no navegador continua sendo enviado e o gateway responde `401 UNAUTHORIZED — Session from session_id claim in JWT does not exist` — exatamente o mesmo padrão de erro que apareceu agora há pouco no `google-drive-proxy`.
-
-Resultado para a Izabelita: o `supabase.functions.invoke('escavador-importar-processo', …)` retorna erro 401, o toast "Erro ao importar processo" aparece, e o processo fica órfão (sem capa, sem andamentos, sem monitoramento).
-
-A mesma armadilha atinge `escavador-ativar-e-buscar`, que também está com `verify_jwt = true` e é chamada do fluxo de monitoramento.
+Hoje, ao receber 404, retornamos "Não foi possível consultar o processo" e o usuário trava. Precisamos disparar a coleta no tribunal e, em seguida, ingerir o resultado.
 
 ## Correção
 
-1. `supabase/config.toml`: trocar `verify_jwt = true` para `verify_jwt = false` em:
-   - `escavador-importar-processo`
-   - `escavador-ativar-e-buscar`
-2. Em `supabase/functions/escavador-importar-processo/index.ts`, validar o JWT em código com `getClaims()` (padrão Lovable para signing-keys): bloquear com 401 se não houver token, mas sem depender da validação de sessão server-side que está quebrando. Manter o uso de SERVICE_ROLE_KEY para todas as operações de DB.
-3. Mesma validação em `supabase/functions/escavador-ativar-e-buscar/index.ts`.
-4. Revisão de texto: garantir que nenhum toast/mensagem retornada ao usuário cite "Escavador". Trocar em `escavador-importar-processo`:
-   - `"Erro ao buscar processo (HTTP X)"` → `"Não foi possível consultar o processo (HTTP X)"`
-   - `"Processo não encontrado no Escavador"` → `"Processo não localizado nos tribunais"`
-   - `"Token Escavador não configurado"` → log apenas; resposta genérica `"Serviço de consulta indisponível"`
-   - `"Sem escavador_data em cache para reparse"` → `"Sem dados em cache para reprocessar"`
-   - Prefixos de log internos (`[Escavador Importar V2]`) podem ficar — só aparecem em logs do servidor.
-5. Após corrigir, reimportar manualmente o processo da Izabelita (`5001038-07.2026.8.21.0093`) chamando a função novamente (botão "Recarregar dados" já existente na tela de detalhes do processo) ou via repetição da importação.
+Adicionar fallback automático no 404 do V2:
+
+1. Quando `capaResp.status === 404`, em vez de abortar, chamar `POST /api/v1/processos/{numero_cnj}/informacoes-no-tribunal` (modo assíncrono — gera callback no `escavador-webhook` quando termina). Esse endpoint força o Escavador a buscar o processo direto no tribunal.
+2. Marcar o registro em `processos_oab` como "coleta solicitada" (campo `detalhes_carregados=false` + `ultima_atualizacao_detalhes=now`) e gravar um `processo_monitoramento_escavador` mínimo com `escavador_data: { status: 'coleta_solicitada', solicitado_em: now }` para preservar o vínculo.
+3. Retornar `success: true` com mensagem clara: "Processo enviado para coleta nos tribunais. Em alguns minutos os andamentos aparecerão automaticamente." (sem citar Escavador).
+4. Caso a chamada V1 também falhe (ex.: tribunal não suportado, 4xx do V1), aí sim retornar erro com mensagem amigável.
+5. Garantir que o `escavador-webhook` (que já existe) trate o callback `item_tipo=busca_assincrona` e dispare uma reimportação automática chamando internamente a mesma função `escavador-importar-processo` em modo `rapido` quando a coleta concluir. Verificar se isso já existe; se não, adicionar o branch.
 
 ## Arquivos afetados
 
-- `supabase/config.toml` — desligar `verify_jwt` nas duas funções.
-- `supabase/functions/escavador-importar-processo/index.ts` — validação de JWT em código + remoção de menções "Escavador" nas mensagens devolvidas ao cliente.
-- `supabase/functions/escavador-ativar-e-buscar/index.ts` — validação de JWT em código + revisar mensagens devolvidas.
+- `supabase/functions/escavador-importar-processo/index.ts` — adicionar fallback no 404 (chamada V1 + persistência mínima + resposta nova).
+- `supabase/functions/escavador-webhook/index.ts` — confirmar/adicionar handler de `busca_assincrona` para reimportar quando o tribunal devolver os dados.
+- Frontend (`ImportarProcessoCNJDialog.tsx` e similares) — não precisa mudar; já lida com `success: true`. Só ajustar o toast para mostrar a mensagem que vier no `message`.
 
 ## Impacto
 
-1. **Usuário final (UX)**: a importação de CNJ volta a funcionar para a Izabelita e qualquer outro usuário cuja sessão foi rotacionada. O toast de erro 401 deixa de aparecer. Nenhuma menção a "Escavador" nas mensagens visíveis. O fluxo continua idêntico: cola o CNJ, clica importar, recebe toast de sucesso com a contagem de andamentos.
-2. **Dados**: nenhuma migration. Processos órfãos já criados (como o `5001038-07.2026.8.21.0093`) continuam na base; podem ser hidratados reimportando.
-3. **Riscos colaterais**: `verify_jwt=false` no gateway exige que a validação seja feita em código — implementada com `getClaims()`. Nível de segurança equivalente (o JWT continua sendo verificado por assinatura). Sem token válido, a função responde 401. Comportamento para chamadas legítimas é idêntico.
-4. **Afetados**: todos os usuários que importam processos via CNJ na Controladoria, em todos os tenants. Especialmente positivo para usuários que ficam logados por muito tempo ou usam vários dispositivos.
+- **Usuário final**: importações de processos novos (recém-distribuídos, ainda não indexados) deixam de falhar com erro 404. Em vez disso, o sistema avisa que a coleta foi disparada e os andamentos chegam minutos depois via webhook, sem nova ação do usuário.
+- **Dados**: cria registro em `processo_monitoramento_escavador` desde o disparo (com flag `status=coleta_solicitada`), preservando rastreabilidade. Nenhuma migration nova.
+- **Riscos colaterais**: cada disparo V1 consome créditos do Escavador (busca no tribunal é mais cara). Para mitigar, só acionamos o V1 quando o V2 retorna 404 — nunca em paralelo. Se o webhook não chegar (ex.: callback desconfigurado), o registro fica em `coleta_solicitada` indefinidamente — mitigado pelo botão de re-importar já existente.
+- **Afetados**: qualquer usuário importando CNJs novos (especialmente 2025/2026). A Izabelita e quem usa Solvenza serão os principais beneficiados.
 
 ## Validação
 
-- Re-chamar `escavador-importar-processo` com o CNJ da Izabelita após o deploy e confirmar que `processo_monitoramento_escavador` recebe a linha, que `processos_oab.capa_completa` é preenchido e `detalhes_carregados=true`.
-- Pedir à Izabelita para importar um novo CNJ e confirmar que o toast de sucesso aparece sem o termo "Escavador".
-- Verificar `Edge Function logs` da função após a importação — devem mostrar a sequência `Iniciando` → `Capa` → `coletadas N movs` → `✅ novas movs salvas`, sem 401 no gateway.
+1. Reimportar `5001038-07.2026.8.21.0093` e confirmar resposta `success: true` com mensagem de coleta solicitada (não 404).
+2. Verificar nos logs `escavador-importar-processo` o ramo "fallback V1 disparado".
+3. Após alguns minutos, conferir se o `escavador-webhook` recebeu o callback e se os andamentos apareceram no drawer do processo.
+4. Reimportar um CNJ que já existe no V2 para garantir que o fluxo normal continua funcionando.
