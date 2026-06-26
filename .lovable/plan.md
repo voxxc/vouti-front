@@ -1,66 +1,45 @@
+# Corrigir erro na importação de processos da Izabelita
+
 ## Causa raiz
-O modo "Editar" do Resumo em `ProcessoOABDetalhes.tsx` cobre apenas 10 campos básicos (partes, valor, distribuição, status, fase, juízo, link, tribunal, sigla). Campos importantes mostrados na tela — Classe/Tipo, Assunto, Área, Juiz, Instância, Estado/Cidade — são exibidos somente leitura, vindos de `capa_completa` (JSONB). A data em que o processo entrou no sistema (`created_at`) não pode ser ajustada quando o usuário cadastra retroativamente.
+
+A usuária Izabelita (tenant Solvenza) tentou importar o processo `5001038-07.2026.8.21.0093` ontem (25/06 às 20:15). O registro foi criado em `processos_oab` e `processos`, mas a chamada à função `escavador-importar-processo` falhou — não existe nada em `processo_monitoramento_escavador`, `capa_completa` ficou vazio e `detalhes_carregados=false`.
+
+A função está configurada em `supabase/config.toml` com `verify_jwt = true`. Com o novo sistema de signing-keys do Supabase, esse modo faz o gateway validar não só a assinatura do JWT, mas também a existência do `session_id` claim em `auth.sessions`. Quando a sessão do usuário é rotacionada/invalidada no servidor (refresh, login em outro dispositivo, expiração), o token cacheado no navegador continua sendo enviado e o gateway responde `401 UNAUTHORIZED — Session from session_id claim in JWT does not exist` — exatamente o mesmo padrão de erro que apareceu agora há pouco no `google-drive-proxy`.
+
+Resultado para a Izabelita: o `supabase.functions.invoke('escavador-importar-processo', …)` retorna erro 401, o toast "Erro ao importar processo" aparece, e o processo fica órfão (sem capa, sem andamentos, sem monitoramento).
+
+A mesma armadilha atinge `escavador-ativar-e-buscar`, que também está com `verify_jwt = true` e é chamada do fluxo de monitoramento.
 
 ## Correção
 
-Ampliar o formulário de edição do Resumo para os seguintes campos:
-
-**Novos campos editáveis (gravados em `capa_completa` mesclado):**
-- Classe / Tipo da ação → `capa_completa.classifications[0].name`
-- Assunto(s) → `capa_completa.subjects` (input separado por vírgulas, salva como array `[{ name }]`)
-- Área do Direito → `capa_completa.area`
-- Juiz responsável → `capa_completa.judge`
-- Instância → `capa_completa.instance` (select: 1ª, 2ª, Superior)
-- Estado (UF) → `capa_completa.state` (select com UFs)
-- Cidade → `capa_completa.city`
-- Justiça gratuita → `capa_completa.free_justice` (switch Sim/Não/Não informado)
-
-**Nova coluna na tabela `processos_oab`:**
-- `data_cadastro_sistema` (date, nullable) — quando preenchida, sobrescreve `created_at` na exibição. Mantém auditoria intacta sem permitir alteração do `created_at` real (que é usado em logs/ordenação interna).
-
-**Datas existentes (já editáveis):**
-- Data de Distribuição → mantida
-
-**Outros campos sugeridos (incluídos por padrão, marque o que não quiser):**
-- Observações internas → nova coluna `observacoes` (text) com Textarea — espaço livre para anotações da controladoria
-- Valor da condenação → `capa_completa.condemnation_value`
-- Valor das custas → novo campo em `capa_completa.court_costs`
-
-Salvamento: `handleSalvarResumo` faz merge profundo em `capa_completa` (não sobrescreve cache do Escavador) + envia colunas próprias (`data_cadastro_sistema`, `observacoes`). Validação Zod com limites (texto ≤ 500, observações ≤ 5000).
-
-Exibição (modo leitura): blocos atuais já mostram esses campos via `capa_completa`; passamos a priorizar overrides locais quando existirem.
+1. `supabase/config.toml`: trocar `verify_jwt = true` para `verify_jwt = false` em:
+   - `escavador-importar-processo`
+   - `escavador-ativar-e-buscar`
+2. Em `supabase/functions/escavador-importar-processo/index.ts`, validar o JWT em código com `getClaims()` (padrão Lovable para signing-keys): bloquear com 401 se não houver token, mas sem depender da validação de sessão server-side que está quebrando. Manter o uso de SERVICE_ROLE_KEY para todas as operações de DB.
+3. Mesma validação em `supabase/functions/escavador-ativar-e-buscar/index.ts`.
+4. Revisão de texto: garantir que nenhum toast/mensagem retornada ao usuário cite "Escavador". Trocar em `escavador-importar-processo`:
+   - `"Erro ao buscar processo (HTTP X)"` → `"Não foi possível consultar o processo (HTTP X)"`
+   - `"Processo não encontrado no Escavador"` → `"Processo não localizado nos tribunais"`
+   - `"Token Escavador não configurado"` → log apenas; resposta genérica `"Serviço de consulta indisponível"`
+   - `"Sem escavador_data em cache para reparse"` → `"Sem dados em cache para reprocessar"`
+   - Prefixos de log internos (`[Escavador Importar V2]`) podem ficar — só aparecem em logs do servidor.
+5. Após corrigir, reimportar manualmente o processo da Izabelita (`5001038-07.2026.8.21.0093`) chamando a função novamente (botão "Recarregar dados" já existente na tela de detalhes do processo) ou via repetição da importação.
 
 ## Arquivos afetados
-- `supabase/migrations/...` — adicionar colunas `data_cadastro_sistema date` e `observacoes text` em `processos_oab`
-- `src/components/Controladoria/ProcessoOABDetalhes.tsx` — expandir `formResumo`, inputs e `handleSalvarResumo` com merge em `capa_completa`
-- `src/hooks/useAllProcessosOAB.ts` e `src/hooks/useOABs.ts` — aceitar novos campos no `atualizarProcesso`
-- `src/types/` (se houver tipagem do ProcessoOAB) — adicionar campos opcionais
+
+- `supabase/config.toml` — desligar `verify_jwt` nas duas funções.
+- `supabase/functions/escavador-importar-processo/index.ts` — validação de JWT em código + remoção de menções "Escavador" nas mensagens devolvidas ao cliente.
+- `supabase/functions/escavador-ativar-e-buscar/index.ts` — validação de JWT em código + revisar mensagens devolvidas.
 
 ## Impacto
 
-**Usuário final (UX/telas/fluxos):**
-- Modo "Editar" do Resumo passa a ter ~8 novos campos agrupados nas seções existentes (Dados do Processo, Localização, Situação Atual)
-- Novo bloco "Cadastro interno" com Data de cadastro no sistema + Observações
-- Quem cadastra processo retroativamente pode fixar a data correta sem mexer em created_at
-- Controladoria ganha campo livre de observações por processo
-
-**Dados (migrations/RLS/performance):**
-- Migration adiciona 2 colunas nullable em `processos_oab` (sem backfill, sem reescrita de tabela pesada)
-- RLS existente já cobre — não precisa alterar políticas
-- `capa_completa` recebe merge: cache do Escavador permanece intacto, overrides do usuário convivem com dados originais
-- Sem impacto em índices ou queries existentes
-
-**Riscos colaterais:**
-- Edição manual de `capa_completa` pode ser sobrescrita se o processo for reimportado pelo Escavador. Mitigação: avisar via tooltip no modo Edição que campos da capa podem ser substituídos em reimports
-- Mudança em `state`/UF não recalcula automaticamente sigla do tribunal (mantém-se independente — usuário deve ajustar manualmente se quiser)
-
-**Quem é afetado:**
-- Todos os tenants que usam Controladoria OAB
-- Não afeta SuperAdmin (drawer próprio já tem sua estrutura)
-- Não afeta processos CNPJ nem processos manuais antigos
+1. **Usuário final (UX)**: a importação de CNJ volta a funcionar para a Izabelita e qualquer outro usuário cuja sessão foi rotacionada. O toast de erro 401 deixa de aparecer. Nenhuma menção a "Escavador" nas mensagens visíveis. O fluxo continua idêntico: cola o CNJ, clica importar, recebe toast de sucesso com a contagem de andamentos.
+2. **Dados**: nenhuma migration. Processos órfãos já criados (como o `5001038-07.2026.8.21.0093`) continuam na base; podem ser hidratados reimportando.
+3. **Riscos colaterais**: `verify_jwt=false` no gateway exige que a validação seja feita em código — implementada com `getClaims()`. Nível de segurança equivalente (o JWT continua sendo verificado por assinatura). Sem token válido, a função responde 401. Comportamento para chamadas legítimas é idêntico.
+4. **Afetados**: todos os usuários que importam processos via CNJ na Controladoria, em todos os tenants. Especialmente positivo para usuários que ficam logados por muito tempo ou usam vários dispositivos.
 
 ## Validação
-- Abrir um processo, clicar Editar, preencher todos os novos campos e salvar
-- Recarregar drawer e confirmar persistência
-- Testar com processo sigiloso (sem capa_completa) — campos devem aparecer vazios e aceitar input
-- Verificar que reimport via "Reprocessar resumo" mantém data_cadastro_sistema e observacoes (colunas próprias) e sobrescreve apenas campos do capa_completa vindos do Escavador
+
+- Re-chamar `escavador-importar-processo` com o CNJ da Izabelita após o deploy e confirmar que `processo_monitoramento_escavador` recebe a linha, que `processos_oab.capa_completa` é preenchido e `detalhes_carregados=true`.
+- Pedir à Izabelita para importar um novo CNJ e confirmar que o toast de sucesso aparece sem o termo "Escavador".
+- Verificar `Edge Function logs` da função após a importação — devem mostrar a sequência `Iniciando` → `Capa` → `coletadas N movs` → `✅ novas movs salvas`, sem 401 no gateway.
