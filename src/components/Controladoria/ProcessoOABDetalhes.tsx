@@ -359,16 +359,16 @@ export const ProcessoOABDetalhes = ({
       );
       if (error) throw error;
       if (!data?.success) {
-        throw new Error(data?.message || 'Falha ao ativar Escavador');
+        throw new Error(data?.message || 'Falha ao ativar monitoramento');
       }
       setEscavadorAtivo(true);
       toast({
-        title: '✅ Escavador ativado',
+        title: 'Monitoramento ativado',
         description: `${data.totalMovimentacoes ?? 0} movimentações sincronizadas.`,
       });
     } catch (err: any) {
       toast({
-        title: 'Erro ao ativar Escavador',
+        title: 'Erro ao ativar monitoramento',
         description: err?.message || 'Tente novamente.',
         variant: 'destructive',
       });
@@ -872,13 +872,12 @@ export const ProcessoOABDetalhes = ({
                     Processo apartado
                   </p>
                   <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
-                    Por ser um apartado, não consultamos andamentos automaticamente via Escavador,
+                    Por ser um apartado, não consultamos andamentos passados automaticamente,
                     portanto este processo não terá histórico de andamentos sincronizado.
                   </p>
                   <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
-                    O <strong>monitoramento</strong> abaixo está disponível para iniciar, mas é
-                    apenas visual: serve para acompanhar este processo no painel e registrar
-                    movimentações manualmente.
+                    O <strong>monitoramento</strong> abaixo está disponível para iniciar, e os
+                    novos andamentos estarão sempre visíveis.
                   </p>
                 </div>
               </div>

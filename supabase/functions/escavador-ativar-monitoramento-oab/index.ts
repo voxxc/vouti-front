@@ -71,7 +71,7 @@ serve(async (req) => {
       .maybeSingle();
     if (!flag?.enabled) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Funcionalidade desativada pelo administrador' }),
+        JSON.stringify({ success: false, error: 'Monitoramento temporariamente indisponivel' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
@@ -194,7 +194,7 @@ serve(async (req) => {
       }
     }
 
-    // 2) Criar monitoramento V1 com frequencia SEMANAL
+    // 2) Criar monitoramento V1
     const tribunal =
       (processoV2?.tribunal?.sigla || processo.tribunal_sigla || tribunalSiglaFromCnj(cnj) || '').toUpperCase();
 
