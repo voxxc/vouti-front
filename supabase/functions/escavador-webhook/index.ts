@@ -1,14 +1,34 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret, x-escavador-secret',
+};
+
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
   try {
+    // Kill switch global
+    const enabled = (Deno.env.get('ESCAVADOR_WEBHOOKS_ENABLED') ?? 'true').toLowerCase();
+    if (enabled === 'false' || enabled === '0' || enabled === 'off') {
+      console.log('[Escavador Webhook] Desativado via ESCAVADOR_WEBHOOKS_ENABLED');
+      return new Response(
+        JSON.stringify({ success: false, disabled: true }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     // Validação de webhook secret (se configurado)
     const webhookSecret = Deno.env.get('ESCAVADOR_WEBHOOK_SECRET');
     if (webhookSecret) {
-      const provided = req.headers.get('x-webhook-secret');
+      const provided =
+        req.headers.get('x-webhook-secret') ||
+        req.headers.get('x-escavador-secret');
       if (provided !== webhookSecret) {
-        return new Response('Unauthorized', { status: 401 });
+        return new Response('Unauthorized', { status: 401, headers: corsHeaders });
       }
     }
 
@@ -118,7 +138,7 @@ serve(async (req) => {
       console.error('[Escavador Webhook] Processo não encontrado:', fetchError);
       return new Response(
         JSON.stringify({ success: false, error: 'Processo não encontrado' }), 
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -141,13 +161,18 @@ serve(async (req) => {
       throw insertError;
     }
 
-    // Atualizar contadores no monitoramento
+    // Atualizar contadores no monitoramento (lê → incrementa → grava)
+    const { data: monRow } = await supabaseClient
+      .from('processo_monitoramento_escavador')
+      .select('total_atualizacoes')
+      .eq('id', monitoramento.id)
+      .maybeSingle();
     const { error: updateError } = await supabaseClient
       .from('processo_monitoramento_escavador')
       .update({
         ultima_atualizacao: new Date().toISOString(),
-        total_atualizacoes: supabaseClient.rpc('increment'),
-        updated_at: new Date().toISOString()
+        total_atualizacoes: ((monRow as any)?.total_atualizacoes || 0) + 1,
+        updated_at: new Date().toISOString(),
       })
       .eq('id', monitoramento.id);
 
@@ -159,14 +184,14 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true }),
-      { headers: { 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('[Escavador Webhook] Erro:', error);
     return new Response(
       JSON.stringify({ success: false, error: error.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
