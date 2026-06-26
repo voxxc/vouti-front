@@ -275,7 +275,7 @@ export const useAllProcessosOAB = (
         if (!flag?.enabled && !sigiloso) {
           toast({
             title: 'Funcionalidade desativada',
-            description: 'O monitoramento via Escavador está desligado pelo administrador.',
+            description: 'O monitoramento está temporariamente indisponível.',
             variant: 'destructive',
           });
           return { success: false };
@@ -290,9 +290,7 @@ export const useAllProcessosOAB = (
         if (updErr) throw updErr;
         toast({
           title: ativar ? 'Monitoramento ativado' : 'Monitoramento desativado',
-          description: ativar
-            ? 'Processo apartado — andamentos serão registrados manualmente.'
-            : 'Histórico de andamentos mantido.',
+          description: ativar ? 'Você receberá notificações de novos andamentos.' : 'Histórico de andamentos mantido.',
         });
         await fetchProcessos();
         return { success: true };
@@ -305,9 +303,7 @@ export const useAllProcessosOAB = (
         if (updErr) throw updErr;
         toast({
           title: ativar ? 'Monitoramento ativado' : 'Monitoramento desativado',
-          description: ativar
-            ? 'Processo sigiloso — atualizações serão registradas manualmente.'
-            : 'Histórico de andamentos mantido.',
+          description: ativar ? 'Você receberá notificações de novos andamentos.' : 'Histórico de andamentos mantido.',
         });
         await fetchProcessos();
         return { success: true };

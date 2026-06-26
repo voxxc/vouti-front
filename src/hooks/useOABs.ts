@@ -474,7 +474,7 @@ export const useProcessosOAB = (oabId: string | null) => {
         if (!flag?.enabled) {
           toast({
             title: 'Funcionalidade desativada',
-            description: 'O monitoramento via Escavador está desligado pelo administrador.',
+            description: 'O monitoramento está temporariamente indisponível.',
             variant: 'destructive',
           });
           return { success: false };
@@ -493,9 +493,7 @@ export const useProcessosOAB = (oabId: string | null) => {
         data = { success: true };
         toast({
           title: ativar ? 'Monitoramento ativado' : 'Monitoramento desativado',
-          description: ativar
-            ? 'Processo apartado — andamentos serão registrados manualmente.'
-            : 'Histórico de andamentos mantido.',
+          description: ativar ? 'Você receberá notificações de novos andamentos.' : 'Histórico de andamentos mantido.',
         });
       } else if (sigiloso) {
         // Processos sigilosos: monitoramento "visual" — apenas atualiza o flag,
@@ -509,9 +507,7 @@ export const useProcessosOAB = (oabId: string | null) => {
         data = { success: true };
         toast({
           title: ativar ? 'Monitoramento ativado' : 'Monitoramento desativado',
-          description: ativar
-            ? 'Processo sigiloso — atualizações serão registradas manualmente.'
-            : 'Histórico de andamentos mantido.',
+          description: ativar ? 'Você receberá notificações de novos andamentos.' : 'Histórico de andamentos mantido.',
         });
       } else if (ativar) {
         const res = await supabase.functions.invoke('escavador-ativar-monitoramento-oab', {
@@ -524,8 +520,8 @@ export const useProcessosOAB = (oabId: string | null) => {
         toast({
           title: 'Monitoramento ativado',
           description: data?.processoEncontrado
-            ? `${data?.totalAndamentos ?? 0} andamento(s) sincronizado(s). Atualizações semanais via Escavador.`
-            : 'Processo registrado para monitoramento semanal via Escavador.',
+            ? `${data?.totalAndamentos ?? 0} andamento(s) sincronizado(s).`
+            : 'Processo registrado para monitoramento.',
         });
       } else {
         const resEsc = await supabase.functions.invoke('escavador-desativar-monitoramento-oab', {
