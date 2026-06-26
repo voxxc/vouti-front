@@ -68,7 +68,7 @@ export const ImportarProcessoCNJDialog = ({
 
   const importarUmCnj = async (
     cnjInput: string
-  ): Promise<{ success: boolean; duplicado?: boolean; reaproveitado?: boolean; andamentosInseridos?: number; error?: string }> => {
+  ): Promise<{ success: boolean; duplicado?: boolean; reaproveitado?: boolean; andamentosInseridos?: number; error?: string; pending?: boolean; pendingMessage?: string }> => {
     const parsed = parseCnjComApartado(cnjInput);
     if (!parsed.valido || !parsed.cnjPrincipal) {
       return { success: false, error: 'CNJ inválido' };
@@ -194,6 +194,8 @@ export const ImportarProcessoCNJDialog = ({
       success: true,
       reaproveitado: !!existenteOab,
       andamentosInseridos: data?.andamentosInseridos ?? 0,
+      pending: !!data?.pending,
+      pendingMessage: data?.pending ? (data?.message as string | undefined) : undefined,
     };
   };
 
@@ -233,10 +235,19 @@ export const ImportarProcessoCNJDialog = ({
             variant: 'destructive',
           });
         } else {
-          toast({
-            title: res.reaproveitado ? 'Processo atualizado' : 'Processo importado',
-            description: `${res.andamentosInseridos ?? 0} andamentos registrados`,
-          });
+          if (res.pending) {
+            toast({
+              title: 'Processo cadastrado',
+              description:
+                res.pendingMessage ||
+                'Os andamentos ainda estão sendo processados e ficarão disponíveis em breve. O monitoramento já pode ser ativado.',
+            });
+          } else {
+            toast({
+              title: res.reaproveitado ? 'Processo atualizado' : 'Processo importado',
+              description: `${res.andamentosInseridos ?? 0} andamentos registrados`,
+            });
+          }
           onSuccess?.();
         }
       })
