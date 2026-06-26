@@ -213,14 +213,10 @@ serve(async (req) => {
             const v1Body = await v1Resp.json().catch(() => ({}));
             console.log('[Escavador Importar V2] V1 informacoes-no-tribunal:', v1Resp.status, JSON.stringify(v1Body).slice(0, 300));
 
-            if (!v1Resp.ok) {
-              return Response.json(
-                { success: false, message: 'Processo ainda não disponível para consulta. Tente novamente em alguns minutos.' },
-                { headers: corsHeaders },
-              );
-            }
+            const status = v1Resp.ok ? 'coleta_solicitada' : 'aguardando_disponibilidade';
+            const ultimoErro = v1Resp.ok ? null : (v1Body?.message || `HTTP ${v1Resp.status}`);
 
-            // Persistir registro mínimo de "coleta solicitada"
+            // Persistir registro mínimo (mesmo se V1 também recusou)
             await supabaseClient
               .from('processo_monitoramento_escavador')
               .upsert(
@@ -229,9 +225,10 @@ serve(async (req) => {
                   tenant_id: tenantId,
                   escavador_id: String(v1Body?.id ?? cnjFormatado),
                   escavador_data: {
-                    status: 'coleta_solicitada',
+                    status,
                     numero_cnj: cnjFormatado,
                     solicitado_em: new Date().toISOString(),
+                    ultimo_erro: ultimoErro,
                     v1_response: v1Body,
                   },
                   monitoramento_ativo: !!ativarMonitoramento,
@@ -240,32 +237,93 @@ serve(async (req) => {
                 { onConflict: 'processo_id' },
               );
 
-            // Marcar processos_oab para refletir o status na UI
+            // Marcar processos_oab para refletir o status na UI.
+            // Se não houver capa_completa ainda, gravamos um marcador para
+            // que o alerta "Processo em processamento" apareça na aba Resumo.
             try {
               let q = supabaseClient
                 .from('processos_oab')
-                .update({
-                  detalhes_carregados: false,
-                  ultima_atualizacao_detalhes: new Date().toISOString(),
-                })
+                .select('id, capa_completa')
                 .eq('numero_cnj', cnjFormatado);
               if (tenantId) q = q.eq('tenant_id', tenantId);
-              await q;
+              const { data: oabRows } = await q;
+              for (const row of oabRows ?? []) {
+                const capaAtual = (row as any).capa_completa;
+                const temCapaReal = capaAtual && typeof capaAtual === 'object' && Object.keys(capaAtual).length > 0 && (capaAtual as any).code !== 2;
+                await supabaseClient
+                  .from('processos_oab')
+                  .update({
+                    detalhes_carregados: false,
+                    ultima_atualizacao_detalhes: new Date().toISOString(),
+                    ...(temCapaReal ? {} : { capa_completa: { code: 2, message: 'PENDING_AVAILABILITY', status } }),
+                  })
+                  .eq('id', (row as any).id);
+              }
             } catch (_e) { /* noop */ }
 
             return Response.json(
               {
                 success: true,
                 pending: true,
-                message: 'Processo enviado para coleta nos tribunais. Em alguns minutos os andamentos aparecerão automaticamente.',
+                aguardando_disponibilidade: !v1Resp.ok,
+                message: v1Resp.ok
+                  ? 'Processo cadastrado. Os andamentos serão coletados nos tribunais e aparecerão em breve. O monitoramento já pode ser ativado.'
+                  : 'Processo cadastrado. Os andamentos ainda estão sendo processados e ficarão disponíveis em breve. O monitoramento já pode ser ativado.',
                 totalMovimentacoes: 0,
               },
               { headers: corsHeaders },
             );
           } catch (e: any) {
             console.error('[Escavador Importar V2] erro fallback V1:', e?.message);
+            // Mesmo com exceção, marcamos como aguardando para não bloquear o cadastro
+            try {
+              await supabaseClient
+                .from('processo_monitoramento_escavador')
+                .upsert(
+                  {
+                    processo_id: processoId,
+                    tenant_id: tenantId,
+                    escavador_id: cnjFormatado,
+                    escavador_data: {
+                      status: 'aguardando_disponibilidade',
+                      numero_cnj: cnjFormatado,
+                      solicitado_em: new Date().toISOString(),
+                      ultimo_erro: e?.message || String(e),
+                    },
+                    monitoramento_ativo: !!ativarMonitoramento,
+                    ultima_consulta: new Date().toISOString(),
+                  },
+                  { onConflict: 'processo_id' },
+                );
+              let q = supabaseClient
+                .from('processos_oab')
+                .select('id, capa_completa')
+                .eq('numero_cnj', cnjFormatado);
+              if (tenantId) q = q.eq('tenant_id', tenantId);
+              const { data: oabRows } = await q;
+              for (const row of oabRows ?? []) {
+                const capaAtual = (row as any).capa_completa;
+                const temCapaReal = capaAtual && typeof capaAtual === 'object' && Object.keys(capaAtual).length > 0 && (capaAtual as any).code !== 2;
+                if (!temCapaReal) {
+                  await supabaseClient
+                    .from('processos_oab')
+                    .update({
+                      detalhes_carregados: false,
+                      ultima_atualizacao_detalhes: new Date().toISOString(),
+                      capa_completa: { code: 2, message: 'PENDING_AVAILABILITY', status: 'aguardando_disponibilidade' },
+                    })
+                    .eq('id', (row as any).id);
+                }
+              }
+            } catch (_e2) { /* noop */ }
             return Response.json(
-              { success: false, message: 'Não foi possível solicitar a coleta do processo no tribunal.' },
+              {
+                success: true,
+                pending: true,
+                aguardando_disponibilidade: true,
+                message: 'Processo cadastrado. Os andamentos ainda estão sendo processados e ficarão disponíveis em breve. O monitoramento já pode ser ativado.',
+                totalMovimentacoes: 0,
+              },
               { headers: corsHeaders },
             );
           }
