@@ -68,7 +68,7 @@ export const ImportarProcessoCNJDialog = ({
 
   const importarUmCnj = async (
     cnjInput: string
-  ): Promise<{ success: boolean; duplicado?: boolean; reaproveitado?: boolean; andamentosInseridos?: number; error?: string }> => {
+  ): Promise<{ success: boolean; duplicado?: boolean; reaproveitado?: boolean; andamentosInseridos?: number; error?: string; pending?: boolean; pendingMessage?: string }> => {
     const parsed = parseCnjComApartado(cnjInput);
     if (!parsed.valido || !parsed.cnjPrincipal) {
       return { success: false, error: 'CNJ inválido' };
