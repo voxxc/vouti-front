@@ -198,6 +198,79 @@ serve(async (req) => {
       if (!capaResp.ok) {
         const txt = await capaResp.text();
         console.error('[Escavador Importar V2] capa falhou:', capaResp.status, txt);
+
+        // === FALLBACK: 404 → processo nunca coletado, disparar coleta no tribunal ===
+        if (capaResp.status === 404) {
+          console.log('[Escavador Importar V2] 🔄 Processo não indexado. Disparando coleta no tribunal...');
+          try {
+            const v1Url = `https://api.escavador.com/api/v1/processos/${encodeURIComponent(cnjFormatado)}/informacoes-no-tribunal`;
+            const v1Resp = await fetch(v1Url, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ enviar_callback: 1, documentos_publicos: 0 }),
+            });
+            creditosTotal += Number(v1Resp.headers.get('Creditos-Utilizados') || 0);
+            const v1Body = await v1Resp.json().catch(() => ({}));
+            console.log('[Escavador Importar V2] V1 informacoes-no-tribunal:', v1Resp.status, JSON.stringify(v1Body).slice(0, 300));
+
+            if (!v1Resp.ok) {
+              return Response.json(
+                { success: false, message: 'Processo ainda não disponível para consulta. Tente novamente em alguns minutos.' },
+                { headers: corsHeaders },
+              );
+            }
+
+            // Persistir registro mínimo de "coleta solicitada"
+            await supabaseClient
+              .from('processo_monitoramento_escavador')
+              .upsert(
+                {
+                  processo_id: processoId,
+                  tenant_id: tenantId,
+                  escavador_id: String(v1Body?.id ?? cnjFormatado),
+                  escavador_data: {
+                    status: 'coleta_solicitada',
+                    numero_cnj: cnjFormatado,
+                    solicitado_em: new Date().toISOString(),
+                    v1_response: v1Body,
+                  },
+                  monitoramento_ativo: !!ativarMonitoramento,
+                  ultima_consulta: new Date().toISOString(),
+                },
+                { onConflict: 'processo_id' },
+              );
+
+            // Marcar processos_oab para refletir o status na UI
+            try {
+              let q = supabaseClient
+                .from('processos_oab')
+                .update({
+                  detalhes_carregados: false,
+                  ultima_atualizacao_detalhes: new Date().toISOString(),
+                })
+                .eq('numero_cnj', cnjFormatado);
+              if (tenantId) q = q.eq('tenant_id', tenantId);
+              await q;
+            } catch (_e) { /* noop */ }
+
+            return Response.json(
+              {
+                success: true,
+                pending: true,
+                message: 'Processo enviado para coleta nos tribunais. Em alguns minutos os andamentos aparecerão automaticamente.',
+                totalMovimentacoes: 0,
+              },
+              { headers: corsHeaders },
+            );
+          } catch (e: any) {
+            console.error('[Escavador Importar V2] erro fallback V1:', e?.message);
+            return Response.json(
+              { success: false, message: 'Não foi possível solicitar a coleta do processo no tribunal.' },
+              { headers: corsHeaders },
+            );
+          }
+        }
+
         return Response.json(
           { success: false, message: `Não foi possível consultar o processo (HTTP ${capaResp.status})` },
           { headers: corsHeaders }
