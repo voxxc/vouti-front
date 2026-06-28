@@ -1,37 +1,41 @@
 ## Causa raiz
-A função `escavador-ativar-monitoramento-oab` recebeu `processoOabId` e `numeroCnj`, mas não encontrou o registro em `processos_oab`. Pelo payload capturado, o CNJ enviado foi `0005570-72.2026.8.16.0021`, enquanto o toast mostra erro genérico porque a função devolve 400 quando o vínculo do processo no client está dessincronizado ou quando o processo existe com outro identificador/OAB.
 
-Também há um ponto importante: a tela ainda pode chamar ativação real para processos que visualmente parecem sigilosos, porque a detecção de sigilo no frontend não considera todos os campos usados no backend.
+A `Tabs` da Controladoria está **não controlada** (`defaultValue="central"`). Qualquer remontagem do componente — disparada por:
+
+- `useControladoriaCache` (canal realtime `controladoria-realtime-cache` que atualiza estado a cada evento de várias tabelas e pode forçar re-render do pai),
+- `NavigationLoadingContext` (mudança de `navigationId` quando um prefetch termina enquanto o usuário já está na página),
+- ou um refresh silencioso do `DashboardLayout`,
+
+faz o Radix Tabs reinicializar para o `defaultValue` → volta para "Central". Como o cache realtime dispara em segundos, o usuário percebe como "loop" sempre que tenta ficar na aba "OABs".
 
 ## Correção
-1. Tornar a ativação tolerante a dados dessincronizados:
-   - Buscar primeiro por `id`.
-   - Se não achar, buscar por `numero_cnj + tenant_id`.
-   - Se ainda não achar, buscar por `numero_cnj` sem tenant e validar tenant quando existir.
-   - Se mesmo assim não achar, criar/atualizar apenas o estado local de monitoramento quando houver dados suficientes, em vez de quebrar a UI com erro genérico.
 
-2. Padronizar sigilosos/apartados como ativação apenas visual:
-   - Ajustar a detecção de sigilo no frontend para considerar `secrecy_level` direto, `capa_completa`, partes mascaradas e capa incompleta.
-   - Remover qualquer toast/texto com nome do provedor ou frequência.
+Tornar a aba **controlada e persistida na URL** via query string (`?tab=minhas-oabs`), de modo que:
 
-3. Melhorar retorno de erro:
-   - A função deve retornar mensagens operacionais úteis para log, mas o usuário só verá “Não foi possível alterar o monitoramento. Tente novamente.” quando for erro real.
-   - Incluir logs com `processoOabId`, `numeroCnj` e `tenantId` para rastrear novos casos.
+1. Remontagens não perdem a aba ativa (lida do `searchParams`).
+2. Link/refresh/voltar do navegador preserva o contexto.
+3. Não dependemos de estado interno do Radix.
+
+Mudanças em `src/pages/Controladoria.tsx`:
+
+- Substituir `defaultValue` por `value={tab}` + `onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })}`.
+- `const tab = searchParams.get("tab") ?? "central"`.
+- Validar contra a lista `["central","minhas-oabs","push-doc","prazos-of"]` (fallback para `central` se valor inválido).
 
 ## Arquivos afetados
-- `supabase/functions/escavador-ativar-monitoramento-oab/index.ts`
-- `src/utils/processoOABHelpers.ts`
-- `src/hooks/useOABs.ts`
-- `src/hooks/useAllProcessosOAB.ts`
+
+- `src/pages/Controladoria.tsx` (único arquivo).
 
 ## Impacto
-1. Usuário final: ao clicar para ativar monitoramento, o toggle não deve mais falhar por ID dessincronizado; sigilosos/apartados continuam parecendo ativados normalmente, sem citar provedor.
-2. Dados: processos normais continuam registrando monitoramento real; sigilosos/apartados só atualizam `monitoramento_ativo` localmente. Não exige migration.
-3. Riscos colaterais: se houver CNJ duplicado em várias OABs do mesmo tenant, a função precisa escolher o registro correto ou atualizar o registro pelo `id` resolvido; vou manter a busca mais restrita possível para evitar ativar tenant errado.
-4. Afetados: usuários da Controladoria/OAB no tenant atual e demais tenants que usam monitoramento OAB.
+
+1. **UX**: A aba escolhida fica fixa mesmo quando o cache realtime atualiza em segundo plano. Resolve o loop reportado. URL passa a refletir a aba (`/controladoria?tab=minhas-oabs`), permitindo compartilhar/bookmarkar.
+2. **Dados**: Nenhuma alteração de schema, RLS, edge function ou migration.
+3. **Riscos colaterais**: Mínimos — apenas leitura/escrita de `searchParams`. Não quebra deep-links existentes (sem `?tab` cai em "central").
+4. **Quem é afetado**: Todos os usuários que acessam `/controladoria` em qualquer tenant (admin, controller, financeiro, comercial). Sem efeito em outras telas.
 
 ## Validação
-- Reproduzir mentalmente com o payload capturado: `processoOabId=6333...`, `numeroCnj=0005570-72.2026.8.16.0021`, `tenantId=2749...`.
-- Conferir que o fluxo não retorna 400 quando houver fallback possível.
-- Garantir que os toasts não exibam nome do provedor nem frequência.
-- Conferir que sigilosos/apartados não chamam a API externa.
+
+- Abrir `/controladoria`, clicar em "OABs" e aguardar 10s com o realtime ativo → aba deve permanecer em "OABs".
+- Repetir em "Push-Doc" e "Prazos OF".
+- Recarregar página com `?tab=minhas-oabs` → abre direto em OABs.
+- Acessar sem query → abre em Central (comportamento atual preservado).

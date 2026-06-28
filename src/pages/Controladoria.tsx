@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import DashboardLayout from "@/components/Dashboard/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,6 +15,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 const Controladoria = () => {
   const { metrics, loading, isCacheLoaded, isRefreshing } = useControladoriaCache();
   const { stopLoading, navigationId } = useNavigationLoading();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const VALID_TABS = ["central", "minhas-oabs", "push-doc", "prazos-of"] as const;
+  const rawTab = searchParams.get("tab");
+  const tab = (VALID_TABS as readonly string[]).includes(rawTab ?? "")
+    ? (rawTab as string)
+    : "central";
+  const handleTabChange = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", value);
+    setSearchParams(next, { replace: true });
+  };
 
   const showSkeleton = loading && !isCacheLoaded;
 
@@ -84,7 +96,7 @@ const Controladoria = () => {
           ))}
         </div>
 
-        <Tabs defaultValue="central" className="space-y-4">
+        <Tabs value={tab} onValueChange={handleTabChange} className="space-y-4">
           <div className="overflow-x-auto -mx-1 px-1">
             <TabsList className="apple-segmented w-max md:w-auto">
               <TabsTrigger value="central" className="text-xs md:text-sm">
