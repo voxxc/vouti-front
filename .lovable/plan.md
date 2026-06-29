@@ -1,41 +1,26 @@
 ## Causa raiz
-
-A `Tabs` da Controladoria está **não controlada** (`defaultValue="central"`). Qualquer remontagem do componente — disparada por:
-
-- `useControladoriaCache` (canal realtime `controladoria-realtime-cache` que atualiza estado a cada evento de várias tabelas e pode forçar re-render do pai),
-- `NavigationLoadingContext` (mudança de `navigationId` quando um prefetch termina enquanto o usuário já está na página),
-- ou um refresh silencioso do `DashboardLayout`,
-
-faz o Radix Tabs reinicializar para o `defaultValue` → volta para "Central". Como o cache realtime dispara em segundos, o usuário percebe como "loop" sempre que tenta ficar na aba "OABs".
+O `SpnMobileNav` (barra inferior no mobile) tem apenas 5 itens fixos: Home, Books, Progress, Ranking, Profile. Não há acesso às telas administrativas (`admin-users`, `admin-books`, `admin-levels`), que só aparecem no `SpnSidebar` desktop. No mobile o admin não consegue abrir "Manage Users" para cadastrar aluno.
 
 ## Correção
+Expor as opções de admin no mobile, sem poluir a barra inferior de 5 ícones:
 
-Tornar a aba **controlada e persistida na URL** via query string (`?tab=minhas-oabs`), de modo que:
+1. **`src/components/Spn/SpnMobileNav.tsx`**: quando `isAdmin` (via `useSpnAuth`), trocar o item "Profile" por um item "Menu" que abre um Sheet/Drawer com a lista completa do sidebar (incluindo Manage Users, Manage Books, Manage Levels, Settings). Para não-admin, manter "Profile" como está.
+2. **Alternativa mais simples (preferida)**: adicionar um item "Admin" extra apenas quando `isAdmin === true`, que abre um Sheet com os 3 atalhos administrativos. Mantém os 5 itens atuais para o aluno.
 
-1. Remontagens não perdem a aba ativa (lida do `searchParams`).
-2. Link/refresh/voltar do navegador preserva o contexto.
-3. Não dependemos de estado interno do Radix.
-
-Mudanças em `src/pages/Controladoria.tsx`:
-
-- Substituir `defaultValue` por `value={tab}` + `onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })}`.
-- `const tab = searchParams.get("tab") ?? "central"`.
-- Validar contra a lista `["central","minhas-oabs","push-doc","prazos-of"]` (fallback para `central` se valor inválido).
+Escolho a alternativa: menos disrupção para alunos, e admin ganha um ponto de entrada claro.
 
 ## Arquivos afetados
-
-- `src/pages/Controladoria.tsx` (único arquivo).
+- `src/components/Spn/SpnMobileNav.tsx` — adicionar item condicional "Admin" + Sheet com atalhos.
+- (sem mudanças em rotas, edge functions ou DB; o fluxo `spn-create-user` já existe em `AdminUsersManager`.)
 
 ## Impacto
-
-1. **UX**: A aba escolhida fica fixa mesmo quando o cache realtime atualiza em segundo plano. Resolve o loop reportado. URL passa a refletir a aba (`/controladoria?tab=minhas-oabs`), permitindo compartilhar/bookmarkar.
-2. **Dados**: Nenhuma alteração de schema, RLS, edge function ou migration.
-3. **Riscos colaterais**: Mínimos — apenas leitura/escrita de `searchParams`. Não quebra deep-links existentes (sem `?tab` cai em "central").
-4. **Quem é afetado**: Todos os usuários que acessam `/controladoria` em qualquer tenant (admin, controller, financeiro, comercial). Sem efeito em outras telas.
+1. **UX**: Admin no celular passa a ter botão "Admin" na barra inferior que abre painel com Users/Books/Levels. Aluno não vê diferença.
+2. **Dados**: Nenhuma alteração de schema, RLS ou edge function.
+3. **Riscos colaterais**: Mínimos — mudança restrita ao componente de navegação mobile do SPN. Não afeta desktop nem outros produtos.
+4. **Quem é afetado**: Apenas usuários SPN com role `admin` acessando pelo mobile.
 
 ## Validação
-
-- Abrir `/controladoria`, clicar em "OABs" e aguardar 10s com o realtime ativo → aba deve permanecer em "OABs".
-- Repetir em "Push-Doc" e "Prazos OF".
-- Recarregar página com `?tab=minhas-oabs` → abre direto em OABs.
-- Acessar sem query → abre em Central (comportamento atual preservado).
+- Logar como admin SPN no viewport mobile → ver 6º ícone "Admin" na barra inferior.
+- Tocar "Admin" → Sheet abre com "Manage Users", "Manage Books", "Manage Levels".
+- Tocar "Manage Users" → abre `AdminUsersManager` com formulário de criar aluno funcional.
+- Logar como student → barra continua com 5 ícones originais, sem opção "Admin".
