@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
-import { Users, UserPlus, Trash2, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Users, UserPlus, Trash2, Loader2, Eye, EyeOff, Pencil } from 'lucide-react';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const AdminUsersManager = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -16,6 +17,10 @@ const AdminUsersManager = () => {
   const [creating, setCreating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({ email: '', password: '', full_name: '', role: 'student' });
+  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({ email: '', password: '' });
+  const [editShowPass, setEditShowPass] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => { loadData(); }, []);
 
@@ -95,6 +100,47 @@ const AdminUsersManager = () => {
       loadData();
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const openEdit = (user: any) => {
+    setEditingUser(user);
+    setEditForm({ email: '', password: '' });
+    setEditShowPass(false);
+  };
+
+  const handleSaveCredentials = async () => {
+    if (!editingUser) return;
+    if (!editForm.email && !editForm.password) {
+      toast({ title: 'Nothing to update', description: 'Fill email or password.' });
+      return;
+    }
+    if (editForm.password && editForm.password.length < 6) {
+      toast({ title: 'Error', description: 'Password must be at least 6 characters', variant: 'destructive' });
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+      const res = await supabase.functions.invoke('spn-create-user', {
+        body: {
+          action: 'update_credentials',
+          user_id: editingUser.user_id,
+          ...(editForm.email ? { email: editForm.email } : {}),
+          ...(editForm.password ? { password: editForm.password } : {}),
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
+      if (res.error || res.data?.error) {
+        throw new Error(res.data?.error || res.error?.message || 'Failed to update');
+      }
+      toast({ title: 'Updated', description: `${editingUser.full_name} credentials changed.` });
+      setEditingUser(null);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -253,6 +299,15 @@ const AdminUsersManager = () => {
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="h-8"
+                  onClick={() => openEdit(u)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-auto h-8"
                   onClick={() => handleDelete(u.user_id, u.full_name)}
                 >
@@ -263,6 +318,52 @@ const AdminUsersManager = () => {
           </Card>
         ))}
       </div>
+
+      <Dialog open={!!editingUser} onOpenChange={(o) => !o && setEditingUser(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit credentials — {editingUser?.full_name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-email">New email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                placeholder="Leave blank to keep current"
+                value={editForm.email}
+                onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-pass">New password</Label>
+              <div className="relative">
+                <Input
+                  id="edit-pass"
+                  type={editShowPass ? 'text' : 'password'}
+                  placeholder="Leave blank to keep current"
+                  value={editForm.password}
+                  onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))}
+                />
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setEditShowPass(!editShowPass)}
+                >
+                  {editShowPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingUser(null)} disabled={editSaving}>Cancel</Button>
+            <Button onClick={handleSaveCredentials} disabled={editSaving}>
+              {editSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
