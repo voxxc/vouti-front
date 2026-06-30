@@ -41,6 +41,26 @@ Deno.serve(async (req) => {
 
     const { action, ...body } = await req.json()
 
+    // LIST EMAILS action
+    if (action === 'list_emails') {
+      const map: Record<string, string> = {}
+      let page = 1
+      const perPage = 1000
+      while (true) {
+        const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage })
+        if (error) throw new Error(error.message)
+        for (const u of data.users) {
+          if (u.email) map[u.id] = u.email
+        }
+        if (data.users.length < perPage) break
+        page++
+        if (page > 20) break
+      }
+      return new Response(JSON.stringify({ success: true, emails: map }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     // DELETE action
     if (action === 'delete') {
       const { user_id } = body
