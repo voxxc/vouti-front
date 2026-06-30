@@ -57,6 +57,28 @@ Deno.serve(async (req) => {
       })
     }
 
+    // UPDATE CREDENTIALS action
+    if (action === 'update_credentials') {
+      const { user_id, email, password } = body
+      if (!user_id) throw new Error('user_id is required')
+      if (!email && !password) throw new Error('Provide email or password')
+      if (password && password.length < 6) throw new Error('Password must be at least 6 characters')
+
+      const updates: Record<string, unknown> = {}
+      if (email) {
+        updates.email = email
+        updates.email_confirm = true
+      }
+      if (password) updates.password = password
+
+      const { error: updErr } = await supabaseAdmin.auth.admin.updateUserById(user_id, updates)
+      if (updErr) throw new Error(updErr.message)
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     // CREATE action (default)
     const { email, password, full_name, role } = body
     if (!email || !password || !full_name || !role) {
