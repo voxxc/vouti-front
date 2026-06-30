@@ -313,12 +313,52 @@ const ExercisesView = ({ unitId }: { unitId: string }) => {
                 dangerouslySetInnerHTML={{ __html: sanitize(ex.prompt_html) }}
               />
 
-              <div className="flex gap-2">
+              {ex.kind === 'multiple_choice' && Array.isArray(ex.options) && ex.options.length > 0 ? (
+                <div className="grid gap-2">
+                  {ex.options.map((opt) => {
+                    const selected = draftVal === opt;
+                    const isCorrectOpt = showFeedback && opt === ex.correct_answer;
+                    const isWrongPick = showFeedback && selected && correct === false;
+                    return (
+                      <button
+                        key={opt}
+                        type="button"
+                        disabled={showFeedback && correct === true}
+                        onClick={() => {
+                          setDrafts((p) => ({ ...p, [ex.id]: opt }));
+                          if (mode === 'practice') save(ex, opt);
+                        }}
+                        className={cn(
+                          'w-full text-left p-3 rounded-lg border text-sm transition-colors',
+                          selected ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-border hover:border-muted-foreground',
+                          isCorrectOpt && 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20',
+                          isWrongPick && 'border-red-400 bg-red-50 dark:bg-red-900/20'
+                        )}
+                      >
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+              <div className="flex gap-2 items-center flex-wrap">
+                {ex.kind === 'listen_type' && ex.audio_text && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => speak(ex.audio_text!, { rate: 0.85 })}
+                    disabled={!isSpeechSupported()}
+                    className="gap-1 shrink-0"
+                  >
+                    <Volume2 className="h-4 w-4" /> Ouvir
+                  </Button>
+                )}
                 <Input
                   value={draftVal}
-                  placeholder="Your answer..."
+                  placeholder={ex.kind === 'listen_type' ? 'Type what you hear...' : 'Your answer...'}
                   className={cn(
-                    'bg-muted/40',
+                    'bg-muted/40 flex-1 min-w-[180px]',
                     showFeedback && correct === true && 'border-emerald-500 focus-visible:ring-emerald-500',
                     showFeedback && correct === false && 'border-red-400 focus-visible:ring-red-400'
                   )}
@@ -334,6 +374,7 @@ const ExercisesView = ({ unitId }: { unitId: string }) => {
                   </Button>
                 )}
               </div>
+              )}
 
               {/* Feedback */}
               {showFeedback && ex.correct_answer && (correct === false || isRevealed) && (
