@@ -7,22 +7,28 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2, Check, X, Lightbulb, Eye, GraduationCap, Trophy, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { speak, isSpeechSupported } from '@/lib/spnSpeech';
+import { Volume2 } from 'lucide-react';
 
 interface Exercise {
   id: string;
-  kind: 'fill_blank' | 'short_answer' | 'translate';
+  kind: 'fill_blank' | 'short_answer' | 'translate' | 'multiple_choice' | 'listen_type';
   prompt_html: string;
   correct_answer: string | null;
   hint: string | null;
   sort_order: number;
   explanation_pt?: string | null;
   learning_tip_pt?: string | null;
+  options?: string[] | null;
+  audio_text?: string | null;
 }
 
 const KIND_LABEL: Record<Exercise['kind'], string> = {
   fill_blank: 'Fill in the blank',
   short_answer: 'Short answer',
   translate: 'Translate',
+  multiple_choice: 'Choose the correct answer',
+  listen_type: 'Listen and type',
 };
 
 const sanitize = (html: string) =>
