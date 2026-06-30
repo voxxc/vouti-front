@@ -8270,6 +8270,7 @@ export type Database = {
       }
       spn_exercises: {
         Row: {
+          audio_text: string | null
           correct_answer: string | null
           created_at: string
           explanation_pt: string | null
@@ -8277,11 +8278,13 @@ export type Database = {
           id: string
           kind: string
           learning_tip_pt: string | null
+          options: Json | null
           prompt_html: string
           sort_order: number
           unit_id: string
         }
         Insert: {
+          audio_text?: string | null
           correct_answer?: string | null
           created_at?: string
           explanation_pt?: string | null
@@ -8289,11 +8292,13 @@ export type Database = {
           id?: string
           kind?: string
           learning_tip_pt?: string | null
+          options?: Json | null
           prompt_html: string
           sort_order?: number
           unit_id: string
         }
         Update: {
+          audio_text?: string | null
           correct_answer?: string | null
           created_at?: string
           explanation_pt?: string | null
@@ -8301,6 +8306,7 @@ export type Database = {
           id?: string
           kind?: string
           learning_tip_pt?: string | null
+          options?: Json | null
           prompt_html?: string
           sort_order?: number
           unit_id?: string
