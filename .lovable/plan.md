@@ -1,40 +1,48 @@
 ## Causa raiz
-Hoje `spn_exercises` só aceita `kind` ∈ `fill_blank | short_answer | translate` e o `ExercisesView` só renderiza input de texto. Não há exercícios cadastrados para as Units 1–3 do Book 1A, nem suporte a **múltipla escolha** ou **listen & type** (digite o que ouve).
+A Unit 4 do Book 1A ainda não existe no banco. O PDF traz: vocabulário (dress, ring, apple pie, sunglasses, T-shirt, beach shorts, video game console, phone, umbrella…), página Easy to Understand + Straight to the Point, e uma seção **Listening Comprehension** com 8 frases que o aluno deve ouvir e escrever. Hoje o `ExercisesView` já suporta `listen_type` (botão "🔊 Ouvir" + input + validação + "Ver resposta" item a item), então a Listening Comprehension cabe exatamente nesse tipo.
 
 ## Correção
-**1. Migration — estender `spn_exercises`:**
-- `ALTER TABLE` substituindo o CHECK de `kind` para aceitar também `multiple_choice` e `listen_type`.
-- `ADD COLUMN options jsonb` (alternativas da múltipla escolha; ex.: `["A red apple","An apple red","Red an apple","Apple a red"]`).
-- `ADD COLUMN audio_text text` (frase em inglês para o TTS falar nos exercícios de listening; o áudio é gerado pelo `spnSpeech.ts` que já existe — sem custo, sem storage).
+**1. Seeds (sem migration — schema já comporta):**
+- Criar `spn_units` Unit 4 em Book 1A (sort_order 4, nome "Things I Want to Buy").
+- `spn_word_bank_items`: 10 frases do vocabulário da unidade (a cheap dress, a nice T-shirt, fancy sunglasses, beach shorts, an expensive ring, an apple pie, a good phone, an umbrella, a video game console, wireless headphones), todas com `pt_translation` e `category`.
+- `spn_straight_to_point`: 1 página notebook (mesmo formato das units 1–3) com o conteúdo do Easy to Understand e do Straight to the Point extraído do PDF, mais a lista "Asking Questions" como prática guiada.
+- `spn_exercises` para a Unit 4:
+  - **8 exercícios `listen_type`** correspondentes exatamente às frases da Listening Comprehension solicitadas:
+    1. "What do you want to buy today?"
+    2. "I want to buy a nice T-shirt."
+    3. "Do you like these fancy sunglasses?"
+    4. "I don't want to sell my phone."
+    5. "What do you want to sell?"
+    6. "I want to buy some beach shorts."
+    7. "Do you like this nice T-shirt or those fancy sunglasses?"
+    8. "I don't want to buy your phone because it's too expensive."
+    Cada um com `audio_text` = frase em inglês (TTS nativo via `spnSpeech.ts`), `correct_answer` = mesma frase, `explanation_pt` curto (tradução) e `learning_tip_pt` (dica de pronúncia / "want to" ~ "wanna", contrações).
+  - **+10 exercícios variados** no mesmo padrão das units 1–3 (mix de `multiple_choice`, `translate`, `fill_blank`, `short_answer`, `listen_type`) usando o vocabulário da unidade (umbrella, ring, dress, phone, video game console…), para que a Unit 4 fique tão completa quanto as anteriores.
 
-**2. Atualizar `src/components/Spn/ExercisesView.tsx`:**
-- Estender o tipo `Exercise.kind` e o `KIND_LABEL` para incluir `multiple_choice` ("Choose the correct answer") e `listen_type` ("Listen and type what you hear").
-- `multiple_choice`: renderizar as `options` como botões (igual ao `QuizPlayer`); ao clicar grava como resposta e compara com `correct_answer`.
-- `listen_type`: renderizar botão "🔊 Ouvir" que chama `speak(audio_text)` (usa o TTS nativo já implementado), mais o `Input` para digitar. Validação por `normalize()` já existente.
-- `fill_blank`, `short_answer`, `translate` continuam exatamente como hoje.
-
-**3. Seeds (INSERTs) — 10 exercícios variados por unidade, com mix das 5 modalidades** (fill_blank, multiple_choice, translate, listen_type, short_answer), todos baseados no vocabulário da própria unidade (já presente em `spn_word_bank_items`):
-- **Unit 1 — Food & Drinks**: ex. translate "Maçã vermelha" → "A red apple"; multiple_choice "Which is a fruit?"; listen_type "I like coffee with milk"; fill_blank "A ___ banana (banana amarela)" → "yellow"; etc.
-- **Unit 2 — Snacks & Drinks**: torta de pêssego, limonada rosa, leite de soja, milkshake de baunilha, etc.
-- **Unit 3 — Things I Own**: jaqueta de couro, fones sem fio, jeans, console novo, etc.
-
-Cada exercício recebe `explanation_pt` e `learning_tip_pt` curtos, aproveitando a UI de "Aprendizado do dia" que já existe.
+**2. UI — nada a alterar:**
+- O fluxo "ouvir → digitar → corrigir → revelar um a um" já está implementado no `ExercisesView`:
+  - Botão "🔊 Ouvir" dispara `speak(audio_text)`.
+  - Aluno digita no `Input`; ao "Corrigir tudo" ou checar individualmente, recebe verde/vermelho.
+  - "Ver resposta" mostra a frase correta apenas daquele card (revelar um a um).
+  - HUD "X / 8 corretos" + card "Aprendizado do dia" no fim.
+- Como a Listening Comprehension é só `listen_type`, ela se renderiza automaticamente como uma seção de "Ouça e escreva". Os 10 exercícios variados aparecem misturados na mesma lista da unit, igual às units 1–3.
 
 ## Arquivos afetados
-- Migration nova (1 arquivo) — altera `spn_exercises` (CHECK + 2 colunas).
-- INSERTs via tool de dados — 30 linhas em `spn_exercises` (10 por unit).
-- `src/components/Spn/ExercisesView.tsx` — adiciona renderização de `multiple_choice` e `listen_type` (sem mexer no fluxo dos demais kinds).
-- Nenhuma outra tela é afetada; `spn_exercise_answers` e RLS atuais já cobrem os novos kinds.
+- INSERTs via tool de dados (1 chamada):
+  - 1 linha em `spn_units`
+  - 10 linhas em `spn_word_bank_items`
+  - 1 linha em `spn_straight_to_point` (notebook page)
+  - 18 linhas em `spn_exercises` (8 listening comprehension + 10 variados)
+- Nenhum arquivo de código alterado.
 
 ## Impacto
-1. **UX**: Em Book 1A → Unit 1/2/3, o aluno passa a ver 10 exercícios variados por unidade, com múltipla escolha (botões), digitação livre, tradução e "ouça e escreva" (ícone de play que fala a frase em inglês). Modo Prática e Prova continuam funcionando como hoje, com correção, "Ver resposta" e "Aprendizado do dia".
-2. **Dados**: +30 linhas em `spn_exercises` e 2 colunas novas (`options jsonb`, `audio_text text`, nullable). Linhas existentes em outras units permanecem válidas (campos novos ficam NULL). Constraint de `kind` ampliada — não invalida nada existente.
-3. **Riscos colaterais**: Mínimos. Como o front trata `kind` desconhecido com fallback do input atual, qualquer exercício antigo continua renderizando igual. TTS é client-side — funciona offline e sem custo.
-4. **Quem é afetado**: Apenas alunos SPN nas Units 1–3 do Book 1A. Professores/admin não precisam de ação.
+1. **UX**: alunos do Book 1A passam a ter a Unit 4 ("Things I Want to Buy") com vocabulário, notebook, 10 exercícios variados e a seção de Listening Comprehension com 8 frases (clique no alto-falante → digite → corrige → "Ver resposta" libera a frase). Igual ao formato das units 1–3, sem regressão para outras unidades.
+2. **Dados**: ~30 linhas novas, todas em tabelas SPN já existentes; nenhum schema alterado, nenhuma policy nova. Linhas de outras units permanecem intactas.
+3. **Riscos colaterais**: mínimos. TTS é client-side, sem custo nem storage. Caso o navegador não tenha voz `en-US`, o `spnSpeech` já faz fallback para qualquer voz `en-*`.
+4. **Quem é afetado**: apenas alunos SPN do Book 1A. Admin/professor não precisam de ação.
 
 ## Validação
-- Abrir cada unit e conferir 10 cards numerados, com 5 tipos distintos representados.
-- Clicar "🔊 Ouvir" em um `listen_type` e confirmar que a frase é falada em inglês; digitar e verificar a correção.
-- Clicar uma opção de `multiple_choice` e ver feedback verde/vermelho.
-- Verificar contagem no HUD ("X / 10 corretos") e o card "Aprendizado do dia" após "Corrigir tudo".
-- SQL: `SELECT unit_id, count(*) FROM spn_exercises GROUP BY unit_id` → 10 por unit das 3 unidades novas.
+- Abrir Book 1A → Unit 4: ver word bank com 10 itens e a página notebook renderizada.
+- Abrir a aba Exercises: confirmar 18 cards numerados; clicar "🔊 Ouvir" em um dos 8 de listening e ouvir a frase; digitar e corrigir; usar "Ver resposta" e validar que aparece exatamente a frase pedida.
+- Conferir SQL: `select count(*) from spn_exercises where unit_id = '<unit4>'` → 18; `… where kind='listen_type'` → 8.
+- Verificar HUD "X / 18 corretos" e o card "Aprendizado do dia" após "Corrigir tudo".
