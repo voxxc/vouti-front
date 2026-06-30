@@ -1,48 +1,27 @@
 ## Causa raiz
-A Unit 4 do Book 1A ainda não existe no banco. O PDF traz: vocabulário (dress, ring, apple pie, sunglasses, T-shirt, beach shorts, video game console, phone, umbrella…), página Easy to Understand + Straight to the Point, e uma seção **Listening Comprehension** com 8 frases que o aluno deve ouvir e escrever. Hoje o `ExercisesView` já suporta `listen_type` (botão "🔊 Ouvir" + input + validação + "Ver resposta" item a item), então a Listening Comprehension cabe exatamente nesse tipo.
+No SPN "Manage Users" (`src/components/Spn/AdminUsersManager.tsx`), o admin pode criar/excluir usuário e trocar role/nível, mas não há campo para alterar **email** e **senha** de um usuário já existente. A edge function `spn-create-user` só suporta `create` e `delete`.
 
 ## Correção
-**1. Seeds (sem migration — schema já comporta):**
-- Criar `spn_units` Unit 4 em Book 1A (sort_order 4, nome "Things I Want to Buy").
-- `spn_word_bank_items`: 10 frases do vocabulário da unidade (a cheap dress, a nice T-shirt, fancy sunglasses, beach shorts, an expensive ring, an apple pie, a good phone, an umbrella, a video game console, wireless headphones), todas com `pt_translation` e `category`.
-- `spn_straight_to_point`: 1 página notebook (mesmo formato das units 1–3) com o conteúdo do Easy to Understand e do Straight to the Point extraído do PDF, mais a lista "Asking Questions" como prática guiada.
-- `spn_exercises` para a Unit 4:
-  - **8 exercícios `listen_type`** correspondentes exatamente às frases da Listening Comprehension solicitadas:
-    1. "What do you want to buy today?"
-    2. "I want to buy a nice T-shirt."
-    3. "Do you like these fancy sunglasses?"
-    4. "I don't want to sell my phone."
-    5. "What do you want to sell?"
-    6. "I want to buy some beach shorts."
-    7. "Do you like this nice T-shirt or those fancy sunglasses?"
-    8. "I don't want to buy your phone because it's too expensive."
-    Cada um com `audio_text` = frase em inglês (TTS nativo via `spnSpeech.ts`), `correct_answer` = mesma frase, `explanation_pt` curto (tradução) e `learning_tip_pt` (dica de pronúncia / "want to" ~ "wanna", contrações).
-  - **+10 exercícios variados** no mesmo padrão das units 1–3 (mix de `multiple_choice`, `translate`, `fill_blank`, `short_answer`, `listen_type`) usando o vocabulário da unidade (umbrella, ring, dress, phone, video game console…), para que a Unit 4 fique tão completa quanto as anteriores.
-
-**2. UI — nada a alterar:**
-- O fluxo "ouvir → digitar → corrigir → revelar um a um" já está implementado no `ExercisesView`:
-  - Botão "🔊 Ouvir" dispara `speak(audio_text)`.
-  - Aluno digita no `Input`; ao "Corrigir tudo" ou checar individualmente, recebe verde/vermelho.
-  - "Ver resposta" mostra a frase correta apenas daquele card (revelar um a um).
-  - HUD "X / 8 corretos" + card "Aprendizado do dia" no fim.
-- Como a Listening Comprehension é só `listen_type`, ela se renderiza automaticamente como uma seção de "Ouça e escreva". Os 10 exercícios variados aparecem misturados na mesma lista da unit, igual às units 1–3.
+1. **Edge function `spn-create-user`**: adicionar nova `action === 'update_credentials'` que recebe `{ user_id, email?, password? }` e chama `supabaseAdmin.auth.admin.updateUserById(user_id, { email, password, email_confirm: true })`. Atualizar também `spn_profiles.full_name`/email se relevante (manter escopo apenas em email+senha por agora). Sem reauth, sem envio de link de confirmação (graças a `email_confirm: true`).
+2. **`AdminUsersManager.tsx`**: em cada card de usuário, adicionar um botão "Edit" (ícone) que abre um `Dialog` com:
+   - Input "New email" (pré-preenchido com email atual quando disponível).
+   - Input "New password" (vazio, opcional, mín. 6 chars, toggle eye/eye-off).
+   - Botão "Save" → invoca `spn-create-user` com `action: 'update_credentials'`.
+   - Sem campo de confirmar senha, sem prompt de confirmação.
+3. Como `spn_profiles` não guarda email, buscar o email atual via `supabase.auth.admin` no backend é overkill — vamos só deixar o input vazio com placeholder "Leave blank to keep current" tanto para email quanto para senha; salva só o que foi preenchido.
 
 ## Arquivos afetados
-- INSERTs via tool de dados (1 chamada):
-  - 1 linha em `spn_units`
-  - 10 linhas em `spn_word_bank_items`
-  - 1 linha em `spn_straight_to_point` (notebook page)
-  - 18 linhas em `spn_exercises` (8 listening comprehension + 10 variados)
-- Nenhum arquivo de código alterado.
+- `supabase/functions/spn-create-user/index.ts`
+- `src/components/Spn/AdminUsersManager.tsx`
 
 ## Impacto
-1. **UX**: alunos do Book 1A passam a ter a Unit 4 ("Things I Want to Buy") com vocabulário, notebook, 10 exercícios variados e a seção de Listening Comprehension com 8 frases (clique no alto-falante → digite → corrige → "Ver resposta" libera a frase). Igual ao formato das units 1–3, sem regressão para outras unidades.
-2. **Dados**: ~30 linhas novas, todas em tabelas SPN já existentes; nenhum schema alterado, nenhuma policy nova. Linhas de outras units permanecem intactas.
-3. **Riscos colaterais**: mínimos. TTS é client-side, sem custo nem storage. Caso o navegador não tenha voz `en-US`, o `spnSpeech` já faz fallback para qualquer voz `en-*`.
-4. **Quem é afetado**: apenas alunos SPN do Book 1A. Admin/professor não precisam de ação.
+- **UX**: admin do SPN passa a redefinir email/senha de qualquer aluno/professor direto pelo Manage Users, em um diálogo simples, sem confirmação extra e sem link de verificação por email.
+- **Dados**: nenhuma migration. Apenas escritas em `auth.users` via service role.
+- **Riscos colaterais**: como `email_confirm: true`, qualquer admin SPN pode setar um email arbitrário sem prova de posse — aceitável porque o papel já é privilegiado (`has_spn_role('admin')`). Não afeta tenants do app principal.
+- **Quem é afetado**: somente admins SPN e seus usuários (alunos/professores) dentro do módulo SPN.
 
 ## Validação
-- Abrir Book 1A → Unit 4: ver word bank com 10 itens e a página notebook renderizada.
-- Abrir a aba Exercises: confirmar 18 cards numerados; clicar "🔊 Ouvir" em um dos 8 de listening e ouvir a frase; digitar e corrigir; usar "Ver resposta" e validar que aparece exatamente a frase pedida.
-- Conferir SQL: `select count(*) from spn_exercises where unit_id = '<unit4>'` → 18; `… where kind='listen_type'` → 8.
-- Verificar HUD "X / 18 corretos" e o card "Aprendizado do dia" após "Corrigir tudo".
+- Como admin SPN, abrir Manage Users → "Edit" em um aluno → trocar só a senha → fazer login com a nova senha.
+- Repetir trocando só o email → confirmar que o aluno consegue logar com o novo email imediatamente, sem precisar clicar em link.
+- Trocar email e senha juntos em uma única ação.
+- Tentar como usuário não-admin SPN → edge function retorna 400 "Only SPN admins can update users".
