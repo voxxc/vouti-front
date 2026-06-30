@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
-import { Users, UserPlus, Trash2, Loader2, Eye, EyeOff, Pencil } from 'lucide-react';
+import { Users, UserPlus, Trash2, Loader2, Eye, EyeOff, Pencil, Mail } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const AdminUsersManager = () => {
@@ -26,20 +26,32 @@ const AdminUsersManager = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const [profilesRes, rolesRes, levelsRes, studentLevelsRes] = await Promise.all([
+    const [profilesRes, rolesRes, levelsRes, studentLevelsRes, sessionRes] = await Promise.all([
       supabase.from('spn_profiles').select('*'),
       supabase.from('spn_user_roles').select('*'),
       supabase.from('spn_levels').select('*').order('sort_order'),
       supabase.from('spn_student_levels').select('*'),
+      supabase.auth.getSession(),
     ]);
 
     const profiles = (profilesRes.data as any[]) || [];
     const roles = (rolesRes.data as any[]) || [];
     const sLevels = (studentLevelsRes.data as any[]) || [];
 
+    let emails: Record<string, string> = {};
+    const token = sessionRes.data.session?.access_token;
+    if (token) {
+      const emailsRes = await supabase.functions.invoke('spn-create-user', {
+        body: { action: 'list_emails' },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (emailsRes.data?.emails) emails = emailsRes.data.emails;
+    }
+
     setLevels((levelsRes.data as any[]) || []);
     setUsers(profiles.map(p => ({
       ...p,
+      email: emails[p.user_id] || '',
       roles: roles.filter(r => r.user_id === p.user_id).map(r => r.role),
       assignedLevels: sLevels.filter(sl => sl.user_id === p.user_id).map(sl => sl.level_id),
     })));
@@ -105,7 +117,7 @@ const AdminUsersManager = () => {
 
   const openEdit = (user: any) => {
     setEditingUser(user);
-    setEditForm({ email: '', password: '' });
+    setEditForm({ email: user.email || '', password: '' });
     setEditShowPass(false);
   };
 
@@ -254,7 +266,13 @@ const AdminUsersManager = () => {
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-foreground truncate">{u.full_name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{u.user_id}</p>
+                  <p
+                    className="text-xs text-muted-foreground truncate flex items-center gap-1"
+                    title={u.user_id}
+                  >
+                    <Mail className="h-3 w-3 shrink-0" />
+                    {u.email || <span className="italic">no email</span>}
+                  </p>
                 </div>
                 <div className="flex items-center gap-1.5 ml-2">
                   {u.roles.map((r: string) => (

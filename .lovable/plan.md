@@ -1,27 +1,24 @@
 ## Causa raiz
-No SPN "Manage Users" (`src/components/Spn/AdminUsersManager.tsx`), o admin pode criar/excluir usuário e trocar role/nível, mas não há campo para alterar **email** e **senha** de um usuário já existente. A edge function `spn-create-user` só suporta `create` e `delete`.
+O `AdminUsersManager` lista usuários a partir de `spn_profiles`, que não armazena `email`. O e-mail vive em `auth.users` e não pode ser lido pelo client. Hoje o card mostra apenas nome + `user_id`, sem o e-mail de login.
 
 ## Correção
-1. **Edge function `spn-create-user`**: adicionar nova `action === 'update_credentials'` que recebe `{ user_id, email?, password? }` e chama `supabaseAdmin.auth.admin.updateUserById(user_id, { email, password, email_confirm: true })`. Atualizar também `spn_profiles.full_name`/email se relevante (manter escopo apenas em email+senha por agora). Sem reauth, sem envio de link de confirmação (graças a `email_confirm: true`).
-2. **`AdminUsersManager.tsx`**: em cada card de usuário, adicionar um botão "Edit" (ícone) que abre um `Dialog` com:
-   - Input "New email" (pré-preenchido com email atual quando disponível).
-   - Input "New password" (vazio, opcional, mín. 6 chars, toggle eye/eye-off).
-   - Botão "Save" → invoca `spn-create-user` com `action: 'update_credentials'`.
-   - Sem campo de confirmar senha, sem prompt de confirmação.
-3. Como `spn_profiles` não guarda email, buscar o email atual via `supabase.auth.admin` no backend é overkill — vamos só deixar o input vazio com placeholder "Leave blank to keep current" tanto para email quanto para senha; salva só o que foi preenchido.
+1. **Edge function `spn-create-user`**: adicionar nova ação `list_emails` que, com a service role, busca `auth.admin.listUsers()` (paginado) e devolve um mapa `{ user_id: email }`. Permanece restrita a admins SPN.
+2. **`AdminUsersManager.tsx`**:
+   - Após `loadData`, invocar `spn-create-user` com `action: 'list_emails'` e mesclar o e-mail em cada usuário.
+   - No card de cada usuário, substituir a linha do `user_id` por uma linha mostrando o e-mail (com `truncate` e ícone de envelope). Manter o `user_id` apenas como `title` (tooltip) para não poluir.
+   - Pré-preencher o campo "New email" do diálogo de edição com o e-mail atual.
 
 ## Arquivos afetados
 - `supabase/functions/spn-create-user/index.ts`
 - `src/components/Spn/AdminUsersManager.tsx`
 
 ## Impacto
-- **UX**: admin do SPN passa a redefinir email/senha de qualquer aluno/professor direto pelo Manage Users, em um diálogo simples, sem confirmação extra e sem link de verificação por email.
-- **Dados**: nenhuma migration. Apenas escritas em `auth.users` via service role.
-- **Riscos colaterais**: como `email_confirm: true`, qualquer admin SPN pode setar um email arbitrário sem prova de posse — aceitável porque o papel já é privilegiado (`has_spn_role('admin')`). Não afeta tenants do app principal.
-- **Quem é afetado**: somente admins SPN e seus usuários (alunos/professores) dentro do módulo SPN.
+1. **Usuário final (admin SPN)**: passa a ver o e-mail de login de cada aluno/professor diretamente no card, facilitando suporte e troca de credenciais. Sem mudança para alunos.
+2. **Dados**: nenhuma migration; leitura via service role apenas dentro da edge function (e-mails nunca expostos a não-admins).
+3. **Riscos**: `listUsers` é paginado (default 50); implementar loop até esgotar para tenants com muitos usuários. Latência extra pequena no carregamento da tela.
+4. **Quem é afetado**: apenas admins SPN (rota `/spn` → Manage Users).
 
 ## Validação
-- Como admin SPN, abrir Manage Users → "Edit" em um aluno → trocar só a senha → fazer login com a nova senha.
-- Repetir trocando só o email → confirmar que o aluno consegue logar com o novo email imediatamente, sem precisar clicar em link.
-- Trocar email e senha juntos em uma única ação.
-- Tentar como usuário não-admin SPN → edge function retorna 400 "Only SPN admins can update users".
+- Abrir Manage Users como admin SPN: confirmar que cada card mostra o e-mail correto.
+- Editar um usuário: campo "New email" vem preenchido com o atual; salvar mudança e ver o card refletindo o novo e-mail.
+- Como não-admin: chamada `list_emails` deve retornar erro (mantém restrição existente).
