@@ -1,34 +1,40 @@
 ## Causa raiz
-Os PDFs enviados ("Book 1 Unit 2" e "Book 1 Unit 3") seguem o mesmo formato da Unit 1 já cadastrada em **Book 1A** (Word Bank de frases + página estilo "notebook" com Straight to the Point, Easy to Understand / It's Time to Talk em `spn_straight_to_point.content_json`). Hoje só existe Unit 1 em Book 1A; o usuário quer que esse mesmo esquema seja replicado para essas duas novas unidades.
-
-> Observação: existem Unit 2 e Unit 3 em **Book 1** (Subject Pronouns / Verb To Be) com outro conteúdo — não são essas. As novas unidades entram em **Book 1A**.
+Hoje `spn_exercises` só aceita `kind` ∈ `fill_blank | short_answer | translate` e o `ExercisesView` só renderiza input de texto. Não há exercícios cadastrados para as Units 1–3 do Book 1A, nem suporte a **múltipla escolha** ou **listen & type** (digite o que ouve).
 
 ## Correção
-Criar uma migration SQL que insere:
+**1. Migration — estender `spn_exercises`:**
+- `ALTER TABLE` substituindo o CHECK de `kind` para aceitar também `multiple_choice` e `listen_type`.
+- `ADD COLUMN options jsonb` (alternativas da múltipla escolha; ex.: `["A red apple","An apple red","Red an apple","Apple a red"]`).
+- `ADD COLUMN audio_text text` (frase em inglês para o TTS falar nos exercícios de listening; o áudio é gerado pelo `spnSpeech.ts` que já existe — sem custo, sem storage).
 
-1. **Duas linhas em `spn_book_units`** (book_id = Book 1A `a0c11887-...`'s parent):
-   - "Unit 2 — Snacks & Drinks" (sort_order 2)
-   - "Unit 3 — Things I Own" (sort_order 3)
-2. **Word Bank (`spn_word_bank_items`)** — 10 frases por unidade, mesmo formato da Unit 1 (campos `word`, `translation_pt`, `category='noun'`, `focus_word`, `sort_order`):
-   - Unit 2: Peach pie, Pink lemonade, Butter cookies, Vegan yogurt, Coffee with milk, Soy milk, Bread and jam, Expensive whiskey, Onion rings, Vanilla milkshake.
-   - Unit 3: My leather jacket, Your phone, The pretty dress, Collectible toys, A cheap shirt, Wireless headphones, Beach shorts, A red umbrella, A pair of jeans, The new video game console.
-3. **Notebook page (`spn_straight_to_point` com `block_type='notebook_page'` e `content_json`)** — uma linha por unidade, replicando a estrutura JSON da Unit 1 (`sections → columns → rows` com `phrase`/`spacer`/`fill`):
-   - Unit 2: bloco STP com pares "I like / I don't like" + "I want / I don't want" (chá verde, cookies, onion rings, milkshake) e blanks de prática; bloco Easy to Understand com cumprimentos (Good morning / afternoon / evening / night).
-   - Unit 3: bloco STP com Yes/No questions ("Do you want to sell…", "Do you buy…") e blanks; bloco "It's Time to Talk" com pares de perguntas/respostas (drink/eat/sell/buy).
+**2. Atualizar `src/components/Spn/ExercisesView.tsx`:**
+- Estender o tipo `Exercise.kind` e o `KIND_LABEL` para incluir `multiple_choice` ("Choose the correct answer") e `listen_type` ("Listen and type what you hear").
+- `multiple_choice`: renderizar as `options` como botões (igual ao `QuizPlayer`); ao clicar grava como resposta e compara com `correct_answer`.
+- `listen_type`: renderizar botão "🔊 Ouvir" que chama `speak(audio_text)` (usa o TTS nativo já implementado), mais o `Input` para digitar. Validação por `normalize()` já existente.
+- `fill_blank`, `short_answer`, `translate` continuam exatamente como hoje.
 
-A migration faz tudo num único arquivo SQL e usa `INSERT ... ON CONFLICT DO NOTHING` quando possível para ser idempotente.
+**3. Seeds (INSERTs) — 10 exercícios variados por unidade, com mix das 5 modalidades** (fill_blank, multiple_choice, translate, listen_type, short_answer), todos baseados no vocabulário da própria unidade (já presente em `spn_word_bank_items`):
+- **Unit 1 — Food & Drinks**: ex. translate "Maçã vermelha" → "A red apple"; multiple_choice "Which is a fruit?"; listen_type "I like coffee with milk"; fill_blank "A ___ banana (banana amarela)" → "yellow"; etc.
+- **Unit 2 — Snacks & Drinks**: torta de pêssego, limonada rosa, leite de soja, milkshake de baunilha, etc.
+- **Unit 3 — Things I Own**: jaqueta de couro, fones sem fio, jeans, console novo, etc.
+
+Cada exercício recebe `explanation_pt` e `learning_tip_pt` curtos, aproveitando a UI de "Aprendizado do dia" que já existe.
 
 ## Arquivos afetados
-- `supabase/migrations/<timestamp>_spn_book1a_units_2_3.sql` (novo) — único arquivo.
-- Nenhuma alteração em código React, edge functions, RLS ou grants (tabelas já existem com permissões corretas usadas pela Unit 1).
+- Migration nova (1 arquivo) — altera `spn_exercises` (CHECK + 2 colunas).
+- INSERTs via tool de dados — 30 linhas em `spn_exercises` (10 por unit).
+- `src/components/Spn/ExercisesView.tsx` — adiciona renderização de `multiple_choice` e `listen_type` (sem mexer no fluxo dos demais kinds).
+- Nenhuma outra tela é afetada; `spn_exercise_answers` e RLS atuais já cobrem os novos kinds.
 
 ## Impacto
-1. **UX**: Em Vouti.SPN → Books → Book 1A, alunos passam a ver Unit 2 e Unit 3 disponíveis com Word Bank e a página notebook (STP + Easy to Understand / It's Time to Talk) renderizada exatamente como na Unit 1.
-2. **Dados**: 2 novas units, 20 novos word bank items, 2 novos `spn_straight_to_point` notebook_page. Nenhum dado existente é alterado.
-3. **Riscos colaterais**: Mínimos — inserts isolados em tabelas já operacionais. Não toca em Unit 1 nem em Book 1.
-4. **Quem é afetado**: Apenas usuários SPN que abrirem Book 1A.
+1. **UX**: Em Book 1A → Unit 1/2/3, o aluno passa a ver 10 exercícios variados por unidade, com múltipla escolha (botões), digitação livre, tradução e "ouça e escreva" (ícone de play que fala a frase em inglês). Modo Prática e Prova continuam funcionando como hoje, com correção, "Ver resposta" e "Aprendizado do dia".
+2. **Dados**: +30 linhas em `spn_exercises` e 2 colunas novas (`options jsonb`, `audio_text text`, nullable). Linhas existentes em outras units permanecem válidas (campos novos ficam NULL). Constraint de `kind` ampliada — não invalida nada existente.
+3. **Riscos colaterais**: Mínimos. Como o front trata `kind` desconhecido com fallback do input atual, qualquer exercício antigo continua renderizando igual. TTS é client-side — funciona offline e sem custo.
+4. **Quem é afetado**: Apenas alunos SPN nas Units 1–3 do Book 1A. Professores/admin não precisam de ação.
 
 ## Validação
-- Após a migration, abrir Book 1A e confirmar que aparecem Unit 1, Unit 2 e Unit 3.
-- Abrir cada unidade nova: Word Bank com 10 itens; bloco notebook renderiza Straight to the Point com cores/bolds corretos e os campos "fill" funcionais; segundo bloco (Easy to Understand na Unit 2, It's Time to Talk na Unit 3) aparece logo abaixo.
-- Conferir no DB: `SELECT count(*) FROM spn_word_bank_items WHERE unit_id IN (<u2>,<u3>)` retorna 20.
+- Abrir cada unit e conferir 10 cards numerados, com 5 tipos distintos representados.
+- Clicar "🔊 Ouvir" em um `listen_type` e confirmar que a frase é falada em inglês; digitar e verificar a correção.
+- Clicar uma opção de `multiple_choice` e ver feedback verde/vermelho.
+- Verificar contagem no HUD ("X / 10 corretos") e o card "Aprendizado do dia" após "Corrigir tudo".
+- SQL: `SELECT unit_id, count(*) FROM spn_exercises GROUP BY unit_id` → 10 por unit das 3 unidades novas.
