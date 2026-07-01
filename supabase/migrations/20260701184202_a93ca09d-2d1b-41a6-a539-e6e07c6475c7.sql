@@ -1,0 +1,1 @@
+ALTER TABLE public.project_processos DROP CONSTRAINT IF EXISTS project_processos_projeto_id_processo_oab_id_key;
