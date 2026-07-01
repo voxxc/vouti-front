@@ -124,6 +124,8 @@ const CrmSalesLanding = lazyPage(() => import("@/pages/CrmSalesLanding"));
 const VoxxAnexos = lazyPage(() => import("@/pages/VoxxAnexos"));
 const LpIngles = lazyPage(() => import("@/pages/LpIngles"));
 const AdminLp = lazyPage(() => import("@/pages/AdminLp"));
+const WowTeste = lazyPage(() => import("@/pages/WowTeste"));
+const WowTesteAdmin = lazyPage(() => import("@/pages/WowTesteAdmin"));
 
 import Logo from "@/components/Logo";
 import { BatinkAuthProvider, useBatinkAuth } from "@/contexts/BatinkAuthContext";
@@ -444,6 +446,10 @@ function App() {
             {/* Landing pública: aulas de inglês 1 a 1 */}
             <Route path="/lp" element={<LpIngles />} />
             <Route path="/adminlp" element={<AdminLp />} />
+
+            {/* Quiz público: Escolha de Classe WoW */}
+            <Route path="/wowteste" element={<WowTeste />} />
+            <Route path="/wowteste/admin" element={<WowTesteAdmin />} />
             
             {/* WhatsApp Redirect */}
             <Route path="/wa" element={<WhatsAppRedirect />} />
