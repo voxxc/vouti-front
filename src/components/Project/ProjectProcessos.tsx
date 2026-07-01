@@ -617,9 +617,12 @@ export function ProjectProcessos({ projectId, workspaceId, defaultWorkspaceId, i
       setIsAddDialogOpen(false);
     } catch (error: any) {
       console.error('Erro ao vincular processo:', error);
+      const isDuplicate = error?.code === '23505';
       toast({
-        title: "Erro",
-        description: error.message || "Erro ao vincular processo.",
+        title: isDuplicate ? "Processo já vinculado" : "Erro",
+        description: isDuplicate
+          ? "Este processo já está vinculado a este workspace."
+          : (error?.message || "Erro ao vincular processo."),
         variant: "destructive",
       });
     }
