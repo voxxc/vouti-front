@@ -12185,6 +12185,33 @@ export type Database = {
           },
         ]
       }
+      wow_quiz_respostas: {
+        Row: {
+          created_at: string
+          id: string
+          indicado_por: string | null
+          nome: string
+          respostas: Json
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          indicado_por?: string | null
+          nome: string
+          respostas: Json
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          indicado_por?: string | null
+          nome?: string
+          respostas?: Json
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
